@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_server_proxy
-Version: 4.6.0
+Version: 4.6.1
 Summary: A Jupyter server extension to run additional processes and proxy to them that comes bundled JupyterLab extension to launch pre-defined processes.
 Project-URL: Documentation, https://jupyter-server-proxy.readthedocs.io
 Project-URL: Source, https://github.com/jupyterhub/jupyter-server-proxy

@@ -1,4 +1,4 @@
-__version__ = "0.22.7"
+__version__ = "0.22.8"
 __is_release__ = True
 docker_base_image = "0.16"
 docker_base_image_ubuntu_version = "24.04"

@@ -92,6 +92,8 @@ pub(crate) type RegexValidators<F = SerdeJson> =
 pub(crate) trait PropertiesValidatorsMap<F: Json = SerdeJson>: Send + Sync {
     fn get_validator(&self, property: &str) -> Option<&SchemaNode<F>>;
     fn get_key_validator(&self, property: &str) -> Option<(&str, &SchemaNode<F>)>;
+    /// The entry for `property` and its position, for data kept beside the map.
+    fn get_indexed_validator(&self, property: &str) -> Option<(usize, &SchemaNode<F>)>;
 }
 
 /// Threshold for switching from linear scan to `HashMap`.
@@ -208,9 +210,50 @@ impl PropertyName {
 
 pub(crate) type SmallValidatorsMap<F = SerdeJson> = Vec<(PropertyName, SchemaNode<F>)>;
 
-/// Declared names bucketed by a multiply-shift of their `KeyHead`.
-pub(crate) struct BigValidatorsMap<F: Json = SerdeJson> {
-    entries: Box<[(PropertyName, SchemaNode<F>)]>,
+/// Names tested for membership by many keys: scanned by head when few, bucketed when many.
+pub(crate) enum NameSet {
+    Scan(Box<[PropertyName]>),
+    Buckets(NameBuckets<()>),
+}
+
+impl Default for NameSet {
+    fn default() -> Self {
+        NameSet::Scan(Box::default())
+    }
+}
+
+impl NameSet {
+    pub(crate) fn new<'a>(names: impl Iterator<Item = &'a str>) -> Self {
+        let names: Vec<PropertyName> = names
+            .map(|name| PropertyName::new(name.to_owned()))
+            .collect();
+        if names.len() < HASHMAP_THRESHOLD {
+            NameSet::Scan(names.into_boxed_slice())
+        } else {
+            NameSet::Buckets(NameBuckets::new(
+                names.into_iter().map(|name| (name, ())).collect(),
+            ))
+        }
+    }
+
+    #[inline]
+    pub(crate) fn contains(&self, key: &str) -> bool {
+        match self {
+            NameSet::Scan(names) => {
+                let head = KeyHead::of(key);
+                names.iter().any(|name| name.matches(head, key))
+            }
+            NameSet::Buckets(buckets) => buckets.find(key).is_some(),
+        }
+    }
+}
+
+/// `properties` subschemas by declared name, for maps past `HASHMAP_THRESHOLD`.
+pub(crate) type BigValidatorsMap<F = SerdeJson> = NameBuckets<SchemaNode<F>>;
+
+/// Declared names bucketed by a multiply-shift of their `KeyHead`, each with a `T`.
+pub(crate) struct NameBuckets<T> {
+    pub(crate) entries: Box<[(PropertyName, T)]>,
     /// `entries[starts[slot]..starts[slot + 1]]` is the bucket of `slot`.
     starts: Box<[u32]>,
     seed: u64,
@@ -231,8 +274,8 @@ fn slot(fold: u64, seed: u64, shift: u32) -> usize {
     (fold.wrapping_mul(seed) >> shift) as usize
 }
 
-impl<F: Json> BigValidatorsMap<F> {
-    pub(crate) fn new(names: Vec<(PropertyName, SchemaNode<F>)>) -> Self {
+impl<T> NameBuckets<T> {
+    pub(crate) fn new(names: Vec<(PropertyName, T)>) -> Self {
         let bits = names.len().next_power_of_two().trailing_zeros() + 1;
         let shift = 64 - bits;
         let slots = 1_usize << bits;
@@ -264,7 +307,7 @@ impl<F: Json> BigValidatorsMap<F> {
         for index in 1..=slots {
             starts[index] += starts[index - 1];
         }
-        BigValidatorsMap {
+        NameBuckets {
             entries: entries.into_boxed_slice(),
             starts: starts.into_boxed_slice(),
             seed,
@@ -273,13 +316,24 @@ impl<F: Json> BigValidatorsMap<F> {
     }
 
     #[inline]
-    fn find(&self, key: &str) -> Option<&(PropertyName, SchemaNode<F>)> {
+    pub(crate) fn find(&self, key: &str) -> Option<&(PropertyName, T)> {
         let head = KeyHead::of(key);
         let slot = slot(head.fold(), self.seed, self.shift);
         let bucket = self.starts[slot] as usize..self.starts[slot + 1] as usize;
         self.entries[bucket]
             .iter()
             .find(|(name, _)| name.matches(head, key))
+    }
+
+    #[inline]
+    pub(crate) fn find_index(&self, key: &str) -> Option<usize> {
+        let head = KeyHead::of(key);
+        let slot = slot(head.fold(), self.seed, self.shift);
+        let start = self.starts[slot] as usize;
+        self.entries[start..self.starts[slot + 1] as usize]
+            .iter()
+            .position(|(name, _)| name.matches(head, key))
+            .map(|offset| start + offset)
     }
 }
 
@@ -304,6 +358,14 @@ impl<F: Json> PropertiesValidatorsMap<F> for SmallValidatorsMap<F> {
         }
         None
     }
+
+    #[inline]
+    fn get_indexed_validator(&self, property: &str) -> Option<(usize, &SchemaNode<F>)> {
+        let head = KeyHead::of(property);
+        self.iter()
+            .position(|(prop, _)| prop.matches(head, property))
+            .map(|index| (index, &self[index].1))
+    }
 }
 
 impl<F: Json> PropertiesValidatorsMap<F> for BigValidatorsMap<F> {
@@ -316,6 +378,12 @@ impl<F: Json> PropertiesValidatorsMap<F> for BigValidatorsMap<F> {
     fn get_key_validator(&self, property: &str) -> Option<(&str, &SchemaNode<F>)> {
         self.find(property)
             .map(|(name, node)| (name.as_str(), node))
+    }
+
+    #[inline]
+    fn get_indexed_validator(&self, property: &str) -> Option<(usize, &SchemaNode<F>)> {
+        self.find_index(property)
+            .map(|index| (index, &self.entries[index].1))
     }
 }
 

@@ -996,7 +996,7 @@ class SMatrix_SELL(SMatrix):
 
         return row_sums, col_sums
     
-    def physical_truncate(self, time_range=None, time_decimate=1, space_range=None, space_decimate=None, recompute_norm=True, verbose=True):
+    def physical_truncate(self, time_range=None, time_decimate=1, space_range=None, space_decimate=None, recompute_norm=True, show_logs=True):
         """
         Physically truncates the SELL matrix in time (T) and space (X, Z).
         GPU path uses direct CUDA kernels, CPU path is fully vectorized NumPy.
@@ -1279,12 +1279,12 @@ class SMatrix_SELL(SMatrix):
 
         if recompute_norm:
             self.compute_norm_factor()
-        if verbose:
+        if show_logs:
             print(f"[AOT-biomaps] SELL physical truncation: T {old_T}->{self.T}, "
                 f"Z {old_Z}->{self.Z}, X {old_X}->{self.X}, "
                 f"storage {new_total_storage}")
 
-    def virtual_truncate(self, time_range=None, time_decimate=1, space_range=None, field_indices=None, verbose=True):
+    def virtual_truncate(self, time_range=None, time_decimate=1, space_range=None, field_indices=None, show_logs=True):
         """
         Virtual truncation: A stays untouched in VRAM, only active indices are stored.
         A_eff = phi_f . phi_t . A . phi_s^T is applied on the vectors inside the projections.
@@ -1355,12 +1355,12 @@ class SMatrix_SELL(SMatrix):
         else:
             self.Z, self.X = self._full_Z, self._full_X
 
-        if verbose:
+        if show_logs:
             print(f"[AOT-biomaps] Virtual truncation active: N {self._full_N} -> {self.N}, "
                 f"T {self._full_T} -> {self.T}, "
                 f"Z {self.Z}, X {self.X} (matrix data untouched)")
 
-    def untruncate(self, verbose=True):
+    def untruncate(self, show_logs=True):
         """Cancel the virtual truncation. A is already in VRAM, nothing to reload."""
         self._vt_time_mask = None
         self._vt_active_rows = None
@@ -1373,7 +1373,7 @@ class SMatrix_SELL(SMatrix):
             self.Z, self.X = self._full_Z, self._full_X
             for a in ("_full_N", "_full_T", "_full_Z", "_full_X"):
                 delattr(self, a) 
-        if verbose:
+        if show_logs:
             print("[AOT-biomaps] Virtual truncation removed. Full matrix active.")
 
     def _is_virtual_truncated(self):
@@ -1777,3 +1777,406 @@ class SMatrix_SELL(SMatrix):
         """Invalidate the cached scipy matrices after any mutation of sell_values."""
         self._cpu_csr_cache = None
         self._cpu_csrH_cache = None
+
+    def rethreshold(self, relative_threshold=None, target_density=None, target_size_gb=None,
+                    sample_slices=256, max_sample_entries=30_000_000,
+                    recompute_norm=True, save_path=None, show_logs=True):
+        """
+        Re-sparsify an already-built SELL matrix, streaming slice-by-slice.
+        No dense block is ever materialized: only one slice (L x C) is decompressed at a time.
+
+        Processing stays on whatever device currently holds the matrix (GPU or CPU).
+        The only memory constraint is: the final size must fit ALONGSIDE the original
+        matrix on that device (peak = old + new). A pre-flight check refuses to start
+        otherwise, with an explicit message.
+
+        Exactly ONE of the following targets must be provided:
+            relative_threshold : float
+                New per-row relative threshold (same semantics as at build time).
+                Entries with |v| <= threshold * row_max(|v|) are dropped.
+            target_density : float
+                Desired final density in PERCENT (e.g. 2.0 for 2%).
+            target_size_gb : float
+                Desired final size in GB (values + colinds, padding included).
+                The per-row threshold is calibrated automatically by sampling.
+
+        Because the per-row maximum always survives the original thresholding
+        (max > thr * max), the true row max is recovered from the stored entries
+        alone: no access to the original acoustic fields is needed.
+
+        Strategy (memory-safe):
+            1) SAMPLE: read a few random slices, collect ratios |v|/row_max,
+               invert the survival curve to calibrate the threshold.
+            2) PASS 1: stream over all slices, count survivors -> new slice_len/slice_ptr.
+            3) PASS 2: stream again, scatter survivors into the new SELL arrays.
+            4) Install in place, then optionally recompute norms and save to a new npz.
+
+        Memory-release notes (GPU):
+            The streaming work is isolated in inner functions so that every
+            intermediate (slice views, masks, closures) dies on return. In Python,
+            loop variables keep their LAST value after a loop: a single surviving
+            view into the old `values`/`colinds` GPU arrays would keep the whole old
+            matrix alive and make free_all_blocks() a no-op. The pool is released to
+            the driver only at the very END, after all async kernels are synchronized
+            and the old arrays are unreachable.
+
+        Notes:
+            - row_perm / inv_row_perm are preserved: the sigma-sorting stays valid
+              (slightly suboptimal after re-thresholding, but correct).
+            - Complex and real matrices are both supported.
+            - The output is a *new* npz if save_path is given; the original file is untouched.
+        """
+        # ------------------------------------------------------------------
+        # 0. Argument checking
+        # ------------------------------------------------------------------
+        targets = [relative_threshold, target_density, target_size_gb]
+        n_given = sum(t is not None for t in targets)
+        if n_given != 1:
+            raise ValueError("[AOT-biomaps] rethreshold: provide exactly one of "
+                             "relative_threshold, target_density, target_size_gb.")
+
+        on_gpu = (self.sell_values_gpu is not None) and CUPY_AVAILABLE and check_gpu_available(self)
+        if self.sell_values is None and self.sell_values_gpu is None:
+            raise RuntimeError("[AOT-biomaps] rethreshold: no SELL matrix loaded.")
+
+        xp = cp if on_gpu else np
+
+        if on_gpu:
+            with cp.cuda.Device(self.gpu_index):
+                # Pre-flight: the new matrix must fit ALONGSIDE the old one in VRAM.
+                free_bytes, _total_bytes = cp.cuda.runtime.memGetInfo()
+                old_gb = (self.sell_values_gpu.nbytes + self.sell_colinds_gpu.nbytes) / 1e9
+                if target_size_gb is not None:
+                    est_new_gb = target_size_gb
+                else:
+                    est_new_gb = old_gb  # worst case: nothing is dropped
+                if (est_new_gb + old_gb) > (free_bytes / 1e9):
+                    raise RuntimeError(
+                        f"[AOT-biomaps] rethreshold: peak VRAM would be ~{old_gb + est_new_gb:.1f} GB "
+                        f"(old {old_gb:.1f} + new {est_new_gb:.1f}) but only {free_bytes/1e9:.1f} GB free. "
+                        f"Load the matrix on CPU (to_cpu()) or re-threshold from the file on a "
+                        f"RAM-rich machine, then move the slim result back to GPU.")
+
+        num_rows = int(self.N * self.T)
+        num_cols = int(self.Z * self.X)
+        C = int(self.slice_height)
+        num_slices = len(self.slice_len)
+        total_elements = num_rows * num_cols
+
+        # Local handles on the CURRENT layout. The streaming passes always read
+        # these ORIGINAL arrays, whatever happens to self.* later.
+        slice_ptr = self.slice_ptr_gpu if on_gpu else self.slice_ptr
+        slice_len = self.slice_len_gpu if on_gpu else self.slice_len
+        values = self.sell_values_gpu if on_gpu else self.sell_values
+        colinds = self.sell_colinds_gpu if on_gpu else self.sell_colinds
+
+        # ------------------------------------------------------------------
+        # Slice-level helpers: decompress one slice into a (L, C) 2-D view.
+        # Storage layout inside slice s:  b0 + k*C + r  (k = rank in row, r = row in slice),
+        # so reshaping the contiguous block to (L, C) puts each row in one column.
+        # ------------------------------------------------------------------
+        def _slice_2d(s):
+            L = int(slice_len[s])
+            if L == 0:
+                return None
+            b0 = int(slice_ptr[s])
+            b1 = int(slice_ptr[s + 1])
+            return values[b0:b1].reshape(L, C), colinds[b0:b1].reshape(L, C)
+
+        def _slice_mask(s, thr):
+            """Return (v2d, c2d, mask, rowmax): mask[k, r] True iff entry survives."""
+            blk = _slice_2d(s)
+            if blk is None:
+                return None
+            v2d, c2d = blk
+            a2d = xp.abs(v2d)
+            valid = v2d != 0                      # padding entries are exactly 0
+            rowmax = xp.max(xp.where(valid, a2d, xp.float32(0.0)), axis=0)  # (C,)
+            mask = valid & (a2d > thr * rowmax)
+            return v2d, c2d, mask, rowmax
+
+        # ==================================================================
+        # CALIBRATION (density / size targets only)
+        # Isolated in an inner function: on return, every slice view of the
+        # sampling loop dies immediately (loop variables keep their last value
+        # in Python; `blk`/`v2d` would otherwise outlive the loop and keep
+        # the OLD GPU arrays alive until the very end of rethreshold).
+        # ==================================================================
+        def _calibrate():
+            rng = np.random.default_rng(0)
+            candidates = np.array([s for s in range(num_slices) if int(slice_len[s]) > 0])
+            if candidates.size == 0:
+                raise RuntimeError("[AOT-biomaps] rethreshold: all slices are empty.")
+            n_sample = int(min(sample_slices, candidates.size))
+            sampled = rng.choice(candidates, size=n_sample, replace=False)
+
+            ratios = []
+            sampled_valid_nnz = 0
+            sampled_storage = 0
+            n_kept_slices = 0
+            # Progress bar: sampling pass
+            for s in trange(n_sample, desc="[AOT-biomaps] rethreshold: sampling",
+                            disable=not show_logs):
+                blk = _slice_2d(int(sampled[s]))
+                if blk is None:
+                    continue
+                n_kept_slices += 1
+                v2d, _ = blk
+                a2d = xp.abs(v2d)
+                valid = v2d != 0
+                rowmax = xp.max(xp.where(valid, a2d, xp.float32(0.0)), axis=0)
+                cols_of_valid = xp.nonzero(valid)[1]
+                r = a2d[valid] / xp.maximum(rowmax[cols_of_valid], xp.float32(1e-30))
+                ratios.append(cp.asnumpy(r) if on_gpu else r)   # calibrate on host (small)
+                sampled_valid_nnz += int(valid.sum())
+                sampled_storage += int(slice_len[sampled[s]]) * C
+                blk = v2d = a2d = valid = rowmax = None         # drop the views NOW
+
+            ratios = np.concatenate(ratios) if ratios else np.zeros(0)
+            # Sub-sample if the calibration set is too large (RAM-bounded constant)
+            if ratios.size > max_sample_entries:
+                ratios = ratios[:: int(np.ceil(ratios.size / max_sample_entries))]
+            ratios.sort()
+
+            if ratios.size == 0:
+                raise RuntimeError("[AOT-biomaps] rethreshold: sampled slices contain no entries.")
+
+            # Global estimates from the sample
+            slice_len_all = cp.asnumpy(slice_len) if on_gpu else np.asarray(slice_len)
+            est_valid_nnz_total = (sampled_valid_nnz / max(1, n_kept_slices)) * np.count_nonzero(slice_len_all)
+            pad_factor = max(1.0, sampled_storage / max(1, sampled_valid_nnz))
+
+            if target_density is not None:
+                nnz_target = (target_density / 100.0) * total_elements
+            else:  # target_size_gb
+                nnz_target = (target_size_gb * 1e9) / (8.0 * pad_factor)  # 4B values + 4B colinds
+
+            keep_frac = np.clip(nnz_target / est_valid_nnz_total, 0.0, 1.0)
+            # Invert the survival curve: fraction of ratios strictly above `thr`
+            # must equal `keep_frac` -> threshold = empirical quantile of the ratios.
+            idx = int(np.floor((1.0 - keep_frac) * ratios.size))
+            idx = min(max(idx, 0), ratios.size - 1)
+            thr_calibrated = float(min(ratios[idx], 0.999999))
+
+            if show_logs:
+                print(f"[AOT-biomaps] rethreshold: calibrated threshold = {thr_calibrated:.4g} "
+                      f"(keep ~{keep_frac*100:.1f}% of {est_valid_nnz_total/1e9:.2f}G nnz, "
+                      f"pad factor {pad_factor:.2f})")
+
+            return thr_calibrated
+
+        if relative_threshold is None:
+            relative_threshold = _calibrate()
+        _calibrate = None   # kill the closure cells of the sampling helpers
+
+        # ==================================================================
+        # STREAMING CORE: PASS 1 (count) + PASS 2 (fill)
+        # Isolated in an inner function so that ALL intermediates (slice views,
+        # masks, closures, per-slice temporaries) die on return. This is what
+        # lets the pool release at the end actually reclaim the OLD matrix.
+        # ==================================================================
+        def _run_streaming(thr):
+            # --- PASS 1: count survivors per slice -> new slice_len / slice_ptr ---
+            new_slice_len_ = xp.zeros(num_slices, dtype=xp.int32)
+            nonempty = [s for s in range(num_slices) if int(slice_len[s]) > 0]
+            # Progress bar: pass 1
+            for s in trange(len(nonempty), desc="[AOT-biomaps] rethreshold: pass 1/2 (count)",
+                            disable=not show_logs):
+                out = _slice_mask(nonempty[s], thr)
+                if out is None:
+                    continue
+                _, _, mask, _ = out
+                # Slice length = max per-row survivor count
+                new_slice_len_[nonempty[s]] = xp.max(xp.sum(mask, axis=0))
+                out = None                          # drop the views NOW, not after the loop
+
+            if int(xp.max(new_slice_len_)) == 0:
+                raise ValueError("[AOT-biomaps] rethreshold: threshold too aggressive, nothing survives.")
+
+            new_slice_len_cpu = cp.asnumpy(new_slice_len_) if on_gpu else np.asarray(new_slice_len_)
+            new_slice_ptr_cpu = np.zeros(num_slices + 1, dtype=np.int64)
+            np.cumsum(new_slice_len_cpu.astype(np.int64) * C, out=new_slice_ptr_cpu[1:])
+            new_total_storage = int(new_slice_ptr_cpu[-1])
+            new_total_nnz = int(new_slice_len_cpu.sum(dtype=np.int64) * C)
+
+            # --- PASS 2: scatter survivors into the new SELL arrays ---
+            dtype = self._get_dtype()
+            cp_dtype = self._get_cp_dtype() if on_gpu else dtype
+            new_values = xp.zeros(new_total_storage, dtype=cp_dtype)
+            new_colinds = xp.zeros(new_total_storage, dtype=xp.uint32)
+
+            if show_logs:
+                print(f"[AOT-biomaps] rethreshold: pass 2/2 "
+                      f"(filling {new_total_storage*8/1e9:.2f} GB of SELL storage)...")
+
+            # Progress bar: pass 2
+            for s in trange(len(nonempty), desc="[AOT-biomaps] rethreshold: pass 2/2 (fill)",
+                            disable=not show_logs):
+                si = nonempty[s]
+                out = _slice_mask(si, thr)
+                if out is None:
+                    continue
+                v2d, c2d, mask, _ = out
+                if not bool(mask.any()):
+                    out = None
+                    continue
+
+                # Consistency guard: pass 2 must never exceed the pass-1 counts.
+                # (Guards against non-deterministic masks between passes: an OOB
+                #  scatter on GPU would otherwise only surface as a late illegal
+                #  memory access at the next synchronize.)
+                cnt_max = int(mask.sum(axis=0).max())
+                if cnt_max > int(new_slice_len_cpu[si]):
+                    raise RuntimeError(
+                        f"[AOT-biomaps] rethreshold: pass 2 count exceeds pass 1 on slice {si} "
+                        f"({cnt_max} > {int(new_slice_len_cpu[si])}). Mask is not deterministic.")
+
+                k_idx, r_idx = xp.nonzero(mask)                # k-major (rank, row) pairs
+                # Rank of each survivor inside its row: running count along axis 0 (k)
+                rank = xp.cumsum(mask, axis=0)[k_idx, r_idx] - 1
+
+                new_base = int(new_slice_ptr_cpu[si])
+                pos = new_base + r_idx + rank * C
+                new_values[pos] = v2d[mask]
+                new_colinds[pos] = c2d[mask]
+                # NOTE: no pool release inside the loop. Per-slice temporaries are
+                # freed by refcount; touching the CuPy pool while scatter kernels
+                # are still queued asynchronously in the stream causes illegal
+                # memory accesses.
+                out = None                                   # drop the views NOW
+
+            # Return ONLY the new arrays: every other local of this function
+            # (views, masks, closures, nonempty list) dies right here.
+            return new_values, new_colinds, new_slice_ptr_cpu, new_slice_len_cpu, \
+                new_total_storage, new_total_nnz
+
+        new_values, new_colinds, new_slice_ptr_cpu, new_slice_len_cpu, \
+            new_total_storage, new_total_nnz = _run_streaming(relative_threshold)
+        _run_streaming = None     # kill the streaming closure cells
+
+        # CRITICAL (GPU): synchronize BEFORE touching the memory pool. All scatter
+        # kernels above are asynchronous; freeing pool blocks with work still in
+        # flight corrupts the allocation and crashes at the next synchronize
+        # (this exact bug produced cudaErrorIllegalAddress in compute_norm_factor).
+        if on_gpu:
+            with cp.cuda.Device(self.gpu_index):
+                cp.cuda.Stream.null.synchronize()
+
+        # Drop the LAST references to the OLD arrays: the local handles and the
+        # closure cells of the slice helpers. Without this, the old matrix stays
+        # alive until the function returns and free_all_blocks() is a no-op.
+        _slice_2d = _slice_mask = None
+        slice_ptr = slice_len = None
+        values = colinds = None
+        gc.collect()
+
+        # ------------------------------------------------------------------
+        # 4. Install the new arrays in place (old ones now unreachable)
+        # ------------------------------------------------------------------
+        if on_gpu:
+            with cp.cuda.Device(self.gpu_index):
+                self.sell_values_gpu = new_values
+                self.sell_colinds_gpu = new_colinds
+                self.slice_ptr_gpu = xp.asarray(new_slice_ptr_cpu)
+                self.slice_len_gpu = xp.asarray(new_slice_len_cpu)
+                self.sell_values, self.sell_colinds = None, None
+                self.slice_ptr = new_slice_ptr_cpu          # small: keep a host copy
+                self.slice_len = new_slice_len_cpu
+                self.sell_rowinds = None                    # GPU path never needs it
+                self.norm_factor_inv_gpu = None
+                self.norm_factor_inv = None
+        else:
+            self.sell_values = new_values
+            self.sell_colinds = new_colinds
+            self.slice_ptr = new_slice_ptr_cpu
+            self.slice_len = new_slice_len_cpu
+            self.norm_factor_inv = None
+            self.norm_factor_inv_gpu = None
+
+        # Bookkeeping (common to both devices)
+        self.total_storage = new_total_storage
+        self.total_nnz = new_total_nnz
+        self._invalidate_cpu_csr_cache()
+        if not on_gpu:
+            self.sell_rowinds = self._build_sell_rowinds(num_rows)
+        gc.collect()
+
+        # ------------------------------------------------------------------
+        # 5. Norm factors (must run BEFORE the pool release: it allocates on GPU)
+        # ------------------------------------------------------------------
+        if recompute_norm:
+            self.compute_norm_factor()
+
+        if show_logs:
+            print(f"[AOT-biomaps] rethreshold: done. "
+                  f"storage {new_total_storage/1e9:.2f} G entries (~{new_total_storage*8/1e9:.1f} GB), "
+                  f"density {100.0*new_total_nnz/total_elements:.2f}%")
+
+        # ------------------------------------------------------------------
+        # 6. Optional side effect: save to a new npz (original file untouched)
+        # ------------------------------------------------------------------
+        if save_path is not None:
+            self._save_sparse_matrix(save_path)
+
+        # ------------------------------------------------------------------
+        # 7. Release the pool to the driver LAST.
+        #    The old matrix has been unreachable since step 4 (all views,
+        #    closures and local handles are dead), so the pool can finally give
+        #    its ~old_size GB back to the driver (visible in nvidia-smi).
+        # ------------------------------------------------------------------
+        if on_gpu:
+            with cp.cuda.Device(self.gpu_index):
+                gc.collect()
+                self._release_pool()
+                cp.get_default_memory_pool().free_all_blocks()
+                cp.cuda.Stream.null.synchronize()
+
+        return self.get_matrix_size()
+    
+    def get_dense_field(self, n, t=None, denormalize=True):
+        """
+        Extract the dense acoustic field image (Z, X) of pattern `n` from the SMatrix.
+
+        Args:
+            n : field/pattern index in [0, N).
+            t : time sample in [0, T). If None, returns the time-integrated
+                energy map |field|^2 summed over all t (better visual of the pattern).
+
+        Returns:
+            np.ndarray of shape (Z, X): the sparse-approximated acoustic field.
+        """
+        if self._is_virtual_truncated():
+            raise RuntimeError("[AOT-biomaps] Call untruncate() before get_dense_field().")
+        if not (0 <= n < self.N):
+            raise ValueError(f"n must be in [0, {self.N}).")
+
+        on_gpu = (self.sell_values_gpu is not None) and CUPY_AVAILABLE and check_gpu_available(self)
+        xp = cp if on_gpu else np
+        num_rows = self.N * self.T
+
+        if t is not None:
+            if not (0 <= t < self.T):
+                raise ValueError(f"t must be in [0, {self.T}).")
+            e = xp.zeros(num_rows, dtype=xp.float32)
+            e[n * self.T + t] = 1.0
+            img = self.backward_projection(e)
+            if self.isComplexSMatrix:
+                img = img.conj()
+        else:
+            # Energy over time: accumulate |A^H e_t|^2 for each t of this field
+            acc = xp.zeros(self.Z * self.X, dtype=xp.float32)
+            for tt in range(self.T):
+                e = xp.zeros(num_rows, dtype=xp.float32)
+                e[n * self.T + tt] = 1.0
+                f = self.backward_projection(e)
+                if self.isComplexSMatrix:
+                    f = f.conj()
+                acc += xp.abs(f) ** 2
+            img = xp.sqrt(acc)  # amplitude envelope
+
+        if denormalize:
+            img = img * getattr(self, "normalization_factor", 1.0)
+
+        img_np = cp.asnumpy(img) if on_gpu else np.asarray(img)
+        return img_np.reshape(self.Z, self.X)   # col index = z*X + x -> reshape (Z, X)
+            

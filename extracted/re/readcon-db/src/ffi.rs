@@ -11,9 +11,13 @@ use crate::corpus::ConCorpus;
 use crate::keys::{hash_frame_bytes, FrameKey};
 use crate::select::Select;
 
+/// The call succeeded.
 pub const RKRDB_OK: c_int = 0;
+/// The call failed. `rkrdb_last_error` holds the message.
 pub const RKRDB_ERR: c_int = -1;
+/// The frame or key is not in the corpus.
 pub const RKRDB_NOT_FOUND: c_int = -2;
+/// A pointer argument was null, or the handle is not open.
 pub const RKRDB_NULL: c_int = -3;
 
 /// Breaking-change major for the public C ABI.
@@ -338,6 +342,7 @@ pub unsafe extern "C" fn rkrdb_unpack_positions(
 }
 
 #[no_mangle]
+/// Drop the corpus handle. The id must not be used again.
 pub unsafe extern "C" fn rkrdb_close(id: usize) -> c_int {
     let mut g = HANDLES.lock().unwrap();
     if let Some(slot) = g.get_mut(id) {
@@ -420,6 +425,7 @@ pub unsafe extern "C" fn rkrdb_append_trajectory_units(
 }
 
 #[no_mangle]
+/// Ingest a UTF-8 CON path as a new trajectory. Writes the committed frame count to `out_nframes`.
 pub unsafe extern "C" fn rkrdb_append_trajectory(
     id: usize,
     traj_id: u64,
@@ -583,6 +589,7 @@ pub unsafe extern "C" fn rkrdb_extend_trajectory_units(
 }
 
 #[no_mangle]
+/// Append a UTF-8 CON path to an existing trajectory, or create it when it is absent.
 pub unsafe extern "C" fn rkrdb_extend_trajectory(
     id: usize,
     traj_id: u64,
@@ -1097,6 +1104,7 @@ pub unsafe extern "C" fn rkrdb_select_campaign(
 }
 
 #[no_mangle]
+/// Number of keys from the last select on this handle, or `RKRDB_NULL` when the handle is closed.
 pub unsafe extern "C" fn rkrdb_result_count(id: usize) -> c_int {
     with_handle(id, |h| Ok(h.last_keys.len() as c_int)).unwrap_or(RKRDB_NULL)
 }
@@ -1205,6 +1213,12 @@ pub unsafe extern "C" fn rkrdb_get_frame(
     .unwrap_or(std::ptr::null_mut())
 }
 
+/// Collect one trajectory for the H5MD readers.
+///
+/// On failure the detailed message is already in `last_error` and the
+/// code is [`RKRDB_ERR`], or [`RKRDB_NULL`] when `id` is not a live
+/// handle. Callers return that code as-is. Writing it through
+/// [`set_err_id`] replaces the message with the decimal status.
 fn collect_h5md_handle(
     id: usize,
     traj_id: u64,
@@ -1276,10 +1290,7 @@ pub unsafe extern "C" fn rkrdb_h5md_shape(
             }
             RKRDB_OK
         }
-        Err(e) => {
-            set_err_id(id, e);
-            RKRDB_ERR
-        }
+        Err(code) => code,
     }
 }
 
@@ -1309,10 +1320,7 @@ pub unsafe extern "C" fn rkrdb_h5md_positions(
             }
             RKRDB_OK
         }
-        Err(e) => {
-            set_err_id(id, e);
-            RKRDB_ERR
-        }
+        Err(code) => code,
     }
 }
 
@@ -1342,14 +1350,12 @@ unsafe fn h5md_copy_slice(
             }
             RKRDB_OK
         }
-        Err(e) => {
-            set_err_id(id, e);
-            RKRDB_ERR
-        }
+        Err(code) => code,
     }
 }
 
 #[no_mangle]
+/// Copy H5MD box edges for one trajectory. `cap` is the number of `f64` slots in `out`.
 pub unsafe extern "C" fn rkrdb_h5md_edges(
     id: usize,
     traj_id: u64,
@@ -1360,6 +1366,7 @@ pub unsafe extern "C" fn rkrdb_h5md_edges(
 }
 
 #[no_mangle]
+/// Copy H5MD forces for one trajectory. Returns an error when the trajectory has no forces.
 pub unsafe extern "C" fn rkrdb_h5md_forces(
     id: usize,
     traj_id: u64,
@@ -1370,6 +1377,7 @@ pub unsafe extern "C" fn rkrdb_h5md_forces(
 }
 
 #[no_mangle]
+/// Copy H5MD velocities for one trajectory. Returns an error when the trajectory has no velocities.
 pub unsafe extern "C" fn rkrdb_h5md_velocities(
     id: usize,
     traj_id: u64,
@@ -1410,14 +1418,12 @@ pub unsafe extern "C" fn rkrdb_h5md_species(
             }
             RKRDB_OK
         }
-        Err(e) => {
-            set_err_id(id, e);
-            RKRDB_ERR
-        }
+        Err(code) => code,
     }
 }
 
 #[no_mangle]
+/// Copy one frame's velocities. `out_has_velocities` is 1 when the frame stored them.
 pub unsafe extern "C" fn rkrdb_get_velocities(
     id: usize,
     traj_id: u64,
@@ -1489,10 +1495,7 @@ pub unsafe extern "C" fn rkrdb_h5md_times(
             }
             RKRDB_OK
         }
-        Err(e) => {
-            set_err_id(id, e);
-            RKRDB_ERR
-        }
+        Err(code) => code,
     }
 }
 
@@ -2138,5 +2141,122 @@ mod tests {
             );
             assert_eq!(rkrdb_close(id), RKRDB_OK);
         }
+    }
+
+    fn c_last_error(id: usize) -> String {
+        let mut buf = [0i8; 512];
+        let n = unsafe { rkrdb_last_error(id, buf.as_mut_ptr(), buf.len()) };
+        assert!(n > 0, "rkrdb_last_error -> {n}");
+        let msg = unsafe { CStr::from_ptr(buf.as_ptr()) }
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(msg, "-1", "status code replaced the message");
+        assert_ne!(msg, "-3", "status code replaced the message");
+        msg
+    }
+
+    fn assert_h5md_readers(id: usize, code: c_int) {
+        let mut nf = 0u32;
+        let mut na = 0u32;
+        let mut nums = [0.0f64; 8];
+        let mut z = [0i32; 4];
+        unsafe {
+            assert_eq!(rkrdb_h5md_shape(id, 1, &mut nf, &mut na), code);
+            assert_eq!(
+                rkrdb_h5md_positions(id, 1, nums.as_mut_ptr(), nums.len(), &mut nf, &mut na),
+                code
+            );
+            assert_eq!(rkrdb_h5md_edges(id, 1, nums.as_mut_ptr(), nums.len()), code);
+            assert_eq!(
+                rkrdb_h5md_forces(id, 1, nums.as_mut_ptr(), nums.len()),
+                code
+            );
+            assert_eq!(
+                rkrdb_h5md_velocities(id, 1, nums.as_mut_ptr(), nums.len()),
+                code
+            );
+            assert_eq!(
+                rkrdb_h5md_times(id, 1, nums.as_mut_ptr(), nums.len(), &mut nf),
+                code
+            );
+            assert_eq!(
+                rkrdb_h5md_species(id, 1, z.as_mut_ptr(), z.len(), &mut na),
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn c_h5md_keeps_error_detail_and_null_handle() {
+        let mut nf = 0u32;
+        let mut na = 0u32;
+        unsafe {
+            assert_eq!(
+                rkrdb_h5md_shape(usize::MAX, 1, &mut nf, &mut na),
+                RKRDB_NULL
+            );
+        }
+        assert_h5md_readers(usize::MAX, RKRDB_NULL);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = CString::new(dir.path().to_str().unwrap()).unwrap();
+        let mut lines: Vec<String> = std::fs::read_to_string(fixture("tiny_cuh2.con"))
+            .unwrap()
+            .lines()
+            .map(str::to_string)
+            .collect();
+        lines[1] = concat!(
+            r#"{"con_spec_version":3,"con_spec_minor":1,"time":12.5,"#,
+            r#""units":{"length":"angstrom","energy":"eV"}}"#
+        )
+        .to_string();
+        let mut text = lines.join("\n");
+        text.push('\n');
+        let ctext = CString::new(text).unwrap();
+        let src = CString::new("v31-clock").unwrap();
+        let mut id = 0usize;
+        let mut n = 0u32;
+        unsafe {
+            assert_eq!(rkrdb_open(path.as_ptr(), &mut id), RKRDB_OK);
+            assert_eq!(
+                rkrdb_append_trajectory_str(id, 1, ctext.as_ptr(), src.as_ptr(), &mut n),
+                RKRDB_OK
+            );
+        }
+        assert_h5md_readers(id, RKRDB_ERR);
+        let detail = c_last_error(id);
+        assert!(detail.contains("no units.time"), "{detail}");
+        assert!(detail.contains("clock"), "{detail}");
+
+        let mut before = vec![0i8; 4096];
+        let units = CString::new(r#"{"length":"nm","time":"ps"}"#).unwrap();
+        let mut nset = 99u32;
+        unsafe {
+            assert!(
+                rkrdb_get_frame_text(id, 1, 0, before.as_mut_ptr(), before.len()) > 0,
+                "frame text before set_units"
+            );
+            assert_eq!(rkrdb_set_units(id, 1, units.as_ptr(), &mut nset), RKRDB_ERR);
+        }
+        assert_eq!(nset, 99, "failed set_units must not report a rewrite");
+        let set_detail = c_last_error(id);
+        assert!(set_detail.contains("no units.time"), "{set_detail}");
+        assert!(set_detail.contains("clock"), "{set_detail}");
+
+        let mut after = vec![0i8; 4096];
+        unsafe {
+            assert!(
+                rkrdb_get_frame_text(id, 1, 0, after.as_mut_ptr(), after.len()) > 0,
+                "frame text after set_units"
+            );
+            let before_s = CStr::from_ptr(before.as_ptr()).to_str().unwrap();
+            let after_s = CStr::from_ptr(after.as_ptr()).to_str().unwrap();
+            assert_eq!(before_s, after_s);
+            assert!(before_s.contains("12.5"), "{before_s}");
+            assert_eq!(rkrdb_close(id), RKRDB_OK);
+            assert_eq!(rkrdb_h5md_shape(id, 1, &mut nf, &mut na), RKRDB_NULL);
+        }
+        assert_h5md_readers(id, RKRDB_NULL);
     }
 }

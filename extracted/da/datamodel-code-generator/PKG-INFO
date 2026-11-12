@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.93.0
+Version: 0.95.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -31,23 +31,30 @@ Requires-Dist: pydantic<3,>=2.14; python_version >= '3.15'
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: typing-extensions<5,>=4.16
 Provides-Extra: all
+Requires-Dist: argcomplete<4,>=2.10.1; extra == 'all'
 Requires-Dist: black>=19.10b0; (python_version < '3.15' and sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: black>=26.5; (python_version >= '3.15' and sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: certifi>=2026.10.19; extra == 'all'
+Requires-Dist: genson<2,>=1.2.1; extra == 'all'
 Requires-Dist: graphql-core>=3.2.3; extra == 'all'
 Requires-Dist: grpcio-tools<2,>=1.62; extra == 'all'
 Requires-Dist: httpx>=0.24.1; extra == 'all'
 Requires-Dist: isort<9,>=4.3.21; (sys_platform != 'emscripten') and extra == 'all'
+Requires-Dist: jinja2<4,>=2.10.1; extra == 'all'
 Requires-Dist: openapi-spec-validator<0.8,>=0.2.8; extra == 'all'
 Requires-Dist: prance>=0.18.2; extra == 'all'
 Requires-Dist: pysnooper<2,>=0.4.1; extra == 'all'
 Requires-Dist: ruff>=0.9.10; extra == 'all'
 Requires-Dist: watchfiles>=1.1; extra == 'all'
+Provides-Extra: argcomplete
+Requires-Dist: argcomplete<4,>=2.10.1; extra == 'argcomplete'
 Provides-Extra: black
 Requires-Dist: black>=19.10b0; (python_version < '3.15' and sys_platform != 'emscripten') and extra == 'black'
 Requires-Dist: black>=26.5; (python_version >= '3.15' and sys_platform != 'emscripten') and extra == 'black'
 Provides-Extra: debug
 Requires-Dist: pysnooper<2,>=0.4.1; extra == 'debug'
+Provides-Extra: genson
+Requires-Dist: genson<2,>=1.2.1; extra == 'genson'
 Provides-Extra: graphql
 Requires-Dist: graphql-core>=3.2.3; extra == 'graphql'
 Provides-Extra: http
@@ -57,6 +64,8 @@ Provides-Extra: httpx2
 Requires-Dist: httpx2<3,>=2; extra == 'httpx2'
 Provides-Extra: isort
 Requires-Dist: isort<9,>=4.3.21; (sys_platform != 'emscripten') and extra == 'isort'
+Provides-Extra: jinja2
+Requires-Dist: jinja2<4,>=2.10.1; extra == 'jinja2'
 Provides-Extra: protobuf
 Requires-Dist: grpcio-tools<2,>=1.62; extra == 'protobuf'
 Provides-Extra: ruff
@@ -200,11 +209,11 @@ datamodel-codegen \
   --input schema.json \
   --input-file-type jsonschema \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261106 \
+  --preset standard-py312-20261112 \
   --output model.py
 ```
 
-This quick start uses `standard-py312-20261106` as the modern Python 3.12 baseline.
+This quick start uses `standard-py312-20261112` as the modern Python 3.12 baseline.
 Preset names include the target Python version: `py312` means Python 3.12.
 
 See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/) for all options. See [Presets](https://datamodel-code-generator.koxudaxi.dev/presets/),
@@ -212,7 +221,7 @@ See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/
 [`--output-model-type`](https://datamodel-code-generator.koxudaxi.dev/cli-reference/model-customization/#output-model-type) for this command.
 
 For more schema-aware output that preserves schema-authored names, reuses models, and embeds generated
-documentation, use [`practical-py312-20261106`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261106).
+documentation, use [`practical-py312-20261112`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261112).
 
 **Not sure which options fit your schema?** Add `--recommend-options` to the command above (experimental). It
 analyses the schema and prints the options to add on top of the latest preset with the reason for each, and a ready
@@ -303,7 +312,9 @@ The current default remains Black/isort, which are still required dependencies. 
 normal generation. The future builtin default is intended to reduce required installation dependencies and version
 constraints; Ruff will still be recommended for projects that use Ruff. Formatters are never selected automatically
 based on installed packages or Ruff configuration. The new `[black]` and `[isort]` extras prepare for later
-optional installation; their ranges and environment markers match the current required dependencies.
+optional installation; their ranges and environment markers match the current required dependencies. The
+`[jinja2]` (custom templates), `[genson]` (JSON, YAML, CSV and dict data input) and `[argcomplete]` (shell
+completion) extras do the same for those dependencies.
 Selecting only a formatter preserves your other generation settings; a preset also supplies model-generation options.
 Explicit formatter selection does not pin formatter versions or guarantee byte-for-byte output stability.
 
@@ -438,7 +449,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261106 \
+  --preset standard-py312-20261112 \
   --output app/models.py \
   --generate-server fastapi \
   --server-output app/server \
@@ -451,7 +462,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261106 \
+  --preset standard-py312-20261112 \
   --output app/models.py \
   --generate-client httpx2 \
   --client-output app/client \

@@ -19,7 +19,7 @@ from typing import List, Optional, Sequence
 from ...domain.company.company import CompanyRepository, RoutingIndex
 from ...models.cache import CacheProtocol
 from ...models.company.empresa import EmpresaModel
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ..asset_cache import AssetCache
 from .company_keys import betas_key, settings_key, version_key
 

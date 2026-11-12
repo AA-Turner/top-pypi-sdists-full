@@ -467,6 +467,15 @@ def _serialization_cases(ref_path):
         ),
         "rows_distinct": lambda v: v.rows_distinct(columns_subset=["f"]),
         "rows_complete": lambda v: v.rows_complete(),
+        "rows_near_distinct": lambda v: v.rows_near_distinct(
+            columns=["b", "f"], threshold=0.5, ngram=2
+        ),
+        "rows_not_contaminated": lambda v: v.rows_not_contaminated(
+            columns="b", reference=str(ref_path), method="exact"
+        ),
+        "col_vals_chat_format": lambda v: v.col_vals_chat_format(
+            columns="b", roles=["user", "assistant"], last_role="assistant", na_pass=True
+        ),
         "col_count_match": lambda v: v.col_count_match(count=7, inverse=True),
         "row_count_match": lambda v: v.row_count_match(count=10, tol=3),
         "col_schema_match": lambda v: v.col_schema_match(
@@ -488,21 +497,37 @@ def _serialization_cases(ref_path):
         "prompt": lambda v: v.prompt(
             prompt="Values look plausible", model="anthropic:claude-sonnet-5", batch_size=10
         ),
+        "col_vals_scored": lambda v: v.col_vals_scored(
+            columns="b", scorer=lambda batch: [len(row["b"]) for row in batch], min_val=3
+        ),
+        "col_vals_text_quality": lambda v: v.col_vals_text_quality(
+            columns="b", min_words=1, max_mean_word_length=None, dimension="quality"
+        ),
+        "col_vals_in_language": lambda v: v.col_vals_in_language(
+            columns="b", expected="en", backend=lambda text: {"en": 0.9}
+        ),
+        "col_vals_token_len": lambda v: v.col_vals_token_len(
+            columns="b", tokenizer="whitespace", min_val=1, brief="{auto} ({step})"
+        ),
+        "col_vals_no_pii": lambda v: v.col_vals_no_pii(columns=["b", "f"], entities=["email"]),
     }
 
 
 # Methods whose plans can't be fully serialized (callables, or LLM calls at interrogation), so
-# only the rebuilt plan's structure is compared
-_LOSSY_METHODS = {"col_vals_expr", "conjointly", "specially", "prompt"}
+# only the rebuilt plan's structure is compared (a `col_vals_scored()` step with an adapter of
+# `pb.scorers` round-trips in full; that's tested in `test_scorers.py`, with a fake model)
+_LOSSY_METHODS = {
+    "col_vals_expr", "conjointly", "specially", "prompt", "col_vals_scored", "col_vals_in_language",
+}  # fmt: skip
 
 # Public `Validate` methods that don't add validation steps
 _NON_STEP_METHODS = {
     "above_threshold", "add_steps", "all_passed", "assert_below_threshold",
-    "assert_dimension_scores", "assert_passing", "critical", "error", "f_failed", "f_passed",
+    "assert_dimension_scores", "calibrate_prompt", "assert_passing", "critical", "error", "f_failed", "f_passed",
     "from_prompt", "get_data_extracts", "get_dataframe_report", "get_dimension_scores",
-    "get_health_score", "get_json_report", "get_note", "get_notes", "get_scorecard",
-    "get_step_report", "get_sundered_data", "get_tabular_report", "interrogate", "n",
-    "n_failed", "n_passed", "set_tbl", "suggest_improvements", "to_code", "to_json_schema",
+    "get_health_score", "get_json_report", "get_note", "get_notes", "get_row_flags",
+    "get_scorecard", "get_step_report", "get_sundered_data", "get_tabular_report", "interrogate", "n",
+    "n_failed", "n_passed", "set_tbl", "suggest_improvements", "to_code", "to_data_card", "to_json_schema",
     "to_yaml", "warning",
 }  # fmt: skip
 
@@ -557,6 +582,12 @@ def test_every_validation_method_serializes(method, interrogated, small_table, r
     assert not any("not supported by plan serialization" in m for m in messages), messages
     if not lossy:
         assert not messages, messages
+
+    if method in ("col_vals_scored", "col_vals_in_language"):
+        # A function scorer (or language backend) is written as the placeholder `your_scorer`, to be replaced by hand
+        assert any("your_scorer" in m for m in messages), messages
+        code = code.replace("your_scorer", "lambda batch: [1] * len(batch)")
+        yaml_str = yaml_str.replace("your_scorer", "'lambda batch: [1] * len(batch)'")
 
     rebuilt_code = _exec_code(code, small_table)
 
@@ -908,7 +939,7 @@ steps:
 
 @pytest.mark.parametrize("value", ["pb.col('a')", 'pb.col("a")', "pb.ref('a')"])
 def test_yaml_column_reference_value_without_python_block(small_table, value):
-    from pointblank.column import Column, ReferenceColumn
+    from pointblank.column import Column
 
     yaml_str = f"""
 tbl: small_table
@@ -920,9 +951,10 @@ steps:
     if value.startswith("pb.ref"):
         from pointblank.yaml import YAMLValidator
 
+        # The value is parsed as a reference column, which a row-wise comparison rejects
         validator = YAMLValidator()
-        built = validator.build_validation(validator.load_config(yaml_str))
-        assert isinstance(built.validation_info[0].values, ReferenceColumn)
+        with pytest.raises(TypeError, match=r"can't be a reference column \(`ref\('a'\)`\)"):
+            validator.build_validation(validator.load_config(yaml_str))
         return
 
     validation = yaml_interrogate(yaml_str)
@@ -1051,6 +1083,63 @@ def test_to_code_imports_nothing_extra_for_plain_values(small_table):
         .col_vals_gt(columns="d", value=100)
         .to_yaml()
     )
+
+
+# ─── Non-finite floats and NumPy scalars ─────────────────────────────────────────
+
+
+def _nonfinite_value_plan(data):
+    import numpy as np
+
+    return (
+        Validate(data=data)
+        .col_vals_lt(columns="x", value=float("inf"))
+        .col_vals_gt(columns="x", value=float("-inf"))
+        .col_vals_lt(columns="x", value=np.float64(2.0))
+        .col_vals_between(columns="x", left=np.int64(0), right=np.float64(np.inf))
+        .col_vals_in_set(columns="x", set=[1.5, float("nan")])
+    )
+
+
+def test_to_code_writes_nonfinite_floats_and_numpy_scalars(typed_table):
+    code = _nonfinite_value_plan(typed_table).to_code()
+
+    # `inf` and `nan` aren't Python names, and `np` isn't imported by the code
+    assert 'value=float("inf")' in code
+    assert 'value=float("-inf")' in code
+    assert "value=2.0" in code
+    assert 'left=0, right=float("inf")' in code
+    assert 'set=[1.5, float("nan")]' in code
+    assert "np." not in code
+
+    namespace = {"your_data": typed_table}
+    exec(code, namespace)
+    expected = _results(_nonfinite_value_plan(typed_table).interrogate())
+    assert _results(namespace["validation"].interrogate()) == expected
+
+
+def test_to_yaml_writes_nonfinite_floats_and_numpy_scalars(typed_table):
+    import yaml
+
+    yaml_str = _nonfinite_value_plan(typed_table).to_yaml()
+
+    # NumPy scalars are written as plain YAML numbers, not as `!!python/object` tags or strings
+    assert "!!python" not in yaml_str
+    steps = yaml.safe_load(yaml_str)["steps"]
+    assert steps[2]["col_vals_lt"]["value"] == 2.0
+    assert steps[3]["col_vals_between"]["left"] == 0
+
+    rebuilt = yaml_interrogate(yaml_str, set_tbl=typed_table)
+    assert _results(rebuilt) == _results(_nonfinite_value_plan(typed_table).interrogate())
+
+
+def test_yaml_to_python_writes_nonfinite_floats(typed_table):
+    python_code = pb.yaml_to_python(_nonfinite_value_plan(typed_table).to_yaml())
+
+    assert 'value=float("inf")' in python_code
+    assert 'left=0, right=float("inf")' in python_code
+    assert 'set=[1.5, float("nan")]' in python_code
+    compile(python_code.strip("`\n").removeprefix("python\n"), "<yaml_to_python>", "exec")
 
 
 @pytest.mark.parametrize("tolerance_in_dict", [False, True])

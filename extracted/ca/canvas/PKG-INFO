@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: canvas
-Version: 1.0.1
+Version: 1.2.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -21,6 +21,7 @@ Requires-Dist: grpcio<2,>=1.78.0
 Requires-Dist: ipython<9,>=8.21.0
 Requires-Dist: jsonschema<5,>=4.21.1
 Requires-Dist: nh3<0.4,>=0.3.0
+Requires-Dist: packaging>=24.2
 Requires-Dist: pathspec>=0.12.1
 Requires-Dist: protobuf<7,>=6
 Requires-Dist: psutil<8,>=7.2.2
@@ -93,7 +94,7 @@ client_secret=localclientsecret
 
 Canvas Platform hosts a plugin's git repository and deploys it to the instances it manages. Sign in once per machine with `canvas login`, which opens your browser; the session is stored per platform in `~/.canvas/platform-credentials.json`, readable only by you, and refreshes itself. `canvas login --platform <url>` or `CANVAS_PLATFORM_URL` points the CLI at a platform other than https://platform.canvasmedical.com, and later commands keep using the platform you last signed in to.
 
-A plugin deployed through Canvas Platform has a plain package name (lowercase letters, digits and underscores, starting with a letter, at most 63 characters), used for the manifest `name`, the package folder and its imports. `canvas init` recommends the convention `<org prefix>__<package>` (for example `acme__intake`), and `canvas login` lists the prefix of each organization you belong to. The organization that publishes the plugin is the manifest `publisher` (an organization slug), else your organization whose prefix the name carries, else the only organization you can publish in, else the one you pick at a terminal, which a regular `canvas deploy` push records in the manifest. Every deployment names the publisher it settled on.
+A plugin deployed through Canvas Platform has a plain package name (lowercase letters, digits and underscores, starting with a letter, at most 255 characters), used for the manifest `name`, the package folder and its imports. `canvas deploy` also deploys a plugin under a name outside that rule when Canvas Platform holds a plugin of exactly that name you can see, as it does for legacy plugins registered under the names they run as on instances; it deploys under that plugin's publisher, and Platform decides whether you may push and deploy it. `canvas init` recommends the convention `<org prefix>__<package>` (for example `acme__intake`), and `canvas login` lists the prefix of each organization you belong to. The organization that publishes the plugin is the manifest `publisher` (an organization slug), else your organization whose prefix the name carries, else the only organization you can publish in, else the one you pick at a terminal, which a regular `canvas deploy` push records in the manifest. Every deployment names the publisher it settled on.
 
 #### Which plugins go through Canvas Platform
 
@@ -260,14 +261,16 @@ Publish a plugin's code to Canvas Platform and deploy it. The manifest `name` is
 
 ```console
 $ canvas deploy [OPTIONS] PLUGIN_DIR
+$ canvas deploy --plugin [PUBLISHER/]NAME@VERSION [--plugin ...] [OPTIONS]
 ```
 
 **Arguments**:
 
-- `PLUGIN_DIR`: Path to the plugin package [required]
+- `PLUGIN_DIR`: Path to the plugin package. Omitted with `--plugin`
 
 **Options**:
 
+- `--plugin TEXT`: Deploy a released plugin, written `[<publisher>/]<name>@<version>` with an exact version in its normal form, without a plugin folder or a push. Repeatable; every `--plugin` goes out in one deployment. Without a publisher, Canvas Platform finds the plugin by name. Takes no `PLUGIN_DIR`, `--ref`, `--no-push`, `--push-only`, `--snapshot` or `--branch`. See [Dependencies and bundles](#dependencies-and-bundles)
 - `--instance TEXT`: Instance to deploy to, repeatable. Without it, deploy targets the only instance you can deploy to and otherwise lists the choices
 - `--ref TEXT`: Deploy a pushed branch, tag or commit as-is, without pushing
 - `--no-push`: Deploy the pushed `main` as-is, without pushing
@@ -276,6 +279,31 @@ $ canvas deploy [OPTIONS] PLUGIN_DIR
 - `--snapshot`: Push the committed contents of a plugin inside a larger repository, such as a monorepo, as one new commit on `main`, or on the `--branch` branch, leaving that repository's remotes alone. See [Deploying from a monorepo](#deploying-from-a-monorepo). Takes no `--ref` or `--no-push`
 - `-y, --yes`: Commit uncommitted changes without prompting, with the default message. Does not approve consent requests: a deployment that needs consent exits non-zero and lists them
 - `--help`: Show this message and exit.
+
+### Dependencies and bundles
+
+A manifest's `dependencies` name plugins that Canvas Platform installs with it. Each entry has exactly three keys, all required: `name`, `publisher` (the slug of the organization that publishes it), and `version`, a pin in one of two forms. A plugin with `"bundle": true` is made only of its dependencies and its catalog listing, carries no `components`, `custom_data`, `variables` or `secrets`, and `canvas install` refuses one.
+
+```json
+"dependencies": [
+  {"name": "scribe_core", "publisher": "canvas-medical", "version": "1.16.0"},
+  {"name": "commands_kit", "publisher": "canvas-medical", "version": "~=0.1.1"}
+]
+```
+
+- An exact PEP 440 version in its normal form, such as `1.16.0`, installs that version. A version written another way, such as `v1.16.0`, is refused with its normal form as the suggestion.
+- A compatible release, `~=` followed by at least two version components, accepts any version in its range: `~=1.16` is 1.16 or later below 2.0, and `~=0.1.1` is 0.1.1 or later below 0.2. Other specifiers (`>=`, `<`, `==`, `!=`, `===`, comma-separated sets, wildcards, `~=1`) are refused.
+- A plugin cannot depend on itself (its own name, with no `publisher` in its manifest or the same one), and a dependency's name and publisher appear once.
+- Each dependency must already be on Canvas Platform at a version its pin accepts. Its publisher pushes each release on its own, outside any bundle, with `canvas deploy <plugin> --push-only --snapshot`, which updates the plugin's code and catalog listing without deploying it anywhere.
+- Deploying a plugin or bundle with `dependencies` works like any other deploy: the CLI pushes the plugin and creates one deployment naming it, and Canvas Platform resolves the dependencies and installs them in order. Each target's `wave` is shown when platform reports it.
+
+Versions follow semantic versioning: a compatible pin moves within one major version, and a release that changes the major version is one no existing compatible pin reaches. When two plugins share a dependency, such as two products built on the same core plugin, moving that dependency to a new major means every plugin pinning it moves to a release pinning the new major in the same deployment. `canvas deploy --plugin` does that without a plugin folder or a push, deploying released versions of several plugins in one deployment:
+
+```console
+$ canvas deploy --plugin canvas-medical/scribe@2.0.0 --plugin acme/intake@3.0.0 --instance acme-staging
+```
+
+Each `--plugin` names an exact version, which Canvas Platform resolves to the newest revision on `main` carrying it. When a deployment would leave installed plugins disagreeing about a dependency, Canvas Platform refuses it with a sentence naming the plugins. When each plugin in the way has a release that fits, the sentence ends with the `canvas deploy --plugin ...` command that moves them together, and `canvas deploy` prints it as an error. For a deploy of one plugin, at a terminal and without `--yes`, it then asks whether to deploy them together and, on yes, resends the deployment as it was, the plugin at the ref or version it named, with the plugins in the way added at their releases, and names everything it deploys. Under `--yes`, without a terminal, or for a deploy naming several `--plugin`, it deploys nothing.
 
 ## `canvas clone`
 
@@ -455,6 +483,7 @@ Listens and prints log streams from the instance.
 - Signed in to Canvas Platform, `canvas logs` asks Platform for a 15-minute log token for an instance it manages. An instance Platform does not manage is refused with the way to sign out (`canvas logout`, or unsetting `CANVAS_PLATFORM_TOKEN`), so `credentials.ini` is used only once you are signed out.
 - While following, Console closes the stream with code 4401 once the log token is inactive; `canvas logs` then asks Platform for a fresh token, which re-checks your access, and reconnects.
 - Signed out, or for localhost and other hosts that are not Canvas instances, `canvas logs` uses `credentials.ini` and prints a deprecation notice on stderr.
+- `--plugin` filters the live stream as well as history, by the plugin each line is tagged with: the plugin runner's handler lines and the effect failures Canvas logs for that plugin. Like history, it leaves out untagged lines, such as plugin load and install.
 
 **Usage**:
 

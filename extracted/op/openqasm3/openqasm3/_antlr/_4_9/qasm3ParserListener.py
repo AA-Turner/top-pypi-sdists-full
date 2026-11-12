@@ -197,6 +197,15 @@ class qasm3ParserListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by qasm3Parser#nopStatement.
+    def enterNopStatement(self, ctx:qasm3Parser.NopStatementContext):
+        pass
+
+    # Exit a parse tree produced by qasm3Parser#nopStatement.
+    def exitNopStatement(self, ctx:qasm3Parser.NopStatementContext):
+        pass
+
+
     # Enter a parse tree produced by qasm3Parser#gateCallStatement.
     def enterGateCallStatement(self, ctx:qasm3Parser.GateCallStatementContext):
         pass
@@ -527,6 +536,15 @@ class qasm3ParserListener(ParseTreeListener):
 
     # Exit a parse tree produced by qasm3Parser#measureExpression.
     def exitMeasureExpression(self, ctx:qasm3Parser.MeasureExpressionContext):
+        pass
+
+
+    # Enter a parse tree produced by qasm3Parser#quantumCallExpression.
+    def enterQuantumCallExpression(self, ctx:qasm3Parser.QuantumCallExpressionContext):
+        pass
+
+    # Exit a parse tree produced by qasm3Parser#quantumCallExpression.
+    def exitQuantumCallExpression(self, ctx:qasm3Parser.QuantumCallExpressionContext):
         pass
 
 

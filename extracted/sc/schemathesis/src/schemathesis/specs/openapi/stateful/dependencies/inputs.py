@@ -9,13 +9,15 @@ from schemathesis.core import media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.jsonschema import maybe_resolve_bundled, resolve_bundled_ref, schema_with_bundle
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
-from schemathesis.core.jsonschema.types import JsonSchema, get_type
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, get_type
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import format_body_key
 from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
 from schemathesis.specs.openapi.converter import is_read_only
 from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.models import (
+    ANY_VALUE_TYPES,
+    NULL_ONLY,
     BodyPath,
     Cardinality,
     DeferredBindings,
@@ -28,10 +30,13 @@ from schemathesis.specs.openapi.stateful.dependencies.models import (
     ResourceDefinition,
     ResourceMap,
     declared_types,
+    field_value_types,
     find_input,
+    holds_only_array_values,
     holds_only_arrays,
     infer_fk_target,
     iter_all_of_chain,
+    iter_array_items,
 )
 from schemathesis.specs.openapi.stateful.dependencies.resources import (
     InferenceState,
@@ -41,6 +46,7 @@ from schemathesis.specs.openapi.stateful.dependencies.resources import (
     declared_field_values,
     write_only_fields,
 )
+from schemathesis.specs.openapi.stateful.dependencies.schemas import try_unwrap_all_of
 
 if TYPE_CHECKING:
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
@@ -93,17 +99,7 @@ def extract_inputs(
         elif param.location == ParameterLocation.QUERY:
             deferred.named_query_parameters.append((param.name, _parameter_schema(param)))
 
-    json_bodies = []
-    form_bodies = []
-    for body in operation.body:
-        try:
-            media_type = media_types.parse(body.media_type)
-        except MalformedMediaType:
-            continue
-        if media_types.is_json_parts(media_type):
-            json_bodies.append(body)
-        elif media_types.is_form_parts(media_type):
-            form_bodies.append(body)
+    json_bodies, form_bodies = _bodies_by_kind(operation)
     # Link values fill whichever body variant is sent, so form fields matter only when there is no JSON variant.
     for body in json_bodies or form_bodies:
         yield from _resolve_body_dependencies(
@@ -116,6 +112,22 @@ def extract_inputs(
             deferred=deferred,
             candidate_resource_names=state.candidate_resource_names,
         )
+
+
+def _bodies_by_kind(operation: APIOperation) -> tuple[list[OpenApiBody], list[OpenApiBody]]:
+    """JSON and form bodies of `operation`; bodies of other or malformed media types are left out."""
+    json_bodies = []
+    form_bodies = []
+    for body in operation.body:
+        try:
+            media_type = media_types.parse(body.media_type)
+        except MalformedMediaType:
+            continue
+        if media_types.is_json_parts(media_type):
+            json_bodies.append(body)
+        elif media_types.is_form_parts(media_type):
+            form_bodies.append(body)
+    return json_bodies, form_bodies
 
 
 def _parameter_schema(parameter: OpenApiParameter) -> JsonSchema:
@@ -343,15 +355,7 @@ def _flatten_composition(schema: dict[str, Any], bundled: dict[str, Any]) -> tup
     """
     properties: dict[str, Any] = {}
     required: list[str] = []
-    seen: set[str] = set()
-
-    def merge(node: dict[str, Any]) -> None:
-        reference = node.get("$ref")
-        if isinstance(reference, str) and reference not in seen:
-            seen.add(reference)
-            target = bundled.get(reference.rsplit("/", 1)[-1])
-            if isinstance(target, dict):
-                merge(target)
+    for node in _composed_nodes(schema, bundled):
         node_properties = node.get("properties")
         if isinstance(node_properties, dict):
             for name, subschema in node_properties.items():
@@ -359,15 +363,31 @@ def _flatten_composition(schema: dict[str, Any], bundled: dict[str, Any]) -> tup
         node_required = node.get("required")
         if isinstance(node_required, list):
             required.extend(node_required)
+    return properties, required
+
+
+def _composed_nodes(schema: JsonSchemaObject, bundled: JsonSchemaObject) -> list[JsonSchemaObject]:
+    """`schema` and the schemas its ``$ref``/``allOf``/``oneOf``/``anyOf`` name, each reference before its user."""
+    nodes: list[JsonSchemaObject] = []
+    seen: set[str] = set()
+
+    def collect(node: JsonSchemaObject) -> None:
+        reference = node.get("$ref")
+        if isinstance(reference, str) and reference not in seen:
+            seen.add(reference)
+            target = bundled.get(reference.rsplit("/", 1)[-1])
+            if isinstance(target, dict):
+                collect(target)
+        nodes.append(node)
         for key in ("allOf", "oneOf", "anyOf"):
             branches = node.get(key)
             if isinstance(branches, list):
                 for branch in branches:
                     if isinstance(branch, dict):
-                        merge(branch)
+                        collect(branch)
 
-    merge(schema)
-    return properties, required
+    collect(schema)
+    return nodes
 
 
 def assigns_identifier(operation: APIOperation, resource_name: str) -> bool:
@@ -446,7 +466,7 @@ def _resolve_body_dependencies(
     bundled = schema.get(BUNDLE_STORAGE_KEY, {})
 
     # For `items`, we'll inject an array with extracted resource
-    items = resolved.get("items")
+    items = _array_items(resolved, bundled)
     if isinstance(items, dict):
         resource_name = body.resource_name or naming.from_path(operation.path)
 
@@ -598,7 +618,7 @@ def _extract_nested_body_fk_fields(
     When the FK target resource isn't yet registered, the lookup is appended to
     `deferred` so the caller can replay it once every operation has been scanned.
     """
-    items = schema.get("items")
+    items = _array_items(schema, scan.bundled)
     children: list[tuple[str | int, Any]]
     if isinstance(items, dict):
         # Items of a top-level array body carry FK fields like nested array items: `[{"groupId": ...}]`.
@@ -669,7 +689,7 @@ def _container_fk_fields(
         if fk_info is None:
             continue
         target_resource_name, target_field, is_array = fk_info
-        takes_array = _holds_only_arrays(field_schema, scan.bundled)
+        takes_array = holds_only_array_values(field_schema, scan.bundled, _resolve_bundled)
         # A singular name on an array holds no single identifier to send.
         if not is_array and takes_array:
             continue
@@ -759,31 +779,27 @@ def _names_identifier_array(name: str, schema: JsonSchema, bundled: dict[str, An
     A plural name takes identifiers as array items, a singular one (`customer_id`) takes none; other fields give `None`.
     """
     fk_info = infer_fk_target(name)
-    if fk_info is None or not _holds_only_arrays(schema, bundled):
+    if fk_info is None or not holds_only_array_values(schema, bundled, _resolve_bundled):
         return None
     return fk_info[2]
 
 
-def _holds_only_arrays(schema: JsonSchema, bundled: dict[str, Any]) -> bool:
-    """Whether `schema` holds arrays and maybe `null`, nothing else: `type: [array, null]`, `anyOf: [array, null]`."""
-    chain = list(iter_all_of_chain(schema, bundled, _resolve_bundled))
-    return holds_only_arrays(chain) or any(
-        _alternatives_hold_only_arrays(node[keyword], bundled)
-        for node in chain
-        for keyword in ("anyOf", "oneOf")
-        if isinstance(node.get(keyword), list)
-    )
-
-
-_NULL_ONLY = frozenset({"null"})
-
-
-def _alternatives_hold_only_arrays(branches: list[JsonSchema], bundled: dict[str, Any]) -> bool:
-    """Whether one of `branches` holds only arrays and every other one holds only arrays or only `null`."""
-    chains = [list(iter_all_of_chain(branch, bundled, _resolve_bundled)) for branch in branches]
-    return any(map(holds_only_arrays, chains)) and all(
-        holds_only_arrays(chain) or _NULL_ONLY in map(declared_types, chain) for chain in chains
-    )
+def _array_items(schema: dict[str, Any], bundled: dict[str, Any]) -> dict[str, Any] | None:
+    """`items` of an array body, or of its array alternative when the other `anyOf`/`oneOf` ones allow only `null`."""
+    items = schema.get("items")
+    if isinstance(items, dict):
+        return items
+    for parent in iter_all_of_chain(schema, bundled, _resolve_bundled):
+        for keyword in ("anyOf", "oneOf"):
+            branches = parent.get(keyword)
+            if not isinstance(branches, list):
+                continue
+            chains = [list(iter_all_of_chain(branch, bundled, _resolve_bundled)) for branch in branches]
+            # Alternatives of different array shapes describe different requests, so only one array may remain.
+            others = [chain for chain in chains if NULL_ONLY not in map(declared_types, chain)]
+            if len(others) == 1 and holds_only_arrays(others[0]):
+                return next((node["items"] for node in others[0] if isinstance(node.get("items"), dict)), None)
+    return None
 
 
 def _resolve_bundled(schema: dict[str, Any], bundled: dict[str, Any]) -> tuple[dict[str, Any], object] | None:
@@ -813,11 +829,108 @@ def unbind_mistyped_values(
     """Unbind values a request slot rejects: one identifier for an array field, a non-string for a UUID parameter."""
     unbind_single_values_from_array_fields(operations, deferred)
     for label, node in operations.items():
-        slots = _non_string_parameter_slots(node)
-        if slots:
-            declared = schema.find_operation_by_label(label)
-            assert declared is not None
-            _bind_to_string_identifiers(node, slots, _uuid_parameters(declared))
+        _mark_value_types(schema, label, node)
+        _bind_to_string_identifiers(node, _non_string_parameter_slots(node))
+
+
+def _mark_value_types(schema: OpenApiSchema, label: str, node: OperationNode) -> None:
+    """Record the types of the values each input takes, so links send only values that fit."""
+    if not node.inputs:
+        return
+    declared = schema.find_operation_by_label(label)
+    assert declared is not None
+    uuid_parameters = _uuid_parameters(declared)
+    # Producers confirm only path parameter values, so no other parameter is read as a source.
+    path_parameter_types: dict[str | int, frozenset[str]] = {
+        parameter.name: _parameter_value_types(parameter)
+        for parameter in declared.iter_parameters()
+        if parameter.location == ParameterLocation.PATH
+    }
+    # A form field is text, whatever type it declares, so only JSON bodies tell value types apart.
+    json_bodies, _ = _bodies_by_kind(declared)
+    for slot in node.inputs:
+        if slot.parameter_location == ParameterLocation.BODY:
+            slot.value_types = _body_value_types(json_bodies, slot)
+            slot.item_schemas = _item_schemas(json_bodies, slot)
+            continue
+        slot.takes_uuid = (slot.parameter_location, slot.parameter_name) in uuid_parameters
+        if slot.parameter_location == ParameterLocation.PATH:
+            slot.value_types = path_parameter_types.get(slot.parameter_name, ANY_VALUE_TYPES)
+
+
+def _parameter_value_types(parameter: OpenApiParameter) -> frozenset[str]:
+    schema = _parameter_schema(parameter)
+    bundled = schema.get(BUNDLE_STORAGE_KEY, {}) if isinstance(schema, dict) else {}
+    return field_value_types(schema, bundled, _resolve_bundled, holds_many=False)
+
+
+def _body_value_types(bodies: list[OpenApiBody], slot: InputSlot) -> frozenset[str]:
+    """Types of one value the JSON bodies take where `slot` lands; any type when none declares that location."""
+    found = [
+        field_value_types(
+            node, body.raw_schema.get(BUNDLE_STORAGE_KEY, {}), _resolve_bundled, holds_many=slot.takes_array
+        )
+        for body in bodies
+        if isinstance(body.raw_schema, dict)
+        for node in _body_nodes(body.raw_schema, slot.body_path or (slot.parameter_name,))
+    ]
+    return frozenset().union(*found) if found else ANY_VALUE_TYPES
+
+
+def _item_schemas(bodies: list[OpenApiBody], slot: InputSlot) -> frozenset[str] | None:
+    """Schemas of the object named after the resource of `slot` that holds it; `None` when no such object holds it."""
+    end = next(
+        (
+            index + 1
+            for index, step in enumerate(slot.body_path[:-1])
+            if isinstance(step, str) and naming.names_items_of(step, slot.resource.name)
+        ),
+        None,
+    )
+    if end is None:
+        return None
+    return frozenset(
+        body.name_to_uri.get(reference.rsplit("/", 1)[-1], reference)
+        for body in bodies
+        if isinstance(body.raw_schema, dict)
+        for node in _body_nodes(body.raw_schema, slot.body_path[:end])
+        if isinstance(node, dict)
+        for reference in _item_references(node)
+    )
+
+
+def _item_references(node: JsonSchemaObject) -> Iterator[str]:
+    """References naming an object's schema: its `$ref`, a lone `allOf` reference, or any `anyOf` / `oneOf` branch's.
+
+    A branch adding keywords, as in `allOf: [$ref Base, {properties: ...}]`, makes another schema than `Base`.
+    """
+    candidates = [node, try_unwrap_all_of(node)]
+    for keyword in ("anyOf", "oneOf"):
+        branches = node.get(keyword)
+        if isinstance(branches, list):
+            candidates.extend(branches)
+    for candidate in candidates:
+        if isinstance(candidate, dict) and isinstance(reference := candidate.get("$ref"), str):
+            yield reference
+
+
+def _body_nodes(body: JsonSchemaObject, steps: BodyPath) -> list[object]:
+    """Schemas a body declares at `steps`, from each alternative declaring them."""
+    bundled = body.get(BUNDLE_STORAGE_KEY, {})
+    nodes: list[object] = [body]
+    for step in steps:
+        if isinstance(step, int):
+            nodes = [items for node in nodes for _, items in iter_array_items(node, bundled, _resolve_bundled)]
+        else:
+            # Each alternative may declare the field differently, and a value fitting any of them is sent.
+            nodes = [
+                node_properties[step]
+                for node in nodes
+                if isinstance(node, dict)
+                for composed in _composed_nodes(node, bundled)
+                if isinstance(node_properties := composed.get("properties"), dict) and step in node_properties
+            ]
+    return nodes
 
 
 def _non_string_parameter_slots(node: OperationNode) -> list[InputSlot]:
@@ -836,15 +949,17 @@ def _uuid_parameters(operation: APIOperation) -> set[tuple[ParameterLocation, st
 
 def _takes_uuid(parameter: OpenApiParameter) -> bool:
     schema = _parameter_schema(parameter)
-    return isinstance(schema, dict) and schema.get("format") == "uuid"
+    if not isinstance(schema, dict):
+        return False
+    # A list of UUIDs (`?ids=<uuid>&ids=<uuid>`) takes them one by one.
+    items = schema.get("items")
+    return schema.get("format") == "uuid" or (isinstance(items, dict) and items.get("format") == "uuid")
 
 
-def _bind_to_string_identifiers(
-    node: OperationNode, slots: list[InputSlot], parameters: set[tuple[ParameterLocation, str]]
-) -> None:
+def _bind_to_string_identifiers(node: OperationNode, slots: list[InputSlot]) -> None:
     # A UUID parameter takes the resource's string identifier (`uuid` beside an integer `pk`), or nothing.
     for slot in slots:
-        if (slot.parameter_location, slot.parameter_name) not in parameters:
+        if not slot.takes_uuid:
             continue
         identifier = _string_identifier_for(slot)
         if identifier is None:

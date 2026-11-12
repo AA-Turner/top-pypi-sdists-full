@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pigeon-home-runner"
-version = "3.15.148"
+version = "3.16.21.14"
 description = "Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,7 +12,7 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Pigeon-Home" }]
 keywords = ["agent", "self-hosted", "email", "automation", "remote-execution"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
@@ -47,7 +47,7 @@ exclude = ["runner.tests", "runner.tests.*", "runner.tools", "runner.tools.*",
 [tool.setuptools.package-data]
 runner = ["config.example.json"]
 # The shipped transports are found by their manifests, and they bring
-# their sources by their declarations (docs/extend/extensions.md, "Sources"):
+# their sources by their declarations (docs/steady/extensions.md, "Sources"):
 # a wheel without these files has no transport at all.
 "runner.transport_extensions.dtls" = ["extension.json", "sources.json"]
 "runner.transport_extensions.email" = ["extension.json", "sources.json"]
@@ -85,7 +85,7 @@ pytest_add_cli_args = [
 pytest_add_cli_args_test_selection = ["runner/tests/"]
 mutate_only_covered_lines = true
 also_copy = [
-    # docs/ includes docs/security/hardening/. runner/cloud/ and
+    # docs/ includes docs/steady/security/. runner/cloud/ and
     # runner/extensions/ (the shipped extensions, which
     # runner/tests/test_extensions.py loads from the tree) come with
     # source_paths.
@@ -103,8 +103,7 @@ also_copy = [
     # runner/tests/ comes with source_paths). Without
     # these, stats collection dies on "INSTALL.md not found" before
     # any mutant runs.
-    "AGENTS.md", "ENTERPRISE.md", "FAQ.md",
-    "INSTALL.md",
+    "AGENTS.md", "INSTALL.md",
     "PROTOCOL.md", "README.md",
     "SECURITY.md",
 ]

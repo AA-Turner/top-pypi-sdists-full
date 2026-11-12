@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Literal, TypeAlias
+
 from trajectory._models import BaseModel
 from trajectory.types.base_model_slug import BaseModelSlug
+
+InputModality: TypeAlias = Literal["text", "image"]
 
 
 class ModelPricing(BaseModel):
@@ -31,6 +35,9 @@ class SupportedModelInfo(BaseModel):
     Largest prompt plus completion, in tokens, a single sampling call accepts. Null when the
     provider sets the limit.
     """
+
+  input_modalities: list[InputModality]
+  """Content parts the model accepts in chat completions; image marks vision models."""
 
 
 class ListSupportedModelsResponse(BaseModel):

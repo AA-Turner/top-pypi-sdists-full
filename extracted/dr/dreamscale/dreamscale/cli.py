@@ -117,7 +117,9 @@ def _instruction_option():
 
 def _mode_option():
     return typer.Option(
-        "async", "--mode", help="async (replan continuously) or sync (finish each chunk).",
+        "auto", "--mode",
+        help="async (replan continuously) or sync (finish each chunk). Default: the model's "
+        "own (sync for Praxis-1, async for the rest).",
     )
 
 
@@ -183,7 +185,7 @@ def _action_smoothing_option():
     return typer.Option(
         "auto",
         "--action-smoothing",
-        help="Chunk blending for async with RTC off: auto, motion or output.",
+        help="Chunk joining for async with RTC off: auto, continuation, motion or output.",
     )
 
 
@@ -318,6 +320,7 @@ so101_app = _group("Set up and maintain SO-101.")
 franka_app = _group("Set up and maintain Franka (experimental).")
 ur_app = _group("Set up and maintain a Universal Robots arm (experimental).")
 xarm7_app = _group("Set up and maintain two xArm 7s (experimental).")
+openarm_app = _group("Set up and maintain an Anvil OpenARM (experimental).")
 models_app = _group("See and manage the models your organization can run.")
 sessions_app = _group("Manage cloud sessions.")
 deployments_app = _group("Deploy and manage your fine-tuned models.")
@@ -339,7 +342,8 @@ hugging_face_app = _group("Read your private Hugging Face repos.")
 inspect_robots_app = _group("Evaluate Dreamscale models with Inspect Robots.")
 auth_app = _group("Manage this machine's sign-in.")
 for group_app in (
-    run_app, robots_app, so101_app, yam_app, franka_app, ur_app, xarm7_app, models_app,
+    run_app, robots_app, so101_app, yam_app, franka_app, ur_app, xarm7_app, openarm_app,
+    models_app,
     sessions_app,
     deployments_app, endpoints_app, checkpoints_app, integrations_app, hud_app,
     hugging_face_app, inspect_robots_app, train_app, auth_app, datasets_app,
@@ -350,6 +354,7 @@ robots_app.add_typer(yam_app, name="yam")
 robots_app.add_typer(franka_app, name="franka")  # FRANKA.experimental
 robots_app.add_typer(ur_app, name="ur")
 robots_app.add_typer(xarm7_app, name="xarm7")  # XARM7.experimental
+robots_app.add_typer(openarm_app, name="openarm")  # OPENARM.experimental
 app.add_typer(run_app, name="run")
 app.add_typer(robots_app, name="robots")
 app.add_typer(models_app, name="models")
@@ -521,10 +526,11 @@ def auth_logout() -> None:
 def doctor(
     mode: str = typer.Argument(
         "core",
-        help="What to check: core, sim, all, so101, yam, franka, ur or xarm7.",
+        help="What to check: core, sim, all, so101, yam, franka, ur, xarm7 or openarm.",
     ),
     config: Annotated[
-        Path | None, typer.Option("--config", help="Rig config path (yam, franka, ur, xarm7).")
+        Path | None,
+        typer.Option("--config", help="Rig config path (yam, franka, ur, xarm7, openarm)."),
     ] = None,
     model: str | None = typer.Option(
         None,
@@ -565,7 +571,7 @@ def doctor(
 def sim(
     ctx: typer.Context,
     benchmark: str | None = typer.Argument(
-        None, help="libero, robocasa365, molmospaces or roboeval."
+        None, help="libero, robocasa365, molmospaces, roboeval or abc."
     ),
     model: str | None = typer.Option(
         None,
@@ -580,13 +586,15 @@ def sim(
         help=(
             "libero: libero_spatial (default), libero_object, libero_goal, libero_10 or "
             "libero_90. robocasa365: atomic or composite. molmospaces: benchmark or all "
-            "(default). roboeval: a task (default lift_pot)."
+            "(default). roboeval: a task (default lift_pot). abc: a task (default "
+            "put_plastic_bottles_in_bin)."
         ),
     ),
     task_id: str | None = typer.Option(
         None,
         "--task-id",
-        help="Task within the suite (default 0). molmospaces also takes all.",
+        help="Task within the suite (default 0). molmospaces also takes all. abc: the "
+        "episode number.",
     ),
     task_seed: int = typer.Option(
         0,
@@ -666,7 +674,8 @@ def sim(
 
     if benchmark not in BENCHMARK_MODELS:
         raise typer.BadParameter(
-            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces or roboeval",
+            "choose a benchmark: dreamscale sim libero, robocasa365, molmospaces, roboeval "
+            "or abc",
             param_hint="benchmark",
         )
     if benchmark == "libero":
@@ -687,6 +696,11 @@ def sim(
         task_id = task_id or "0"
     elif benchmark == "roboeval":
         task_suite = task_suite or "lift_pot"
+        task_id = task_id or "0"
+    elif benchmark == "abc":
+        from dreamscale.sim.abc_catalog import DEFAULT_TASK
+
+        task_suite = task_suite or DEFAULT_TASK
         task_id = task_id or "0"
     if task_suite is None or task_id is None:
         missing = [
@@ -717,6 +731,23 @@ def sim(
             max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
             region=region, real_time=True, json_output=non_interactive,
             output_root=output_root,
+        )
+        return
+    if benchmark == "abc":
+        # The YAM robot's simulator: the robot's own session and run loop (sim/abc.py), not a
+        # catalog sim.
+        from dreamscale.sim.abc import run_abc
+
+        try:
+            task_id = validate_selection(benchmark, model, task_suite, task_id)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--model") from exc
+        _run(
+            run_abc,
+            model=model, task_suite=task_suite, task_id=task_id, task_seed=task_seed,
+            max_steps=max_steps, max_duration=max_duration, view=not non_interactive,
+            real_time=True, json_output=non_interactive, keep_warm=keep_warm,
+            transport=transport.value, region=region, output_root=output_root, **steady,
         )
         return
     try:
@@ -2050,6 +2081,35 @@ def robots_xarm7_home(
     _ensure_extras(["xarm7"], label="xArm 7", setup_command="dreamscale robots xarm7 setup")
     _run_robot_command(
         set_home_xarm7 if set_pose else home_xarm7, config_path=config or DEFAULT_CONFIG_PATH
+    )
+
+
+@openarm_app.command("setup")
+def robots_openarm_setup(
+    config: Annotated[Path | None, typer.Option("--config", help="Rig config path.")] = None,
+) -> None:
+    """Say which arms and cameras your model was recorded with, on an Anvil Devbox."""
+    from dreamscale.embodiments import OPENARM
+    from dreamscale.hardware.openarm_config import DEFAULT_CONFIG_PATH
+    from dreamscale.hardware.openarm_setup import run_openarm_setup
+
+    _experimental_notice(OPENARM)
+    _run_robot_command(run_openarm_setup, config_path=config or DEFAULT_CONFIG_PATH)
+
+
+@openarm_app.command("home")
+def robots_openarm_home(
+    set_pose: bool = typer.Option(
+        False, "--set", help="Save where the arms are now as home.",
+    ),
+    config: Annotated[Path | None, typer.Option("--config", help="Rig config path.")] = None,
+) -> None:
+    """Move the arms slowly to the home pose; they then hold."""
+    from dreamscale.hardware.openarm_config import DEFAULT_CONFIG_PATH
+    from dreamscale.hardware.openarm_home import home_openarm, set_home_openarm
+
+    _run_robot_command(
+        set_home_openarm if set_pose else home_openarm, config_path=config or DEFAULT_CONFIG_PATH
     )
 
 

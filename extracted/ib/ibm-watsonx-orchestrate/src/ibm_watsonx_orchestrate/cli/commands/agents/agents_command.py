@@ -268,12 +268,21 @@ def agent_create(
             "--safe",
             help="Enable safe mode: prompt for confirmation before updating existing agents"
         )
-    ] = False
+    ] = False,
+    control_plane_only: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--control-plane-only/--no-control-plane-only",
+            help="Register the agent in the control plane only (disallows direct execution/channels)",
+        ),
+    ] = None,
 ):
     if llm is None and style is not AgentStyle.CUSTOM:
         llm = get_default_llm()
     chat_params_dict = json.loads(chat_params) if chat_params else {}
     config_dict = json.loads(config) if config else {}
+    if control_plane_only is not None:
+        config_dict["control_plane_only"] = control_plane_only
     auth_config_dict = json.loads(auth_config) if auth_config else {}
     structured_output_dict = json.loads(structured_output) if structured_output else None
     custom_agents_metadata_dict = json.loads(custom_agents_metadata) if custom_agents_metadata else None
@@ -421,6 +430,20 @@ def export_agent(
     agents_controller = AgentsController()
     agents_controller.export_agent(name=name, kind=kind, output_path=output_file, agent_only_flag=agent_only_flag)
 
+@agents_app.command(name="escalation-prompt", help="Show the escalation prompt injected into a native agent. Copy it as a starting point for escalation.escalation_prompt_override")
+def escalation_prompt(
+    name: Annotated[
+        str,
+        typer.Option("--name", "-n", help="Name of the native agent"),
+    ],
+    default: Annotated[
+        bool,
+        typer.Option("--default", help="Show the prompt composed from the escalation conditions, even when an override is set"),
+    ] = False,
+):
+    agents_controller = AgentsController()
+    agents_controller.show_escalation_prompt(name=name, show_default=default)
+
 @agents_app.command(name="deploy", help="Deploy Agent")
 def deploy_agent(
     name: Annotated[
@@ -530,6 +553,13 @@ def agent_discover(
             help="Skip the import confirmation prompt (for CI/scripted use).",
         ),
     ] = False,
+    control_plane_only: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--control-plane-only/--no-control-plane-only",
+            help="Register discovered agents for control plane only",
+        ),
+    ] = None,
 ):
     """
     Discover and import agents into your WXO workspace.
@@ -585,17 +615,20 @@ def agent_discover(
             app_id=app_id,
             agents=name,
             yes=yes,
+            control_plane_only=control_plane_only,
         )
     elif provider == AgentProvider.AZURE_AI_FOUNDRY.value:
         agents_controller.discover_and_register_azure_ai_foundry_agents(
             app_id=app_id,
             agents=name,
+            control_plane_only=control_plane_only,
         )
     elif provider == AgentProvider.BEDROCK_AGENT.value:
         agents_controller.discover_and_register_bedrock_agents(
             app_id=app_id,
             agents=name,
             yes=yes,
+            control_plane_only=control_plane_only,
         )
     else:
         if provider is not None:
@@ -612,4 +645,5 @@ def agent_discover(
             endpoint=endpoint,
             agent_name=a2a_name,
             app_id=app_id,
+            control_plane_only=control_plane_only,
         )

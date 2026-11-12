@@ -37,6 +37,7 @@ from ._serialization import get_preferred_payload_format, serialize
 from ._supports_logs import _ImageLogQueryData
 from ._utils.async_utils import TaskContext, deprecate_aio_usage, synchronizer
 from ._utils.blob_utils import MAX_OBJECT_SIZE_BYTES
+from ._utils.deprecation import deprecation_warning
 from ._utils.docker_utils import (
     extract_copy_command_patterns,
     find_dockerignore_file,
@@ -86,6 +87,23 @@ SUPPORTED_PYTHON_SERIES: dict[ImageBuilderVersion, list[str]] = {
     "2024.04": ["3.10", "3.11", "3.12"],
     "2023.12": ["3.10", "3.11", "3.12"],
 }
+
+
+def _uses_python_310(metadata: api_pb2.ImageMetadata | None) -> bool:
+    return metadata is not None and bool(re.match(r"Python 3\.10\.", metadata.python_version_info))
+
+
+def _warn_if_python_310(image_id: str, metadata: api_pb2.ImageMetadata | None) -> None:
+    if _uses_python_310(metadata):
+        deprecation_warning(
+            (2026, 11, 4),
+            f"Image {image_id} uses Python 3.10, which is EOL. Modal 1.7.0 and later will not run or deploy apps "
+            "that use Images with Python 3.10; apps already deployed with older clients keep working. "
+            "Please update the Image to use Python 3.11 or later "
+            "(e.g. via `python_version=` or `add_python=`).",
+            show_source=False,
+        )
+
 
 LOCAL_REQUIREMENTS_DIR = Path(__file__).parent / "builder"
 CONTAINER_REQUIREMENTS_PATH = "/modal_requirements.txt"
@@ -569,7 +587,7 @@ class _FailedBuildAttempt:
     client: _Client
 
 
-class _Image(_Object, type_prefix="im"):
+class _Image(_Object, type_prefixes=("im",)):
     """Base class for container images to run functions in.
 
     Do not construct this class directly; instead use one of its static factory methods,
@@ -584,6 +602,7 @@ class _Image(_Object, type_prefix="im"):
     ]  # added as mounts on any container referencing the Image, see `def _mount_layers`
     _added_python_source_set: frozenset[str]  # used to warn about missing mounts during auto-mount deprecation
     _metadata: api_pb2.ImageMetadata | None = None  # set on hydration, private for now
+    _cache_hit: bool | None = None  # set when built, True if an existing build was reused
     _is_empty: bool
     _build_steps: list[api_pb2.ImageBuildStep] | None = None
     # A failed image ID is only queryable through the client that performed the build.
@@ -832,6 +851,7 @@ class _Image(_Object, type_prefix="im"):
             result: api_pb2.GenericResult
             metadata: api_pb2.ImageMetadata | None = None
 
+            self._cache_hit = bool(resp.result.status)
             if resp.result.status:
                 # image already built
                 result = resp.result
@@ -875,6 +895,8 @@ class _Image(_Object, type_prefix="im"):
                 raise ImageBuildError("Unknown status %s!" % result.status, image_id)
 
             self._hydrate(image_id, load_context.client, metadata)
+            if not any(_uses_python_310(base._metadata) for base in base_images.values()):
+                _warn_if_python_310(image_id, metadata)
             local_mounts: set[_Mount] = set()
             for base in base_images.values():
                 local_mounts |= base._serve_mounts
@@ -1096,6 +1118,7 @@ class _Image(_Object, type_prefix="im"):
         async def _load(self: _Image, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             resp = await load_context.client._stub.ImageFromId(api_pb2.ImageFromIdRequest(image_id=image_id))
             self._hydrate(resp.image_id, load_context.client, resp.metadata)
+            _warn_if_python_310(resp.image_id, resp.metadata)
 
         rep = f"Image.from_id({image_id!r})"
 
@@ -1104,7 +1127,7 @@ class _Image(_Object, type_prefix="im"):
 
         return typing.cast(typing_extensions.Self, synchronizer._translate_out(obj))
 
-    async def build(self, app: "modal.app._App") -> "_Image":
+    async def build(self, app: "modal.app._App | None" = None) -> "_Image":
         """Eagerly build an image.
 
         If your image was previously built, then this method will not rebuild your image
@@ -1114,7 +1137,8 @@ class _Image(_Object, type_prefix="im"):
         You do not need to build the image explicitly in that case.
 
         Args:
-            app: Initialized app used as the load context for the image build.
+            app: App for running the build. If not provided, the build will run
+                in an ephemeral App.
 
         Returns:
             This image after the build (and resolver load) completes.
@@ -1123,9 +1147,8 @@ class _Image(_Object, type_prefix="im"):
             ```python
             image = modal.Image.debian_slim().uv_pip_install("scipy", "numpy")
 
-            app = modal.App.lookup("build-image", create_if_missing=True)
             with modal.enable_output():  # To see logs in your local terminal
-                image.build(app)
+                image.build()
 
             # Save the image id
             my_image_id = image.object_id
@@ -1158,23 +1181,34 @@ class _Image(_Object, type_prefix="im"):
                 ...
             ```
         """
-        if app.app_id is None:
-            raise InvalidError("App has not been initialized yet. Use the context manager `app.run()` or `App.lookup`")
 
-        resolver = Resolver()
-        async with TaskContext() as tc:
-            self._build_steps = None
-            self._failed_build_attempt = None
-            load_context = LoadContext(task_context=tc).merged_with(app._root_load_context)
-            try:
-                await resolver.load(self, load_context)
-            except ImageBuildError as e:
-                self._failed_build_attempt = _FailedBuildAttempt(
-                    image_id=e.image_id,
-                    client=load_context.client,
+        if app is None:
+            from .runner import _run_app
+
+            app_context = _run_app(modal.app._App("modal-image-build"), stream_output=False)
+        else:
+            app_context = contextlib.nullcontext(app)
+
+        async with app_context as app:
+            if app.app_id is None:
+                raise InvalidError(
+                    "App has not been initialized yet. Use the context manager `app.run()` or `App.lookup`"
                 )
 
-                raise
+            resolver = Resolver()
+            async with TaskContext() as tc:
+                self._build_steps = None
+                self._failed_build_attempt = None
+                load_context = LoadContext(task_context=tc).merged_with(app._root_load_context)
+                try:
+                    await resolver.load(self, load_context)
+                except ImageBuildError as e:
+                    self._failed_build_attempt = _FailedBuildAttempt(
+                        image_id=e.image_id,
+                        client=load_context.client,
+                    )
+
+                    raise
         return self
 
     @_requires_image_instance
@@ -2062,8 +2096,7 @@ class _Image(_Object, type_prefix="im"):
         if not isinstance(entrypoint_commands, list) or not all(isinstance(x, str) for x in entrypoint_commands):
             raise InvalidError("entrypoint_commands must be a list of strings.")
         args = _flatten_str_args("entrypoint", "entrypoint_commands", entrypoint_commands)
-        args_str = '"' + '", "'.join(args) + '"' if args else ""
-        dockerfile_cmd = f"ENTRYPOINT [{args_str}]"
+        dockerfile_cmd = f"ENTRYPOINT {json.dumps(args, ensure_ascii=False)}"
 
         return self.dockerfile_commands(dockerfile_cmd)
 
@@ -2083,8 +2116,7 @@ class _Image(_Object, type_prefix="im"):
         if not isinstance(shell_commands, list) or not all(isinstance(x, str) for x in shell_commands):
             raise InvalidError("shell_commands must be a list of strings.")
         args = _flatten_str_args("shell", "shell_commands", shell_commands)
-        args_str = '"' + '", "'.join(args) + '"' if args else ""
-        dockerfile_cmd = f"SHELL [{args_str}]"
+        dockerfile_cmd = f"SHELL {json.dumps(args, ensure_ascii=False)}"
 
         return self.dockerfile_commands(dockerfile_cmd)
 
@@ -2908,8 +2940,8 @@ class _Image(_Object, type_prefix="im"):
             volumes: Volume and bucket mounts attached for the build.
             network_file_systems: Network file systems attached for the build.
             gpu: GPU type or list of types for the builder container.
-            cpu: CPU cores to request (soft limit).
-            memory: Memory to request in MiB (soft limit).
+            cpu: CPU cores to request.
+            memory: Memory to request in MiB.
             timeout: Maximum build-step runtime in seconds.
             cloud: Cloud provider for the builder function.
             region: Region or regions for the builder function.
@@ -3074,8 +3106,7 @@ class _Image(_Object, type_prefix="im"):
             raise InvalidError("Image CMD must be a list of strings.")
 
         cmd_args = _flatten_str_args("cmd", "cmd", cmd)
-        cmd_str = '"' + '", "'.join(cmd_args) + '"' if cmd_args else ""
-        dockerfile_cmd = f"CMD [{cmd_str}]"
+        dockerfile_cmd = f"CMD {json.dumps(cmd_args, ensure_ascii=False)}"
 
         return self.dockerfile_commands(dockerfile_cmd)
 
@@ -3219,7 +3250,7 @@ class _Image(_Object, type_prefix="im"):
 
         ```python notest
         image = modal.Image.debian_slim().pip_install("numpy")
-        image.build(app)
+        image.build()
         image.publish("my-image-with-numpy")     # my-image-with-numpy:latest
         image.publish("my-image-with-numpy:v1")
         ```

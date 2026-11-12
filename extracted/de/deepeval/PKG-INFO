@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: deepeval
-Version: 4.3.3
+Version: 4.3.4
 Summary: The LLM Evaluation Framework
 License: Apache-2.0
 License-File: LICENSE.md
 Author: Jeffrey Ip
 Author-email: jeffreyip@confident-ai.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: inspect
 Requires-Dist: aiohttp
 Requires-Dist: click (>=8.0.0,<8.4.0)
+Requires-Dist: confident-trace (>=0.1.14,<0.2.0)
 Requires-Dist: grpcio (>=1.67.1,<2.0.0)
 Requires-Dist: jinja2
 Requires-Dist: nest_asyncio
@@ -285,7 +285,7 @@ Let's pretend your LLM application is a customer support AI agent; here's how De
 
 ## Installation
 
-Deepeval works with **Python>=3.9+**.
+Deepeval works with **Python>=3.10+**.
 
 ```
 pip install -U deepeval

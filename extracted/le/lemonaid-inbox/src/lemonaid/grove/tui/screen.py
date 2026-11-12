@@ -11,7 +11,7 @@ from textual.app import App, ComposeResult
 from textual.screen import ModalScreen, Screen
 from textual.timer import Timer
 
-from ..draw import canvas
+from ..draw import canvas, refusal
 from ..layout import edit, state
 from . import (
     choice,
@@ -39,6 +39,12 @@ class Overlay(ty.NamedTuple):
 
     what: str
     open: abc.Callable[[], Screen]
+
+
+# The pause, in seconds, a Backspace that cleared something starts before Backspace closes the grove;
+# each Backspace in it starts it again, so a held or double-tapped Backspace stops once nothing is
+# left instead of closing it too.
+_BACKSPACE_CLOSES_AFTER = 0.6
 
 
 class GroveScreen(ModalScreen[str]):
@@ -99,11 +105,13 @@ class GroveScreen(ModalScreen[str]):
         # them draws neither again.
         self._ends: dict[bool, pulse.Ends] = {}
         self._was_open = False  # whether the last key arrived zoomed in or searching
+        self._backed_out_at = -_BACKSPACE_CLOSES_AFTER  # when the Backspace pause last started
         self._held = held
         self._lists: Lists = {} if lists is None else lists
         self._drag: garden.Drag | None = None
         self._dragged = False  # the mouse moved since it was pressed, so its click isn't one
         self._drag_frame_due = False
+        self._refused: refusal.Refusal | None = None  # the drag, while it can't drop there
         self._redraw_due = False
         self._flips = flips
         self._flipped = False
@@ -161,6 +169,7 @@ class GroveScreen(ModalScreen[str]):
             self._select_key,
             drag is None,
             self._flashed,
+            self._refused if drag else None,
         )
 
     def _show(self) -> None:
@@ -295,7 +304,12 @@ class GroveScreen(ModalScreen[str]):
         if channel:
             self.dismiss(channel)
             return
-        if key == "escape" and keys.at_rest(self._where) and not self._was_open:
+        now = time.monotonic()
+        held = now - self._backed_out_at < _BACKSPACE_CLOSES_AFTER
+        if key == "backspace" and (self._was_open or held):  # each repeat restarts the pause
+            self._backed_out_at = now
+        closes = key == "escape" or (key == "backspace" and not held)
+        if closes and keys.at_rest(self._where) and not self._was_open:
             self.dismiss("")
             return
         self._redraw_soon()
@@ -429,6 +443,7 @@ class GroveScreen(ModalScreen[str]):
             self._moved_save.stop()
             self._moved_save = None
         self._dragged = False
+        self._refused = None
         self._drag = garden.grab(
             self._grove,
             self._where,
@@ -457,7 +472,11 @@ class GroveScreen(ModalScreen[str]):
         if self._drag is None:
             return
 
-        self._where = dataclasses.replace(self._where, note=drop.describe(self._grove, self._drag))
+        problem = drop.refused(self._grove, self._drag)
+        self._refused = drop.shown_refused(self._grove, self._drag) if problem else None
+        self._where = dataclasses.replace(
+            self._where, note=drop.describe(self._grove, self._drag, problem)
+        )
         self._redraw()
 
     def _put_back(self, note: str) -> None:

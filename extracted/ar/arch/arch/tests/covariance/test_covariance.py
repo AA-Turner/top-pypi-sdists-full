@@ -1,4 +1,5 @@
 from itertools import product
+import re
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -6,7 +7,10 @@ import pandas as pd
 import pytest
 
 from arch._typing import ArrayLike
+from arch.covariance import kernel as kernel_module
 from arch.covariance.kernel import (
+    KERNEL_ESTIMATORS,
+    KERNELS,
     Andrews,
     Bartlett,
     CovarianceEstimate,
@@ -21,6 +25,9 @@ from arch.covariance.kernel import (
     TukeyHamming,
     TukeyHanning,
     TukeyParzen,
+    ZeroLag,
+    get_kernel_estimator,
+    normalize_kernel_name,
 )
 
 ESTIMATORS = [
@@ -50,7 +57,7 @@ KERNEL_PARAMS = {
     "QuadraticSpectral": (1.3221, 2, 2 / 25),
     "TukeyHamming": (1.6694, 2, 4 / 25),
     "TukeyHanning": (1.7462, 2, 4 / 25),
-    "TukeyParzen": (1.8576, 2, 4 / 25),
+    "TukeyParzen": (1.8587, 2, 4 / 25),
 }
 
 
@@ -103,11 +110,11 @@ def test_covariance_smoke(data: ArrayLike, estimator: type[CovarianceEstimator])
 
 
 def test_covariance_errors(data: ArrayLike, estimator: type[CovarianceEstimator]):
-    with pytest.raises(ValueError, match=r"Degrees of freedom is <= 0"):
+    with pytest.raises(ValueError, match=r"df_adjust must be an integer in \[0, "):
         estimator(data, df_adjust=data.shape[0] + 1)
-    with pytest.raises(ValueError, match=r"df_adjust must be a non-negative"):
+    with pytest.raises(ValueError, match=r"df_adjust must be an integer in "):
         estimator(data, df_adjust=-2)
-    with pytest.raises(ValueError, match=r"df_adjust must be a non-negative"):
+    with pytest.raises(TypeError, match=r"df_adjust must be an integer"):
         # Type ignored due to invalid type used in test
         estimator(data, df_adjust=np.ones(2))  # type: ignore[arg-type]
     with pytest.raises(ValueError, match=r"bandwidth must be"):
@@ -118,10 +125,12 @@ def test_covariance_errors(data: ArrayLike, estimator: type[CovarianceEstimator]
 
 def test_bartlett_auto(data: ArrayLike):
     nw = Bartlett(data, force_int=True)
+    # The integer part of the optimal bandwidths 8.48 and 11.87, as in Newey and West
+    # (1994), see SANDWICH_NW_BANDWIDTHS
     if data.ndim == 1:
-        expected_bw = 11
+        expected_bw = 8
     else:
-        expected_bw = 12
+        expected_bw = 11
     assert int(nw.bandwidth) == expected_bw
     expected = 1.0 - np.arange(nw.bandwidth + 1) / (nw.bandwidth + 1)
     assert_allclose(nw.kernel_weights, expected)
@@ -152,52 +161,48 @@ def test_bartlett_auto(data: ArrayLike):
 def test_parzen_auto(data: ArrayLike):
     pz = Parzen(data, force_int=True)
 
+    # The integer parts of the optimal bandwidths 15.56 and 16.28, with weights
+    # k(h / (H + 1))
     if data.ndim == 1:
-        # This test is noisy
-        expected_bw: tuple[int, ...] = (18, 19)
-        expected_weights = [
-            1.0000e00,
-            9.8575e-01,
-            9.4600e-01,
-            8.8525e-01,
-            8.0800e-01,
-            7.1875e-01,
-            6.2200e-01,
-            5.2225e-01,
-            4.2400e-01,
-            3.3175e-01,
-            2.5000e-01,
-            1.8225e-01,
-            1.2800e-01,
-            8.5750e-02,
-            5.4000e-02,
-            3.1250e-02,
-            1.6000e-02,
-            6.7500e-03,
-            2.0000e-03,
-            2.5000e-04,
-        ]
-    else:
-        expected_bw = (17,)
+        expected_bw: tuple[int, ...] = (15,)
         expected_weights = [
             1.00000000e00,
-            9.82510288e-01,
-            9.34156379e-01,
-            8.61111111e-01,
-            7.69547325e-01,
-            6.65637860e-01,
-            5.55555556e-01,
-            4.45473251e-01,
-            3.41563786e-01,
+            9.78027344e-01,
+            9.17968750e-01,
+            8.28613281e-01,
+            7.18750000e-01,
+            5.97167969e-01,
+            4.72656250e-01,
+            3.54003906e-01,
             2.50000000e-01,
-            1.75582990e-01,
-            1.17626886e-01,
-            7.40740741e-02,
-            4.28669410e-02,
-            2.19478738e-02,
-            9.25925926e-03,
-            2.74348422e-03,
-            3.42935528e-04,
+            1.67480469e-01,
+            1.05468750e-01,
+            6.10351562e-02,
+            3.12500000e-02,
+            1.31835938e-02,
+            3.90625000e-03,
+            4.88281250e-04,
+        ]
+    else:
+        expected_bw = (16,)
+        expected_weights = [
+            1.00000000e00,
+            9.80460004e-01,
+            9.26725015e-01,
+            8.46122532e-01,
+            7.45980053e-01,
+            6.33625076e-01,
+            5.16385101e-01,
+            4.01587625e-01,
+            2.96560147e-01,
+            2.08426623e-01,
+            1.39629554e-01,
+            8.79299817e-02,
+            5.08854061e-02,
+            2.60533279e-02,
+            1.09912477e-02,
+            3.25666599e-03,
+            4.07083249e-04,
         ]
     assert int(pz.bandwidth) in expected_bw
     if data.ndim > 1 or (pz.bandwidth + 1) == len(expected_weights):
@@ -207,6 +212,20 @@ def test_parzen_auto(data: ArrayLike):
 def test_qs_auto(data: ArrayLike):
     qs = QuadraticSpectral(data, force_int=True)
     if data.ndim == 1:
+        expected_bw = 7
+        expected_weights = [
+            1.0,
+            0.97129429,
+            0.88868708,
+            0.76215336,
+            0.60656912,
+            0.43941928,
+            0.27818444,
+            0.13786058,
+            0.0290259,
+            -0.043247115,
+        ]
+    else:
         expected_bw = 8
         expected_weights = [
             1.0,
@@ -219,20 +238,6 @@ def test_qs_auto(data: ArrayLike):
             0.25923469,
             0.13786058,
             0.04067932,
-        ]
-    else:
-        expected_bw = 9
-        expected_weights = [
-            1.0,
-            0.98256363,
-            0.93155267,
-            0.85073648,
-            0.74599423,
-            0.62475681,
-            0.49531303,
-            0.36605493,
-            0.24474206,
-            0.13786058,
         ]
     assert int(qs.bandwidth) == expected_bw
     assert_allclose(qs.kernel_weights[:10], np.array(expected_weights))
@@ -283,3 +288,112 @@ def test_center(data: ArrayLike, estimator: type[CovarianceEstimator]):
     centered_cov = estimator(data, center=False, force_int=False)
     cov = estimator(data, force_int=False)
     assert centered_cov.bandwidth != cov.bandwidth
+
+
+def test_kernel_names():
+    # The canonical list is the estimators tested here, each of which is a
+    # public class, and excludes ZeroLag which is only used when kernel=None
+    assert sorted(KERNELS) == sorted(est.__name__ for est in ESTIMATORS)
+    assert len(set(KERNELS)) == len(KERNELS) == 12
+    assert "ZeroLag" not in KERNELS
+    assert ZeroLag.__name__ in kernel_module.__all__
+    for name in KERNELS:
+        assert name in kernel_module.__all__
+        assert issubclass(getattr(kernel_module, name), CovarianceEstimator)
+
+
+def test_kernel_estimators():
+    # One entry for each canonical name, with distinct normalized names
+    assert len(KERNEL_ESTIMATORS) == len(KERNELS)
+    assert set(KERNEL_ESTIMATORS) == {name.lower() for name in KERNELS}
+    for name in KERNELS:
+        assert KERNEL_ESTIMATORS[name.lower()] is getattr(kernel_module, name)
+    assert ZeroLag not in KERNEL_ESTIMATORS.values()
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("Bartlett", "bartlett"),
+        ("quadratic-spectral", "quadraticspectral"),
+        ("Quadratic_Spectral", "quadraticspectral"),
+        ("TUKEY-hanning", "tukeyhanning"),
+        ("parzen_cauchy", "parzencauchy"),
+    ],
+)
+def test_normalize_kernel_name(name, expected):
+    assert normalize_kernel_name(name) == expected
+
+
+@pytest.mark.parametrize("name", KERNELS)
+def test_get_kernel_estimator(name):
+    estimator = getattr(kernel_module, name)
+    # Class names, lower case, upper case, hyphenated and underscored
+    words = re.sub(r"(?<!^)(?=[A-Z])", "-", name)
+    for variant in (name, name.lower(), name.upper(), words, words.replace("-", "_")):
+        assert get_kernel_estimator(variant) is estimator
+        assert get_kernel_estimator(variant.lower()) is estimator
+
+
+@pytest.mark.parametrize(
+    ("name", "error"),
+    [("unknown", ValueError), ("", ValueError), ("zerolag", ValueError)]
+    + [("ZeroLag", ValueError), ("zero-lag", ValueError), (1, TypeError)],
+)
+def test_get_kernel_estimator_errors(name, error):
+    with pytest.raises(error, match="kernel must be one of") as e:
+        get_kernel_estimator(name)
+    # The message lists every available kernel using lower case names
+    listed = str(e.value).split("; got")[0]
+    for known in KERNELS:
+        assert repr(re.sub(r"(?<!^)(?=[A-Z])", "-", known).lower()) in listed
+    assert listed == listed.lower()
+    # Excluding the value that was received
+    assert "zero" not in listed
+
+
+@pytest.mark.parametrize(
+    ("estimator", "const", "q", "rate"),
+    [
+        (Bartlett, 1.1447, 1, 2 / 9),
+        (Parzen, 2.6614, 2, 4 / 25),
+        (QuadraticSpectral, 1.3221, 2, 2 / 25),
+    ],
+    ids=["Bartlett", "Parzen", "QuadraticSpectral"],
+)
+def test_opt_bandwidth_documented_formula(estimator, const, q, rate):
+    # The constants of Andrews (1991) and the nonparametric estimate of the
+    # scale from Newey and West (1994), as in the docstring of opt_bandwidth
+    rng = np.random.default_rng(0)
+    nobs = 500
+    shocks = rng.standard_normal(nobs)
+    x = np.zeros(nobs)
+    for i in range(1, nobs):
+        x[i] = 0.5 * x[i - 1] + shocks[i]
+    z = x - x.mean()
+    n = int(4 * (nobs / 100) ** rate)
+    sigma = np.array([z[j:] @ z[: nobs - j] / nobs for j in range(n + 1)])
+    lags = np.arange(n + 1)
+    s_0 = sigma[0] + 2 * sigma[1:].sum()
+    s_q = 2 * (lags[1:] ** q * sigma[1:]).sum()
+    expected = const * ((s_q / s_0) ** 2 * nobs) ** (1 / (2 * q + 1))
+    assert_allclose(estimator(x).opt_bandwidth, expected, rtol=1e-10)
+
+
+# sandwich::bwNeweyWest(x, kernel=..., prewhite=FALSE) in R 4.6.1 with sandwich 3.1.3,
+# where x is the data of the fixture minus its mean. Its pilot lag is the integer part
+# of 4 (T/100)^r, as in Newey and West (1994, eq. 2-2).
+SANDWICH_NW_BANDWIDTHS = {
+    (1, "Bartlett"): 8.482469062117,
+    (1, "Parzen"): 15.558350760305,
+    (1, "QuadraticSpectral"): 6.292055048942,
+    (2, "Bartlett"): 11.865684348060,
+    (2, "Parzen"): 16.276954502525,
+    (2, "QuadraticSpectral"): 7.397450850350,
+}
+
+
+@pytest.mark.parametrize("kernel", [Bartlett, Parzen, QuadraticSpectral])
+def test_opt_bandwidth_matches_sandwich(data: ArrayLike, kernel):
+    expected = SANDWICH_NW_BANDWIDTHS[(data.ndim, kernel.__name__)]
+    assert_allclose(kernel(data).opt_bandwidth, expected, rtol=1e-11)

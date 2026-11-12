@@ -5,7 +5,7 @@
 # ------------------------------------------------------
 import dataclasses
 import inspect
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import Enum
 from types import UnionType
 from typing import Any, Generic, Protocol, TypeVar, Union, overload
@@ -86,6 +86,7 @@ class MemoComponentDefinition(MemoDefinition):
     forward_root_props: bool
     root_ref_prop: str | None
     wrapper: Var | None
+    is_instance_boundary: bool
     auto_memo_wrapper: bool
     display_name: str | None
 
@@ -205,6 +206,7 @@ class _MemoBodyAnalysis:
     def can_reuse(self, styled: Component) -> bool: ...
 
 def component_hash(component: Component, *, recursive: bool) -> str: ...
+def memo_body_hooks(definition: MemoComponentDefinition) -> Iterable[str]: ...
 def memo_tag(component: Component) -> str: ...
 
 _PASSTHROUGH_PARAMS = (
@@ -221,7 +223,9 @@ _PASSTHROUGH_PARAMS = (
 )
 
 def create_passthrough_component_memo(
-    component: Component, source_module: str | None = None
+    component: Component,
+    source_module: str | None = None,
+    scope_vars: Sequence[str] = (),
 ) -> tuple[Callable[..., MemoComponent], MemoComponentDefinition]: ...
 def create_component_memo(
     component: Component, name: str

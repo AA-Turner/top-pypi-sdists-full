@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from ..clients.config import business_metadata_model
 from ..errors import TransportError
-from ..models import DatasetInstance
+from ..models import DatasetInstance, normalize_tag_values
 from .base import BaseMetadataRegistry
 
 # apiserver 数字业务码：两者都以 HTTP 404 返回，但语义必须区分开。
@@ -65,7 +65,8 @@ class ApiMetadataRegistry(BaseMetadataRegistry):
     def _q(self, dataset: str, version: str, split: str | None = None,
            instance_id: str | None = None, *,
            environment: str | None = None,
-           metadata_model: str | None = None) -> str:
+           metadata_model: str | None = None,
+           allow_version_first: bool = False) -> str:
         """读路径查询串：与写路径（ingest）对称下发 metadata_model 与 environment。
 
         两个字段都**必须**对称：写路径由 storage_env 派生 environment（dev→pre）写入 pre
@@ -80,7 +81,8 @@ class ApiMetadataRegistry(BaseMetadataRegistry):
         """
         requested_model = (self._metadata_model if metadata_model is None
                            else metadata_model)
-        model = business_metadata_model(requested_model)
+        model = business_metadata_model(
+            requested_model, allow_version_first=allow_version_first)
         env = (self._environment if environment is None else environment).strip()
         base = _q(dataset, version, split, instance_id,
                   keep_default_split=(model == "split_first"))
@@ -119,6 +121,9 @@ class ApiMetadataRegistry(BaseMetadataRegistry):
             body["manifest"] = [m.to_dict() for m in meta.manifest]
         if meta.tags:
             body["tags"] = meta.tags
+        elif meta.tag_values:
+            norm = normalize_tag_values(meta.tag_values)
+            body["tags"] = {k: ",".join(v) for k, v in norm.items() if v}
         if meta.difficulty is not None:
             body["difficulty"] = meta.difficulty
         if meta.docker_image:
@@ -157,9 +162,11 @@ class ApiMetadataRegistry(BaseMetadataRegistry):
         92001。只吞前者：数据集名拼错必须照常报错，否则会被静默当成"没有这个实例"。
         """
         try:
-            data = self._t.get(
-                f"{self._BASE}/detail?"
-                f"{self._q(dataset, version, split, instance_id, environment=environment, metadata_model=metadata_model)}")
+            query = self._q(
+                dataset, version, split, instance_id,
+                environment=environment, metadata_model=metadata_model,
+                allow_version_first=True)
+            data = self._t.get(f"{self._BASE}/detail?{query}")
         except TransportError as e:
             if e.status == 404 and e.biz_code == CODE_INSTANCE_NOT_FOUND:
                 return None

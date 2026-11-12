@@ -24,6 +24,7 @@ import sys
 import time
 import errno
 import base64
+import threading
 import traceback
 import tinytuya
 
@@ -98,6 +99,26 @@ FSCAN_v33_BRUTE_FORCE_ACQUIRE = 6
 FSCAN_v31_PASSIVE_LISTEN = 7
 #FSCAN_ = 8
 FSCAN_FINAL_POLL = 100
+
+# Force-scan finds a v3.4/3.5 device's key by opening a connection and starting a session
+# negotiation with each candidate key.  Repeated failed negotiations were reported to lock
+# devices until power-cycled (#581), so a key that failed at an IP is not tried there again
+# for this many seconds, in this scan or any later one in the same process.
+_FAILED_NEGOTIATION_TTL = 3600
+_failed_negotiations = {}  # (ip, key) -> time of the failed attempt
+_failed_negotiations_lock = threading.Lock()
+
+def _negotiation_failed_recently( ip, key ):
+    with _failed_negotiations_lock:
+        failed_at = _failed_negotiations.get( (ip, key) )
+    return failed_at is not None and time.time() - failed_at < _FAILED_NEGOTIATION_TTL
+
+def _record_failed_negotiation( ip, key ):
+    now = time.time()
+    with _failed_negotiations_lock:
+        for pair in [p for p, t in _failed_negotiations.items() if now - t >= _FAILED_NEGOTIATION_TTL]:
+            del _failed_negotiations[pair]
+        _failed_negotiations[(ip, key)] = now
 
 
 # Logging
@@ -267,9 +288,10 @@ def send_discovery_request( iface_list=None ):
     return iface_list
 
 class KeyObj(object):
-    def __init__( self, gwId, key ):
+    def __init__( self, gwId, key, ip='' ):
         self.gwId = gwId
         self.key = key
+        self.ip = ip  # the devices.json IP saved with this key
         self.key_encoded = key.encode('utf8')
         self.used = False
 
@@ -411,9 +433,10 @@ class DeviceDetect(object):
             print('v3.4/5 trying key', self.ip, self.device.real_local_key)
         step1 = self.device._negotiate_session_key_generate_step_1()
         self.sock.sendall( self.device._encode_message( step1 ) )
-        if self.try_v35_with_v34 and self.device.version == 3.4:
+        if self.try_v35_with_v34 and self.device.version == 3.4 and tinytuya.AESCipher.CRYPTOLIB_HAS_GCM:
+            # (a 3.5 hello needs AES-GCM) same hello (and nonce) in 3.5 framing: a fresh step 1 would replace the nonce
+            # the 3.4 reply is checked against, so a correct key would be rejected
             self.device.version = 3.5
-            step1 = self.device._negotiate_session_key_generate_step_1()
             self.sock.sendall( self.device._encode_message( step1 ) )
             self.device.version = 3.4
         if self.debug:
@@ -440,6 +463,7 @@ class ForceScannedDevice(DeviceDetect):
         self.brute_force_data = []
         self.try_v35_with_v34 = True
         self.v34_connect_ok = False
+        self.second_pass = False    # brute force has moved on to already-used keys
 
         self.connect()
 
@@ -502,12 +526,24 @@ class ForceScannedDevice(DeviceDetect):
                 self.step = FSCAN_v34_BRUTE_FORCE_ACTIVE
                 self.deviceinfo['version'] = 3.4  # Assume 3.4 to start, but don't mark as confirmed
                 # Don't set ver_found = True here - only set it when we get actual response
-                self.keygen = (i for i in self.options['keylist'] if not i.used)
+                self.keygen = self._candidate_keys( include_used=False )
                 self.cur_key = next( self.keygen, None )
+                cooled_down = self.cur_key is None and any(
+                    not k.used and _negotiation_failed_recently( self.ip, k.key ) for k in self.options['keylist'] )
+                if cooled_down:
+                    # every unused key failed here recently: go straight to the already-used keys
+                    self.second_pass = True
+                    self.keygen = self._candidate_keys( include_used=True )
+                    self.cur_key = next( self.keygen, None )
                 if self.debug:
                     print('ForceScannedDevice: Keygen gave:', self.cur_key, self.ip)
                 if self.cur_key is None:
                     self.remove = True
+                    if cooled_down:
+                        self.deviceinfo['version'] = 0.0
+                        self.message = "%s    Polling %s Skipped: every key recently failed negotiation at this IP (likely v3.4 or v3.5)" % (self.options['termcolors'].alertdim, self.ip)
+                        _print_device_info( self.deviceinfo, 'Failed to Force-Scan', self.options['termcolors'], self.message, self.options['verbose'] )
+                        self.displayed = True
                 else:
                     self.connect()
                     self.v34_connect_ok = False
@@ -636,10 +672,10 @@ class ForceScannedDevice(DeviceDetect):
         if msg:
             if self.debug:
                 print(" ForceScannedDevice: Sending Device %s Message %r" % (self.ip,msg))
-            msg = self.device._encode_message( msg )
             try:
-                self.sock.sendall( msg )
+                self.sock.sendall( self.device._encode_message( msg ) )
             except:
+                # queue the payload, not the encoded bytes: write_data() encodes queued payloads
                 self.send_queue.append( msg )
                 self.write = True
                 self.read = False
@@ -697,8 +733,8 @@ class ForceScannedDevice(DeviceDetect):
 
             if msg.cmd == tinytuya.SESS_KEY_NEG_RESP:
                 if not self.v34_negotiate_sess_key_step_2( msg ):
-                    #if self.debug:
-                    print('odata:', odata)
+                    if self.debug:
+                        print('odata:', odata)
                     self.timeout()
                     return
                 self.read = False
@@ -747,7 +783,7 @@ class ForceScannedDevice(DeviceDetect):
                         if self.debug:
                             print( 'Trying brute force!' )
 
-                        self.keygen = (i for i in self.options['keylist'] if not i.used)
+                        self.keygen = self._candidate_keys( include_used=False )
                         self.v3x_brute_force_try_next_key()
                         #self.sock.sendall( self.device._encode_message( self.device.generate_payload(tinytuya.DP_QUERY) ) )
                         #self.step = FSCAN_FINAL_POLL
@@ -841,18 +877,30 @@ class ForceScannedDevice(DeviceDetect):
         self.brute_force_data = []
         return False
 
+    def _candidate_keys( self, include_used ):
+        """Keys to try, the one saved with this IP first.  For v3.4/3.5 (a negotiation per key),
+        keys that recently failed negotiation at this IP are skipped."""
+        negotiates = self.step == FSCAN_v34_BRUTE_FORCE_ACTIVE
+        keys = sorted( self.options['keylist'], key=lambda k: k.ip != self.ip )
+        return (k for k in keys if (include_used or not k.used)
+                and not (negotiates and _negotiation_failed_recently( self.ip, k.key )))
+
     def v3x_brute_force_try_next_key( self ):
+        if self.step == FSCAN_v34_BRUTE_FORCE_ACTIVE and self.cur_key:
+            # the device answered the connection but did not accept this key
+            _record_failed_negotiation( self.ip, self.cur_key.key )
         self.cur_key = next( self.keygen, None )
 
-        if not self.passive:
+        second_pass = self.passive or self.second_pass
+        if not second_pass:
             while self.cur_key and self.cur_key.used:
                 self.cur_key = next( self.keygen, None )
         #if self.debug and self.cur_key:
         #    print( 'ForceScannedDevice: v3.x', self.step, 'brute force got key', self.cur_key.key )
         if self.cur_key is None:
             # Keep trying.  Go through the list again but include "already-used" keys as well
-            if not self.passive:
-                self.keygen = (i for i in self.options['keylist'])
+            if not second_pass:
+                self.keygen = self._candidate_keys( include_used=True )
                 try:
                     self.cur_key = next( self.keygen, None )
                 except:
@@ -879,22 +927,25 @@ class ForceScannedDevice(DeviceDetect):
         if self.debug:
             print('ForceScannedDevice: v3.x brute forced key', self.cur_key.key, 'for', self.ip)
         self.brute_force_data = []
-        self.read = True
-        self.write = False
         self.ver_found = True
         self.deviceinfo['key'] = self.cur_key.key
         self.found_key()
         self.device.local_key = self.device.real_local_key = self.cur_key.key_encoded
-        self.sock.sendall( self.device._encode_message( self.device.generate_payload(tinytuya.DP_QUERY) ) )
+        # queue the poll for write_data(): this also runs from timeout(), outside the scan
+        # loop's socket-error guard, so a direct send to a dropped connection would abort the scan
         self.step = FSCAN_FINAL_POLL
+        self.send_queue.append( self.device.generate_payload(tinytuya.DP_QUERY) )
+        self.read = False
+        self.write = True
         self.message = "%s    Polling %s Failed: No response to poll request" % (self.options['termcolors'].alertdim, self.ip)
         self.timeo = time.time() + 2.0
         self.cur_key.used = True
 
     def found_key( self ):
         for dev in self.options['tuyadevices']:
-            if dev['key'] == self.deviceinfo['key']:
-                self.deviceinfo['name'] = dev['name']
+            # skip malformed devices.json rows, as devices() does when it builds the key list
+            if isinstance(dev, dict) and isinstance(dev.get('id'), str) and dev.get('key') == self.deviceinfo['key']:
+                self.deviceinfo['name'] = dev.get('name') or ''
                 self.deviceinfo['id'] = self.deviceinfo['gwId'] = dev['id']
                 if 'mac' in dev and dev['mac'] and ('mac' not in self.deviceinfo or not self.deviceinfo['mac']):
                     self.deviceinfo['mac'] = dev['mac']
@@ -975,8 +1026,9 @@ class PollDevice(DeviceDetect):
             #deviceslist[ip]["err"] = "Check DEVICE KEY - Invalid response"
             self.deviceinfo["err"] = "No response"
         except:
+            # e.g. the device dropped the connection; timeout() retries or reports "Send Poll failed"
             self.deviceinfo["err"] = "Send Poll failed"
-            print(traceback.format_exc())
+            log.debug("PollDevice: sending the poll to %s failed", self.ip, exc_info=True)
             self.timeout()
 
 
@@ -1014,7 +1066,7 @@ class PollDevice(DeviceDetect):
 
             if msg.cmd == tinytuya.SESS_KEY_NEG_RESP:
                 if not self.v34_negotiate_sess_key_step_2( msg ):
-                    print('odata:', odata)
+                    log.debug('PollDevice: session key negotiation failed for %s, data: %r', self.ip, odata)
                     self.timeout()
                     return
                 self.read = False
@@ -1059,10 +1111,148 @@ class PollDevice(DeviceDetect):
 
 
 
+class ConfiguredDevice(PollDevice):
+    """Poll a devices.json row at its saved IP when the device was not heard over UDP."""
+
+    def __init__( self, ip, deviceinfo, options, debug ):
+        super(ConfiguredDevice, self).__init__( ip, deviceinfo, options, debug )
+        # One attempt: this runs after the UDP window, so a stale row should cost
+        # one connect timeout, not one per retry
+        self.retries = 0
+
+    def close(self):
+        # An open TCP port proves nothing; only a decoded status reply counts
+        self.found = bool( self.finished and self.deviceinfo.get('dps') and not self.deviceinfo.get('err') )
+        DeviceDetect.close(self)
+        # printed by devices() once late broadcasts can no longer replace this result
+
+    def abort(self):
+        # A broadcast from this IP arrived; the normal broadcast poll takes over
+        self.found = False
+        DeviceDetect.close(self)
+
+
+_CONFIGURED_POLL_VERSIONS = (3.1, 3.2, 3.3, 3.4, 3.5)
+
+def _configured_device_info(item):
+    """Return poll info for a devices.json row that can be polled at its saved IP, or None.
+
+    The row needs a string id and local key, an IPv4 ip, and protocol version 3.1-3.5.
+    Sub-devices are skipped because they share their gateway's IP and key.
+    """
+    if not isinstance(item, dict):
+        return None
+    if not all(isinstance(item.get(k), str) and item[k] for k in ('id', 'key')):
+        return None
+    if item.get('sub') or item.get('parent') or item.get('node_id'):
+        return None
+    if not (item.get('ip') and item.get('version')):
+        return None
+    try:
+        ip = ipaddress.ip_address(str(item['ip']))
+        version = float(item['version'])
+    except (TypeError, ValueError):
+        return None
+    if ip.version != 4 or ip.is_unspecified or ip.is_multicast:
+        return None
+    if version not in _CONFIGURED_POLL_VERSIONS:
+        log.debug("Skipping configured device %s at %s: unsupported protocol version %s", item['id'], ip, version)
+        return None
+    deviceinfo = dict(item)
+    deviceinfo['ip'] = str(ip)
+    deviceinfo['version'] = str(version)
+    deviceinfo['gwId'] = item['id']
+    deviceinfo['productKey'] = item.get('productKey') or item.get('product_id') or ''
+    deviceinfo['mac'] = item.get('mac') or ''
+    deviceinfo['name'] = item.get('name') or ''
+    return deviceinfo
+
+def _configured_candidates(tuyadevices, heard_ips, heard_ids, skip_ips=()):
+    """Return {ip: deviceinfo} for devices.json rows to poll at their saved IP.
+
+    Rows already heard (by IP or ID) and rows whose IP is in skip_ips are left out.
+    When several rows share an IP or ID, the first one wins.
+    """
+    candidates = {}
+    ids = set()
+    for item in tuyadevices:
+        info = _configured_device_info(item)
+        if not info:
+            continue
+        ip, gwid = info['ip'], info['gwId']
+        if ip in heard_ips or ip in skip_ips or ip in candidates or gwid in heard_ids or gwid in ids:
+            continue
+        candidates[ip] = info
+        ids.add(gwid)
+    return candidates
+
+
+class _ConfiguredPass(object):
+    """The configured-IP pass, kept out of devices()'s main loop (DESIGN.md: scanner debt).
+
+    plan() picks the devices.json rows to poll once the UDP window has closed, start() opens
+    one poll unless a late broadcast already announced that device, and merge() adds the
+    found results after the scan, letting a broadcast for the same IP or ID win.
+    """
+
+    def __init__( self, enabled, tuyadevices, options, debug_ips ):
+        self.waiting = enabled      # until plan() runs
+        self.tuyadevices = tuyadevices
+        self.options = options
+        self.debug_ips = debug_ips
+        self.pending = {}           # ip -> deviceinfo
+        self.devices = {}           # ip -> ConfiguredDevice
+        self.found = []
+        self.missed = []
+
+    def plan( self, broadcasted_devices, scanned_devices, wantips ):
+        """Return the IPs to poll: rows not heard by broadcast or force-scan (wanted IPs are left to the force-scan)."""
+        self.waiting = False
+        heard_ids = {dev.deviceinfo['gwId'] for dev in broadcasted_devices.values()}
+        heard_ids.update(dev.deviceinfo['gwId'] for dev in scanned_devices.values() if dev.found)
+        self.pending = _configured_candidates(
+            self.tuyadevices, set(broadcasted_devices) | set(scanned_devices), heard_ids, wantips or () )
+        return list(self.pending)
+
+    def start( self, ip, broadcasted_devices ):
+        """Open the poll for a pending IP, or return None if a late broadcast announced that ID at another IP."""
+        gwid = self.pending[ip]['gwId']
+        if any( dev.deviceinfo.get('gwId') == gwid for dev in broadcasted_devices.values() ):
+            return None
+        dev = self.devices[ip] = ConfiguredDevice( ip, self.pending[ip], self.options, ip in self.debug_ips )
+        dev.connect()
+        return dev
+
+    def merge( self, broadcasted_devices, maxdevices, wantids ):
+        """Move found results into broadcasted_devices (a broadcast for the same IP or ID wins) and print them."""
+        heard_ids = {dev.deviceinfo['gwId'] for dev in broadcasted_devices.values()}
+        for ip, dev in self.devices.items():
+            if ip not in broadcasted_devices and dev.deviceinfo['gwId'] not in heard_ids:
+                (self.found if dev.found else self.missed).append(dev)
+        if maxdevices:
+            self.found = self.found[:maxdevices]
+        for dev in self.found:
+            broadcasted_devices[dev.ip] = dev
+            if wantids and dev.deviceinfo['gwId'] in wantids:
+                wantids.remove( dev.deviceinfo['gwId'] )
+            if self.options['verbose']:
+                _print_device_info( dev.deviceinfo, 'Configured IP', self.options['termcolors'], dev.message )
+                dev.displayed = True
+
+def _handle_socket_event( dev, handler ):
+    """Run a device's write_data()/read_data(). A socket error (e.g. the device dropped the
+    connection mid-send) times out that device instead of aborting the whole scan."""
+    try:
+        handler()
+    except OSError:
+        log.debug("Socket error from %s, treating it as a timeout", dev.ip, exc_info=True)
+        dev.timeout()
+
+
 # Scan function shortcut
-def scan(scantime=None, color=True, forcescan=False, discover=True, assume_yes=False):
+def scan(scantime=None, color=True, forcescan=False, discover=True, assume_yes=False, poll_configured=False):
     """Scans your network for Tuya devices with output to stdout"""
-    devices(verbose=True, scantime=scantime, color=color, poll=True, forcescan=forcescan, discover=discover, assume_yes=assume_yes)
+    devices(verbose=True, scantime=scantime, color=color, poll=True, forcescan=forcescan, discover=discover, assume_yes=assume_yes, poll_configured=poll_configured)
 
 def _generate_ip(networks, verbose, term):
     for netblock in networks:
@@ -1130,7 +1320,7 @@ def _print_device_info( result, note, term, extra_message=None, verbose=True ):
 # Scan function
 def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False, byID=False, show_timer=None, 
             discover=True, wantips=None, wantids=None, snapshot=None, assume_yes=False, tuyadevices=None,
-            maxdevices=0): # pylint: disable=W0621
+            maxdevices=0, poll_configured=False): # pylint: disable=W0621
     """Scans your network for Tuya devices and returns dictionary of devices discovered
         devices = tinytuya.deviceScan(verbose)
 
@@ -1149,6 +1339,8 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
         assume_yes = True or False, do not prompt to confirm auto-detected network ranges
         tuyadevices = contents of devices.json, to prevent re-loading it if we already have it
         maxdevices = Stop scanning after this many devices are found.  0 for no limit
+        poll_configured = True or False [Default: False], after the UDP window also poll devices.json
+                          rows that were not heard, at their saved IP (requires poll=True)
 
     Response:
         devices = Dictionary of all devices found
@@ -1174,8 +1366,9 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
     # Lookup Tuya device info by (id) returning (name, key)
     def tuyaLookup(deviceid):
         for i in tuyadevices:
-            if "id" in i and i["id"] == deviceid:
-                return (i["name"], i["key"], i["mac"] if "mac" in i else "")
+            if isinstance(i, dict) and i.get("id") == deviceid:
+                key = i.get("key")
+                return (i.get("name") or "", key if isinstance(key, str) else "", i.get("mac") or "")
         return ("", "", "")
 
     havekeys = False
@@ -1292,7 +1485,11 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
     }
 
     for i in tuyadevices:
-        options['keylist'].append( KeyObj( i['id'], i['key'] ) )
+        # skip malformed devices.json rows instead of crashing the scan
+        if isinstance(i, dict) and isinstance(i.get('id'), str) and isinstance(i.get('key'), str):
+            options['keylist'].append( KeyObj( i['id'], i['key'], i.get('ip') or '' ) )
+
+    configured = _ConfiguredPass( bool(poll and poll_configured), tuyadevices, options, debug_ips )
 
     wantips = [] if not wantips else list(wantips) #['192.168.1.3']
     wantids = [] if not wantids else list(wantids) #['abcdef']
@@ -1368,7 +1565,8 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
         addr = client_bcast_addrs[bcast]
         client_ip_broadcast_list[addr] = { 'broadcast': bcast }
 
-    while ip_scan_running or scan_end_time > time.time() or device_end_time > time.time() or connect_next_round:
+    while ip_scan_running or scan_end_time > time.time() or device_end_time > time.time() or connect_next_round or \
+            (configured.waiting and not user_break_count and not ip_force_wants_end):
         if client:
             read_socks = [client, clients, clientapp]
         else:
@@ -1458,6 +1656,12 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
                         else:
                             if current_ip in broadcasted_devices:
                                 continue
+                            elif current_ip in configured.pending:
+                                dev = configured.start( current_ip, broadcasted_devices )
+                                if dev:
+                                    devicelist.append( dev )
+                                    check_end_time = time.time() + connect_timeout
+                                    if check_end_time > device_end_time: device_end_time = check_end_time
                             elif current_ip in snapshot and snapshot[current_ip]['version'] and snapshot[current_ip]['gwId']:
                                 ip = current_ip
                                 broadcasted_devices[ip] = PollDevice( ip, snapshot[current_ip], options, ip in debug_ips )
@@ -1494,6 +1698,7 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
             log.debug('Keyboard Interrupt')
             if verbose: print("\n**User Break**")
             user_break_count += 1
+            rd = wr = [] # nothing from this pass is ready
 
             if user_break_count == 1:
                 ip_scan_running = False
@@ -1508,15 +1713,15 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
         # these sockets are now writable (just connected) or failed
         for sock in wr:
             if sock in all_socks:
-                all_socks[sock].write_data()
+                _handle_socket_event( all_socks[sock], all_socks[sock].write_data )
 
         # these sockets are now have data waiting to be read
         for sock in rd:
             # this sock is not a UDP listener
             if sock is not client and sock is not clients and sock is not clientapp:
-                # may not exist if user-interrupted
-                if sock in all_socks:
-                    all_socks[sock].read_data()
+                # may not exist if user-interrupted; skip if the device reconnected while handling its write event
+                if sock in all_socks and all_socks[sock].sock is sock:
+                    _handle_socket_event( all_socks[sock], all_socks[sock].read_data )
                 continue
 
             # if we are here then it is from a UDP listener
@@ -1633,7 +1838,7 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
                 for dev in devicelist:
                     if dev.ip == ip:
                         if verbose:
-                            print('Aborting force-scan for device', ip, 'due to received broadcast')
+                            print('Aborting %s for device' % ('configured-IP poll' if isinstance(dev, ConfiguredDevice) else 'force-scan'), ip, 'due to received broadcast')
                         dev.abort()
                         break
 
@@ -1642,6 +1847,18 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
             devicelist.append( broadcasted_devices[ip] )
             check_end_time = time.time() + connect_timeout
             if check_end_time > device_end_time: device_end_time = check_end_time
+
+        # After the UDP window and its polls finish, poll devices.json rows that were not heard.
+        # Wanted IPs are left to the force-scan below.
+        if configured.waiting and (not ip_scan_running) and (not ip_force_wants_end) and \
+                scan_end_time <= time.time() and device_end_time <= time.time() and not user_break_count:
+            configured_ips = configured.plan( broadcasted_devices, scanned_devices, wantips )
+            if configured_ips:
+                if verbose:
+                    print( "%sPolling %d devices.json IPs not heard by broadcast (skip with -no-poll-configured)...%s" %
+                           (term.dim, len(configured_ips), term.normal) )
+                scan_ips = iter(configured_ips)
+                ip_scan_running = True
 
         if (not ip_scan_running) and wantips and scan_end_time <= time.time() and device_end_time <= time.time() and not user_break_count:
             if verbose:
@@ -1686,6 +1903,9 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
         if 'socket' in iface:
             iface['socket'].close()
             del iface['socket']
+
+    # Configured-IP results join the broadcast results now that late broadcasts are settled
+    configured.merge( broadcasted_devices, maxdevices, wantids )
 
     if verbose:
         print( 'Scan completed in', round( time.time() - start_time, 4 ), 'seconds' )
@@ -1738,7 +1958,13 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
             "                    \n%sScan Complete!  Found %s devices."
             % (term.normal, found_count)
         )
-        print( 'Broadcasted:', len(broadcasted_devices) )
+        print( 'Broadcasted:', len(broadcasted_devices) - len(configured.found) )
+        if configured.devices:
+            print( 'Configured IPs: %d found, %d not found' % (len(configured.found), len(configured.missed)) )
+            if configured.missed:
+                missed = ', '.join( '%s (%s: %s)' % (dev.deviceinfo['name'] or dev.deviceinfo['gwId'], dev.ip,
+                                                    dev.deviceinfo.get('err') or 'No response') for dev in configured.missed )
+                print( '%s    Not found at saved IP (offline, moved, or key or version changed): %s%s' % (term.alertdim, missed, term.normal) )
         if ip_scan:
             key_found = gwid_found = err_found = invalid = unmatched = 0
             for ip in scanned_devices:
@@ -1782,7 +2008,7 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
     for ip in broadcasted_devices:
         dev = broadcasted_devices[ip].deviceinfo
         dev['ip'] = ip
-        dev['origin'] = 'broadcast'
+        dev['origin'] = 'configured' if isinstance(broadcasted_devices[ip], ConfiguredDevice) else 'broadcast'
         dkey = dev[k]
         devices[dkey] = dev
 
@@ -1799,6 +2025,8 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
         devicesarray = list(devices.values())
         # Add devices from devices.json even if they didn't poll
         for item in tuyadevices:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"]:
+                continue
             k = item["id"]
             if not any(d['gwId'] == k for d in devicesarray):
                 # operate on a shallow copy so we do not mutate the caller's dict
@@ -1811,6 +2039,10 @@ def devices(verbose=False, scantime=None, color=True, poll=True, forcescan=False
 
     log.debug("Scan complete with %s devices found", found_count)
     return devices
+
+def _row_name( row ):
+    """Sort key for devices.json rows; malformed rows sort first instead of raising."""
+    return (row.get('name') or '') if isinstance(row, dict) else ''
 
 def _get_gwid( old ):
     if 'gwId' in old and old['gwId']:
@@ -1833,7 +2065,18 @@ def _build_item( old, new ):
             item[itm] = items[itm]
     return item
 
-def _display_status( item, dps, term ):
+def _stale_ip_note( row, item, found_at ):
+    """For a device not found: name the other device the scan found at its saved IP, if any.
+    Sub-devices are skipped because they share their gateway's IP."""
+    if row.get('sub') or row.get('parent') or row.get('node_id') or not item['ip']:
+        return ''
+    other = found_at.get( item['ip'] )
+    # an unidentified force-scan result (no gwId) may be this same device with a wrong key
+    if not other or not other.get('gwId') or other['gwId'] == item['gwId']:
+        return ''
+    return ' - saved IP now used by %s (rescan or update its IP)' % (other.get('name') or other.get('gwId'))
+
+def _display_status( item, dps, term, note='' ):
     name = item['name']
     if name == "":
         name = item['gwId']
@@ -1842,8 +2085,8 @@ def _display_status( item, dps, term ):
         print("    %s[%-25.25s] %sNo IP found - Battery-powered or offline%s" %
               (term.subbold, name, term.alertdim, term.normal))
     elif not dps:
-        print("    %s[%-25.25s] %s%-18s - %sNo Response" %
-              (term.subbold, name, term.dim, ip, term.alert))
+        print("    %s[%-25.25s] %s%-18s - %sNo Response%s" %
+              (term.subbold, name, term.dim, ip, term.alert, note))
     else:
         if '1' in dps or '20' in dps:
             state = term.alertdim + "[Off]" + term.dim
@@ -2003,11 +2246,12 @@ def snapshot(color=True, assume_yes=False, skip_poll=None):
 
 
 # Scan All Devices in devices.json
-def alldevices(color=True, scantime=None, forcescan=False, discover=True, assume_yes=False, skip_poll=None):
+def alldevices(color=True, scantime=None, forcescan=False, discover=True, assume_yes=False, skip_poll=None, poll_configured=False):
     """Uses devices.json to scan devices
 
     Parameters:
         color = True or False, print output in color [Default: True]
+        poll_configured = True or False [Default: False], also poll devices.json rows not heard over UDP at their saved IP
     """
     # Terminal formatting
     color = color and HAVE_COLOR
@@ -2029,7 +2273,7 @@ def alldevices(color=True, scantime=None, forcescan=False, discover=True, assume
 
     # Display device list
     print("\n\n" + term.bold + "Device Listing\n" + term.dim)
-    output = json.dumps(sorted(tuyadevices,key=lambda x: x['name']), indent=4)
+    output = json.dumps(sorted(tuyadevices, key=_row_name), indent=4)
     print(output)
 
     # Find out if we should poll all devices
@@ -2040,27 +2284,29 @@ def alldevices(color=True, scantime=None, forcescan=False, discover=True, assume
     else:
         answer = input(term.subbold + '\nPoll local devices? ' + term.normal + '(Y/n): ')
     if answer.lower().find('n') < 0:
-        poll_and_display( tuyadevices, color=color, scantime=scantime, snapshot=True, forcescan=forcescan, discover=discover )
+        poll_and_display( tuyadevices, color=color, scantime=scantime, snapshot=True, forcescan=forcescan, discover=discover, poll_configured=poll_configured )
 
     print("%s\nDone.\n" % term.dim)
     return
 
-def poll_and_display( tuyadevices, color=True, scantime=None, snapshot=False, forcescan=False, discover=True ): # pylint: disable=W0621
+def poll_and_display( tuyadevices, color=True, scantime=None, snapshot=False, forcescan=False, discover=True, poll_configured=False ): # pylint: disable=W0621
     color = color and HAVE_COLOR
     termcolors = tinytuya.termcolor(color)
     term = TermColors( *termcolors )
 
-    by_id = [x['id'] for x in tuyadevices]
+    # the scan copes with malformed devices.json rows itself; the listing below needs an id
+    rows = [x for x in tuyadevices if isinstance(x, dict) and isinstance(x.get('id'), str) and x['id']]
+    by_id = [x['id'] for x in rows]
     # Scan network for devices and provide polling data
     print(term.normal + "\nScanning local network for Tuya devices...")
-    result = devices(verbose=False, poll=True, byID=True, scantime=scantime, wantids=by_id, show_timer=True, forcescan=forcescan, tuyadevices=tuyadevices, discover=discover)
+    result = devices(verbose=False, poll=True, byID=True, scantime=scantime, wantids=by_id, show_timer=True, forcescan=forcescan, tuyadevices=tuyadevices, discover=discover, poll_configured=poll_configured)
     print("    %s%s local devices discovered%s" % (term.dim, len(result), term.normal))
     print("")
 
     polling = []
     print("Polling local devices...")
-    # devices = sorted(data["devices"], key=lambda x: x['name'])
-    for idx in sorted(tuyadevices, key=lambda x: x['name']):
+    found_at = {dev['ip']: dev for dev in result.values() if dev.get('ip')}
+    for idx in sorted(rows, key=_row_name):
         gwId = _get_gwid( idx )
         if gwId and gwId in result:
             item = _build_item( idx, result[gwId] )
@@ -2070,7 +2316,7 @@ def poll_and_display( tuyadevices, color=True, scantime=None, snapshot=False, fo
                 _display_status( item, None, term )
         else:
             item = _build_item( idx, None )
-            _display_status( item, None, term )
+            _display_status( item, None, term, _stale_ip_note( idx, item, found_at ) )
         polling.append(item)
     # for loop
 

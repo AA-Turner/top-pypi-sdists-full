@@ -3,14 +3,14 @@ from __future__ import annotations  # noqa: I001
 import queue
 import time
 import unittest
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, ClassVar, NoReturn
 from warnings import catch_warnings, filterwarnings
 
 import hypothesis
 import requests
 from hypothesis import reject
 from hypothesis.control import current_build_context
-from hypothesis.errors import Flaky, HypothesisWarning, Unsatisfiable, UnsatisfiedAssumption
+from hypothesis.errors import Flaky, HypothesisWarning, InvalidDefinition, Unsatisfiable, UnsatisfiedAssumption
 from hypothesis.stateful import Rule
 
 from schemathesis.checks import CheckContext, CheckFunction, validate
@@ -35,7 +35,8 @@ from schemathesis.engine.errors import (
 )
 from schemathesis.engine.run import PhaseName
 from schemathesis.engine.control import BudgetExpired
-from schemathesis.engine.run.unit._case import ServerWentAway
+from schemathesis.engine.run.unit._case import ServerWentAway, detect_outage
+from schemathesis.engine.run.unit._errors import translate_iteration_exception
 from schemathesis.engine._baseline import is_known
 from schemathesis.engine._rate_limit_retry import (
     TRANSPORT_ERRORS,
@@ -47,6 +48,7 @@ from schemathesis.engine._rate_limit_retry import (
 from schemathesis.engine.run.stateful.context import StatefulContext
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import overrides
+from schemathesis.generation.stateful.control import UnbuildableOperationFound
 from schemathesis.generation.stateful.state_machine import release_state_machines
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis.reporting import UnsatisfiableSchema, ignore_hypothesis_output
@@ -62,9 +64,12 @@ from schemathesis.generation.metrics import MetricCollector
 from schemathesis.resources import record_delete_attempt, record_interaction
 
 if TYPE_CHECKING:
+    import uuid
+
     from schemathesis.baseline import Baseline
     from schemathesis.core.error_feedback.store import Observation
     from schemathesis.resources import ResourceRecorder
+    from schemathesis.schemas import APIOperation
 
 
 def _replay_recorders_into_pool(extra_data_source: ResourceRecorder, recorders: list[ScenarioRecorder]) -> None:
@@ -168,6 +173,9 @@ def _classify_suite_error(
         # The clock ended the suite. A failure found before it surfaces as its own group, so there is
         # nothing left to report here; the engine reports the limit itself.
         return Status.SUCCESS, False, []
+    if isinstance(exc, UnbuildableOperationFound):
+        # A fresh suite never schedules the operation; it is reported when this suite finishes
+        return Status.ERROR, True, []
     if isinstance(exc, ServerWentAway):
         return _network_error_outcome(state) or (Status.FAILURE if ctx.seen_in_suite else Status.SUCCESS, False, [])
     if isinstance(exc, KeyboardInterrupt):
@@ -188,6 +196,9 @@ def _classify_suite_error(
             return Status.ERROR, False, [_stateful_error(error) for error in _distinct_errors(auth_errors)]
     if isinstance(exc, Flaky) or is_inconsistent_replay(exc):
         return _classify_flaky(ctx=ctx, engine=engine, state=state)
+    if isinstance(exc, InvalidDefinition) and ctx.unbuildable_operations:
+        # No rule can run once operations without generatable data are left out; each one is reported on its own
+        return Status.ERROR, False, []
     if isinstance(exc, Unsatisfiable) and not isinstance(exc, UnsatisfiableSchema) and ctx.completed_scenarios > 0:
         # Sometimes Hypothesis randomly gives up on generating some complex cases. However, if we know that
         # values are possible to generate based on the previous observations, we retry the generation,
@@ -206,6 +217,23 @@ def _stateful_error(exc: Exception) -> events.NonFatalError:
         related_to_operation=False,
         code_sample=None,
     )
+
+
+def _unbuildable_operation_error(
+    operation: APIOperation, error: Exception, *, state: TestingState
+) -> events.NonFatalError:
+    """Report an operation whose data cannot be generated under its own label, as the unit phases do."""
+
+    def non_fatal_error(error: Exception, code_sample: str | None = None) -> events.NonFatalError:
+        return events.NonFatalError(
+            error=error,
+            phase=PhaseName.STATEFUL_TESTING,
+            label=operation.label,
+            related_to_operation=True,
+            code_sample=code_sample,
+        )
+
+    return translate_iteration_exception(error, operation=operation, state=state, non_fatal_error=non_fatal_error)
 
 
 def _distinct_errors(group: BaseExceptionGroup) -> list[Exception]:
@@ -302,17 +330,6 @@ def _send_step(
         machine.recorder,
         case.id,
     )
-
-
-def _detect_outage(exc: Exception, case: Case, engine: EngineContext, recorder: ScenarioRecorder) -> bool:
-    """Whether the server went away; an error that only hit the already dead server stops the scenario at once."""
-    outage = isinstance(exc, requests.ConnectionError) and engine.detect_server_outage(exc)
-    if outage and engine.server.is_after_outage(exc):
-        # A check's own request may be the refused one; the step itself was answered then.
-        if recorder.find_response(case_id=case.id) is None:
-            recorder.forget_case(case_id=case.id)
-        raise ServerWentAway from None
-    return outage
 
 
 def _absorb_transport_failure(
@@ -441,6 +458,22 @@ def _begin_suite(engine: EngineContext, suite_recorders: list[ScenarioRecorder])
         engine.error_feedback.checkpoint()
 
 
+def _hold_suite_recorder(
+    engine: EngineContext, suite_recorders: list[ScenarioRecorder], recorder: ScenarioRecorder
+) -> None:
+    """Keep the scenario's recorder until the suite ends, when its interactions feed the pool."""
+    if engine.extra_data_source is not None:
+        suite_recorders.append(recorder)
+
+
+def _report_unbuildable_operations(ctx: StatefulContext, state: TestingState, event_queue: queue.Queue) -> bool:
+    """Report operations left out since the last report; `True` when there were any."""
+    unreported = ctx.take_unreported_unbuildable()
+    for operation, error in unreported:
+        event_queue.put(_unbuildable_operation_error(operation, error, state=state))
+    return bool(unreported)
+
+
 def _drain_suite_recorders(engine: EngineContext, suite_recorders: list[ScenarioRecorder]) -> None:
     """Feed the suite's recorders into the pool before the next suite builds its strategies."""
     if engine.extra_data_source is not None and suite_recorders:
@@ -504,7 +537,7 @@ def _run_step(
         ctx.current_step_status = Status.FAILURE
         raise
     except Exception as exc:
-        outage = _detect_outage(exc, case, engine, machine.recorder)
+        outage = detect_outage(exc, case, engine, machine.recorder)
         if isinstance(exc, TRANSPORT_ERRORS):
             machine.recorder.record_network_error(case_id=case.id, error=exc)
         _record_network_error(exc, case=case, engine=engine, ctx=ctx, state=state, event_queue=event_queue)
@@ -524,29 +557,24 @@ def _run_step(
     return result
 
 
-def execute_state_machine_loop(
-    *,
+def instrument(
     state_machine: type[APIStateMachine],
-    event_queue: queue.Queue,
+    *,
     engine: EngineContext,
-) -> None:
-    """Execute the state machine testing loop."""
-    configured_hypothesis_settings = engine.config.get_hypothesis_settings(phase="stateful", apply_ci_profile=False)
-    kwargs = _get_hypothesis_settings_kwargs_override(configured_hypothesis_settings)
-    hypothesis_settings = hypothesis.settings(configured_hypothesis_settings, **kwargs)
-    generation = engine.config.generation_for(phase="stateful")
-
-    ctx = StatefulContext(metric_collector=MetricCollector(metrics=generation.maximize))
-    state = TestingState()
-
+    ctx: StatefulContext,
+    state: TestingState,
+    event_queue: queue.Queue,
+    suite_recorders: list[ScenarioRecorder],
+) -> type[APIStateMachine]:
+    """Subclass the state machine so its scenarios emit events and feed the engine."""
+    unique_inputs = engine.config.generation_for(phase="stateful").unique_inputs
     check_context_cache = CheckContextCache()
-    # Recorders from every scenario in the current suite. The pool stays frozen during the
-    # suite (so Hypothesis shrinking sees a stable strategy); writes are replayed once the
-    # suite finishes, before the next iteration's strategies are built.
-    suite_recorders: list[ScenarioRecorder] = []
 
     class _InstrumentedStateMachine(state_machine):  # type: ignore[valid-type,misc]
         """State machine with additional hooks for emitting events."""
+
+        # The suite that scenarios report to; the suite loop sets it before every run.
+        suite_id: ClassVar[uuid.UUID]
 
         def __init__(self) -> None:
             super().__init__()
@@ -556,10 +584,14 @@ def execute_state_machine_loop(
             # phases) are filtered out of rule preconditions before Hypothesis selects
             # them.
             self.control.supervisor = engine.supervisor
+            # Operations whose data cannot be generated stay out of every later scenario and are reported once
+            self.control.unbuildable = ctx.unbuildable_operations
 
         def setup(self) -> None:
             self._current_input: StepInput | None = None
-            scenario_started = events.ScenarioStarted(label=None, phase=PhaseName.STATEFUL_TESTING, suite_id=suite_id)
+            scenario_started = events.ScenarioStarted(
+                label=None, phase=PhaseName.STATEFUL_TESTING, suite_id=self.suite_id
+            )
             self._started_at = Instant()
             self._scenario_id = scenario_started.id
             event_queue.put(scenario_started)
@@ -585,7 +617,7 @@ def execute_state_machine_loop(
                 ctx=ctx,
                 state=state,
                 event_queue=event_queue,
-                unique_inputs=generation.unique_inputs,
+                unique_inputs=unique_inputs,
             )
 
         def validate_response(
@@ -609,7 +641,7 @@ def execute_state_machine_loop(
             event_queue.put(
                 events.ScenarioFinished(
                     id=self._scenario_id,
-                    suite_id=suite_id,
+                    suite_id=self.suite_id,
                     phase=PhaseName.STATEFUL_TESTING,
                     label=None,
                     status=ctx.current_step_status or Status.SKIP,
@@ -619,11 +651,58 @@ def execute_state_machine_loop(
                     is_final=build_ctx.is_final,
                 )
             )
-            if engine.extra_data_source is not None:
-                suite_recorders.append(self.recorder)
+            _hold_suite_recorder(engine, suite_recorders, self.recorder)
             ctx.metric_collector.maximize()
             ctx.reset_scenario()
             super().teardown()
+
+    return _InstrumentedStateMachine
+
+
+def _run_suite(
+    machine: type[APIStateMachine],
+    *,
+    seed: int | None,
+    rule_order_seed: int,
+    settings: hypothesis.settings,
+    engine: EngineContext,
+    ctx: StatefulContext,
+    state: TestingState,
+) -> SuiteOutcome:
+    """Run one suite of scenarios and return its status, whether to re-run it, and the events to emit."""
+    seeded = hypothesis.seed(seed)(machine)
+    seeded.rule_order_seed = rule_order_seed
+    try:
+        with catch_warnings(), ignore_hypothesis_output():
+            filterwarnings("ignore", category=HypothesisWarning, message="Generating overly large repr")
+            seeded.run(settings=settings)
+    except (Exception, KeyboardInterrupt, FailureGroup, SkipTest) as exc:
+        return _classify_suite_error(exc, ctx=ctx, engine=engine, state=state, settings=settings)
+    return Status.SUCCESS, False, []
+
+
+def execute_state_machine_loop(
+    *,
+    state_machine: type[APIStateMachine],
+    event_queue: queue.Queue,
+    engine: EngineContext,
+) -> None:
+    """Execute the state machine testing loop."""
+    configured_hypothesis_settings = engine.config.get_hypothesis_settings(phase="stateful", apply_ci_profile=False)
+    kwargs = _get_hypothesis_settings_kwargs_override(configured_hypothesis_settings)
+    hypothesis_settings = hypothesis.settings(configured_hypothesis_settings, **kwargs)
+    generation = engine.config.generation_for(phase="stateful")
+
+    ctx = StatefulContext(metric_collector=MetricCollector(metrics=generation.maximize))
+    state = TestingState()
+
+    # Recorders from every scenario in the current suite. The pool stays frozen during the
+    # suite (so Hypothesis shrinking sees a stable strategy); writes are replayed once the
+    # suite finishes, before the next iteration's strategies are built.
+    suite_recorders: list[ScenarioRecorder] = []
+    instrumented = instrument(
+        state_machine, engine=engine, ctx=ctx, state=state, event_queue=event_queue, suite_recorders=suite_recorders
+    )
 
     suites_started = 0
     try:
@@ -631,28 +710,30 @@ def execute_state_machine_loop(
             # This loop is running until no new failures are found in a single iteration
             _begin_suite(engine, suite_recorders)
             suite_started = events.SuiteStarted(phase=PhaseName.STATEFUL_TESTING)
-            suite_id = suite_started.id
+            instrumented.suite_id = suite_started.id
             event_queue.put(suite_started)
             if _close_suite_early(engine, event_queue, suite_started):
                 break
             suite_status = Status.SUCCESS
-            retry = False
             seed = _suite_seed(engine, hypothesis_settings)
-            InstrumentedStateMachine = hypothesis.seed(seed)(_InstrumentedStateMachine)
             # Each suite opens with Hypothesis's simplest scenarios; a per-suite rule order varies their first step.
-            InstrumentedStateMachine.rule_order_seed = seed if seed is not None else suites_started
+            rule_order_seed = seed if seed is not None else suites_started
             suites_started += 1
             try:
-                with catch_warnings(), ignore_hypothesis_output():
-                    filterwarnings("ignore", category=HypothesisWarning, message="Generating overly large repr")
-                    InstrumentedStateMachine.run(settings=hypothesis_settings)
-            except (Exception, KeyboardInterrupt, FailureGroup, SkipTest) as exc:
-                suite_status, retry, error_events = _classify_suite_error(
-                    exc, ctx=ctx, engine=engine, state=state, settings=hypothesis_settings
+                suite_status, retry, error_events = _run_suite(
+                    instrumented,
+                    seed=seed,
+                    rule_order_seed=rule_order_seed,
+                    settings=hypothesis_settings,
+                    engine=engine,
+                    ctx=ctx,
+                    state=state,
                 )
                 for error_event in error_events:
                     event_queue.put(error_event)
             finally:
+                if _report_unbuildable_operations(ctx, state, event_queue):
+                    suite_status = Status.ERROR
                 _drain_suite_recorders(engine, suite_recorders)
                 event_queue.put(
                     events.SuiteFinished(
@@ -670,7 +751,7 @@ def execute_state_machine_loop(
 
     finally:
         # Each cycle builds new classes; Hypothesis would otherwise keep every finished one alive.
-        release_state_machines(_InstrumentedStateMachine, state_machine)
+        release_state_machines(instrumented, state_machine)
 
 
 def validate_response(

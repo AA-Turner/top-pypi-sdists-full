@@ -65,6 +65,7 @@ class Function(
     _base_function: typing.Optional[Function]
     _app_id: typing.Optional[str]
     _function_info: typing.Optional[modal.types.FunctionInfo]
+    _is_observability_only: bool
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -150,6 +151,7 @@ class Function(
         experimental_options: typing.Optional[dict[str, str]] = None,
         restrict_output: bool = False,
         http_config: typing.Optional[modal_proto.api_pb2.HTTPConfig] = None,
+        include_client_mounts: bool = True,
     ) -> Function:
         """mdmd:hidden
 
@@ -319,6 +321,11 @@ class Function(
         object with metadata from Modal servers until the first
         time it is actually used.
 
+        If the ID belongs to a Cls, the Function only supports the following APIs:
+        `.logs`, `.metrics`, `.info()`, `.stats()`, `.get_current_stats()`,
+        `.get_web_url()`, `.autoscaler` and `.update_autoscaler()`. Use `modal.Cls.from_name(...)`
+        to invoke all other methods.
+
         Args:
             function_id: ID of the function.
             client: Modal client to use; defaults to `Client.from_env()` when omitted.
@@ -428,6 +435,7 @@ class Function(
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self): ...
     def _check_no_web_url(self, fn_name: str): ...
+    def _check_not_observability_only(self): ...
 
     class __get_web_url_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[str]:

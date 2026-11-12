@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: docker-squash
-Version: 1.2.2
+Version: 1.3.0
 Summary: Docker layer squashing tool
 Home-page: https://github.com/goldmann/docker-squash
-Download-URL: https://github.com/goldmann/docker-squash/archive/1.2.2.tar.gz
+Download-URL: https://github.com/goldmann/docker-squash/archive/1.3.0.tar.gz
 Author: Marek Goldmann
 Author-email: marek.goldmann@gmail.com
 License: MIT
@@ -11,6 +11,16 @@ Keywords: docker
 License-File: LICENSE
 Requires-Dist: docker
 Requires-Dist: packaging
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ``docker-squash``
 ==================
@@ -55,7 +65,7 @@ From PyPi
 
     $ pip install docker-squash
 
-It is supported on Python 3.6 and above.
+It is supported on Python 3.7 and above.
 
 Usage
 -----

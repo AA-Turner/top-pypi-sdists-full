@@ -5,6 +5,11 @@ import threading
 from typing import Any, Dict, FrozenSet, Optional
 
 
+# These rules (names included) and the ``<REDACTED_...>`` placeholders differ
+# from the shared rules every other Raindrop SDK uses (SDK contract section
+# 11). They stay for now because users rely on them; moving to the shared rules
+# and placeholders is planned as later, step-by-step releases once the impact
+# on those users is understood.
 class PIIRedactor:
     """PII redactor that uses regex patterns to identify and replace PII.
 

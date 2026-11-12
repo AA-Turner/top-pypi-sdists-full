@@ -22,7 +22,12 @@ from coffea.nanoevents.mapping import (
 from coffea.nanoevents.schemas import BaseSchema, EDM4HEPSchema, NanoAODSchema
 from coffea.nanoevents.schemas.edm4hep import podio_collection_types
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
-from coffea.util import _import_dask_awkward, _is_interpretable
+from coffea.util import (
+    _import_dask_awkward,
+    _import_graphed,
+    _is_interpretable,
+    _meta,
+)
 
 _offsets_label = quote(",!offsets")
 
@@ -139,25 +144,47 @@ class _map_schema_uproot(_map_schema_base):
         )
         # file-level information the schema needs beyond the form (dask mode has no tree)
         self.base_form_extras = base_form_extras or {}
+        self._record_fields = frozenset()
+
+    def keys_for_buffer_keys(self, buffer_keys):
+        # a subfield path is read through its record field; field names may contain dots themselves
+        return {
+            max(
+                (f for f in self._record_fields if key.startswith(f + ".")),
+                key=len,
+                default=key,
+            )
+            for key in super().keys_for_buffer_keys(buffer_keys)
+        }
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
 
         branch_forms = {}
+        record_fields = set()
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
+            # the form cannot tell RNTuple from TTree, so every record is loaded by subfield path
+            is_record = iform["class"] == "RecordArray" or (
+                iform["class"].startswith("ListOffset")
+                and iform["content"]["class"] == "RecordArray"
+            )
+            if is_record:
+                record_fields.add(field)
             branch_forms[field] = _lazify_form(
                 iform,
                 f"{field},!load",
-                docstr=iform["parameters"]["__doc__"],
-                typestr=iform["parameters"]["typename"],
+                docstr=iform["parameters"].get("__doc__"),
+                typestr=iform["parameters"].get("typename"),
+                path=field if is_record else None,
             )
+        self._record_fields = frozenset(record_fields)
         lform = {
             "class": "RecordArray",
-            "contents": [item for item in branch_forms.values()],
-            "fields": [key for key in branch_forms.keys()],
+            "contents": [*branch_forms.values()],
+            "fields": [*branch_forms.keys()],
             "parameters": {
-                "__doc__": form.parameters["__doc__"],
+                "__doc__": form.parameters.get("__doc__"),
                 "metadata": self.metadata,
             },
             "form_key": None,
@@ -201,18 +228,29 @@ class _map_schema_uproot(_map_schema_base):
         # genuinely-required ("!load") branch that is absent still raises
         # loudly at buffer-access time.
         present_keys = [key for key in keys if key in tree]
+        # Only buffers leave this mapping, so docstrings come from the form uproot.dask
+        # built; requesting them here is wasted work and fails on RNTuple (no "title").
         arrays = tree.arrays(
             present_keys,
             entry_start=start,
             entry_stop=stop,
-            ak_add_doc=interp_options["ak_add_doc"],
+            ak_add_doc=False,
             decompression_executor=decompression_executor,
             interpretation_executor=interpretation_executor,
             how=dict,
         )
-        source_arrays = {
-            k: _OnlySliceableAs(v, slice(start, stop)) for k, v in arrays.items()
-        }
+        source_arrays = {}
+
+        def add_source(key, array):
+            if isinstance(array.layout, awkward.contents.ListOffsetArray):
+                # an RNTuple read past entry 0 keeps the skipped entries' offsets
+                array = awkward.Array(array.layout.to_ListOffsetArray64(True))
+            source_arrays[key] = _OnlySliceableAs(array, slice(start, stop))
+            for subfield in array.fields:
+                add_source(f"{key}.{subfield}", array[subfield])
+
+        for k, v in arrays.items():
+            add_source(k, v)
         mapping = PreloadedSourceMapping(
             PreloadedOpener(uuidpfn), start, stop, access_log=None
         )
@@ -227,6 +265,33 @@ class _map_schema_uproot(_map_schema_base):
             return buffer_key(form_key=form_key, attribute=attribute, form=None)
 
         return _TranslatedMapping(translate_key, mapping)
+
+
+class _graphed_map_schema_uproot(_map_schema_uproot):
+    """The uproot mapping a plan pickles. A schema's behavior dict holds closures (vector's, among
+    others) that stdlib pickle refuses, so it ships the schema class and rebuilds the behavior.
+    """
+
+    def __init__(self, schemaclass, metadata, base_form_extras=None):
+        super().__init__(
+            schemaclass=schemaclass,
+            behavior=dict(schemaclass.behavior()),
+            metadata=metadata,
+            version="latest",
+            base_form_extras=base_form_extras,
+        )
+
+    def __reduce__(self):
+        # _record_fields comes from the form, so a worker's reads need it carried over
+        return (
+            type(self),
+            (self.schemaclass, self.metadata, self.base_form_extras),
+            {"_record_fields": self._record_fields},
+        )
+
+    def source_identity(self):
+        """What this mapping reads with, so uproot reuses an equal re-read's source."""
+        return (self.schemaclass, self.metadata, self.base_form_extras)
 
 
 class _map_schema_parquet(_map_schema_base):
@@ -253,7 +318,18 @@ class _map_schema_parquet(_map_schema_base):
         return awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form)
 
 
-_allowed_modes = frozenset(["eager", "virtual", "dask"])
+_allowed_modes = frozenset(["eager", "virtual", "dask", "graphed"])
+
+
+def _tree_to_open(file, treepath):
+    """The tree the deferred arms hand to uproot, resolving a directory through ``treepath``."""
+    if not isinstance(file, uproot.reading.ReadOnlyDirectory):
+        return file
+    if treepath is uproot._util.unset:
+        raise ValueError(
+            "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
+        )
+    return file[treepath]
 
 
 class NanoEventsFactory:
@@ -320,7 +396,9 @@ class NanoEventsFactory:
                 The filename or dict of filenames including the treepath (as it would be passed directly to ``uproot.open()``
                 or ``uproot.dask()``) already opened file using e.g. ``uproot.open()``.
             mode : str
-                Nanoevents will use "eager", "virtual", or "dask" as a backend.
+                Nanoevents will use "eager", "virtual", "dask", or "graphed" as a backend.
+                "graphed" records the analysis into a ``graphed`` graph and reads nothing until
+                the graph is run; it needs a schema declaring ``__graphed_capable__ = True``.
             treepath : str, optional
                 Name of the tree to read in the file. Used only if ``file`` is a ``uproot.reading.ReadOnlyDirectory``
                 or a string that does not contain tree information that uproot can parse on its own.
@@ -377,18 +455,37 @@ class NanoEventsFactory:
                 RuntimeWarning,
             )
 
+        if mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            uproot_options = _graphed.check_from_root(
+                schemaclass,
+                steps_per_file,
+                uproot_options,
+                entry_start=entry_start,
+                entry_stop=entry_stop,
+            )
+            map_schema = _graphed_map_schema_uproot(schemaclass, metadata)
+            opener = partial(
+                uproot.graphed,
+                _tree_to_open(file, treepath),
+                full_paths=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
+                filter_branch=_is_interpretable,
+                known_base_form=known_base_form,
+                decompression_executor=decompression_executor,
+                interpretation_executor=interpretation_executor,
+                **uproot_options,
+            )
+            return cls(map_schema, opener, None, mode="graphed")
+
         if (
             mode == "dask"
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
-            to_open = file
-            if isinstance(file, uproot.reading.ReadOnlyDirectory):
-                if treepath is uproot._util.unset:
-                    raise ValueError(
-                        "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
-                    )
-                to_open = file[treepath]
+            to_open = _tree_to_open(file, treepath)
 
             base_form_extras = {}
             if known_base_form is None and _reads_podio_metadata(schemaclass):
@@ -466,7 +563,12 @@ class NanoEventsFactory:
         if preload is not None:
             if not callable(preload):
                 _preload_names = frozenset(preload)
-                preload = lambda b: b.name in _preload_names  # noqa: E731
+
+                def preload(b):
+                    if isinstance(b, uproot.behaviors.RNTuple.HasFields):
+                        return b.path in _preload_names
+                    return b.name in _preload_names
+
             preloaded_arrays = tree.arrays(
                 filter_branch=preload,
                 entry_start=entry_start,
@@ -574,6 +676,39 @@ class NanoEventsFactory:
 
         if mode not in _allowed_modes:
             raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
+
+        if mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            if entry_start is not None or entry_stop is not None:
+                raise NotImplementedError(
+                    "graphed mode does not take entry_start/entry_stop; partition where the "
+                    "plan is built, graphed.aggregate_plan(..., steps_per_file=...)"
+                )
+            _graphed.check_schema(schemaclass)
+            paths = list(file) if isinstance(file, list) else [file]
+            # each worker reopens its partition's file by this path
+            if not all(isinstance(path, (str, pathlib.PurePath)) for path in paths):
+                raise TypeError(
+                    "graphed mode reads parquet by path: pass a str or pathlib.Path, or a list of them"
+                )
+            opener = _graphed.parquet_opener(
+                paths,
+                dict(
+                    schemaclass=schemaclass,
+                    metadata=metadata,
+                    parquet_options=parquet_options,
+                    storage_options=storage_options,
+                ),
+            )
+            map_schema = _map_schema_parquet(
+                schemaclass=schemaclass,
+                behavior=dict(schemaclass.behavior()),
+                metadata=metadata,
+                version="latest",
+            )
+            return cls(map_schema, opener, None, mode="graphed")
 
         if (
             mode == "dask"
@@ -811,12 +946,27 @@ class NanoEventsFactory:
 
         Returns
         -------
-            awkward.Array or dask_awkward.Array or tuple
+            awkward.Array or dask_awkward.Array or graphed.Array or tuple
                 Events materialised according to the configured backend. In ``\"dask\"``
                 mode a ``dask_awkward.Array`` is returned (optionally paired with a
-                report). In ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is
-                returned.
+                report), in ``\"graphed\"`` mode a deferred ``graphed.Array``. In
+                ``\"virtual\"`` or ``\"eager\"`` mode an ``awkward.Array`` is returned.
         """
+        if self._mode == "graphed":
+            _import_graphed()
+            from coffea.nanoevents import _graphed
+
+            # built per call because its behavior dict does not pickle; the typetracer the
+            # deferred routes dispatch on is built from that behavior
+            backend = _graphed.GraphedNanoBackend(behavior=self._schema.behavior)
+            events = self._mapping(
+                form_mapping=self._schema, **_graphed.record_on(backend, self._mapping)
+            )
+            # `_events()` resolves cross-references off the record-time typetracer, so the root
+            # array is planted there rather than on any chunk a worker will see
+            _meta(events).attrs["@original_array"] = events
+            return events
+
         if self._mode == "dask":
             dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()

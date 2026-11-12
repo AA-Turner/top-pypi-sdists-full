@@ -82,7 +82,8 @@ class Model:
        :class:`ModelGroup` objects, which in turn are placed inside
        :class:`State` objects, which are grouped in
        :class:`StateGroup` objects, which are finally added to the system
-       via :attr:`ihm.System.state_groups`.
+       via :attr:`ihm.System.state_groups`. (If this hierarchy is not needed,
+       models can be added directly using :attr:`ihm.System.models`.)
 
        :param assembly: The parts of the system that were modeled.
        :type assembly: :class:`~ihm.Assembly`
@@ -209,13 +210,33 @@ class State(list):
 
        :param elements: The initial set of :class:`ModelGroup` objects in
               this state.
+       :param str type: Classification of the state, such as
+              "complex formation", "ligand binding".
+       :param str name: A descriptive name, such as "open", "closed",
+              "bound", "unbound".
+       :param str details: Additional free text to describe the state.
+       :param str experiment_type: The type of multi-state modeling
+              experiment. This can be "Fraction of bulk" to describe a bulk
+              sample where a fraction of molecules are in each state,
+              or "Single molecule" where a single molecule adapts different
+              states at different time points.
+       :param float population_fraction: The fraction of the population
+              that is described by this state.
+       :param float population_fraction_sd: The standard deviation of the
+              population fraction.
     """
     def __init__(self, elements=(), type=None, name=None, details=None,
-                 experiment_type=None, population_fraction=None):
+                 experiment_type=None, population_fraction=None,
+                 population_fraction_sd=None):
         self.type, self.name, self.details = type, name, details
         self.experiment_type = experiment_type
         self.population_fraction = population_fraction
+        self.population_fraction_sd = population_fraction_sd
         super().__init__(elements)
+
+    experiment_type = _text_choice_property(
+        "experiment_type", ["Fraction of bulk", "Single molecule"],
+        doc="The type of multi-state modeling experiment")
 
 
 class StateGroup(list):
@@ -312,11 +333,13 @@ class NotModeledResidueRange:
        :param int seq_id_end: Ending residue in the range.
        :param str reason: Optional text describing why the residues were
               not modeled.
+       :param str details: Any additional free text.
     """
-    def __init__(self, asym_unit, seq_id_begin, seq_id_end, reason=None):
+    def __init__(self, asym_unit, seq_id_begin, seq_id_end, reason=None,
+                 details=None):
         self.asym_unit = asym_unit
         self.seq_id_begin, self.seq_id_end = seq_id_begin, seq_id_end
-        self.reason = reason
+        self.reason, self.details = reason, details
         _check_residue_range((seq_id_begin, seq_id_end), asym_unit.entity)
 
     reason = _text_choice_property(

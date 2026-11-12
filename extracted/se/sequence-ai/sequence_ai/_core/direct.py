@@ -249,8 +249,9 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
         self._model = model
 
 
-
         self.teleop = teleop
+        if teleop is not None:
+            teleop.bind(self)
 
 
         self._own_timeout_s = timeout_s
@@ -751,6 +752,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         self._keepalive_stop.set()
         self._give_back()
         self._gateway.close()
+        if self.teleop is not None:
+            self.teleop.unbind()
 
     def _move_waits(self) -> bool:
         """Whether the platform told this robot to move and said nothing has room for it yet (its notice's `ready`
@@ -1242,6 +1245,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
             return
         self._plays = {k: body[k] for k in ("hz", "action_chunk_valid_len", "action_chunk_replan_at",
                                             "max_wait_for_batch") if body.get(k)}
+        if getattr(self, "teleop", None) is not None:
+            self.teleop.learn(self._plays)
         self.contract = {}
 
     def _ensure_connected(self) -> None:
@@ -1299,7 +1304,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
 
                 exc = failed[0]
-                said = exc.message if isinstance(exc, SequencesError) else type(exc).__name__
+                said = str(exc) if isinstance(exc, SequencesError) else type(exc).__name__
                 return NotOpen("connect", said, time.monotonic() - t0)
             worker = self._worker
             if worker is None:

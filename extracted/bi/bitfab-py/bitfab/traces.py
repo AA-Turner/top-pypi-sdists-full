@@ -67,10 +67,10 @@ TraceTarget = OutputTarget | SpanTarget
 class AssertionCode(TypedDict):
     """Code that decides an assertion's verdict from a run's spans, or hands the decision to the LLM judge.
 
-    ``source`` is the body of an async TypeScript function (plain JavaScript
-    also works) called with ``spans`` (each ``{name, index, hasData}``, in
-    start order, without its data), ``input``, and ``output``. It reads span
-    data with ``await named("span name")``, which returns
+    ``source`` is the body of an async JavaScript function called with
+    ``spans`` (each ``{name, index, hasData}``, in start order, without its
+    data), ``input``, and ``output``. It reads span data with
+    ``await named("span name")``, which returns
     ``{name, index, input, output, metadata}`` for each span with that name,
     or ``await span.data()``. It returns ``"pass"``, ``"fail"``, or
     ``"defer"``, or ``{result, reason}``. ``"pass"`` and ``"fail"`` decide

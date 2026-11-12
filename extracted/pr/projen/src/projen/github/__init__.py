@@ -2000,7 +2000,7 @@ class Dependabot(
         :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
-        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
+        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``UpgradeDependencies`` component, which cannot be enabled together with Dependabot. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param open_pull_requests_limit: (experimental) Sets the maximum of pull requests Dependabot opens for version updates. Dependabot will not open any new requests until some of those open requests are merged or closed. Default: 5
         :param registries: (experimental) Map of package registries to use. Default: - use public registries
@@ -2564,7 +2564,7 @@ class DependabotOptions:
         :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
-        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
+        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``UpgradeDependencies`` component, which cannot be enabled together with Dependabot. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param open_pull_requests_limit: (experimental) Sets the maximum of pull requests Dependabot opens for version updates. Dependabot will not open any new requests until some of those open requests are merged or closed. Default: 5
         :param registries: (experimental) Map of package registries to use. Default: - use public registries
@@ -2695,7 +2695,8 @@ class DependabotOptions:
         This is required since projen updates may cause changes in committed files
         and anti-tamper checks will fail.
 
-        Projen upgrades are covered through the ``ProjenUpgrade`` class.
+        Projen upgrades are covered through the ``UpgradeDependencies`` component,
+        which cannot be enabled together with Dependabot.
 
         :default: true
 
@@ -3994,7 +3995,7 @@ class GitHub(
         :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
-        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
+        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``UpgradeDependencies`` component, which cannot be enabled together with Dependabot. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param open_pull_requests_limit: (experimental) Sets the maximum of pull requests Dependabot opens for version updates. Dependabot will not open any new requests until some of those open requests are merged or closed. Default: 5
         :param registries: (experimental) Map of package registries to use. Default: - use public registries

@@ -9645,18 +9645,24 @@ class PrivateEndpointConnectionListResult(_Model):  # pylint: disable=docstring-
 
     :ivar value: The collection value.
     :vartype value: list[~azure.mgmt.containerservice.models.PrivateEndpointConnection]
+    :ivar next_link: The link to the next page, if any. Omitted when all results are returned in a
+     single response.
+    :vartype next_link: str
     """
 
     value: Optional[list["_models.PrivateEndpointConnection"]] = rest_field(
         visibility=["read", "create", "update", "delete", "query"]
     )
     """The collection value."""
+    next_link: Optional[str] = rest_field(name="nextLink", visibility=["read", "create", "update", "delete", "query"])
+    """The link to the next page, if any. Omitted when all results are returned in a single response."""
 
     @overload
     def __init__(
         self,
         *,
         value: Optional[list["_models.PrivateEndpointConnection"]] = None,
+        next_link: Optional[str] = None,
     ) -> None: ...
 
     @overload
@@ -9781,18 +9787,24 @@ class PrivateLinkResourcesListResult(_Model):  # pylint: disable=docstring-keywo
 
     :ivar value: The collection value.
     :vartype value: list[~azure.mgmt.containerservice.models.PrivateLinkResource]
+    :ivar next_link: The link to the next page, if any. Omitted when all results are returned in a
+     single response.
+    :vartype next_link: str
     """
 
     value: Optional[list["_models.PrivateLinkResource"]] = rest_field(
         visibility=["read", "create", "update", "delete", "query"]
     )
     """The collection value."""
+    next_link: Optional[str] = rest_field(name="nextLink", visibility=["read", "create", "update", "delete", "query"])
+    """The link to the next page, if any. Omitted when all results are returned in a single response."""
 
     @overload
     def __init__(
         self,
         *,
         value: Optional[list["_models.PrivateLinkResource"]] = None,
+        next_link: Optional[str] = None,
     ) -> None: ...
 
     @overload

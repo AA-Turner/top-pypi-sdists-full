@@ -41,6 +41,7 @@ class EffectiveRoleBinding(object):
         'resource_name': 'str',
         'parent_cloud_name': 'str',
         'origin': 'BindingOrigin',
+        'is_frozen': 'bool',
         'created_at': 'datetime',
         'source': 'EffectiveBindingSource'
     }
@@ -54,11 +55,12 @@ class EffectiveRoleBinding(object):
         'resource_name': 'resource_name',
         'parent_cloud_name': 'parent_cloud_name',
         'origin': 'origin',
+        'is_frozen': 'is_frozen',
         'created_at': 'created_at',
         'source': 'source'
     }
 
-    def __init__(self, id=None, role_id=None, role_name=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, origin=None, created_at=None, source=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, role_id=None, role_name=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, origin=None, is_frozen=False, created_at=None, source=None, local_vars_configuration=None):  # noqa: E501
         """EffectiveRoleBinding - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -72,6 +74,7 @@ class EffectiveRoleBinding(object):
         self._resource_name = None
         self._parent_cloud_name = None
         self._origin = None
+        self._is_frozen = None
         self._created_at = None
         self._source = None
         self.discriminator = None
@@ -88,6 +91,8 @@ class EffectiveRoleBinding(object):
             self.parent_cloud_name = parent_cloud_name
         if origin is not None:
             self.origin = origin
+        if is_frozen is not None:
+            self.is_frozen = is_frozen
         self.created_at = created_at
         self.source = source
 
@@ -274,6 +279,29 @@ class EffectiveRoleBinding(object):
         """
 
         self._origin = origin
+
+    @property
+    def is_frozen(self):
+        """Gets the is_frozen of this EffectiveRoleBinding.  # noqa: E501
+
+        Whether the binding is locked: no request revokes a frozen binding, such as the organization admin group's.  # noqa: E501
+
+        :return: The is_frozen of this EffectiveRoleBinding.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_frozen
+
+    @is_frozen.setter
+    def is_frozen(self, is_frozen):
+        """Sets the is_frozen of this EffectiveRoleBinding.
+
+        Whether the binding is locked: no request revokes a frozen binding, such as the organization admin group's.  # noqa: E501
+
+        :param is_frozen: The is_frozen of this EffectiveRoleBinding.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_frozen = is_frozen
 
     @property
     def created_at(self):

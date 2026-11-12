@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: humanize
-Version: 4.16.0
+Version: 4.17.0
 Summary: Python humanize utilities
 Project-URL: Issue tracker, https://github.com/python-humanize/humanize/issues
 Project-URL: Release notes, https://github.com/python-humanize/humanize/releases
@@ -18,17 +18,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3.16
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: General
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Provides-Extra: tests
 Requires-Dist: freezegun; extra == 'tests'
 Requires-Dist: pytest-benchmark; extra == 'tests'
@@ -77,6 +77,7 @@ size or throughput. It is localized to:
 - Polish
 - Russian
 - Simplified Chinese
+- Sinhala
 - Slovak
 - Slovenian
 - Spanish
@@ -134,7 +135,7 @@ python3 -m pip install -e .
 >>> humanize.naturalday(dt.datetime.now())
 'today'
 >>> humanize.naturaldelta(dt.timedelta(seconds=1001))
-'16 minutes'
+'17 minutes'
 >>> humanize.naturalday(dt.datetime.now() - dt.timedelta(days=1))
 'yesterday'
 >>> humanize.naturalday(dt.date(2007, 6, 5))
@@ -254,6 +255,17 @@ How to change locale at runtime:
 '3 seconds ago'
 ```
 
+Number formatting also uses the locale's configured numeric separators:
+
+```pycon
+>>> _t = humanize.i18n.activate("tr_TR")
+>>> humanize.intcomma(1_234_567.89)
+'1.234.567,89'
+>>> humanize.intword(1_200_000)
+'1,2 milyon'
+>>> humanize.i18n.deactivate()
+```
+
 You can pass additional parameter `path` to `activate` to specify a path to search
 locales in.
 
@@ -271,14 +283,17 @@ FileNotFoundError: [Errno 2] No translation file found for domain: 'humanize'
 How to add new phrases to existing locale files:
 
 ```sh
-xgettext --from-code=UTF-8 -o humanize.pot -k'_' -k'N_' -k'P_:1c,2' -k'NS_:1,2' -k'_ngettext:1,2' -l python src/humanize/*.py  # extract new phrases
-msgmerge -U src/humanize/locale/ru_RU/LC_MESSAGES/humanize.po humanize.pot # add them to locale files
+scripts/update-translations.sh
 ```
+
+This extracts new phrases from the source code into `humanize.pot`, merges them into
+each locale's `.po` file and compiles the binary `.mo` catalogs.
 
 How to add a new locale:
 
 ```sh
-msginit -i humanize.pot -o humanize/locale/<locale name>/LC_MESSAGES/humanize.po --locale <locale name>
+mkdir -p src/humanize/locale/<locale name>/LC_MESSAGES
+msginit -i humanize.pot -o src/humanize/locale/<locale name>/LC_MESSAGES/humanize.po --locale <locale name>
 ```
 
 Where `<locale name>` is a locale abbreviation, eg. `en_GB`, `pt_BR` or just `ru`, `fr`

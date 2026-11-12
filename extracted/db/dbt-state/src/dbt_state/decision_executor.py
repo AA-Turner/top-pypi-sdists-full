@@ -226,6 +226,7 @@ class DecisionExecutor:
             return RunResult.from_node(node, status, message)
         finally:
             # Skips reuse an existing execution.
+            self._hooks.track_execution(node, response.execution_id, response)
             self._hooks.handle_post_hooks(
                 should_run_hooks,
                 node,
@@ -482,6 +483,7 @@ class DecisionExecutor:
                 response.execution_id,
             )
             self._decision_logger.log_confirm_execution(node.name, response.execution_id)
+            self._hooks.track_execution(node, response.execution_id)
             return response.execution_id
         events.fire_debug_event(
             "Execution confirmation failed for node {}, request_id: {}",

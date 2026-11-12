@@ -1,6 +1,15 @@
 import types
 
 from arch.univariate import recursions_python
+from arch.univariate.backtest import (
+    TrafficLightResult,
+    christoffersen_conditional_coverage,
+    christoffersen_independence,
+    kupiec_pof,
+    traffic_light,
+    var_exceptions,
+)
+from arch.univariate.diagnostics import excess_kurtosis, hill_estimator, var_ratio
 from arch.univariate.distribution import (
     Distribution,
     GeneralizedError,
@@ -14,6 +23,7 @@ from arch.univariate.mean import (
     LS,
     ARCHInMean,
     ConstantMean,
+    MAMean,
     ZeroMean,
     arch_model,
 )
@@ -21,9 +31,11 @@ from arch.univariate.volatility import (
     APARCH,
     ARCH,
     EGARCH,
+    FIAPARCH,
     FIGARCH,
     GARCH,
     HARCH,
+    NGARCH,
     ConstantVariance,
     EWMAVariance,
     FixedVariance,
@@ -42,11 +54,13 @@ __all__ = [
     "ARCH",
     "ARX",
     "EGARCH",
+    "FIAPARCH",
     "FIGARCH",
     "GARCH",
     "HARCH",
     "HARX",
     "LS",
+    "NGARCH",
     "ARCHInMean",
     "ConstantMean",
     "ConstantVariance",
@@ -54,13 +68,23 @@ __all__ = [
     "EWMAVariance",
     "FixedVariance",
     "GeneralizedError",
+    "MAMean",
     "MIDASHyperbolic",
     "Normal",
     "RiskMetrics2006",
     "SkewStudent",
     "StudentsT",
+    "TrafficLightResult",
     "ZeroMean",
     "arch_model",
+    "christoffersen_conditional_coverage",
+    "christoffersen_independence",
+    "excess_kurtosis",
+    "hill_estimator",
+    "kupiec_pof",
     "recursions",
     "recursions_python",
+    "traffic_light",
+    "var_exceptions",
+    "var_ratio",
 ]

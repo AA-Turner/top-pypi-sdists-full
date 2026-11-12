@@ -27,12 +27,12 @@ from .task import Task
 class CreateAgentRequest(UncheckedBaseModel):
     name: str = pydantic.Field()
     """
-    The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+    Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
     """
 
     slug: typing.Optional[str] = pydantic.Field(default=None)
     """
-    URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+    URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
     """
 
     phone_number: typing.Optional[CreateAgentRequestPhoneNumber] = pydantic.Field(default=None)
@@ -242,6 +242,11 @@ class CreateAgentRequest(UncheckedBaseModel):
     max_conversation_duration_sec: typing.Optional[int] = pydantic.Field(default=None)
     """
     Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+    """
+
+    detect_voicemail_tone: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
     """
 
     configuration_endpoint: typing.Optional[CreateAgentRequestConfigurationEndpoint] = pydantic.Field(default=None)

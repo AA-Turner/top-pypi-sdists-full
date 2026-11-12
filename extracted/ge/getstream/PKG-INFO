@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: getstream
-Version: 7.1.0
+Version: 8.0.0
 Summary: GetStream Python SDK - Build scalable activity feeds, chat, and video calling applications
 Author-email: sachaarbonel <sacha.arbonel@hotmail.fr>, tbarbugli <tbarbugli@gmail.com>
 License-File: LICENSE.md

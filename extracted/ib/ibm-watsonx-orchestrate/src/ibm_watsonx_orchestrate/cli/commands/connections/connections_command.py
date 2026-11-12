@@ -394,6 +394,13 @@ def set_credentials_connection_command(
             help='For oauth_auth_on_behalf_of_flow and oauth_auth_token_exchange_flow, the request body parameter name used to carry the end-user subject token into the downstream token exchange request (e.g. subject_token)'
         )
     ] = None,
+    pkce: Annotated[
+        bool,
+        typer.Option(
+            '--pkce/--no-pkce',
+            help='For oauth_auth_code_flow, whether to enable PKCE (Proof Key for Code Exchange). Only applicable to oauth_auth_code_flow.'
+        )
+    ] = None,
 ):
     set_credentials_connection(
         app_id=app_id,
@@ -423,6 +430,7 @@ def set_credentials_connection_command(
         include_jti=include_jti,
         claims=claims,
         app_token_key=app_token_key,
+        pkce=pkce,
     )
 
 @connections_app.command(name="set-identity-provider")

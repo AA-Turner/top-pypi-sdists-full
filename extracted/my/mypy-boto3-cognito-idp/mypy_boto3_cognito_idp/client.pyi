@@ -67,10 +67,13 @@ from .type_defs import (
     AdminListGroupsForUserResponseTypeDef,
     AdminListUserAuthEventsRequestTypeDef,
     AdminListUserAuthEventsResponseTypeDef,
+    AdminListUserSessionsRequestTypeDef,
+    AdminListUserSessionsResponseTypeDef,
     AdminRemoveUserFromGroupRequestTypeDef,
     AdminResetUserPasswordRequestTypeDef,
     AdminRespondToAuthChallengeRequestTypeDef,
     AdminRespondToAuthChallengeResponseTypeDef,
+    AdminRevokeUserSessionRequestTypeDef,
     AdminSetUserMFAPreferenceRequestTypeDef,
     AdminSetUserPasswordRequestTypeDef,
     AdminSetUserSettingsRequestTypeDef,
@@ -171,8 +174,12 @@ from .type_defs import (
     GetUserAttributeVerificationCodeResponseTypeDef,
     GetUserAuthFactorsRequestTypeDef,
     GetUserAuthFactorsResponseTypeDef,
+    GetUserPoolClientSessionConfigurationRequestTypeDef,
+    GetUserPoolClientSessionConfigurationResponseTypeDef,
     GetUserPoolMfaConfigRequestTypeDef,
     GetUserPoolMfaConfigResponseTypeDef,
+    GetUserPoolSessionConfigurationRequestTypeDef,
+    GetUserPoolSessionConfigurationResponseTypeDef,
     GetUserRequestTypeDef,
     GetUserResponseTypeDef,
     GlobalSignOutRequestTypeDef,
@@ -200,6 +207,8 @@ from .type_defs import (
     ListUserPoolReplicasResponseTypeDef,
     ListUserPoolsRequestTypeDef,
     ListUserPoolsResponseTypeDef,
+    ListUserSessionsRequestTypeDef,
+    ListUserSessionsResponseTypeDef,
     ListUsersInGroupRequestTypeDef,
     ListUsersInGroupResponseTypeDef,
     ListUsersRequestTypeDef,
@@ -211,6 +220,7 @@ from .type_defs import (
     RespondToAuthChallengeRequestTypeDef,
     RespondToAuthChallengeResponseTypeDef,
     RevokeTokenRequestTypeDef,
+    RevokeUserSessionRequestTypeDef,
     SetLogDeliveryConfigurationRequestTypeDef,
     SetLogDeliveryConfigurationResponseTypeDef,
     SetRiskConfigurationRequestTypeDef,
@@ -218,8 +228,12 @@ from .type_defs import (
     SetUICustomizationRequestTypeDef,
     SetUICustomizationResponseTypeDef,
     SetUserMFAPreferenceRequestTypeDef,
+    SetUserPoolClientSessionConfigurationRequestTypeDef,
+    SetUserPoolClientSessionConfigurationResponseTypeDef,
     SetUserPoolMfaConfigRequestTypeDef,
     SetUserPoolMfaConfigResponseTypeDef,
+    SetUserPoolSessionConfigurationRequestTypeDef,
+    SetUserPoolSessionConfigurationResponseTypeDef,
     SetUserSettingsRequestTypeDef,
     SignUpRequestTypeDef,
     SignUpResponseTypeDef,
@@ -568,6 +582,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#admin_list_user_auth_events)
         """
 
+    def admin_list_user_sessions(
+        self, **kwargs: Unpack[AdminListUserSessionsRequestTypeDef]
+    ) -> AdminListUserSessionsResponseTypeDef:
+        """
+        Lists the active sessions for a specified user as an administrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_list_user_sessions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#admin_list_user_sessions)
+        """
+
     def admin_remove_user_from_group(
         self, **kwargs: Unpack[AdminRemoveUserFromGroupRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -598,6 +622,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_respond_to_auth_challenge.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#admin_respond_to_auth_challenge)
+        """
+
+    def admin_revoke_user_session(
+        self, **kwargs: Unpack[AdminRevokeUserSessionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Revokes a specific user session as an administrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_revoke_user_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#admin_revoke_user_session)
         """
 
     def admin_set_user_mfa_preference(
@@ -1240,6 +1274,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_user_auth_factors)
         """
 
+    def get_user_pool_client_session_configuration(
+        self, **kwargs: Unpack[GetUserPoolClientSessionConfigurationRequestTypeDef]
+    ) -> GetUserPoolClientSessionConfigurationResponseTypeDef:
+        """
+        Retrieves the session configuration for a user pool app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_user_pool_client_session_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_user_pool_client_session_configuration)
+        """
+
     def get_user_pool_mfa_config(
         self, **kwargs: Unpack[GetUserPoolMfaConfigRequestTypeDef]
     ) -> GetUserPoolMfaConfigResponseTypeDef:
@@ -1249,6 +1293,18 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_user_pool_mfa_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_user_pool_mfa_config)
+        """
+
+    def get_user_pool_session_configuration(
+        self, **kwargs: Unpack[GetUserPoolSessionConfigurationRequestTypeDef]
+    ) -> GetUserPoolSessionConfigurationResponseTypeDef:
+        """
+        Retrieves the session tracking configuration for a user pool, including whether
+        session tracking is enabled and the pool-wide maximum number of active token
+        sessions for each user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_user_pool_session_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_user_pool_session_configuration)
         """
 
     def global_sign_out(self, **kwargs: Unpack[GlobalSignOutRequestTypeDef]) -> dict[str, Any]:
@@ -1380,6 +1436,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#list_user_pools)
         """
 
+    def list_user_sessions(
+        self, **kwargs: Unpack[ListUserSessionsRequestTypeDef]
+    ) -> ListUserSessionsResponseTypeDef:
+        """
+        Lists the active sessions for the currently signed-in user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_user_sessions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#list_user_sessions)
+        """
+
     def list_users(self, **kwargs: Unpack[ListUsersRequestTypeDef]) -> ListUsersResponseTypeDef:
         """
         Given a user pool ID, returns a list of users and their basic details in a user
@@ -1442,6 +1508,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#revoke_token)
         """
 
+    def revoke_user_session(
+        self, **kwargs: Unpack[RevokeUserSessionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Revokes a specific session for the currently signed-in user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/revoke_user_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#revoke_user_session)
+        """
+
     def set_log_delivery_configuration(
         self, **kwargs: Unpack[SetLogDeliveryConfigurationRequestTypeDef]
     ) -> SetLogDeliveryConfigurationResponseTypeDef:
@@ -1484,6 +1560,16 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#set_user_mfa_preference)
         """
 
+    def set_user_pool_client_session_configuration(
+        self, **kwargs: Unpack[SetUserPoolClientSessionConfigurationRequestTypeDef]
+    ) -> SetUserPoolClientSessionConfigurationResponseTypeDef:
+        """
+        Sets the session configuration for a user pool app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/set_user_pool_client_session_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#set_user_pool_client_session_configuration)
+        """
+
     def set_user_pool_mfa_config(
         self, **kwargs: Unpack[SetUserPoolMfaConfigRequestTypeDef]
     ) -> SetUserPoolMfaConfigResponseTypeDef:
@@ -1492,6 +1578,17 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/set_user_pool_mfa_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#set_user_pool_mfa_config)
+        """
+
+    def set_user_pool_session_configuration(
+        self, **kwargs: Unpack[SetUserPoolSessionConfigurationRequestTypeDef]
+    ) -> SetUserPoolSessionConfigurationResponseTypeDef:
+        """
+        Enables or disables session tracking for a user pool, and sets the pool-wide
+        maximum number of active token sessions that each user can have.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/set_user_pool_session_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#set_user_pool_session_configuration)
         """
 
     def set_user_settings(self, **kwargs: Unpack[SetUserSettingsRequestTypeDef]) -> dict[str, Any]:

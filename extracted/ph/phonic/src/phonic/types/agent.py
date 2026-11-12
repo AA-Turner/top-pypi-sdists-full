@@ -33,7 +33,7 @@ class Agent(UncheckedBaseModel):
 
     name: str = pydantic.Field()
     """
-    The name of the agent.
+    The name of the agent. Always equal to `slug`; agents have no separate display name.
     """
 
     phone_number: typing.Optional[str] = pydantic.Field(default=None)
@@ -236,6 +236,11 @@ class Agent(UncheckedBaseModel):
     max_conversation_duration_sec: int = pydantic.Field()
     """
     Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+    """
+
+    detect_voicemail_tone: bool = pydantic.Field()
+    """
+    Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
     """
 
     configuration_endpoint: typing.Optional[AgentConfigurationEndpoint] = pydantic.Field(default=None)

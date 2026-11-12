@@ -8,7 +8,7 @@ its own way, at its own rate.
 
     import sequence_ai
 
-    with sequence_ai.connect(model="my_policy_user") as policy_user:
+    with sequence_ai.connect("my_policy_user") as policy_user:
         policy_user.observe(frame_user)                   # as the robot makes it; never blocks
         actions_user = policy_user.act()                  # when your code wants them: what the act function returned
         for step_user in actions_user:                    # played by your code, at your rate
@@ -72,16 +72,21 @@ from ._core.encode import DEFAULT_JPEG_QUALITY, encode, image_size, resize_image
 from ._core.stale import Stale
 from ._core.transport import DEFAULT_BASE_URL, Transport
 from .act import Interrupted, Policy, Ready
+from .act.teleop_handle import TeleopHandle
 from .chat import ChatResult, ChatStream, Conversation, cached, chat, image
 from .decide import DecideResult, decide
 
 from .markers import Depth, Tactile, Video
 from ._core.direct import DirectConnection
 from ._core import teleop as _teleop
+from ._core import teleop_link as _teleop_link
 from ._core import teleop_robot as _teleop_robot
 from ._core.teleop import Teleop
 from ._core.recorder import Recorder
 from ._core import mock_gate
+
+
+from . import gpu
 from ._core.reporting import INGEST_PATH, Reporter, connect_record, latency_record, run_record
 from .errors import (
     AuthError,
@@ -99,12 +104,15 @@ from .errors import (
     PolicyError,
     SequencesError,
     StreamRefused,
+    TELEOP_BY_KEY,
+    TELEOP_NAMED,
     Unavailable,
     from_response,
 )
 
 __all__ = [
     "connect",
+
 
     "teleop",
     "Teleop",
@@ -117,6 +125,8 @@ __all__ = [
     "Tactile",
     "models",
     "account",
+
+    "gpu",
 
 
     "gpus",
@@ -206,7 +216,7 @@ def _resolve_base_url(base_url: str | None) -> str | None:
 
 def connect(
     model: str,
-    *,
+    *more: str,
     policy: str | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
@@ -216,18 +226,25 @@ def connect(
     on_queue: Callable[[Any, Any, float, Any], None] | None = None,
     on_stale: Callable[[Stale], None] | None = None,
     on_resume: Callable[[Stale], None] | None = None,
-    teleop: bool = False,
+    teleop: Any = None,
     hold: Any = None,
-) -> Policy:
+) -> Policy | TeleopHandle | tuple[Policy | TeleopHandle, ...]:
     """
-    Open a connection to one model.
+    Open a connection to one policy, or to several at once - or to teleop, alone or among them.
 
     What `act()` returns is what the deployment's own act function returned: the
     platform converts nothing. What they mean — joint velocities, deltas, absolute targets — is the
     policy's own, stated in its template's README, and the robot-side `client.py` turns them into
     commands.
 
-    model       the deployment's name — what `seq deploy` registered it as (its id works too)
+    model       the name of the policy to connect to — what `seq deploy` registered it as (its id works too) - or "teleop",
+                for a robot a person drives, which needs no policy and no machine. Each name must be on this robot's list
+                (`seq robot set <robot> policies=…`); one off the list is refused. A robot is picked out by its key, so
+                you never write the robot's name here.
+    *more       more names to connect to in the same call, each also on the robot's list: `connect("pick_user",
+                "place_user", "teleop")`. One name returns one handle, as before; several return a tuple of handles in
+                that order, each policy its own connection on its own worker (each billed, so connect only the ones you
+                use). Every handle has observe() and act(), and those of one connect share who drives the robot. {121 §139}
     policy      gone: connecting through a planner is no more. Planning is a `@seq.plan` method of the policy itself, so
                 a robot connects to its policy by its name alone; passing it raises InvalidRequest (PLANNERS_GONE).
     api_key     defaults to $SEQUENCES_API_KEY
@@ -265,23 +282,28 @@ def connect(
                 keep a physical one between this library and the motors.
     on_resume   called as (stale) as the next answer comes, before act() returns it - `stale.stale_s` how long the
                 arm went without one: move it on there. `policy.stale` says the stretch under way and those before.
-    teleop      True: a person can watch and drive this robot from a console holding its key (sequence_ai.teleop).
-                Its observe() sends every frame; while a person drives it, act() hands back the newest chunk they sent
-                at once, with no network wait - each chunk once: with none newer, `hold`, the robot staying where it
-                is; while it is stopped (by a console, by its plan, or its connection lost while a person drove it),
-                `hold`. An act on its way as it is stopped or taken comes back the same - a person's chunk or `hold`,
-                never the policy's answer; on_resume waits for what the arm can play: a person's chunk, or its model's
-                answer once it drives again. act()'s use and its answer's form are unchanged; `policy.driver` says who
-                drives: "model", "human" or "stopped", as soon as its worker says so, an act on its way or not: a loop
-                that plays ahead of its act reads it each step.
-    hold        what act() hands back while a teleop robot is stopped, or its person's chunk was played: by default the
-                model's last answer with nothing in it, its keys kept - each array cut to no steps, each list empty,
-                each dict's values emptied alike, any other value (a string, a number) None - {} before one.
+    teleop      gone: name "teleop" among the names, with the robot's own key; passing it raises InvalidRequest
+                (TELEOP_NAMED).
+    hold        what act() hands back while a robot with "teleop" among its names is stopped, or its person's chunk was
+                played: by default the model's last answer with nothing in it, its keys kept - each array cut to no
+                steps, each list empty, each dict's values emptied alike, any other value (a string, a number) None -
+                {} before one.
+
+    With "teleop" among the names (it needs sequence-ai[teleop], Python 3.10 or later: pip install
+    'sequence-ai[teleop]'), a person can watch and drive this robot from a console holding its key
+    (sequence_ai.teleop), connected straight to it. Its observe() sends every step to its consoles; while a person
+    drives it, act() - of any handle of this connect - hands back the newest chunk they sent at once, with no network
+    wait, and nothing goes to the policy's worker. Each chunk once: with none newer, `hold`, the robot staying where it
+    is; while it is stopped (by a console, by its plan, or the console that drove it silent for 3 s), `hold`. An act on
+    its way as it is stopped or taken comes back the same - a person's chunk or `hold`, never the policy's answer;
+    on_resume waits for what the arm can play: a person's chunk, or its model's answer once it drives again. act()'s use
+    and its answer's form are unchanged; `policy.driver` says who drives: "model", "human" or "stopped". The handle
+    "teleop" has no model: with no one driving it, act() is `hold`.
 
     Use it as a context manager. The connection is what makes this worth calling at all, and
     a `Policy` that is never closed leaks a socket:
 
-        with sequence_ai.connect(model="my_pi05_user") as policy_user:
+        with sequence_ai.connect("my_pi05_user") as policy_user:
             ...
 
     Nothing is sent at connect time — no session is opened on the server and nothing is
@@ -299,51 +321,77 @@ def connect(
     what differs between
     robots goes in their observations: a policy's inputs and answers are its own, with no contract to check them against.
     """
-    if hold is not None and not teleop:
-        raise TypeError("connect(hold=) is what act() hands back while a person stops the robot: it goes with "
-                        "teleop=True")
-    driven = (_teleop_robot.Driven() if hold is None else _teleop_robot.Driven(hold)) if teleop else None
+    if teleop is not None:
+        raise InvalidRequest(TELEOP_NAMED)
     if policy is not None:
         raise InvalidRequest(PLANNERS_GONE)
-    return _connect(model, api_key=api_key, base_url=base_url, timeout_s=timeout_s,
-                    startup_timeout_s=startup_timeout_s, on_warming=on_warming, on_queue=on_queue, teleop=driven,
-                    on_stale=on_stale, on_resume=on_resume)
+    names = (model, *more)
+    drives = _teleop_link.NAME in names
+    if hold is not None and not drives:
+        raise TypeError('connect(hold=) is what act() hands back while a person stops the robot: it goes with "teleop" '
+                        "among the names")
+
+    driven = link = None
+    if drives:
+        _teleop._direct.require()
+        driven = _teleop_robot.Driven() if hold is None else _teleop_robot.Driven(hold)
+        link = _teleop_link.RobotLink(api_key, _resolve_base_url(base_url), driven)
+    handles: list = []
+    try:
+        for name in names:
+            handles.append(TeleopHandle(driven, link) if name == _teleop_link.NAME else
+                           _connect(name, api_key=api_key, base_url=base_url, timeout_s=timeout_s,
+                                    startup_timeout_s=startup_timeout_s, on_warming=on_warming, on_queue=on_queue,
+                                    teleop=driven, on_stale=on_stale, on_resume=on_resume))
+    except BaseException:
+        for handle in handles:
+            handle.close()
+        raise
+    if link is not None:
+        link.start()
+    return handles[0] if not more else tuple(handles)
 
 
-def teleop(policy: str, *, robot: str | None = None, key: str | None = None, operator: str | None = None,
-           base_url: str | None = None, timeout_s: float | None = None) -> Teleop:
+def teleop(policy: Any = None, *, key: str | None = None, operator: str | None = None, base_url: str | None = None,
+           timeout_s: float | None = None) -> Teleop:
     """
-    A person's console for one robot: watch it, take it, drive it with action chunks, hand it back, stop it - over one
-    connection straight to the worker the robot is on.
+    A person's console for one robot: watch it, take it, drive it with action chunks, hand it back, stop it - connected
+    straight to the robot, its pictures and commands reaching no server of ours.
 
-        with sequence_ai.teleop("my_pi05_user", key=ROBOT_KEY_user, operator="alice_user") as op_user:
-            for step_user in op_user.stream():     # each step the robot observes: {"episode", "seq", "observation"}
+        with sequence_ai.teleop(key=ROBOT_KEY_user, operator="alice_user") as op_user:
+            for step_user in op_user.stream():     # the robot's newest view: {"episode", "seq", "observation", "t_us"}
                 ...
             op_user.take()                         # one person at a time: Conflict while another drives it
             op_user.send({"actions": chunk_user})  # the robot's next act() hands it back, at once
             op_user.release()                      # back to its model; op_user.stop() stops it where it is
 
-    policy      the deployment the robot acts on, as connect() names it
-    robot       optional: a check that the key is the robot meant - "robot …k3Fz" for the key `seq robot list` shows
-                as …k3Fz; another robot's is refused (another_robots_key). The key names its robot: none is needed
+    policy      gone: the key says which robot; passing it raises InvalidRequest (TELEOP_BY_KEY)
     key         the robot's own key - the one its loop connects with; defaults to $SEQUENCES_API_KEY
-    operator    the name this console goes by: who drives, in the robot's audit trail and `seq policy status`
+    operator    the name this console goes by: who drives, in the robot's audit trail
     base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
-    timeout_s   how long the platform's answer and the worker's opening may take: 10 s unset
+    timeout_s   how long the platform's answers may take, 10 s unset; meeting the robot takes 15 s at least
 
-    The robot must be connected, with sequence_ai.connect(..., teleop=True): Conflict while it is not (details.reason
-    "robot_not_connected"), or is connected without teleop=True ("robot_not_teleop"). A console that drives the robot and goes - closed, or silent for 3 s -
-    stops it; one that only watches changes nothing by going.
+    It needs sequence-ai[teleop] (Python 3.10 or later): pip install 'sequence-ai[teleop]'. The robot must be connected,
+    with "teleop" among its names: Conflict while it is not (details.reason "robot_not_connected"), and for a robot whose
+    list does not name teleop ("teleop_not_listed"). Unavailable, saying why, where the two cannot reach each other
+    (details.reason "direct_failed": both behind symmetric NAT, a network that lets no UDP out...): nothing goes any
+    other way in its place. A console that drives the robot and goes - closed, or silent for 3 s - stops it; one that
+    only watches changes nothing by going. stream() hands on the robot's newest view each time something new comes: at most 8
+    cameras are sent, in the order the robot first observes them, and a camera's frame may be a few steps from the arrays
+    beside it, behind them or ahead. op.driver is who drives as the robot last said it, a dict - {"driver": "model",
+    "human" or "stopped", "by": who, "since": its epoch second} - where the robot's own handle's driver is that one word.
+    metrics() says how late its commands and the robot's steps were: p50, p95 and p99 of each, in microseconds.
     """
-    resolved = _resolve_base_url(base_url)
-    gateway = Transport(api_key=key, base_url=resolved, timeout_s=timeout_s or 10.0)
-    try:
+    if policy is not None:
+        raise InvalidRequest(TELEOP_BY_KEY)
+    _teleop._direct.require()
 
-        answer = gateway.post(_teleop.CONNECT, {"policy": policy, **({"robot": robot} if robot else {}),
-                                                **({"operator": operator} if operator else {})})
+    gateway = Transport(api_key=key, base_url=_resolve_base_url(base_url),
+                        timeout_s=max(timeout_s or 10.0, _teleop.PAIRING_WAIT_S + 10.0))
+    try:
+        return Teleop(gateway, operator=operator, timeout_s=timeout_s or 10.0)
     finally:
         gateway.close()
-    return Teleop(answer, operator=operator, robot=robot, timeout_s=timeout_s or 10.0)
 
 
 def record(policy: str, *, key: str | None = None, base_url: str | None = None,
@@ -380,7 +428,7 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
              on_queue: Callable[[Any, Any, float, Any], None] | None, teleop: Any = None,
              on_stale: Callable[[Stale], None] | None = None,
              on_resume: Callable[[Stale], None] | None = None) -> Policy:
-    """connect()'s body: `model` the policy it is seated on."""
+    """connect()'s body: `model` the policy it is seated on, sent to the gateway as `robot_of`."""
 
 
 

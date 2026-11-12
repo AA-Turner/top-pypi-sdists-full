@@ -1,12 +1,13 @@
 import datetime
 from _typeshed import Incomplete
-from collections.abc import Collection
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from great_tables import GT
 from narwhals.typing import IntoDataFrame, IntoFrame
 from pathlib import Path
 from pointblank._typing import SegmentSpec, Tolerance
 from pointblank._utils import _PBUnresolvedColumn
+from pointblank.ablation import Ablation
 from pointblank.column import Column, ColumnSelector, ColumnSelectorNarwhals, ReferenceColumn
 from pointblank.missing import MissingSpec
 from pointblank.schema import Schema
@@ -144,6 +145,7 @@ class _ValidationInfo:
     critical: bool | None = ...
     failure_text: str | None = ...
     tbl_checked: Any = ...
+    row_index_map: Any = ...
     extract: Any = ...
     val_info: dict[str, Any] | None = ...
     time_processed: str | None = ...
@@ -528,7 +530,12 @@ class Validate:
     ) -> Validate: ...
     def rows_distinct(
         self,
-        columns_subset: str | list[str] | None = None,
+        columns_subset: str
+        | list[str]
+        | Column
+        | ColumnSelector
+        | ColumnSelectorNarwhals
+        | None = None,
         pre: Callable | None = None,
         segments: SegmentSpec | None = None,
         thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
@@ -539,7 +546,12 @@ class Validate:
     ) -> Validate: ...
     def rows_complete(
         self,
-        columns_subset: str | list[str] | None = None,
+        columns_subset: str
+        | list[str]
+        | Column
+        | ColumnSelector
+        | ColumnSelectorNarwhals
+        | None = None,
         pre: Callable | None = None,
         segments: SegmentSpec | None = None,
         thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
@@ -564,11 +576,150 @@ class Validate:
     def prompt(
         self,
         prompt: str,
-        model: str,
+        model: str | list[str],
         columns_subset: str | list[str] | None = None,
         attachments: list | None = None,
         batch_size: int = 1000,
         max_concurrent: int = 3,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+        aggregate: str = "majority",
+    ) -> Validate: ...
+    def col_vals_scored(
+        self,
+        columns: str | list[str],
+        scorer: Callable[..., Any],
+        min_val: float | None = None,
+        max_val: float | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        keep_scores: bool = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def rows_near_distinct(
+        self,
+        columns: str | list[str],
+        method: Literal["minhash", "exact"] = "minhash",
+        threshold: float = 0.85,
+        ngram: int = 5,
+        num_perm: int = 128,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def rows_not_contaminated(
+        self,
+        columns: str | list[str],
+        reference: Any,
+        reference_columns: str | list[str] | None = None,
+        method: Literal["ngram", "exact", "minhash"] = "ngram",
+        ngram: int | None = None,
+        threshold: float = 0.8,
+        num_perm: int = 128,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def col_vals_chat_format(
+        self,
+        columns: str | list[str] | Column | ColumnSelector | ColumnSelectorNarwhals,
+        roles: Sequence[str] = ("system", "user", "assistant"),
+        alternate: bool = True,
+        first_role: str | None = None,
+        last_role: str | None = None,
+        allow_empty: bool = False,
+        role_key: str = "role",
+        content_key: str = "content",
+        na_pass: bool = False,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def col_vals_text_quality(
+        self,
+        columns: str | list[str],
+        min_words: int | None = 50,
+        max_words: int | None = 100000,
+        min_mean_word_length: float | None = 3,
+        max_mean_word_length: float | None = 10,
+        max_symbol_ratio: float | None = 0.1,
+        max_bullet_lines: float | None = 0.9,
+        max_ellipsis_lines: float | None = 0.3,
+        min_alpha_words: float | None = 0.8,
+        min_stop_words: int | None = 2,
+        max_repeated_lines: float | None = 0.3,
+        stop_words: Sequence[str] | None = None,
+        na_pass: bool = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def col_vals_in_language(
+        self,
+        columns: str | list[str],
+        expected: str | list[str] | None = None,
+        expected_column: str | None = None,
+        min_confidence: float = 0.5,
+        backend: str | Callable[[str], Any] = "langid",
+        model: str | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def col_vals_token_len(
+        self,
+        columns: str | list[str],
+        tokenizer: str | Any,
+        min_val: int | None = None,
+        max_val: int | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Validate: ...
+    def col_vals_no_pii(
+        self,
+        columns: str | list[str],
+        entities: Sequence[str] | Mapping[str, str | None] = ("email", "phone", "credit_card"),
+        na_pass: bool = True,
         pre: Callable | None = None,
         segments: SegmentSpec | None = None,
         thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
@@ -736,6 +887,8 @@ class Validate:
     def critical(
         self, i: int | list[int] | None = None, scalar: bool = False
     ) -> dict[int, bool] | bool: ...
+    def calibrate_prompt(self, i: int, labels: str | Any) -> dict[str, Any]: ...
+    def _prompt_step(self, i: int) -> _ValidationInfo: ...
     def get_data_extracts(
         self, i: int | list[int] | None = None, frame: bool = False
     ) -> dict[int, Any] | Any: ...
@@ -743,6 +896,22 @@ class Validate:
     def to_code(self) -> str: ...
     def to_yaml(self, path: str | Path | None = None) -> str: ...
     def to_json_schema(self, path: str | Path | None = None) -> dict[str, Any]: ...
+    def to_data_card(
+        self,
+        format: str = "huggingface",
+        path: str | Path | None = None,
+        ablation: Ablation | None = None,
+        title: str | None = None,
+        description: str | None = None,
+        license: str | None = None,
+        language: str | list[str] | None = None,
+        source: str | None = None,
+        citation: str | None = None,
+        column_descriptions: dict[str, str] | None = None,
+        by: str | None = None,
+        lang: str | None = None,
+        locale: str | None = None,
+    ) -> str: ...
     def _enrich_schema_types(self, schema_doc: dict[str, Any]) -> None: ...
     def _covered_columns(self) -> set[str]: ...
     def _auto_improvement_instruction(self) -> str: ...
@@ -761,16 +930,33 @@ class Validate:
         verify_ssl: bool = True,
         max_reprompts: int = 1,
     ) -> Any: ...
-    def get_dimension_scores(self) -> dict[str, float]: ...
-    def get_health_score(self) -> float: ...
+    def get_dimension_scores(self, by: str | None = None) -> dict[Any, Any]: ...
+    def _steps_by_segment(self, by: str) -> dict[Any, list[_ValidationInfo]]: ...
+    def get_health_score(self, by: str | None = None) -> float | dict[Any, float]: ...
     def assert_dimension_scores(
-        self, thresholds: dict[str, float] | None = None, message: str | None = None
+        self,
+        thresholds: dict[str, float] | None = None,
+        message: str | None = None,
+        by: str | None = None,
     ) -> None: ...
-    def get_scorecard(self, title: str | None = ":default:") -> GT: ...
+    def get_scorecard(self, title: str | None = ":default:", by: str | None = None) -> GT: ...
+    def _dimension_scorecard(
+        self, dimension_scores: dict[str, float], lang: str, df_lib: Any
+    ) -> GT: ...
     def get_json_report(
         self, use_fields: list[str] | None = None, exclude_fields: list[str] | None = None
     ) -> str: ...
-    def get_sundered_data(self, type: str = "pass") -> Any: ...
+    def get_sundered_data(
+        self,
+        type: str = "pass",
+        duplicates: str | None = None,
+        duplicates_order_by: str | list[str] | None = None,
+    ) -> Any: ...
+    def get_row_flags(
+        self,
+        duplicates: str | None = "keep_first",
+        duplicates_order_by: str | list[str] | None = None,
+    ) -> Any: ...
     def get_notes(
         self, i: int, format: str = "dict"
     ) -> dict[str, dict[str, str]] | list[str] | None: ...

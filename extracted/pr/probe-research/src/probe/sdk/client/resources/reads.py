@@ -90,7 +90,7 @@ class ReadsMixin:
 
         The read people actually want when they open a comparison: which of these
         configs won. Name the runs with ``run_ids=[...]`` or select them with the
-        same filters :meth:`list_runs` takes (``experiment_id=``, ``group_id=``)::
+        same filters :meth:`list_runs` takes (``experiment_id=``, ``filter={"group_id": G}``)::
 
             comparison = client.compare(experiment_id=exp_id, keys=["dockq"])
             aligned = comparison.aligned("dockq")

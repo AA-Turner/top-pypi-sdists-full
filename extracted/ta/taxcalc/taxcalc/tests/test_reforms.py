@@ -1,0 +1,493 @@
+"""
+Test example JSON policy reform files in taxcalc/reforms directory
+"""
+# CODING-STYLE CHECKS:
+# pycodestyle test_reforms.py
+# pylint --disable=locally-disabled test_reforms.py
+
+import os
+import copy
+import glob
+import json
+import pytest
+import numpy as np
+import pandas as pd
+from taxcalc.policy import Policy
+from taxcalc.records import Records
+from taxcalc.calculator import Calculator
+
+
+def test_2017_law_reform(tests_path):
+    """
+    Check that policy parameter values in a future year under current-law
+    policy and under the reform specified in the 2017_law.json file are
+    sensible.
+    """
+    # create pre metadata dictionary for 2017_law.json reform in fyear
+    pol = Policy()
+    reform_file = os.path.join(tests_path, '..', 'reforms', '2017_law.json')
+    with open(reform_file, 'r', encoding='utf-8') as rfile:
+        rtext = rfile.read()
+    pol.implement_reform(Policy.read_json_reform(rtext))
+    assert not pol.parameter_errors
+    pol.set_year(2018)
+    pre_mdata = dict(pol.items())
+    # check some policy parameter values against expected values under 2017 law
+    pre_expect = {
+        # relation '<' implies asserting that actual < expect
+        # relation '>' implies asserting that actual > expect
+        # ... parameters not affected by TCJA and that are not indexed
+        'AMEDT_ec': {'relation': '=', 'value': 200000},
+        'SS_thd2': {'relation': '=', 'value': 34000},
+        # ... parameters not affected by TCJA and that are indexed
+        'STD_Dep': {'relation': '>', 'value': 1050},
+        'CG_brk2': {'relation': '>', 'value': 425400},
+        'AMT_CG_brk1': {'relation': '>', 'value': 38600},
+        'AMT_brk1': {'relation': '>', 'value': 191100},
+        'EITC_c': {'relation': '>', 'value': 519},
+        'EITC_ps': {'relation': '>', 'value': 8490},
+        'EITC_ps_addon_MarriedJ': {'relation': '>', 'value': 5680},
+        'EITC_InvestIncome_c': {'relation': '>', 'value': 3500},
+        # ... parameters affected by TCJA and that are not indexed
+        'ID_Charity_crt_all': {'relation': '=', 'value': 0.5},
+        'II_rt3': {'relation': '=', 'value': 0.25},
+        'AMT_child_em_c_age': {'relation': '=', 'value': 19},
+        # ... parameters affected by TCJA and that are indexed
+        'II_brk3': {'relation': '>', 'value': 91900},
+        'STD': {'relation': '<', 'value': 7000},
+        'II_em': {'relation': '>', 'value': 4050}
+    }
+    assert isinstance(pre_expect, dict)
+    assert set(pre_expect.keys()).issubset(set(pre_mdata.keys()))
+    for name in pre_expect:  # pylint: disable=consider-using-dict-items
+        aval = pre_mdata[name]
+        if aval.ndim == 2:
+            act = aval[0][0]  # comparing only first item in a vector parameter
+        else:
+            act = aval[0]
+        exp = pre_expect[name]['value']
+        if pre_expect[name]['relation'] == '<':
+            assert act < exp, f'{name} a={act} !< e={exp}'
+        elif pre_expect[name]['relation'] == '>':
+            assert act > exp, f'{name} a={act} !> e={exp}'
+        elif pre_expect[name]['relation'] == '=':
+            assert act == exp, f'{name} a={act} != e={exp}'
+
+
+def _apply_reform(policy, reform_path):
+    """
+    Helper function to apply a reform and assert no errors.
+    """
+    with open(reform_path, 'r', encoding='utf-8') as rfile:
+        rtext = rfile.read()
+    policy.implement_reform(Policy.read_json_reform(rtext))
+    assert not policy.parameter_errors
+    assert not policy.errors
+
+
+@pytest.mark.rtr
+@pytest.mark.parametrize('fyear', [2019, 2020, 2021, 2022, 2023, 2024, 2025])
+def test_round_trip_reforms(fyear, tests_path):
+    """
+    Check that current-law policy has the same policy parameter values in
+    a future year as does a compound reform that first implements the
+    2017 tax law as specified in the 2017_law.json file and then implements
+    reforms that represents new tax legislation since 2017.
+    This test checks that the future-year parameter values for
+    current-law policy (which incorporates recent legislation such as
+    the TCJA, CARES Act, ARPA, and OBBBA) are the same as future-year
+    parameter values for the compound round-trip reform.
+    Doing this check ensures that the 2017_law.json
+    and subsequent reform files that represent recent legislation are
+    specified in a consistent manner.
+    """
+    # pylint: disable=too-many-locals,too-many-statements
+
+    # create clp metadata dictionary for current-law policy in fyear
+    clp_pol = Policy()
+    clp_pol.set_year(fyear)
+    clp_mdata = dict(clp_pol.items())
+    # create rtr metadata dictionary for round-trip reform in fyear
+    rtr_pol = Policy()
+
+    reform_files_to_apply = [
+        '2017_law.json',
+        'TCJA.json',
+        'CARES.json',
+        'ConsolidatedAppropriationsAct2021.json',
+        'ARPA.json',
+        'OBBBA.json',
+        'rounding.json'
+    ]
+    for reform_filename in reform_files_to_apply:
+        reform_file_path = os.path.join(tests_path, '..',
+                                        'reforms', reform_filename)
+        _apply_reform(rtr_pol, reform_file_path)
+
+    rtr_pol.set_year(fyear)
+    rtr_mdata = dict(rtr_pol.items())
+    # compare fyear policy parameter values
+    assert clp_mdata.keys() == rtr_mdata.keys()
+    fail_dump = False
+    if fail_dump:
+        rtr_fails = open(  # pylint: disable=consider-using-with
+            'fails_rtr', 'w', encoding='utf-8'
+        )
+        clp_fails = open(  # pylint: disable=consider-using-with
+            'fails_clp', 'w', encoding='utf-8'
+        )
+    fail_params = []
+    msg = '\nRound-trip-reform and current-law-policy param values differ for:'
+    for pname in clp_mdata.keys():  # pylint: disable=consider-using-dict-items
+        rtr_val = rtr_mdata[pname]
+        clp_val = clp_mdata[pname]
+        if not np.allclose(rtr_val, clp_val):
+            fail_params.append(pname)
+            msg += f'\n  {pname} in {fyear} : rtr={rtr_val} clp={clp_val}'
+            if fail_dump:
+                rtr_fails.write(f'{pname} {fyear} {rtr_val}\n')
+                clp_fails.write(f'{pname} {fyear} {clp_val}\n')
+    if fail_dump:
+        rtr_fails.close()
+        clp_fails.close()
+    if fail_params:
+        raise ValueError(msg)
+
+
+REFORM_DIR = os.path.join(os.path.dirname(__file__), '..', 'reforms')
+REFORM_FILES = glob.glob(os.path.join(REFORM_DIR, '*.json'))
+REFORM_YEARS = {
+    'ARPA.json': 2022,
+    'ext.json': 2026,
+    'NoOBBBA.json': 2026,
+    'OBBBA.json': 2026,
+}
+
+
+def _cases_records(tests_path, tax_year):
+    """
+    Return Records object containing the cases.csv data for tax_year.
+    """
+    cases_path = os.path.join(tests_path, '..', 'reforms', 'cases.csv')
+    return Records(data=cases_path,
+                   start_year=tax_year,  # set raw input data year
+                   gfactors=None,  # keeps raw data unchanged
+                   weights=None,
+                   adjust_ratios=None)
+
+
+def _res_and_out_are_same(calc, base):
+    """
+    Write calc output to base.res.csv file and return True if its contents
+    are the same as the base.out.csv file contents (in which case the
+    base.res.csv file is removed); otherwise return False.
+    """
+    varlist = [
+        'RECID', 'c00100', 'standard', 'c04800', 'iitax', 'payrolltax'
+    ]
+    # varnames  AGI    STD         TaxInc    ITAX     PTAX
+    stats = calc.dataframe(varlist)
+    stats['RECID'] = stats['RECID'].astype(int)
+    res_path = base + '.res.csv'
+    with open(res_path, 'w', encoding='utf-8') as resfile:
+        stats.to_csv(resfile, index=False, float_format='%.2f')
+    resdf = pd.read_csv(res_path)
+    outdf = pd.read_csv(base + '.out.csv')
+    for col in resdf:
+        if col not in outdf or not np.allclose(resdf[col], outdf[col]):
+            return False
+    os.remove(res_path)
+    return True
+
+
+@pytest.mark.reforms1
+@pytest.mark.parametrize('tax_year',
+                         sorted(set(REFORM_YEARS.values()) | {2020}))
+def test_clp_output(tax_year, tests_path, baseline_policies):
+    """
+    Use current-law policy to generate static tax results for small set of
+    filing units in a single tax_year and compare those results with
+    expected results from a CSV-formatted file.
+    """
+    cases = _cases_records(tests_path, tax_year)
+    calc = Calculator(policy=baseline_policies['policy_current_law.json'],
+                      records=cases, verbose=False)
+    calc.advance_to_year(tax_year)
+    calc.calc_all()
+    base = os.path.join(tests_path, '..', 'reforms', f'clp-{tax_year}')
+    if not _res_and_out_are_same(calc, base):
+        raise ValueError(f'clp-{tax_year}.res.csv has res-vs-out differences')
+
+
+@pytest.mark.reforms1
+@pytest.mark.parametrize(
+    'reform_file,tax_year',
+    [(os.path.basename(f), REFORM_YEARS.get(os.path.basename(f), 2020))
+     for f in REFORM_FILES],
+)
+def test_reform_json_and_output(reform_file, tax_year, tests_path,
+                                baseline_policies):
+    """
+    Check that each JSON reform file can be converted into a reform dictionary
+    that can then be passed to the Policy class implement_reform method that
+    generates no parameter_errors.
+    Then use each reform to generate static tax results for small set of
+    filing units in a single tax_year and compare those results with
+    expected results from a CSV-formatted file.
+    """
+    jrf = os.path.join(tests_path, '..', 'reforms', reform_file)
+    # determine reform's baseline by reading contents of jrf
+    with open(jrf, 'r', encoding='utf-8') as rfile:
+        jrf_text = rfile.read()
+    if 'Reform_Baseline: 2017_law.json' in jrf_text:
+        baseline_name = '2017_law.json'
+    else:
+        baseline_name = 'policy_current_law.json'
+    # implement the reform relative to its baseline
+    pol = copy.deepcopy(baseline_policies[baseline_name])
+    pol.implement_reform(Policy.read_json_reform(jrf_text))
+    assert not pol.parameter_errors
+    calc = Calculator(policy=pol, records=_cases_records(tests_path, tax_year),
+                      verbose=False)
+    calc.advance_to_year(tax_year)
+    calc.calc_all()
+    if not _res_and_out_are_same(calc, jrf.replace('.json', '')):
+        raise ValueError(f'{reform_file} has res-vs-out differences')
+
+
+def reform_results(reform_dict, records, baseline_policies):
+    """
+    Return list of actual results for the reform specified by reform_dict.
+    Note that the records and baseline_policies objects can be shared
+    across calls because the Calculator constructor makes deep copies
+    of its policy and records arguments.
+    """
+    # pylint: disable=too-many-locals
+    # create baseline Calculator object, calc1
+    baseline_name = reform_dict['baseline']
+    if baseline_name not in baseline_policies:
+        raise ValueError(f'illegal baseline value {baseline_name}')
+    pol1 = baseline_policies[baseline_name]
+    calc1 = Calculator(policy=pol1, records=records, verbose=False)
+    # create reform Calculator object, calc2
+    start_year = reform_dict['start_year']
+    reform = {}
+    for name, value in reform_dict['value'].items():
+        reform[name] = {start_year: value}
+    pol2 = copy.deepcopy(pol1)
+    pol2.implement_reform(reform)
+    calc2 = Calculator(policy=pol2, records=records, verbose=False)
+    # increment both Calculator objects to reform's start_year
+    calc1.advance_to_year(start_year)
+    calc2.advance_to_year(start_year)
+    # calculate baseline and reform output for several years
+    output_type = reform_dict['output_type']
+    num_years = 4
+    results = []
+    for _ in range(0, num_years):
+        calc1.calc_all()
+        baseline = calc1.array(output_type)
+        calc2.calc_all()
+        reform = calc2.array(output_type)
+        diff = reform - baseline
+        weighted_sum_diff = (diff * calc1.array('s006')).sum() * 1.0e-9
+        results.append(weighted_sum_diff)
+        calc1.increment_year()
+        calc2.increment_year()
+    # return actual results rounded the same way as the expected results
+    return [float(f'{results[iyr]:.1f}') for iyr in range(0, num_years)]
+
+
+@pytest.fixture(scope='module', name='baseline_policies')
+def fixture_baseline_policies(tests_path, full_claiming_assumption):
+    """
+    Return dictionary of baseline Policy objects keyed by the baseline
+    names used in the reforms.json file.  Building these objects once
+    per module (rather than once per reform) greatly reduces the
+    execution time of test_reforms.
+    """
+    clp_pol = Policy()
+    clp_pol.implement_reform(full_claiming_assumption)
+    assert not clp_pol.parameter_errors
+    pre_tcja_jrf = os.path.join(tests_path, '..', 'reforms', '2017_law.json')
+    pre_tcja_pol = copy.deepcopy(clp_pol)
+    pre_tcja_pol.implement_reform(Policy.read_json_reform(pre_tcja_jrf))
+    assert not pre_tcja_pol.parameter_errors
+    return {
+        'policy_current_law.json': clp_pol,
+        '2017_law.json': pre_tcja_pol,
+    }
+
+
+@pytest.fixture(scope='module', name='cps_subsample_records')
+def fixture_cps_subsample_records(cps_subsample):
+    """
+    Return Records object containing the cps_subsample data.
+    """
+    return Records.cps_constructor(data=cps_subsample)
+
+
+REFORMS_PATH = os.path.join(os.path.dirname(__file__), 'reforms.json')
+EXPECT_PATH = os.path.join(os.path.dirname(__file__), 'reforms_expect.csv')
+
+
+def read_reforms_dict():
+    """
+    Read reforms.json file and return its contents as a dictionary
+    whose keys are string reform ids.
+    """
+    with open(REFORMS_PATH, 'r', encoding='utf-8') as rfile:
+        rjson = rfile.read()
+    return json.loads(rjson)
+
+
+def read_reforms_expect():
+    """
+    Read reforms_expect.csv file and return dictionary whose keys are
+    string reform ids and whose values are lists of expected results.
+    """
+    expect = {}
+    with open(EXPECT_PATH, 'r', encoding='utf-8') as efile:
+        elines = efile.readlines()
+    for eline in elines[1:]:  # skip header line
+        items = eline.strip().split(',')
+        if len(items) < 2:
+            continue
+        expect[items[0]] = [float(itm) for itm in items[1:]]
+    return expect
+
+
+REFORM_IDS = sorted(read_reforms_dict().keys(), key=int)
+
+
+@pytest.fixture(scope='session', name='reforms_dict')
+def fixture_reforms_dict():
+    """
+    Return dictionary containing contents of the reforms.json file.
+    """
+    return read_reforms_dict()
+
+
+@pytest.fixture(scope='session', name='reforms_expect')
+def fixture_reforms_expect():
+    """
+    Return dictionary containing contents of the reforms_expect.csv file.
+    """
+    return read_reforms_expect()
+
+
+@pytest.mark.reforms2
+def test_reforms_expect_ids(reforms_dict, reforms_expect):
+    """
+    Check that reforms.json and reforms_expect.csv specify the same
+    set of reform ids.
+    """
+    assert set(reforms_dict.keys()) == set(reforms_expect.keys()), (
+        'reforms.json and reforms_expect.csv reform ids differ'
+    )
+
+
+@pytest.mark.reforms2
+@pytest.mark.parametrize('rid', REFORM_IDS)
+def test_reforms(rid, reforms_dict, reforms_expect,
+                 cps_subsample_records, baseline_policies):
+    """
+    Compare actual and expected results for the reform with id equal to rid.
+    """
+    actual = reform_results(reforms_dict[rid],
+                            cps_subsample_records, baseline_policies)
+    expect = reforms_expect[rid]
+    if not np.allclose(actual, expect, atol=0.0, rtol=0.0):
+        act_str = ','.join(f'{res:.1f}' for res in actual)
+        exp_str = ','.join(f'{res:.1f}' for res in expect)
+        msg = (
+            f'ACTUAL AND EXPECTED RESULTS DIFFER FOR REFORM {rid}:\n'
+            f'  actual: {rid},{act_str}\n'
+            f'  expect: {rid},{exp_str}\n'
+            'IF ACTUAL OK, PUT THE ACTUAL LINE IN THE reforms_expect.csv '
+            'FILE AND RERUN TEST.'
+        )
+        raise ValueError(msg)
+
+
+@pytest.mark.obbba_reforms
+@pytest.mark.parametrize('reform_filename, expected_diff', [
+    ('ext.json', 59.543),
+    ('OBBBA.json', 0.0),
+    ('NoOBBBA.json', 306.555),
+])
+def test_reforms_cps(
+        reform_filename,
+        expected_diff,
+        tests_path,
+        full_claiming_assumption,
+):
+    """
+    Test reforms beyond 2025 using public CPS data.
+    """
+    # pylint: disable=too-many-locals
+    clp_pol = Policy()
+    clp_pol.implement_reform(full_claiming_assumption)
+    reform_file = os.path.join(tests_path, '..', 'reforms', reform_filename)
+    with open(reform_file, 'r', encoding='utf-8') as rfile:
+        rtext = rfile.read()
+    ref_pol = Policy()
+    ref_pol.implement_reform(full_claiming_assumption)
+    ref_pol.implement_reform(Policy.read_json_reform(rtext))
+    assert not ref_pol.parameter_errors
+
+    recs = Records.cps_constructor()
+
+    # create a Calculator object using current-law policy
+    calc_clp = Calculator(policy=clp_pol, records=recs, verbose=False)
+    calc_clp.advance_to_year(2026)
+    calc_clp.calc_all()
+    iitax_clp = calc_clp.array('iitax')
+
+    # create a Calculator object using the reform
+    calc_ref = Calculator(policy=ref_pol, records=recs, verbose=False)
+    calc_ref.advance_to_year(2026)
+    calc_ref.calc_all()
+    iitax_ref = calc_ref.array('iitax')
+
+    # compare aggregate individual income tax liability
+    rdiff = iitax_ref - iitax_clp
+    weighted_sum_rdiff = (rdiff * calc_clp.array('s006')).sum() * 1.0e-9
+    assert np.allclose([weighted_sum_rdiff], [expected_diff],
+                       rtol=0.0, atol=0.01)
+
+
+@pytest.mark.parametrize('soi_iitax_value', [(True), (False)])
+def test_pop_the_cap_reform(soi_iitax_value):
+    """
+    Test reform that eliminates earnings cap on FICA and SECA taxes to
+    see if the soi_iitax parameter works as expected.
+    """
+    taxyr = 2025
+    soi_iitax_spec = {'soi_iitax': {taxyr: soi_iitax_value}}
+    pol = Policy()
+    pol.implement_reform(soi_iitax_spec)
+    assert not pol.parameter_errors
+
+    recs = Records.cps_constructor()
+
+    # create baseline Calculator object
+    calc_bas = Calculator(policy=pol, records=recs, verbose=False)
+    calc_bas.advance_to_year(taxyr)
+    calc_bas.calc_all()
+    iitax_bas = calc_bas.weighted_total('iitax')
+
+    # create reform Calculator object
+    pop_the_cap_reform = {'SS_Earnings_c': {taxyr: 9e99}}
+    pol.implement_reform(pop_the_cap_reform)
+    assert not pol.parameter_errors
+    calc_ref = Calculator(policy=pol, records=recs, verbose=False)
+    calc_ref.advance_to_year(taxyr)
+    calc_ref.calc_all()
+    iitax_ref = calc_ref.weighted_total('iitax')
+
+    # compare aggregate individual income tax liability
+    # ... soi_iitax==T --> setax included in iitax
+    # ... soi_iitax==F --> setax included in payrolltax
+    positive_iitax_diff = (iitax_ref - iitax_bas) > 0
+    assert positive_iitax_diff == soi_iitax_value

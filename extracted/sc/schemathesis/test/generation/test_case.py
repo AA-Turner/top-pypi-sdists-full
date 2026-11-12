@@ -492,8 +492,7 @@ def test_response_from_requests(ctx, app_runner):
         response.set_cookie("baz", "spam")
         return response
 
-    port = app_runner.run_flask_app(app)
-    response = requests.get(f"http://127.0.0.1:{port}/api/cookies", timeout=10)
+    response = requests.get(app_runner.openapi_url(app, path="/api/cookies"), timeout=10)
     serialized = Response.from_requests(response, True)
     assert serialized.content == b""
     assert serialized.status_code == 200
@@ -790,11 +789,17 @@ def test_call_uses_configured_tls_verify(app_runner, echo_app):
 
 # A netrc entry for the host replaces generated credentials, but not configured ones.
 @pytest.mark.parametrize(
-    ("basic_auth", "expected"),
-    [(("user", "pass"), "Basic dXNlcjpwYXNz"), (None, "Basic bmV0cmM6c2VjcmV0")],
-    ids=["configured", "generated"],
+    ("config", "headers", "expected"),
+    [
+        ({"basic_auth": ("user", "pass")}, None, "Basic dXNlcjpwYXNz"),
+        ({"headers": {"Authorization": "Bearer configured"}}, None, "Bearer configured"),
+        ({"headers": {"authorization": "Bearer configured"}}, None, "Bearer configured"),
+        ({}, {"Authorization": "Bearer caller"}, "Bearer caller"),
+        ({}, None, "Basic bmV0cmM6c2VjcmV0"),
+    ],
+    ids=["configured", "configured-header", "configured-header-lowercase", "caller-header", "generated"],
 )
-def test_call_prefers_configured_auth_over_netrc(ctx, app_runner, monkeypatch, tmp_path, basic_auth, expected):
+def test_call_prefers_configured_auth_over_netrc(ctx, app_runner, monkeypatch, tmp_path, config, headers, expected):
     netrc = tmp_path / "netrc"
     netrc.write_text("machine 127.0.0.1 login netrc password secret\n")
     monkeypatch.setenv("NETRC", str(netrc))
@@ -809,9 +814,9 @@ def test_call_prefers_configured_auth_over_netrc(ctx, app_runner, monkeypatch, t
         return flask.jsonify(flask.request.headers.get("Authorization"))
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
-    schema.config.update(basic_auth=basic_auth)
+    schema.config.update(**config)
     case = generate_many(schema["/users"]["GET"].as_strategy(), 1)[0]
-    assert case.call().json() == expected
+    assert case.call(headers=headers).json() == expected
 
 
 @pytest.mark.parametrize(

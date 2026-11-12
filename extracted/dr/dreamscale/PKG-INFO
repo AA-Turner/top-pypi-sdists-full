@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a310
+Version: 0.1.0a317
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a130
+Requires-Dist: dreamscale-transport==0.1.1a135
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -88,7 +88,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a310"
+uv add "dreamscale==0.1.0a317"
 ```
 
 Install the CLI as a standalone tool:
@@ -117,11 +117,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a310"
-uv add "dreamscale[sim]==0.1.0a310"
-uv add "dreamscale[dreamzero]==0.1.0a310"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a310"
-uv add "dreamscale[hud]==0.1.0a310"
+uv add "dreamscale[so101]==0.1.0a317"
+uv add "dreamscale[sim]==0.1.0a317"
+uv add "dreamscale[dreamzero]==0.1.0a317"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a317"
+uv add "dreamscale[hud]==0.1.0a317"
 ```
 
 The `dreamzero` extra installs the pinned H.264 codec used automatically by
@@ -252,6 +252,43 @@ task's training instruction. It returns 32 absolute poses with gripper close
 commands at 20 Hz; the simulator executes the first 16, then replans, holding
 the measured poses while inference is pending. Success is RoboEval's own task
 check.
+
+### ABC (bimanual YAM)
+
+ABC runs [abc_sim](https://github.com/amazon-far/abc), the MuJoCo simulator of the ABC
+bimanual YAM station, with a YAM model from the cloud. The simulator stands in for the
+robot and nothing else changes: the session and the control loop are `dreamscale run yam`'s,
+paced at the model's 30 Hz. The first run uses `uv` to prepare a Python 3.12 runtime and
+downloads the task's assets (about 0.5 GB for the bottles task); later runs reuse them.
+
+```bash
+# Put the plastic bottles in the bin, episode 0.
+dreamscale sim abc --model pi0.5-bimanualyam
+
+# Another task and episode, saving the three-camera video and a summary.
+dreamscale sim abc --model pi0.5-bimanualyam --task-suite turn_mug_right_side_up --task-id 3 --output-root ./abc-run
+```
+
+Tasks (`--task-suite`): `put_plastic_bottles_in_bin`,
+`sweep_away_paper_scraps_from_table`, `turn_mug_right_side_up`,
+`load_plates_into_dish_rack`, `hang_mug_on_mug_rack`. `--task-id` is the episode: episode
+N's scene is world N of upstream's evaluation, and `--task-seed` shifts it.
+
+The model receives the top, left-wrist and right-wrist cameras at 224×168 and the 14
+measured joint values (each arm's six joints and its gripper, 0 closed to 1 open), and
+returns absolute joint targets. An episode ends at the task's first success (upstream's own
+check) or after 118 s.
+
+The cameras render on your machine beside the physics, as a robot's cameras run beside its
+arms. A laptop GPU gives about 28 frames a second. Software OpenGL (a Linux machine with no
+GPU) gives one or two, so the model plans on old frames; the run says so, and its score is
+then not the model's. Each episode also prints the rate it ran at: the control loop never
+makes up a late tick, so expect about 27 actions a second on a laptop, not 30.
+
+A score means something only for a model trained on abc_sim episodes: ABC-VLA YAM
+(`abc-vla-yam`), which is told the prompt those episodes carried. π0.5 YAM and
+MolmoAct2-BimanualYAM were trained on real camera footage. They run, which checks a setup
+end to end without arms, and their score says nothing about the robot.
 
 ## SO-101 tasks
 

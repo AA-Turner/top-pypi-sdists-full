@@ -16,7 +16,7 @@ from anyscale._private.models.image_uri import ImageURI
 from anyscale._private.models.validation import RAY_VERSION_DEPRECATION_MESSAGE
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
-from anyscale.commands import command_examples, events_commands
+from anyscale.commands import command_examples, events_commands, resource_logs_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -1865,3 +1865,6 @@ def list_tags(
 # `anyscale job events` is implemented once for every resource in
 # events_commands.py; only the registration lives here.
 job_cli.add_command(events_commands.job_events)
+# Same shape for `anyscale job logs-v2` (resource_logs_commands.py); the GA `logs`
+# command above keeps its name.
+job_cli.add_command(resource_logs_commands.job_logs)

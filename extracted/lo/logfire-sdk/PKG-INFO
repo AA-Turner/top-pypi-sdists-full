@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: logfire-sdk
-Version: 5.5.0
+Version: 5.6.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -45,7 +45,7 @@ Requires-Dist: rich>=13.4.2
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.13.0
 Provides-Extra: agent-sandboxes
-Requires-Dist: pydantic-monty-client>=1.5.0; extra == 'agent-sandboxes'
+Requires-Dist: pydantic-monty-client>=1.6.0; extra == 'agent-sandboxes'
 Provides-Extra: aiohttp
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client>=0.42b0; extra == 'aiohttp'
 Provides-Extra: aiohttp-client

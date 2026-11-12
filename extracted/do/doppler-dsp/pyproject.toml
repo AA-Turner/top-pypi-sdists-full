@@ -19,7 +19,7 @@ build-backend = "just_buildit"
 
 [project]
 name = "doppler-dsp"
-version = "0.82.0"
+version = "0.83.0"
 description = "Practical, portable, performant digital signal processing."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -217,6 +217,9 @@ dev = [
     "mdformat-gfm==1.0.0; python_version >= '3.10'",
     "mdformat-gfm-alerts==2.1.0; python_version >= '3.10'",
     "mdformat-mkdocs==5.2.1; python_version >= '3.10'",
+    # Page front matter (`description:`, #3000): without it mdformat reads
+    # the `---` fence as a rule and the key as a heading.
+    "mdformat-frontmatter==2.2.0; python_version >= '3.10'",
     "pre-commit>=4.0",
     # The specan web server's tests (test_server_ws.py, and the server case in
     # test_handshake.py) drive a real FastAPI/uvicorn server. Without these
@@ -233,12 +236,17 @@ docs = [
     # site cold in about 520 MB. The floors move TOGETHER: zensical 0.0.55+
     # against the old mkdocstrings fails to render every API page
     # (Highlight.__init__() missing 'md').
-    "zensical>=0.0.74; python_version >= '3.11'",
+    "zensical>=0.1.1; python_version >= '3.11'",
     "mkdocs-glightbox>=0.4; python_version >= '3.10'",
     "mkdocstrings[python]>=1.0.8; python_version >= '3.11'",
     "mkdocstrings-python>=2.0.10; python_version >= '3.11'",
     "mkdocs-autorefs>=1.4.5; python_version >= '3.11'",
     "mkdoxy>=1.2.8",
+    # The Python model mkdocstrings reads (static, from the stubs).
+    "griffelib>=2.4.1; python_version >= '3.11'",
+    # One reference page per public module, and its nav, discovered from
+    # the package rather than listed (zensical supports it since 0.0.66).
+    "mkdocs-api-autonav>=0.4.0; python_version >= '3.11'",
 ]
 
 # ── ruff ─────────────────────────────────────────────────────────────────────

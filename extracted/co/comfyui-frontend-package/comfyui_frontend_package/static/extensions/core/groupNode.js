@@ -4,3 +4,4 @@ export const GroupNodeConfig = window.comfyAPI.groupNode.GroupNodeConfig;
 export const findUnconsumedWidgetIndex = window.comfyAPI.groupNode.findUnconsumedWidgetIndex;
 export const GroupNodeHandler = window.comfyAPI.groupNode.GroupNodeHandler;
 export const replaceLegacySeparators = window.comfyAPI.groupNode.replaceLegacySeparators;
+export const groupNodeExtension = window.comfyAPI.groupNode.groupNodeExtension;

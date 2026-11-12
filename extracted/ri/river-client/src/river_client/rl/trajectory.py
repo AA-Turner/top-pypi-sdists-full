@@ -5,8 +5,10 @@ from __future__ import annotations
 import base64
 import copy
 import math
+import threading
 import uuid
 import warnings
+import weakref
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -86,6 +88,24 @@ class _Spilled:
 
 def _materialized(value):
     return value.read() if isinstance(value, _Spilled) else value
+
+
+def _spilled(value, shape, dtype):
+    """Check a restored on-disk array's metadata against what a span needs."""
+    if value.dtype != dtype or (
+        len(value.shape) != 1 if shape is None else value.shape != shape
+    ):
+        raise ValueError("restored span array has the wrong shape or dtype")
+    return value
+
+
+def _spilled_or_array(value, shape, dtype):
+    if isinstance(value, _Spilled):
+        return _spilled(value, value.shape if shape is None else shape, dtype)
+    array = _readonly_array(value, dtype)
+    if shape is not None and array.shape != shape:
+        raise ValueError("restored span array has the wrong shape or dtype")
+    return array
 
 
 def _read_spans(spans, *, topk):
@@ -202,7 +222,16 @@ class Span:
         )
         stored = []
         for chunk in chunks:
-            if chunk["type"] == "text":
+            if chunk["type"] == "text" and isinstance(chunk["tokens"], _Spilled):
+                # Restored from a checkpoint without reading it; values were
+                # validated when the span was first built.
+                stored.append(
+                    {
+                        "type": "text",
+                        "tokens": _spilled(chunk["tokens"], None, np.int32),
+                    }
+                )
+            elif chunk["type"] == "text":
                 ids = np.asarray(chunk["tokens"])
                 if ids.ndim != 1 or (
                     ids.size
@@ -251,15 +280,35 @@ class Span:
         if kind == "generated":
             if policy_step is None or policy_step < 0:
                 raise ValueError("generated spans require a nonnegative policy_step")
-            lp = _readonly_array(logprobs, np.float32)
-            if lp.shape != (n,) or not np.all(np.isfinite(lp)):
-                raise ValueError("generated tokens require one finite logprob each")
+            if isinstance(logprobs, _Spilled):
+                lp = _spilled(logprobs, (n,), np.float32)
+            else:
+                lp = _readonly_array(logprobs, np.float32)
+                if lp.shape != (n,) or not np.all(np.isfinite(lp)):
+                    raise ValueError("generated tokens require one finite logprob each")
         elif logprobs is not None or policy_step is not None:
             raise ValueError("only generated spans carry logprobs and policy_step")
         head_ids = head_lp = None
         if (sampler_topk_ids is None) != (sampler_topk_logprobs is None):
             raise ValueError("top-k IDs and logprobs must be supplied together")
-        if sampler_topk_ids is not None:
+        if isinstance(sampler_topk_ids, _Spilled) or isinstance(
+            sampler_topk_logprobs, _Spilled
+        ):
+            if sampler_topk_ids is None or sampler_topk_logprobs is None:
+                raise ValueError("top-k IDs and logprobs must be supplied together")
+            source = (
+                sampler_topk_ids
+                if isinstance(sampler_topk_ids, _Spilled)
+                else np.asarray(sampler_topk_ids)
+            )
+            if kind != "generated" or len(source.shape) != 2:
+                raise ValueError(
+                    "top-k arrays must have matching [generated tokens, K] shapes"
+                )
+            shape = (n, source.shape[1])
+            head_ids = _spilled_or_array(sampler_topk_ids, shape, np.int32)
+            head_lp = _spilled_or_array(sampler_topk_logprobs, shape, np.float32)
+        elif sampler_topk_ids is not None:
             ids = np.asarray(sampler_topk_ids)
             head_lp = _readonly_array(sampler_topk_logprobs, np.float32)
             if (
@@ -288,7 +337,7 @@ class Span:
             head_ids = _readonly_array(ids, np.int32)
         masses = None
         if sampling_log_masses is not None:
-            masses = _readonly_array(sampling_log_masses, np.float32)
+            masses = _spilled_or_array(sampling_log_masses, None, np.float32)
             if kind != "generated" or masses.shape != (n,):
                 raise ValueError("generated tokens require one sampling log mass each")
         for name, value in (
@@ -400,6 +449,14 @@ def _span_array(name):
 for _name in _SPAN_ARRAYS:
     setattr(Span, _name, _span_array(_name))
 del _name
+
+
+# The checkpoint records each restored trajectory came from, keyed by the
+# trajectory: (store's record handle, its span list, its messages list).
+_RESTORED_KEY = "__river_restored__"
+_RESTORED = weakref.WeakKeyDictionary()
+# Trainers in one process restore and save concurrently.
+_RESTORED_LOCK = threading.Lock()
 
 
 class Trajectory:
@@ -846,12 +903,26 @@ class Trajectory:
 
     @classmethod
     def from_state_dict(cls, state, *, recovering=_RECOVERING_UNSET):
+        restored = None
+        if isinstance(state, dict) and _RESTORED_KEY in state:
+            state = dict(state)
+            restored = state.pop(_RESTORED_KEY)
+        result = cls._from_state_dict(state, recovering)
+        if restored is not None:
+            # A checkpoint store adopts these records on its next save
+            # instead of writing the restored history again.
+            with _RESTORED_LOCK:
+                _RESTORED[result] = (restored, result._spans, result.messages)
+        return result
+
+    @classmethod
+    def _from_state_dict(cls, state, recovering):
         if recovering is not _RECOVERING_UNSET:
             warnings.warn(
                 "Trajectory.from_state_dict(recovering=...) is deprecated and ignored; "
                 "saved routing captures are reused whenever available.",
                 DeprecationWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
         state = decode_state(state)
         if state.pop("version") != 1:

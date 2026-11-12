@@ -213,8 +213,7 @@ def test_fuzz_finds_failure_without_continue_on_failure(ctx):
 
 def test_fuzz_preflight_excludes_non_generatable_operation_before_hypothesis(ctx, app_runner):
     app = _make_flaky_repro_schema(ctx)
-    port = app_runner.run_flask_app(app)
-    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json")
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     schema.config.seed = 1
 
     collected = _fuzz_events(schema, FuzzConfig())
@@ -438,6 +437,28 @@ def test_fuzz_generation_parameter_overrides_are_applied(ctx):
     assert query_values == [{"id": -1}] * len(query_values)
 
 
+def test_fuzz_parameter_overrides_apply_to_linked_steps(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    # The link fills other query parameters of the same operation
+    schema.config.parameters = {"query.code": 7}
+    schema.config.continue_on_failure = True
+    stream = from_schema(schema).fuzz(FuzzConfig(max_time=30))
+    linked_codes = []
+    for event in stream:
+        if isinstance(event, events.FuzzScenarioFinished):
+            linked_codes.extend(
+                node.value.query["code"]
+                for node in event.recorder.cases.values()
+                if node.value.operation.label == "GET /users/{user_id}"
+                and node.value.query.get("user_id") == node.value.path_parameters["user_id"]
+            )
+            if len(linked_codes) >= 3:
+                stream.stop()
+                break
+    assert set(linked_codes) == {7}
+
+
 @pytest.mark.parametrize("workers", [1, 3], ids=["single-worker", "multiple-workers"])
 def test_fuzz_unique_inputs_sends_each_input_once(ctx, app_runner, workers):
     # Following a link or not is a separate choice in every step, so scenarios vastly outnumber the two inputs.
@@ -565,8 +586,7 @@ def test_fuzz_preflight_excludes_hook_broken_operation_but_keeps_survivors(ctx):
 
 def test_fuzz_preflight_reports_exclusion_once_across_workers(ctx, app_runner):
     app = _make_flaky_repro_schema(ctx)
-    port = app_runner.run_flask_app(app)
-    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json")
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     schema.config.seed = 1
     schema.config.update(workers=2)
 
@@ -758,6 +778,57 @@ def test_collect_link_candidates(ctx, active, exclude_get, body, expected_overri
         assert overrides == expected_overrides
 
 
+@pytest.mark.parametrize("other", ["default", "2XX"], ids=["default", "range"])
+def test_collect_link_candidates_from_most_specific_response(ctx, case_factory, response_factory, other):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        other: {
+                            "description": "Other",
+                            "links": {
+                                "GetAudit": {"operationId": "getAudit", "parameters": {"code": "$response.body#/id"}}
+                            },
+                        },
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetItem": {"operationId": "getItem", "parameters": {"id": "$response.body#/id"}}
+                            },
+                        },
+                    }
+                }
+            },
+            "/items/{id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/audit/{code}": {
+                "get": {
+                    "operationId": "getAudit",
+                    "parameters": [{"name": "code", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    source = schema["/items"]["POST"]
+    get_item = schema["/items/{id}"]["GET"]
+    operations = [source, get_item, schema["/audit/{code}"]["GET"]]
+    candidates = collect_link_candidates(
+        operation=source,
+        case=case_factory(operation=source),
+        response=response_factory.core(status_code=201, content=b'{"id": "x1"}'),
+        operations_by_label={operation.label: operation for operation in operations},
+        excluded_labels=set(),
+    )
+    assert candidates == [(get_item, {"path_parameters": {"id": "x1"}})]
+
+
 @pytest.mark.parametrize(
     "links",
     [
@@ -825,15 +896,31 @@ def test_iter_link_candidates_edge_links(ctx, case_factory, response_factory, li
 
 
 @pytest.mark.parametrize(
-    ("extension", "expected"),
+    ("link_values", "extension", "expected"),
     [
-        (None, {"productId": "abc", "quantity": 1}),
-        ({"merge_body": False}, {"productId": "abc"}),
+        ({"requestBody": {"productId": "$response.body#/productId"}}, None, {"productId": "abc", "quantity": 1}),
+        ({"requestBody": {"productId": "$response.body#/productId"}}, {"merge_body": False}, {"productId": "abc"}),
+        ({"parameters": {"body.productId": "$response.body#/productId"}}, None, {"productId": "abc", "quantity": 1}),
+        (
+            {"parameters": {"body.productId": "$response.body#/productId"}},
+            {"merge_body": False},
+            {"productId": "abc", "quantity": 1},
+        ),
+        (
+            {"parameters": {"body.productId": "$response.body#/productId"}, "requestBody": {"quantity": 1}},
+            None,
+            {"productId": "abc", "quantity": 1},
+        ),
+        (
+            {"parameters": {"body.productId": "$response.body#/productId"}, "requestBody": {"quantity": 1}},
+            {"merge_body": False},
+            {"productId": "abc", "quantity": 1},
+        ),
     ],
-    ids=["merge", "replace"],
+    ids=["merge", "replace", "merge-field", "replace-field", "merge-field-and-body", "replace-field-and-body"],
 )
-def test_link_candidate_body_merging(ctx, case_factory, response_factory, extension, expected):
-    link = {"operationId": "createOrder", "requestBody": {"productId": "$response.body#/productId"}}
+def test_link_candidate_body_merging(ctx, case_factory, response_factory, link_values, extension, expected):
+    link = {"operationId": "createOrder", **link_values}
     if extension is not None:
         link["x-schemathesis"] = extension
     schema = ctx.openapi.load_schema(

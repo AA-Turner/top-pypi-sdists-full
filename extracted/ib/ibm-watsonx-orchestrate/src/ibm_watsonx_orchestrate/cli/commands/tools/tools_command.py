@@ -183,9 +183,13 @@ def list_tools(
         bool,
         typer.Option("--verbose", "-v", help="List full details of all tools as json"),
     ] = False,
+    include_escalation: Annotated[
+        bool,
+        typer.Option("--include-escalation", help="Also list escalation workflows, which are hidden by default"),
+    ] = False,
 ):  
     tools_controller = ToolsController()
-    tools_controller.list_tools(verbose=verbose)
+    tools_controller.list_tools(verbose=verbose, include_escalation=include_escalation)
 
 @tools_app.command(name="remove", help='Remove a tool from the active environment')
 def remove_tool(

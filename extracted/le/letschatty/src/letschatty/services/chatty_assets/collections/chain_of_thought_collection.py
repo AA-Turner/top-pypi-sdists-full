@@ -3,7 +3,8 @@
 from typing import Any, List, Dict
 
 from letschatty.models.utils.types.serializer_type import SerializerType
-from ..asset_service import AssetCollection, StrObjectId
+from ....models.data_base.asset_collection import AssetCollection
+from ....models.utils.types import StrObjectId
 from ....models.company.assets.ai_agents_v2.chain_of_thought_in_chat import (
     ChainOfThoughtInChat,
     ChainOfThoughtInChatPreview

@@ -426,6 +426,18 @@ class RunCache:
                 result=self._run_result, description="", metrics=self._adapter_ext.report()
             )
 
+    def begin_on_run_end(self) -> None:
+        self._hooks.begin_on_run_end()
+
+    def update_metadata_after_on_run_end(self) -> None:
+        self._hooks.update_metadata_after_on_run_end()
+
+    def before_on_run_end_statement(self, sql: str) -> t.Set[str]:
+        return self._hooks.before_on_run_end_statement(sql)
+
+    def after_on_run_end_statement(self, unique_ids: t.Iterable[str]) -> None:
+        self._hooks.after_on_run_end_statement(unique_ids)
+
     def prewarm_connections(self) -> None:
         self._adapter_ext.prewarm_connections()
 

@@ -23,16 +23,17 @@ use tapo::responses::{
     DeviceInfoPlugResult, DeviceInfoPowerStripResult, DeviceInfoRgbLightStripResult,
     DeviceInfoRgbicLightStripResult, DeviceUsageEnergyMonitoringResult, DeviceUsageResult,
     EnergyDataIntervalResult, EnergyDataResult, EnergyMeterDataResult, EnergyUsageResult,
-    IrRemoteKey, IrRemoteResult, KE100Result, OtherResult, OvercurrentStatus, OverheatStatus,
-    PlugState, PowerDataIntervalResult, PowerDataResult, PowerProtectionStatus, PowerState,
-    PowerStripPlugEnergyMonitoringResult, PowerStripPlugResult, Preset, RecordingDateHubResult,
-    RecordingDownloadResult, RgbLightStripState, RgbicLightStripState, RtspStreamUrl, S200Result,
-    S200RotationParams, S210Result, ScheduleRuleResult, Snapshot, Status, T31XResult, T100Event,
-    T100Result, T110Event, T110Result, T300Event, T300Result, TemperatureHumidityRecord,
-    TemperatureHumidityRecords, TemperatureUnit, TemperatureUnitKE100, Timer, TimezoneResult,
-    UsageByPeriodResult, WaterLeakStatus,
+    IrRemoteKey, IrRemoteResult, KE100Result, LightingEffectSummary, OtherResult,
+    OvercurrentStatus, OverheatStatus, PlugState, PowerDataIntervalResult, PowerDataResult,
+    PowerProtectionStatus, PowerState, PowerStripPlugEnergyMonitoringResult, PowerStripPlugResult,
+    Preset, RecordingDateHubResult, RecordingDownloadResult, RgbLightStripState,
+    RgbicLightStripState, RtspStreamUrl, S200Result, S200RotationParams, S210Result,
+    ScheduleRuleResult, Snapshot, Status, T31XResult, T100Event, T100Result, T110Event, T110Result,
+    T300Event, T300Result, TemperatureHumidityRecord, TemperatureHumidityRecords, TemperatureUnit,
+    TemperatureUnitKE100, Timer, TimezoneResult, UsageByPeriodResult, WaterLeakStatus,
+    WifiJoinResult, WifiNetwork, WifiSecurity,
 };
-use tapo::{DeviceType, DiscoveryRawResult};
+use tapo::{BluetoothSetupDevice, DeviceType, DiscoveryRawResult};
 
 use api::{
     PyApiClient, PyCameraHandler, PyCameraHubHandler, PyCameraPtzHandler, PyColorLightHandler,
@@ -41,16 +42,17 @@ use api::{
     PyLightHandler, PyMaybeDiscoveryRawResult, PyMaybeDiscoveryResult,
     PyPlugEnergyMonitoringHandler, PyPlugHandler, PyPowerStripEnergyMonitoringHandler,
     PyPowerStripHandler, PyPowerStripPlugEnergyMonitoringHandler, PyPowerStripPlugHandler,
-    PyRgbLightStripHandler, PyRgbicLightStripHandler, PyS200Handler, PyS210Handler, PyT31XHandler,
-    PyT100Handler, PyT110Handler, PyT300Handler,
+    PyRgbLightStripHandler, PyRgbicLightStripHandler, PyS200Handler, PyS210Handler, PySetupHandler,
+    PyT31XHandler, PyT100Handler, PyT110Handler, PyT300Handler,
 };
 use requests::{
     PyAlarmDuration, PyColorLightSetDeviceInfoParams, PyEnergyDataInterval, PyPowerDataInterval,
 };
 use responses::{
-    PyBackupWifi, PyDetectionResult, PyGeneralDeviceHubResult, PyRecordingHubResult,
-    PyRecordingType, PyS200Event, PyS200Log, PyT100Log, PyT110Log, PyT300Log,
-    TriggerLogsS200Result, TriggerLogsT100Result, TriggerLogsT110Result, TriggerLogsT300Result,
+    PyBackupWifi, PyDetectionResult, PyFirmwareUpdateStateResult, PyFirmwareUpdateStatus,
+    PyGeneralDeviceHubResult, PyLatestFirmwareResult, PyRecordingHubResult, PyRecordingType,
+    PyS200Event, PyS200Log, PyT100Log, PyT110Log, PyT300Log, TriggerLogsS200Result,
+    TriggerLogsT100Result, TriggerLogsT110Result, TriggerLogsT300Result,
 };
 
 #[pymodule]
@@ -143,6 +145,9 @@ fn register_handlers(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<PyPowerStripPlugHandler>()?;
     module.add_class::<PyPowerStripPlugEnergyMonitoringHandler>()?;
 
+    module.add_class::<BluetoothSetupDevice>()?;
+    module.add_class::<PySetupHandler>()?;
+
     module.add_class::<DeviceType>()?;
     module.add_class::<PyDeviceDiscovery>()?;
     module.add_class::<PyDeviceDiscoveryIter>()?;
@@ -169,6 +174,9 @@ fn register_responses(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<EnergyDataResult>()?;
     module.add_class::<EnergyMeterDataResult>()?;
     module.add_class::<EnergyUsageResult>()?;
+    module.add_class::<PyLatestFirmwareResult>()?;
+    module.add_class::<PyFirmwareUpdateStateResult>()?;
+    module.add_class::<PyFirmwareUpdateStatus>()?;
     module.add_class::<OvercurrentStatus>()?;
     module.add_class::<OverheatStatus>()?;
     module.add_class::<PowerDataIntervalResult>()?;
@@ -177,6 +185,13 @@ fn register_responses(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<ScheduleRuleResult>()?;
     module.add_class::<TimezoneResult>()?;
     module.add_class::<UsageByPeriodResult>()?;
+
+    // device setup
+    module.add_class::<WifiJoinResult>()?;
+    module.add_class::<WifiNetwork>()?;
+    module.add_class::<WifiSecurity>()?;
+    // The variant is exposed as `NONE`; drop the generated `None` alias.
+    module.py().get_type::<WifiSecurity>().delattr("None")?;
 
     // device info: other
     module.add_class::<DeviceInfoBasicResult>()?;
@@ -199,6 +214,7 @@ fn register_responses(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<DeviceInfoRgbicLightStripResult>()?;
     module.add_class::<DefaultRgbicLightStripState>()?;
     module.add_class::<RgbicLightStripState>()?;
+    module.add_class::<LightingEffectSummary>()?;
     module.add_class::<LightingEffect>()?;
     module.add_class::<LightingEffectType>()?;
 

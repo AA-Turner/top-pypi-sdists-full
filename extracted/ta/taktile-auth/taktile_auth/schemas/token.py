@@ -56,6 +56,7 @@ class TaktileIdToken(BaseModel):
     workspace_id: str | None = None
     org_id: str | None = None
     jti: str | None = None
+    groups: t.List[str] | None = None
     # RFC 8693 delegation claim. Nests on each exchange hop, so the value is
     # left unconstrained here.
     act: t.Dict[str, t.Any] | None = None
@@ -166,6 +167,28 @@ class TaktileIdToken(BaseModel):
                     sub_args[arg] = "*"
             results.extend(cls._filter_one_role(sub_def, sub_args, filters, target_roles))
         return results
+
+    @classmethod
+    def filter_role_signature(
+        cls,
+        role_signature: str,
+        *,
+        org_id: str,
+        ws_id: t.Optional[str] = None,
+        flow_folder_id: t.Optional[str] = None,
+    ) -> t.List[str]:
+        """The signatures ``filter_roles`` keeps for one role, without building them.
+
+        Arguments are not validated: a kept role that ``build`` would reject is returned as given."""
+        role_name, _, role_args_str = role_signature.partition("/")
+        if role_name not in ROLES:
+            return []
+        role_def = ROLES[role_name]
+        role_args = dict(zip(role_def.args, role_args_str.split(",") if role_args_str else []))
+        filters = {"org_id": org_id, "ws_id": ws_id, "flow_folder_id": flow_folder_id}
+        kept = cls._filter_one_role(role_def, role_args, {k: v for k, v in filters.items() if v is not None})
+        signatures = (d.name + "/" + ",".join(args[a] for a in d.args) for d, args in kept)
+        return list(dict.fromkeys(signatures))
 
     def filter_roles(
         self,

@@ -699,7 +699,7 @@ class ApiPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'apiProperties'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.api.ApiProperties")
 
     def __init__(self,
@@ -4740,7 +4740,7 @@ class ChartQueryClass(_Aspect):
 
 
     ASPECT_NAME = 'chartQuery'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.chart.ChartQuery")
 
     def __init__(self,
@@ -5608,7 +5608,7 @@ class DataTransformLogicClass(_Aspect):
 
 
     ASPECT_NAME = 'dataTransformLogic'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.DataTransformLogic")
 
     def __init__(self,
@@ -5637,7 +5637,7 @@ class DeprecationClass(_Aspect):
 
 
     ASPECT_NAME = 'deprecation'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Deprecation")
 
     def __init__(self,
@@ -5767,9 +5767,8 @@ class DocumentationClass(_Aspect):
     Future evolution considerations:
     The first entity that uses this aspect is Schema Field. We will expand this
         aspect to other entities eventually.
-    The values of the documentation are not currently searchable. This will be
-        changed once this aspect develops opinion on which documentation entry is
-        the authoritative one.
+    Each documentation entry is searchable as text. The aspect does not yet
+        choose which entry is authoritative.
     Ensuring that there is only one documentation per source is a business
         rule that is not enforced by the aspect yet. This will currently be enforced by the
         application that uses this aspect. We will eventually enforce this rule in
@@ -5777,7 +5776,7 @@ class DocumentationClass(_Aspect):
 
 
     ASPECT_NAME = 'documentation'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Documentation")
 
     def __init__(self,
@@ -7912,7 +7911,8 @@ class SemanticContentClass(_Aspect):
     embed this entity, so consumers can distinguish never-embeddable entities from indexing
     lag or failures. Values written today: EMPTY_TEXT (no resolved text),
     BELOW_MIN_TEXT_LENGTH (resolved text shorter than the recipe's min_text_length),
-    NO_INDEXABLE_CONTENT (text partitioned to no indexable elements). Overwritten with real
+    NO_INDEXABLE_CONTENT (text partitioned to no indexable elements), PARTITION_TIMEOUT
+    (partitioning exceeded the recipe's partition_timeout_seconds). Overwritten with real
     embeddings when the entity later becomes embeddable and is processed."""
         return self._inner_dict.get('skipReason')  # type: ignore
     
@@ -13456,6 +13456,38 @@ class EditableDatasetPropertiesClass(_Aspect):
         self._inner_dict['name'] = value
     
     
+class EditablePrimaryKeysClass(_Aspect):
+    """A primary key declared by users for a dataset whose source declares none, such as files, object
+    stores or tables created without constraints. Ingestion does not write this aspect.
+    A primary key declared by the source (SchemaMetadata.primaryKeys or SchemaField.isPartOfKey)
+    takes precedence over this one."""
+
+
+    ASPECT_NAME = 'editablePrimaryKeys'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.EditablePrimaryKeys")
+
+    def __init__(self,
+        primaryKeys: List[str],
+    ):
+        super().__init__()
+        
+        self.primaryKeys = primaryKeys
+    
+    def _restore_defaults(self) -> None:
+        self.primaryKeys = list()
+    
+    
+    @property
+    def primaryKeys(self) -> List[str]:
+        """Field paths of the primary key, matching SchemaMetadata.fields[].fieldPath."""
+        return self._inner_dict.get('primaryKeys')  # type: ignore
+    
+    @primaryKeys.setter
+    def primaryKeys(self, value: List[str]) -> None:
+        self._inner_dict['primaryKeys'] = value
+    
+    
 class FineGrainedLineageClass(DictWrapper):
     """A fine-grained lineage from upstream fields/datasets to downstream field(s)"""
     
@@ -14096,7 +14128,7 @@ class ViewPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'viewProperties'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.ViewProperties")
 
     def __init__(self,
@@ -15647,7 +15679,7 @@ class FormInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'formInfo'
-    ASPECT_INFO = {'schemaVersion': 5}
+    ASPECT_INFO = {'schemaVersion': 6}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.form.FormInfo")
 
     def __init__(self,
@@ -17359,7 +17391,7 @@ class IncidentExternalLinksClass(_Aspect):
 
 
     ASPECT_NAME = 'incidentExternalLinks'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentExternalLinks")
 
     def __init__(self,
@@ -17394,7 +17426,7 @@ class IncidentInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'incidentInfo'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentInfo")
 
     def __init__(self,
@@ -17679,7 +17711,7 @@ class IncidentNotesClass(_Aspect):
 
 
     ASPECT_NAME = 'incidentNotes'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.incident.IncidentNotes")
 
     def __init__(self,
@@ -18163,7 +18195,7 @@ class DocumentInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'documentInfo'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.knowledge.DocumentInfo")
 
     def __init__(self,
@@ -19045,7 +19077,7 @@ class ChartKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'chartKey'
-    ASPECT_INFO = {'keyForEntity': 'chart', 'entityCategory': 'core', 'entityAspects': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'chart', 'entityCategory': 'core', 'entityAspects': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.ChartKey")
 
     def __init__(self,
@@ -19174,7 +19206,7 @@ class DashboardKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'dashboardKey'
-    ASPECT_INFO = {'keyForEntity': 'dashboard', 'entityCategory': '_unset_', 'entityAspects': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'dashboard', 'entityCategory': '_unset_', 'entityAspects': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DashboardKey")
 
     def __init__(self,
@@ -19975,7 +20007,7 @@ class DatasetKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'datasetKey'
-    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'dataset', 'entityCategory': 'core', 'entityAspects': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'], 'entityDoc': 'Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.'}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'dataset', 'entityCategory': 'core', 'entityAspects': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'editablePrimaryKeys', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'], 'entityDoc': 'Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DatasetKey")
 
     def __init__(self,
@@ -20030,7 +20062,7 @@ class DocumentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'documentKey'
-    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics']}
+    ASPECT_INFO = {'keyForEntity': 'document', 'entityCategory': 'core', 'entityAspects': ['documentInfo', 'okfProperties', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DocumentKey")
 
     def __init__(self,
@@ -20204,7 +20236,7 @@ class GlossaryNodeKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryNodeKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey")
 
     def __init__(self,
@@ -20220,7 +20252,8 @@ class GlossaryNodeKeyClass(_Aspect):
     
     @property
     def name(self) -> str:
-        # No docs available.
+        """Unique id for the node. Callers may supply one; otherwise creation stores a UUID.
+    The display name is GlossaryNodeInfo.name."""
         return self._inner_dict.get('name')  # type: ignore
     
     @name.setter
@@ -20391,7 +20424,7 @@ class MLFeatureTableKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlFeatureTableKey'
-    ASPECT_INFO = {'keyForEntity': 'mlFeatureTable', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'mlFeatureTable', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey")
 
     def __init__(self,
@@ -20433,7 +20466,7 @@ class MLModelDeploymentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlModelDeploymentKey'
-    ASPECT_INFO = {'keyForEntity': 'mlModelDeployment', 'entityCategory': 'core', 'entityAspects': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'mlModelDeployment', 'entityCategory': 'core', 'entityAspects': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLModelDeploymentKey")
 
     def __init__(self,
@@ -20488,7 +20521,7 @@ class MLModelGroupKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlModelGroupKey'
-    ASPECT_INFO = {'keyForEntity': 'mlModelGroup', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'mlModelGroup', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLModelGroupKey")
 
     def __init__(self,
@@ -20543,7 +20576,7 @@ class MLModelKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'mlModelKey'
-    ASPECT_INFO = {'keyForEntity': 'mlModel', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'mlModel', 'entityCategory': 'core', 'entityAspects': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'dataProducts', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'versionProperties', 'subTypes', 'container', 'documentation']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLModelKey")
 
     def __init__(self,
@@ -20640,7 +20673,7 @@ class MetricKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'metricKey'
-    ASPECT_INFO = {'keyForEntity': 'metric', 'entityCategory': 'core', 'entityAspects': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'metric', 'entityCategory': 'core', 'entityAspects': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MetricKey")
 
     def __init__(self,
@@ -20935,7 +20968,7 @@ class SemanticModelKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'semanticModelKey'
-    ASPECT_INFO = {'keyForEntity': 'semanticModel', 'entityCategory': 'core', 'entityAspects': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext']}
+    ASPECT_INFO = {'schemaVersion': 2, 'keyForEntity': 'semanticModel', 'entityCategory': 'core', 'entityAspects': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SemanticModelKey")
 
     def __init__(self,
@@ -21363,7 +21396,7 @@ class UsageFeaturesClass(_Aspect):
 
 
     ASPECT_NAME = 'usageFeatures'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.search.features.UsageFeatures")
 
     def __init__(self,
@@ -25819,7 +25852,7 @@ class NotebookContentClass(_Aspect):
 
 
     ASPECT_NAME = 'notebookContent'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.notebook.NotebookContent")
 
     def __init__(self,
@@ -26072,6 +26105,307 @@ class TextCellClass(DictWrapper):
     @text.setter
     def text(self, value: str) -> None:
         self._inner_dict['text'] = value
+    
+    
+class OkfBundleClass(DictWrapper):
+    """ Identity and declared format version of an OKF knowledge bundle. """
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.okf.OkfBundle")
+    def __init__(self,
+        location: str,
+        rootPath: str,
+        okfVersion: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.location = location
+        self.rootPath = rootPath
+        self.okfVersion = okfVersion
+    
+    def _restore_defaults(self) -> None:
+        self.location = str()
+        self.rootPath = str()
+        self.okfVersion = self.RECORD_SCHEMA.fields_dict["okfVersion"].default
+    
+    
+    @property
+    def location(self) -> str:
+        """ Canonical URI of the bundle's location, without a branch or trailing slash for GitHub. """
+        return self._inner_dict.get('location')  # type: ignore
+    
+    @location.setter
+    def location(self, value: str) -> None:
+        self._inner_dict['location'] = value
+    
+    
+    @property
+    def rootPath(self) -> str:
+        """ Bundle root relative to the location's root, without leading or trailing slashes; "." for a bundle at that root. """
+        return self._inner_dict.get('rootPath')  # type: ignore
+    
+    @rootPath.setter
+    def rootPath(self, value: str) -> None:
+        self._inner_dict['rootPath'] = value
+    
+    
+    @property
+    def okfVersion(self) -> Union[None, str]:
+        """ Format version declared by okf_version in the bundle-root index.md frontmatter. """
+        return self._inner_dict.get('okfVersion')  # type: ignore
+    
+    @okfVersion.setter
+    def okfVersion(self, value: Union[None, str]) -> None:
+        self._inner_dict['okfVersion'] = value
+    
+    
+class OkfPropertiesClass(_Aspect):
+    """ An okfProperties without `raw` means the document is not (or no longer) an OKF concept; readers treat it like an absent aspect. When `raw` is present, `bundle`, `conceptId` and `type` are always set. """
+
+
+    ASPECT_NAME = 'okfProperties'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.okf.OkfProperties")
+
+    def __init__(self,
+        bundle: Union[None, "OkfBundleClass"]=None,
+        conceptId: Union[None, str]=None,
+        declaredId: Union[None, str]=None,
+        type: Union[None, str]=None,
+        description: Union[None, str]=None,
+        status: Union[None, str]=None,
+        staleAfter: Union[None, int]=None,
+        generated: Union[None, "OkfStampClass"]=None,
+        verified: Union[None, List["OkfStampClass"]]=None,
+        raw: Union[None, str]=None,
+        revision: Union[None, "OkfRevisionClass"]=None,
+    ):
+        super().__init__()
+        
+        self.bundle = bundle
+        self.conceptId = conceptId
+        self.declaredId = declaredId
+        self.type = type
+        self.description = description
+        self.status = status
+        self.staleAfter = staleAfter
+        self.generated = generated
+        self.verified = verified
+        self.raw = raw
+        self.revision = revision
+    
+    def _restore_defaults(self) -> None:
+        self.bundle = self.RECORD_SCHEMA.fields_dict["bundle"].default
+        self.conceptId = self.RECORD_SCHEMA.fields_dict["conceptId"].default
+        self.declaredId = self.RECORD_SCHEMA.fields_dict["declaredId"].default
+        self.type = self.RECORD_SCHEMA.fields_dict["type"].default
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
+        self.status = self.RECORD_SCHEMA.fields_dict["status"].default
+        self.staleAfter = self.RECORD_SCHEMA.fields_dict["staleAfter"].default
+        self.generated = self.RECORD_SCHEMA.fields_dict["generated"].default
+        self.verified = self.RECORD_SCHEMA.fields_dict["verified"].default
+        self.raw = self.RECORD_SCHEMA.fields_dict["raw"].default
+        self.revision = self.RECORD_SCHEMA.fields_dict["revision"].default
+    
+    
+    @property
+    def bundle(self) -> Union[None, "OkfBundleClass"]:
+        """ Bundle identity and format version. Concept identifiers are scoped to this bundle. """
+        return self._inner_dict.get('bundle')  # type: ignore
+    
+    @bundle.setter
+    def bundle(self, value: Union[None, "OkfBundleClass"]) -> None:
+        self._inner_dict['bundle'] = value
+    
+    
+    @property
+    def conceptId(self) -> Union[None, str]:
+        """ Bundle-relative file path without the .md suffix, as defined by OKF. """
+        return self._inner_dict.get('conceptId')  # type: ignore
+    
+    @conceptId.setter
+    def conceptId(self, value: Union[None, str]) -> None:
+        self._inner_dict['conceptId'] = value
+    
+    
+    @property
+    def declaredId(self) -> Union[None, str]:
+        """ The producer's own `id` key, unique only within its bundle; resolve it scoped to the bundle. """
+        return self._inner_dict.get('declaredId')  # type: ignore
+    
+    @declaredId.setter
+    def declaredId(self, value: Union[None, str]) -> None:
+        self._inner_dict['declaredId'] = value
+    
+    
+    @property
+    def type(self) -> Union[None, str]:
+        """ Concept type, such as Guide, Table, Policy, or Runbook. """
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[None, str]) -> None:
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """ Description declared in frontmatter. """
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def status(self) -> Union[None, str]:
+        """ Lifecycle status as written, conventionally draft, stable, or deprecated. """
+        return self._inner_dict.get('status')  # type: ignore
+    
+    @status.setter
+    def status(self, value: Union[None, str]) -> None:
+        self._inner_dict['status'] = value
+    
+    
+    @property
+    def staleAfter(self) -> Union[None, int]:
+        """ Absolute instant when the content becomes stale, in milliseconds since epoch. """
+        return self._inner_dict.get('staleAfter')  # type: ignore
+    
+    @staleAfter.setter
+    def staleAfter(self, value: Union[None, int]) -> None:
+        self._inner_dict['staleAfter'] = value
+    
+    
+    @property
+    def generated(self) -> Union[None, "OkfStampClass"]:
+        """ Who or what produced the current content and, optionally, when. """
+        return self._inner_dict.get('generated')  # type: ignore
+    
+    @generated.setter
+    def generated(self, value: Union[None, "OkfStampClass"]) -> None:
+        self._inner_dict['generated'] = value
+    
+    
+    @property
+    def verified(self) -> Union[None, List["OkfStampClass"]]:
+        """ Independent verification events, normalized to a list. """
+        return self._inner_dict.get('verified')  # type: ignore
+    
+    @verified.setter
+    def verified(self, value: Union[None, List["OkfStampClass"]]) -> None:
+        self._inner_dict['verified'] = value
+    
+    
+    @property
+    def raw(self) -> Union[None, str]:
+        """ The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place. """
+        return self._inner_dict.get('raw')  # type: ignore
+    
+    @raw.setter
+    def raw(self, value: Union[None, str]) -> None:
+        self._inner_dict['raw'] = value
+    
+    
+    @property
+    def revision(self) -> Union[None, "OkfRevisionClass"]:
+        """ The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md. """
+        return self._inner_dict.get('revision')  # type: ignore
+    
+    @revision.setter
+    def revision(self, value: Union[None, "OkfRevisionClass"]) -> None:
+        self._inner_dict['revision'] = value
+    
+    
+class OkfRevisionClass(DictWrapper):
+    """The revision the concept was read at; the merge base for write-back. The file is
+    `{conceptId}.md` under `bundle.rootPath` (omitted when ".") in the repository at
+    `bundle.location`, read at `ref`."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.okf.OkfRevision")
+    def __init__(self,
+        ref: Union[None, str]=None,
+        commit: Union[None, str]=None,
+        blobSha: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.ref = ref
+        self.commit = commit
+        self.blobSha = blobSha
+    
+    def _restore_defaults(self) -> None:
+        self.ref = self.RECORD_SCHEMA.fields_dict["ref"].default
+        self.commit = self.RECORD_SCHEMA.fields_dict["commit"].default
+        self.blobSha = self.RECORD_SCHEMA.fields_dict["blobSha"].default
+    
+    
+    @property
+    def ref(self) -> Union[None, str]:
+        """ Branch or ref used to read the file. """
+        return self._inner_dict.get('ref')  # type: ignore
+    
+    @ref.setter
+    def ref(self, value: Union[None, str]) -> None:
+        self._inner_dict['ref'] = value
+    
+    
+    @property
+    def commit(self) -> Union[None, str]:
+        """ Commit SHA for the imported revision, when available. """
+        return self._inner_dict.get('commit')  # type: ignore
+    
+    @commit.setter
+    def commit(self, value: Union[None, str]) -> None:
+        self._inner_dict['commit'] = value
+    
+    
+    @property
+    def blobSha(self) -> Union[None, str]:
+        """ Git blob SHA for the imported file, when available. """
+        return self._inner_dict.get('blobSha')  # type: ignore
+    
+    @blobSha.setter
+    def blobSha(self, value: Union[None, str]) -> None:
+        self._inner_dict['blobSha'] = value
+    
+    
+class OkfStampClass(DictWrapper):
+    """ A generation or verification event declared by an OKF producer. """
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.okf.OkfStamp")
+    def __init__(self,
+        by: str,
+        at: Union[None, int]=None,
+    ):
+        super().__init__()
+        
+        self.by = by
+        self.at = at
+    
+    def _restore_defaults(self) -> None:
+        self.by = str()
+        self.at = self.RECORD_SCHEMA.fields_dict["at"].default
+    
+    
+    @property
+    def by(self) -> str:
+        """ Actor string as written, such as human:alice, process:nightly, or reference_agent/model. """
+        return self._inner_dict.get('by')  # type: ignore
+    
+    @by.setter
+    def by(self, value: str) -> None:
+        self._inner_dict['by'] = value
+    
+    
+    @property
+    def at(self) -> Union[None, int]:
+        """ Event time in milliseconds since epoch, when a valid timestamp with an offset is available. """
+        return self._inner_dict.get('at')  # type: ignore
+    
+    @at.setter
+    def at(self, value: Union[None, int]) -> None:
+        self._inner_dict['at'] = value
     
     
 class OwnershipTypeInfoClass(_Aspect):
@@ -27518,7 +27852,12 @@ class QuerySubjectClass(DictWrapper):
     
     @property
     def entity(self) -> str:
-        """An entity which is the subject of a query."""
+        """An entity which is the subject of a query.
+    
+    Shares the incident `entities` root. Both values are URNs, so this stays
+    fieldType URN: a KEYWORD here keeps the shared mapping from creating
+    entities_urn, and active-incident filters then match nothing.
+    queryByDefault stays false so the URN is not added to unqualified V2 search."""
         return self._inner_dict.get('entity')  # type: ignore
     
     @entity.setter
@@ -27532,7 +27871,7 @@ class QuerySubjectsClass(_Aspect):
 
 
     ASPECT_NAME = 'querySubjects'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.query.QuerySubjects")
 
     def __init__(self,
@@ -27953,7 +28292,7 @@ class RepositorySourceClass(_Aspect):
 
 
     ASPECT_NAME = 'repositorySource'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositorySource")
 
     def __init__(self,
@@ -31069,7 +31408,7 @@ class SearchTemplatePropertiesClass(_Aspect):
     {@code aggregations}, or {@code sort} drops the inherited override and falls back to the schema
     or Java default. An explicitly present empty {@code boosts}, {@code fieldValueScores},
     {@code fieldFactors}, {@code termWeights}, or {@code entityTypeBoosts} drops an inherited
-    list. Unset {@code scoreMode} and {@code boostMode} keep the parent mode.
+    list. Unset {@code scoreMode}, {@code boostMode}, and {@code searchType} keep the parent value.
     An explicitly present empty {@code structuredPropertyQuery} drops an inherited section.
     A child replaces only the structured-property clauses it sets. An explicitly present
     empty {@code normalization} drops inherited query-normalization settings. A child
@@ -31085,6 +31424,7 @@ class SearchTemplatePropertiesClass(_Aspect):
     inherited on its own.
     Unset keeps the parent default. A record with a template replaces it. A record with no
     template clears it.
+    {@code matchedFields} is inherited. When no template in the chain sets it, it resolves to true.
     
     {@code apiVersion} is the template and Mustache-context contract. Unset keeps the parent
     version. When no ancestor sets it, the resolved version is 1. A value other than 1 is rejected
@@ -31105,7 +31445,7 @@ class SearchTemplatePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'searchTemplateProperties'
-    ASPECT_INFO = {'aspectJson': True, 'schemaVersion': 3}
+    ASPECT_INFO = {'aspectJson': True, 'schemaVersion': 4}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateProperties")
 
     def __init__(self,
@@ -31120,6 +31460,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         functionScore: Union[None, str]=None,
         scoreMode: Union[None, Union[str, "SearchTemplateScoreModeClass"]]=None,
         boostMode: Union[None, Union[str, "SearchTemplateBoostModeClass"]]=None,
+        searchType: Union[None, Union[str, "SearchTemplateSearchTypeClass"]]=None,
         fieldFactors: Union[None, List["FieldFactorClass"]]=None,
         termWeights: Union[None, List["TermWeightClass"]]=None,
         rescore: Union[None, str]=None,
@@ -31136,6 +31477,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         entityTypeBoosts: Union[None, List["EntityTypeBoostClass"]]=None,
         normalization: Union[None, "SearchTemplateNormalizationClass"]=None,
         highlightFields: Union[None, "HighlightFieldOverridesClass"]=None,
+        matchedFields: Union[None, bool]=None,
         parameters: Union[None, Dict[str, str]]=None,
         boosts: Union[None, List["SearchTemplateBoostClass"]]=None,
         routes: Union[None, List["SearchTemplateRouteClass"]]=None,
@@ -31160,6 +31502,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         self.functionScore = functionScore
         self.scoreMode = scoreMode
         self.boostMode = boostMode
+        self.searchType = searchType
         self.fieldFactors = fieldFactors
         self.termWeights = termWeights
         self.rescore = rescore
@@ -31176,6 +31519,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         self.entityTypeBoosts = entityTypeBoosts
         self.normalization = normalization
         self.highlightFields = highlightFields
+        self.matchedFields = matchedFields
         self.parameters = parameters
         self.boosts = boosts
         self.routes = routes
@@ -31199,6 +31543,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         self.functionScore = self.RECORD_SCHEMA.fields_dict["functionScore"].default
         self.scoreMode = self.RECORD_SCHEMA.fields_dict["scoreMode"].default
         self.boostMode = self.RECORD_SCHEMA.fields_dict["boostMode"].default
+        self.searchType = self.RECORD_SCHEMA.fields_dict["searchType"].default
         self.fieldFactors = self.RECORD_SCHEMA.fields_dict["fieldFactors"].default
         self.termWeights = self.RECORD_SCHEMA.fields_dict["termWeights"].default
         self.rescore = self.RECORD_SCHEMA.fields_dict["rescore"].default
@@ -31215,6 +31560,7 @@ class SearchTemplatePropertiesClass(_Aspect):
         self.entityTypeBoosts = self.RECORD_SCHEMA.fields_dict["entityTypeBoosts"].default
         self.normalization = self.RECORD_SCHEMA.fields_dict["normalization"].default
         self.highlightFields = self.RECORD_SCHEMA.fields_dict["highlightFields"].default
+        self.matchedFields = self.RECORD_SCHEMA.fields_dict["matchedFields"].default
         self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
         self.boosts = self.RECORD_SCHEMA.fields_dict["boosts"].default
         self.routes = self.RECORD_SCHEMA.fields_dict["routes"].default
@@ -31349,6 +31695,19 @@ class SearchTemplatePropertiesClass(_Aspect):
     @boostMode.setter
     def boostMode(self, value: Union[None, Union[str, "SearchTemplateBoostModeClass"]]) -> None:
         self._inner_dict['boostMode'] = value
+    
+    
+    @property
+    def searchType(self) -> Union[None, Union[str, "SearchTemplateSearchTypeClass"]]:
+        """Elasticsearch search type for this template. Unset keeps the parent type. When no ancestor
+    sets it, the template request uses {@code QUERY_THEN_FETCH}. A set value applies to that
+    template, including each ladder step that selects it. The request flag is not consulted.
+    The value is not part of the query JSON."""
+        return self._inner_dict.get('searchType')  # type: ignore
+    
+    @searchType.setter
+    def searchType(self, value: Union[None, Union[str, "SearchTemplateSearchTypeClass"]]) -> None:
+        self._inner_dict['searchType'] = value
     
     
     @property
@@ -31546,6 +31905,17 @@ class SearchTemplatePropertiesClass(_Aspect):
     @highlightFields.setter
     def highlightFields(self, value: Union[None, "HighlightFieldOverridesClass"]) -> None:
         self._inner_dict['highlightFields'] = value
+    
+    
+    @property
+    def matchedFields(self) -> Union[None, bool]:
+        """Whether this template reports non-highlight matched fields from relevance clauses and
+    caller-supplied optional filters. Unset inherits; the resolved default is true."""
+        return self._inner_dict.get('matchedFields')  # type: ignore
+    
+    @matchedFields.setter
+    def matchedFields(self, value: Union[None, bool]) -> None:
+        self._inner_dict['matchedFields'] = value
     
     
     @property
@@ -31989,6 +32359,15 @@ class SearchTemplateScoreModeClass(object):
     FIRST = "FIRST"
     MAX = "MAX"
     MIN = "MIN"
+    
+    
+class SearchTemplateSearchTypeClass(object):
+    """Elasticsearch search type applied when this template is executed. It is not part of the query
+    JSON. Unset keeps the parent value. When no ancestor sets it, the template request uses
+    {@code QUERY_THEN_FETCH}. The request flag is not consulted."""
+    
+    QUERY_THEN_FETCH = "QUERY_THEN_FETCH"
+    DFS_QUERY_THEN_FETCH = "DFS_QUERY_THEN_FETCH"
     
     
 class StructuredPropertyClauseClass(DictWrapper):
@@ -36020,6 +36399,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetUsageStatistics': DatasetUsageStatisticsClass,
     'com.linkedin.pegasus2avro.dataset.DatasetUserUsageCounts': DatasetUserUsageCountsClass,
     'com.linkedin.pegasus2avro.dataset.EditableDatasetProperties': EditableDatasetPropertiesClass,
+    'com.linkedin.pegasus2avro.dataset.EditablePrimaryKeys': EditablePrimaryKeysClass,
     'com.linkedin.pegasus2avro.dataset.FineGrainedLineage': FineGrainedLineageClass,
     'com.linkedin.pegasus2avro.dataset.FineGrainedLineageDownstreamType': FineGrainedLineageDownstreamTypeClass,
     'com.linkedin.pegasus2avro.dataset.FineGrainedLineageUpstreamType': FineGrainedLineageUpstreamTypeClass,
@@ -36271,6 +36651,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.notebook.NotebookInfo': NotebookInfoClass,
     'com.linkedin.pegasus2avro.notebook.QueryCell': QueryCellClass,
     'com.linkedin.pegasus2avro.notebook.TextCell': TextCellClass,
+    'com.linkedin.pegasus2avro.okf.OkfBundle': OkfBundleClass,
+    'com.linkedin.pegasus2avro.okf.OkfProperties': OkfPropertiesClass,
+    'com.linkedin.pegasus2avro.okf.OkfRevision': OkfRevisionClass,
+    'com.linkedin.pegasus2avro.okf.OkfStamp': OkfStampClass,
     'com.linkedin.pegasus2avro.ownership.OwnershipTypeInfo': OwnershipTypeInfoClass,
     'com.linkedin.pegasus2avro.persona.DataHubPersonaInfo': DataHubPersonaInfoClass,
     'com.linkedin.pegasus2avro.platform.event.v1.EntityChangeEvent': EntityChangeEventClass,
@@ -36377,6 +36761,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.search.template.SearchTemplateRetrievalBridge': SearchTemplateRetrievalBridgeClass,
     'com.linkedin.pegasus2avro.search.template.SearchTemplateRoute': SearchTemplateRouteClass,
     'com.linkedin.pegasus2avro.search.template.SearchTemplateScoreMode': SearchTemplateScoreModeClass,
+    'com.linkedin.pegasus2avro.search.template.SearchTemplateSearchType': SearchTemplateSearchTypeClass,
     'com.linkedin.pegasus2avro.search.template.StructuredPropertyClause': StructuredPropertyClauseClass,
     'com.linkedin.pegasus2avro.search.template.StructuredPropertyOperator': StructuredPropertyOperatorClass,
     'com.linkedin.pegasus2avro.search.template.StructuredPropertyQuery': StructuredPropertyQueryClass,
@@ -36670,6 +37055,7 @@ __SCHEMA_TYPES = {
     'DatasetUsageStatistics': DatasetUsageStatisticsClass,
     'DatasetUserUsageCounts': DatasetUserUsageCountsClass,
     'EditableDatasetProperties': EditableDatasetPropertiesClass,
+    'EditablePrimaryKeys': EditablePrimaryKeysClass,
     'FineGrainedLineage': FineGrainedLineageClass,
     'FineGrainedLineageDownstreamType': FineGrainedLineageDownstreamTypeClass,
     'FineGrainedLineageUpstreamType': FineGrainedLineageUpstreamTypeClass,
@@ -36921,6 +37307,10 @@ __SCHEMA_TYPES = {
     'NotebookInfo': NotebookInfoClass,
     'QueryCell': QueryCellClass,
     'TextCell': TextCellClass,
+    'OkfBundle': OkfBundleClass,
+    'OkfProperties': OkfPropertiesClass,
+    'OkfRevision': OkfRevisionClass,
+    'OkfStamp': OkfStampClass,
     'OwnershipTypeInfo': OwnershipTypeInfoClass,
     'DataHubPersonaInfo': DataHubPersonaInfoClass,
     'EntityChangeEvent': EntityChangeEventClass,
@@ -37027,6 +37417,7 @@ __SCHEMA_TYPES = {
     'SearchTemplateRetrievalBridge': SearchTemplateRetrievalBridgeClass,
     'SearchTemplateRoute': SearchTemplateRouteClass,
     'SearchTemplateScoreMode': SearchTemplateScoreModeClass,
+    'SearchTemplateSearchType': SearchTemplateSearchTypeClass,
     'StructuredPropertyClause': StructuredPropertyClauseClass,
     'StructuredPropertyOperator': StructuredPropertyOperatorClass,
     'StructuredPropertyQuery': StructuredPropertyQueryClass,
@@ -37182,6 +37573,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     SemanticModelPropertiesClass,
     DatasetPropertiesClass,
     DatasetUpstreamLineageClass,
+    EditablePrimaryKeysClass,
     ViewPropertiesClass,
     IcebergCatalogInfoClass,
     DatasetUsageStatisticsClass,
@@ -37194,6 +37586,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     GlossaryTermInfoClass,
     GlossaryRelatedTermsClass,
     GlossaryNodeInfoClass,
+    OkfPropertiesClass,
     DataHubSecretValueClass,
     DataHubFileInfoClass,
     ChartQueryClass,
@@ -37464,6 +37857,7 @@ class AspectBag(TypedDict, total=False):
     semanticModelProperties: SemanticModelPropertiesClass
     datasetProperties: DatasetPropertiesClass
     datasetUpstreamLineage: DatasetUpstreamLineageClass
+    editablePrimaryKeys: EditablePrimaryKeysClass
     viewProperties: ViewPropertiesClass
     icebergCatalogInfo: IcebergCatalogInfoClass
     datasetUsageStatistics: DatasetUsageStatisticsClass
@@ -37476,6 +37870,7 @@ class AspectBag(TypedDict, total=False):
     glossaryTermInfo: GlossaryTermInfoClass
     glossaryRelatedTerms: GlossaryRelatedTermsClass
     glossaryNodeInfo: GlossaryNodeInfoClass
+    okfProperties: OkfPropertiesClass
     dataHubSecretValue: DataHubSecretValueClass
     dataHubFileInfo: DataHubFileInfoClass
     chartQuery: ChartQueryClass
@@ -37846,7 +38241,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'dataHubRole': ['dataHubRoleInfo'],
     'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'dataProducts', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'incidentsSummary', 'subTypes', 'documentation'],
     'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags', 'versionProperties'],
-    'document': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
+    'document': ['documentInfo', 'okfProperties', 'documentSettings', 'status', 'ownership', 'domains', 'dataProducts', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
     'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'dataProducts', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
     'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
     'telemetry': ['telemetryClientId'],
@@ -37875,7 +38270,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'repositoryLineage', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
     'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
     'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
-    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
+    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'usageFeatures', 'storageFeatures', 'operation', 'domains', 'dataProducts', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'upstreamMetrics', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'editablePrimaryKeys', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
     'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'dataProducts', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
     'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
     'searchTemplate': ['searchTemplateProperties'],

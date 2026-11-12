@@ -32,7 +32,7 @@ from application_sdk.testing.integration.fixtures import (
     AppExecutor,
     _verify_app_name,
     _verify_infrastructure,
-    _verify_registration,
+    verify_registration,
 )
 
 
@@ -127,7 +127,6 @@ class TestGuardsOnTheCallPath:
     """Each guard through the path an adopter actually runs — so removing a
     guard's call site (not just the guard) turns a test red."""
 
-    @pytest.mark.asyncio
     async def test_execute_app_refuses_a_replaced_context(self) -> None:
         installed = InfrastructureContext()
         set_infrastructure(installed)
@@ -177,7 +176,7 @@ class TestGuardsOnTheCallPath:
         monkeypatch.setattr(constants, "APPLICATION_NAME", "powerbi")
 
         with pytest.raises(AppNameMismatchError):
-            _verify_registration(_RegisteredApp)
+            verify_registration(_RegisteredApp)
 
 
 @pytest.fixture

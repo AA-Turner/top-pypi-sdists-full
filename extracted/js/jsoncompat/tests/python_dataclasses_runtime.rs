@@ -9,6 +9,79 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod python_env;
 
 #[test]
+fn generated_constructors_preserve_typed_reflection_and_escape_documentation() {
+    let description = "A readable café model.\n\"\"\"; raise RuntimeError('schema text ran') #\nPath C:\\new\\thing and a final quote\"";
+    let source = generate_dataclass_models(&json!({
+        "title": "DocumentedNode", "description": description,
+        "type": "object", "additionalProperties": false,
+        "properties": {
+            "label": {"type": "string", "description": "One line\nAnother line with a null \u{0000}"},
+            "kind": {"enum": ["cat", "dog"]},
+            "children": {"type": "array", "items": {"$ref": "#"}}
+        },
+        "required": ["children", "kind"]
+    })).expect("generate documented model");
+    assert!(!source.contains("install_model"));
+    assert!(!source.contains("_jsoncompat_init"));
+    assert!(!source.contains("_jsoncompat_missing"));
+    assert!(source.contains("typing.Literal[\"cat\", \"dog\"]"));
+    assert!(source.contains("    def __init__(\n"));
+    assert!(source.contains("# Another line with a null \\u{0}"));
+    let module_path = write_temp_module("documented_constructor", &source);
+    let output = python_env::python_command().arg("-B").arg("-c").arg(r###"
+import dataclasses, importlib.util, inspect, sys, typing
+from jsoncompat.codegen import dataclasses as dc
+spec = importlib.util.spec_from_file_location('documented_models', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+Node = module.DocumentedNode
+assert inspect.getdoc(Node) == sys.argv[2]
+assert Node.__init__.__module__ == Node.__module__
+assert Node.__init__.__qualname__ == 'DocumentedNode.__init__'
+assert Node.__init__.__globals__ is vars(module)
+hints = typing.get_type_hints(Node.__init__)
+assert typing.get_args(hints['children']) == (Node,)
+assert hints['kind'] == typing.Literal['cat', 'dog']
+assert hints['label'] == dc.Omittable[str]
+assert hints['skip_validation'] is bool
+assert hints['return'] is type(None)
+signature = inspect.signature(Node)
+assert all(parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in signature.parameters.values())
+assert signature.parameters['label'].default is dc.MISSING
+assert signature.parameters['children'].default is inspect.Parameter.empty
+assert not {'MISSING', 'MissingType', 'is_missing'} & vars(module).keys()
+node = Node(children=[], kind='cat')
+assert node.label is dc.MISSING
+assert dataclasses.replace(node, label='next').label == 'next'
+for kwargs in ({'children': [], 'kind': 'bird'}, {'children': []}, {'children': [], 'kind': 'cat', 'unknown': 1}):
+    try:
+        Node(**kwargs)
+    except (TypeError, ValueError):
+        pass
+    else:
+        raise AssertionError(f'invalid constructor arguments accepted: {kwargs}')
+try:
+    Node([], 'cat')
+except TypeError:
+    pass
+else:
+    raise AssertionError('constructor accepted positional arguments')
+try:
+    Node.__init__(node, children=[], kind='cat')
+except RuntimeError:
+    pass
+else:
+    raise AssertionError('direct initializer bypassed native construction')
+"###).arg(&module_path).arg(description).output().expect("run constructor/docstring test");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn generated_dataclasses_expose_one_native_runtime_contract() {
     let source = generate_dataclass_models(&json!({
         "title": "Profile",
@@ -402,10 +475,10 @@ import json
 from jsoncompat import bind_prepared_model_runtimes
 from jsoncompat.codegen import dataclasses as dc
 from jsoncompat.codegen.dataclasses import (
-    JSONCOMPAT_MISSING,
+    MISSING,
     FrozenDict,
     FrozenList,
-    JsoncompatMissingType,
+    MissingType,
 )
 
 
@@ -418,16 +491,10 @@ class Model:
     )
 
 
-assert repr(JSONCOMPAT_MISSING) == "JSONCOMPAT_MISSING"
-assert JsoncompatMissingType() is JSONCOMPAT_MISSING
-assert JsoncompatMissingType.__new__(JsoncompatMissingType) is JSONCOMPAT_MISSING
-for construct_missing in (lambda: object.__new__(JsoncompatMissingType),):
-    try:
-        construct_missing()
-    except TypeError:
-        pass
-    else:
-        raise AssertionError("constructed a second native missing sentinel")
+assert repr(MISSING) == "MISSING"
+assert str(MISSING) == "MISSING"
+assert list(MissingType) == [MISSING]
+assert MissingType("MISSING") is MISSING
 
 
 def compile_model_runtimes(roots, descriptors, frozen_list, frozen_dict):
@@ -595,7 +662,7 @@ required_runtime = compile_model_runtimes(
 required_false = required_runtime.from_value({"value": False}, skip_validation=True)
 assert required_runtime.to_value(required_false, skip_validation=True) == {"value": False}
 
-dc.JSONCOMPAT_MISSING = False
+dc.MISSING = False
 optional_runtime = compile_model_runtimes(
     [(Model, 1)],
     [("bool",), ("model", Model, (("value", "value", 0, True),), None)],
@@ -603,7 +670,7 @@ optional_runtime = compile_model_runtimes(
     FrozenDict,
 )[0]
 optional_missing = optional_runtime.from_value({}, skip_validation=True)
-assert optional_missing.value is JSONCOMPAT_MISSING
+assert optional_missing.value is MISSING
 assert optional_runtime.to_value(optional_missing, skip_validation=True) == {}
 assert optional_runtime.to_value(optional_missing) == {}
 assert optional_runtime.serialize(optional_missing, skip_validation=True) == "{}"
@@ -626,7 +693,7 @@ assert optional_runtime.serialize(optional_false) == '{"value":false}'
 }
 
 #[test]
-fn omittable_constructor_uses_only_the_native_missing_singleton() {
+fn omittable_constructor_uses_only_the_shared_missing_singleton() {
     let source = generate_dataclass_models(&json!({
         "title": "OptionalValue",
         "type": "object",
@@ -652,12 +719,35 @@ import jsoncompat
 from jsoncompat.codegen import dataclasses as dc
 
 module_path = sys.argv[1]
-canonical_missing = dc.JSONCOMPAT_MISSING
+canonical_missing = dc.MISSING
+assert jsoncompat._native_symbols.MISSING is canonical_missing
+assert jsoncompat._native_symbols.MissingType is dc.MissingType
+assert dc.is_missing is jsoncompat.is_missing
+assert jsoncompat.is_missing(canonical_missing)
+for present in (None, False, 0, 0.0, "", [], {}, Ellipsis):
+    assert not jsoncompat.is_missing(present)
+
+class Uncomparable:
+    def __eq__(self, other):
+        raise AssertionError("is_missing must not compare equality")
+    def __bool__(self):
+        raise AssertionError("is_missing must not test truthiness")
+
+assert not jsoncompat.is_missing(Uncomparable())
+try:
+    bool(canonical_missing)
+except TypeError as error:
+    assert "is MISSING" in str(error)
+else:
+    raise AssertionError("MISSING silently evaluated as a boolean")
 assert copy.copy(canonical_missing) is canonical_missing
 assert copy.deepcopy(canonical_missing) is canonical_missing
 assert pickle.loads(pickle.dumps(canonical_missing)) is canonical_missing
-assert importlib.reload(jsoncompat).JSONCOMPAT_MISSING is canonical_missing
-dc.JSONCOMPAT_MISSING = False
+assert importlib.reload(jsoncompat).MISSING is canonical_missing
+dc.MISSING = False
+jsoncompat.MISSING = False
+assert dc.is_missing(canonical_missing)
+assert not dc.is_missing(False)
 spec = importlib.util.spec_from_file_location("native_missing_models", module_path)
 module = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
@@ -677,6 +767,10 @@ for skip_validation in (False, True):
     present_null = model_type(value=None, skip_validation=skip_validation)
     assert implicit.value is canonical_missing
     assert explicit.value is canonical_missing
+    assert dc.is_missing(implicit.value)
+    assert dc.is_missing(explicit.value)
+    assert not dc.is_missing(present_false.value)
+    assert not dc.is_missing(present_null.value)
     assert copy.deepcopy(implicit).value is canonical_missing
     assert pickle.loads(pickle.dumps(implicit)).value is canonical_missing
     assert dataclasses.asdict(implicit)["value"] is canonical_missing
@@ -685,13 +779,24 @@ for skip_validation in (False, True):
     assert present_false.to_value(skip_validation=skip_validation) == {"value": False}
     assert present_null.to_value(skip_validation=skip_validation) == {"value": None}
 
+    # A manually forged enum instance must never be recognized as omission.
+    forged = object.__new__(dc.MissingType)
+    assert forged is not canonical_missing
+    assert not dc.is_missing(forged)
+    try:
+        model_type(value=forged, skip_validation=skip_validation)
+    except (TypeError, ValueError):
+        pass
+    else:
+        raise AssertionError("a forged enum instance was treated as omission")
+
     for from_value in (
         lambda: model_type.from_value(
             {"value": canonical_missing},
             skip_validation=skip_validation,
         ),
         lambda: model_type.deserialize(
-            '{"value":"JSONCOMPAT_MISSING"}',
+            '{"value":"MISSING"}',
             skip_validation=skip_validation,
         ),
     ):
@@ -706,7 +811,7 @@ for skip_validation in (False, True):
 # executed cannot change the runtime-owned identity. The captured singleton
 # still means omitted; False remains present.
 assert model_type(value=canonical_missing).to_value() == {}
-assert model_type(value=dc.JSONCOMPAT_MISSING).to_value() == {"value": False}
+assert model_type(value=dc.MISSING).to_value() == {"value": False}
 "###,
     );
     command.arg(module_path);
@@ -721,7 +826,85 @@ assert model_type(value=dc.JSONCOMPAT_MISSING).to_value() == {"value": False}
 }
 
 #[test]
-fn native_unavailable_missing_singleton_is_unforgeable_and_reload_stable() {
+fn unpacked_python_mappings_preserve_missing_and_present_fields() {
+    let source = generate_dataclass_models(&json!({
+        "title": "Person",
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "nickname": {"type": ["string", "null"]},
+            "enabled": {"type": "boolean"},
+        },
+        "required": ["name"],
+        "additionalProperties": false,
+    }))
+    .expect("generate mapping-unpacking dataclass");
+    let module_path = write_temp_module("unpacked_mapping", &source);
+
+    let mut command = python_env::python_command();
+    command.arg("-B").arg("-c").arg(
+        r###"
+import importlib.util
+import json
+import sys
+
+from jsoncompat import MISSING
+
+spec = importlib.util.spec_from_file_location("unpacked_mapping_models", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+
+for skip_validation in (False, True):
+    data = {"name": "Ada"}
+    person = module.Person(**data, skip_validation=skip_validation)
+    assert person.name == "Ada"
+    assert person.nickname is MISSING
+    assert person.enabled is MISSING
+    assert person.to_value(skip_validation=skip_validation) == data
+    assert json.loads(person.serialize(skip_validation=skip_validation)) == data
+
+    for nickname in (None, "", "Ace"):
+        data = {"name": "Ada", "nickname": nickname, "enabled": False}
+        person = module.Person(**data, skip_validation=skip_validation)
+        assert person.nickname is not MISSING
+        assert person.nickname == nickname
+        assert person.enabled is False
+        assert person.to_value(skip_validation=skip_validation) == data
+        assert json.loads(person.serialize(skip_validation=skip_validation)) == data
+
+    data = {"name": "Ada", "nickname": MISSING}
+    person = module.Person(**data, skip_validation=skip_validation)
+    assert person.nickname is MISSING
+    assert person.to_value(skip_validation=skip_validation) == {"name": "Ada"}
+    assert json.loads(person.serialize(skip_validation=skip_validation)) == {"name": "Ada"}
+
+    for invalid in (
+        {"nickname": "Ada"},  # Required name was not supplied.
+        {"name": "Ada", "enabled": None},  # Null is not valid for enabled.
+    ):
+        try:
+            module.Person(**invalid, skip_validation=skip_validation)
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(f"mapping unpacking accepted invalid fields: {invalid!r}")
+"###,
+    );
+    command.arg(module_path);
+    let output = command
+        .output()
+        .expect("run mapping-unpacking constructor test");
+    assert!(
+        output.status.success(),
+        "mapping-unpacking constructor test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn native_unavailable_missing_singleton_is_an_enum_and_reload_stable() {
     let package_root = write_isolated_jsoncompat_package("fallback_missing_singleton");
     let expected_init = package_root.join("jsoncompat").join("__init__.py");
 
@@ -746,21 +929,22 @@ import jsoncompat
 
 assert pathlib.Path(jsoncompat.__file__).resolve() == pathlib.Path(sys.argv[1]).resolve()
 assert jsoncompat._native_symbols is None
-canonical = jsoncompat.JSONCOMPAT_MISSING
-missing_type = jsoncompat.JsoncompatMissingType
+canonical = jsoncompat.MISSING
+missing_type = jsoncompat.MissingType
 assert type(canonical) is missing_type
-assert canonical is Ellipsis
-assert missing_type is type(Ellipsis)
+assert canonical is missing_type.MISSING
+assert canonical is not Ellipsis
+assert list(missing_type) == [canonical]
+assert jsoncompat.is_missing(canonical)
+for present in (None, False, 0, "", [], {}):
+    assert not jsoncompat.is_missing(present)
 
-for label, construct in (
-    ("object.__new__", lambda: object.__new__(missing_type)),
-):
-    try:
-        construct()
-    except TypeError:
-        pass
-    else:
-        raise AssertionError(f"constructed a second fallback missing sentinel via {label}")
+try:
+    bool(canonical)
+except TypeError as error:
+    assert "is MISSING" in str(error)
+else:
+    raise AssertionError("source-only MISSING silently evaluated as a boolean")
 
 try:
     class ForgedMissing(missing_type):
@@ -770,16 +954,16 @@ except TypeError:
 else:
     raise AssertionError("subclassed the fallback missing sentinel type")
 
-assert missing_type() is canonical
-assert missing_type.__new__(missing_type) is canonical
+assert missing_type("MISSING") is canonical
 assert copy.copy(canonical) is canonical
 assert copy.deepcopy(canonical) is canonical
 assert pickle.loads(pickle.dumps(canonical)) is canonical
 
 reloaded = importlib.reload(jsoncompat)
 assert reloaded._native_symbols is None
-assert reloaded.JsoncompatMissingType is missing_type
-assert reloaded.JSONCOMPAT_MISSING is canonical
+assert reloaded.MissingType is missing_type
+assert reloaded.MISSING is canonical
+assert reloaded.is_missing(canonical)
 assert copy.copy(canonical) is canonical
 assert copy.deepcopy(canonical) is canonical
 assert pickle.loads(pickle.dumps(canonical)) is canonical
@@ -2335,6 +2519,7 @@ fn serialization_formats_reject_values_outside_the_json_data_model() {
     command.arg("-B").arg("-c").arg(
         r###"
 import msgpack
+import os
 
 from jsoncompat.codegen import SerializationFormat
 from jsoncompat.codegen.serialization import deserialize_value, serialize_value
@@ -2346,9 +2531,12 @@ for format in SerializationFormat:
     assert deserialize_value(encoded, format=format) == value
 
 large_integer = 10**80
-assert deserialize_value(serialize_value({"value": large_integer})) == {
-    "value": large_integer,
-}
+round_tripped = deserialize_value(serialize_value({"value": large_integer}))["value"]
+if os.environ["JSONCOMPAT_TEST_ARBITRARY_PRECISION"] == "1":
+    assert round_tripped == large_integer
+else:
+    assert round_tripped == float(large_integer)
+    assert round_tripped != large_integer
 assert deserialize_value(b'{"name":"Ada"}') == {"name": "Ada"}
 
 cyclic = []
@@ -2457,7 +2645,7 @@ for skip_validation in (False, True):
             {
                 "sku": "abc",
                 "quantity": 3,
-                "tags": dc.JSONCOMPAT_MISSING,
+                "tags": dc.MISSING,
             },
             skip_validation=skip_validation,
         )
@@ -2465,7 +2653,7 @@ for skip_validation in (False, True):
         pass
     else:
         raise AssertionError(
-            "a present JSONCOMPAT_MISSING sentinel was treated as an absent field"
+            "a present MISSING sentinel was treated as an absent field"
         )
 
 large_integer = 10**80
@@ -2930,6 +3118,9 @@ fn generated_dataclasses_preserve_pattern_properties_even_when_additional_proper
 import importlib.util
 import sys
 
+from jsoncompat import MISSING, is_missing
+from jsoncompat.codegen import dataclasses as dc
+
 module_path = sys.argv[1]
 spec = importlib.util.spec_from_file_location("pattern_property_models", module_path)
 module = importlib.util.module_from_spec(spec)
@@ -2940,6 +3131,15 @@ spec.loader.exec_module(module)
 record = module.LabeledRecord.from_value({"name": "Ada", "x-rank": 7})
 assert record.__jsoncompat_extra__ == {"x-rank": 7}
 assert record.to_value() == {"name": "Ada", "x-rank": 7}
+dc.MISSING = False
+assert record.get_additional_property("x-absent") is MISSING
+assert is_missing(record.get_additional_property("x-absent"))
+for skip_validation in (False, True):
+    present_zero = module.LabeledRecord(
+        name="Ada", __jsoncompat_extra__={"x-rank": 0}, skip_validation=skip_validation,
+    )
+    assert present_zero.get_additional_property("x-rank") == 0
+    assert not is_missing(present_zero.get_additional_property("x-rank"))
 "###,
     );
     command.arg(module_path);
@@ -2959,6 +3159,7 @@ fn python_api_exposes_reusable_schema_tools_and_deprecates_one_shot_helpers() {
     command.arg("-B").arg("-c").arg(
         r###"
 import json
+import os
 import warnings
 
 import jsoncompat
@@ -2984,8 +3185,11 @@ big_integer = 10 ** 80
 assert integer_validator.is_valid_json(str(big_integer))
 assert integer_validator.is_valid_value(big_integer)
 
-exclusive_validator = jsoncompat.validator_for('{"exclusiveMaximum":9.727837981879871e+26}')
-exclusive_boundary = 9.727837981879871e+26
+# The large decimal boundary needs exact parsing; both modes still check a
+# representable exclusive boundary through JSON and native Python inputs.
+exclusive_boundary = (9.727837981879871e+26
+                      if os.environ["JSONCOMPAT_TEST_ARBITRARY_PRECISION"] == "1" else 1.5)
+exclusive_validator = jsoncompat.validator_for(json.dumps({"exclusiveMaximum": exclusive_boundary}))
 assert not exclusive_validator.is_valid_json(json.dumps(exclusive_boundary))
 assert not exclusive_validator.is_valid_value(exclusive_boundary)
 
@@ -3264,7 +3468,7 @@ import importlib.util
 import sys
 import typing
 
-from jsoncompat.codegen.dataclasses import JSONCOMPAT_MISSING
+from jsoncompat.codegen.dataclasses import MISSING
 
 module_path = sys.argv[1]
 spec = importlib.util.spec_from_file_location("checkout_demo_models", module_path)
@@ -3281,8 +3485,7 @@ assert model_hints["items"] == collections.abc.Sequence[module.GeneratedSchemaIt
 assert customer_hints["id"] is str
 assert item_hints["quantity"] is int
 
-assert module.GeneratedSchema.__jsoncompat_schema__.startswith('{\n')
-assert '"minProperties"' not in module.GeneratedSchema.__jsoncompat_schema__
+assert not hasattr(module.GeneratedSchema, '__jsoncompat_schema__')
 
 customer = module.GeneratedSchemaCustomer(
     id="cus_123",
@@ -3301,7 +3504,7 @@ event = module.GeneratedSchema(
     items=[item],
     currency="USD",
 )
-assert event.couponCode is JSONCOMPAT_MISSING
+assert event.couponCode is MISSING
 assert event.to_value() == {
     "event": "checkout.completed",
     "customer": {
@@ -3337,7 +3540,7 @@ parsed = module.GeneratedSchema.from_value({
     ],
     "currency": "USD",
 })
-assert parsed.couponCode is JSONCOMPAT_MISSING
+assert parsed.couponCode is MISSING
 assert parsed.customer.id == "cus_123"
 assert parsed.items[0].sku == "team-seat"
 "###,
@@ -3441,5 +3644,10 @@ fn write_isolated_jsoncompat_package(test_name: &str) -> PathBuf {
     .expect("read jsoncompat package initializer");
     fs::write(package.join("__init__.py"), source)
         .expect("write isolated jsoncompat package initializer");
+    fs::copy(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("pybindings/jsoncompat/_missing.py"),
+        package.join("_missing.py"),
+    )
+    .expect("copy isolated omission sentinel");
     root
 }

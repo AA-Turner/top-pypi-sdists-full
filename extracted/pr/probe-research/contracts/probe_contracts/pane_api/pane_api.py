@@ -57,6 +57,12 @@ class PaneApi:
     check_statuses: tuple[PaneApiName, ...]
     #: A state the render check draws the pane in.
     check_states: tuple[PaneApiName, ...]
+    #: A project's canvas preview choice (`project_previews`).
+    preview_states: tuple[PaneApiName, ...]
+    #: Who last wrote a pane or a preview choice, from the credential.
+    writer_kinds: tuple[PaneApiName, ...]
+    #: The `code` of a preview refusal.
+    preview_error_codes: tuple[PaneApiName, ...]
     caps: tuple[PaneApiCap, ...]
 
     @classmethod
@@ -79,5 +85,8 @@ class PaneApi:
             reasons=read_names("reasons"),
             check_statuses=read_names("check_statuses"),
             check_states=read_names("check_states"),
+            preview_states=read_names("preview_states"),
+            writer_kinds=read_names("writer_kinds"),
+            preview_error_codes=read_names("preview_error_codes"),
             caps=tuple(PaneApiCap(c["name"], int(c["value"]), c["doc"]) for c in raw["caps"]),
         )

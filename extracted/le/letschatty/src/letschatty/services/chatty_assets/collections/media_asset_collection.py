@@ -1,6 +1,6 @@
 """MediaAsset Collection - Pre-configured AssetCollection for the media library"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.company.assets import MediaAsset, MediaAssetPreview
 from ....models.data_base.mongo_connection import MongoConnection
 

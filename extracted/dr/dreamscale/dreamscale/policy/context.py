@@ -434,10 +434,14 @@ class EpisodeObservation:
     observation, the one taken a control step before it (its state travels as the request's
     ``state_history``), and the request's step since the episode's first request."""
 
-    def __init__(self, current: Any, previous: Any, step: int) -> None:
+    def __init__(self, current: Any, previous: Any, step: int,
+                 executed: tuple[Any, ...] = ()) -> None:
         self.current = current
         self.previous = previous
         self.step = step
+        # With measured states (Praxis-1): the observation of every step executed since the
+        # episode's last request, oldest first (their states travel as ``state_history``).
+        self.executed = executed
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.current, name)
@@ -468,14 +472,20 @@ class EpisodeTicks:
     state_steps = 1
     frames = 1
 
-    def __init__(self, tick_steps: int, executed_per_chunk: int, seed: int = 0) -> None:
+    def __init__(self, tick_steps: int, executed_per_chunk: int, seed: int = 0, *,
+                 measured_steps: int = 0) -> None:
         if type(tick_steps) is not int or not 1 <= tick_steps <= 64:
             raise ValueError("episode ticks are every 1-64 executed steps")
         if type(executed_per_chunk) is not int or executed_per_chunk < 1:
             raise ValueError("a chunk executes at least one action")
+        if type(measured_steps) is not int or not 0 <= measured_steps <= 64:
+            raise ValueError("an episode keeps the states of at most 64 steps")
         self.tick_steps = tick_steps
         self.executed_per_chunk = executed_per_chunk
         self.seed = seed
+        # Praxis-1: each request carries the state of every step executed since the last one
+        # (at most this many, the newest), so the server has a pose for every frame it reads.
+        self.measured_steps = measured_steps
         self.clear()
 
     @property
@@ -505,6 +515,10 @@ class EpisodeTicks:
         if self._latest is not None and self._latest[0] < self._step:
             self._previous = self._latest
         self._latest = (self._step, observation)
+        if self.measured_steps:
+            self._observed.setdefault(self._step, observation)
+            while len(self._observed) > 2 * self.measured_steps:
+                del self._observed[min(self._observed)]
 
     def window(self, observation: Any, at: float | None = None) -> Any:
         previous = observation
@@ -512,7 +526,25 @@ class EpisodeTicks:
             previous = self._previous[1]
         elif self._latest is not None and self._latest[0] == self._step - 1:
             previous = self._latest[1]
-        return EpisodeObservation(observation, previous, self._step)
+        return EpisodeObservation(observation, previous, self._step, self._executed(observation))
+
+    def _executed(self, observation: Any) -> tuple[Any, ...]:
+        """The observations of the steps since the last request (each step's first), a step
+        never observed taking the nearest earlier one (else the next): empty without measured
+        states or before the episode's first request."""
+        if not self.measured_steps or self._request_step is None:
+            return ()
+        start = max(self._request_step, self._step - self.measured_steps)
+        out: list[Any] = []
+        for step in range(start, self._step):
+            seen = self._observed.get(step)
+            if seen is None:
+                earlier = [s for s in self._observed if s < step]
+                later = [s for s in self._observed if step < s < self._step]
+                seen = (self._observed[max(earlier)] if earlier
+                        else self._observed[min(later)] if later else observation)
+            out.append(seen)
+        return tuple(out)
 
     def predict_window(self, observation: Any) -> EpisodeObservation:
         """A raw ``predict()`` call: the robot ran every executed action of each earlier chunk
@@ -525,9 +557,23 @@ class EpisodeTicks:
         """Whether this episode has sent a request (``predict()`` or a step's)."""
         return self._requested
 
-    def take_chunk(self) -> int:
-        """The request about to be sent: its count in the episode (the server's noise draw)."""
+    @property
+    def request_step(self) -> int | None:
+        """The step of the episode's last request (None before its first)."""
+        return self._request_step
+
+    def replay_from_request(self) -> None:
+        """``predict(past_observations=)``: the steps a caller executed since the last request
+        are replayed from that request's step (each one's ``executed()`` then ``push``)."""
+        if self._request_step is None:
+            raise ValueError("an episode replays its executed steps only after a request")
+        self._step = self._request_step
+
+    def take_chunk(self, step: int | None = None) -> int:
+        """The request about to be sent: its count in the episode (the server's noise draw).
+        ``step``: the request's step (the next request's executed steps start there)."""
         self._requested = True
+        self._request_step = self._step if step is None else int(step)
         chunk = self._chunks
         self._chunks += 1
         return chunk
@@ -539,6 +585,8 @@ class EpisodeTicks:
         self._sent: set[int] = set()
         self._latest: tuple[int, Any] | None = None
         self._previous: tuple[int, Any] | None = None
+        self._observed: dict[int, Any] = {}
+        self._request_step: int | None = None
 
     def hold(self, start: float, end: float) -> None:
         """A wait for a chunk advances no step."""
@@ -549,7 +597,11 @@ class EpisodeTicks:
 
 def history_ticks(history: Any) -> int:
     """How many ticks before an observation its window reads: ``policy.contract``'s
-    ``past_observations`` (0 without a window)."""
+    ``past_observations`` (0 without a window). An episode the server keeps with measured states
+    (Praxis-1) takes the observations of the steps executed since the last request: at most its
+    ``measured_steps``."""
+    if isinstance(history, EpisodeTicks):
+        return history.measured_steps
     if isinstance(history, TickHistory):
         return history.offsets[0]
     if not isinstance(history, ObservationHistory):

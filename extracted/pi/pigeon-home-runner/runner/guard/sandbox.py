@@ -13,7 +13,7 @@ machine (Ubuntu, usr-merged, overlayfs):
   /proc mount (AppArmor/seccomp); without it --proc mounts fine.
 
 Divergences and the machine's real paths are recorded in
-docs/archive/HARDENING_REPORT.md.
+docs/steady/security/hardening_report.md.
 """
 import os
 import shutil
@@ -57,28 +57,18 @@ def _userns_restricted():
         return False
 
 
-def startup_problem(timeout=15):
-    """None when bwrap can confine a job here, else why not.
+def _trial_run(path, flags, timeout):
+    """Start bwrap once with DEFAULT_FLAGS + `flags`, running `true`.
 
-    Run once at startup under confinement: enforce (Decision 1's
-    refuse class: a security mode whose mechanism cannot engage
-    changes what the box protects, docs/seats/questions.md Q9). It
-    checks the platform, finds bwrap on PATH, and starts it once
-    with the same namespace flags a job gets, running `true`. The
-    first env-axes pair showed why a trial run and not a PATH
-    lookup: with apparmor_restrict_unprivileged_userns=1, Ubuntu
-    24.04's default, bwrap is installed and every start fails.
+    None when the sandbox starts, else the reason it cannot. The
+    reason names the flag set's origin through the caller's prefix,
+    so this helper keeps the bare bwrap wording and startup_problem
+    frames it.
     """
-    if os.name == "nt" or not sys.platform.startswith("linux"):
-        return ("confinement (bwrap) is Linux-only; this machine is "
-                "%s" % sys.platform)
-    path = shutil.which(BWRAP_BIN)
-    if path is None:
-        return "bwrap is not installed (not found on PATH)"
     import subprocess
     try:
         proc = subprocess.run(
-            [path, *DEFAULT_FLAGS, "/usr/bin/true"],
+            [path, *DEFAULT_FLAGS, *flags, "/usr/bin/true"],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as e:
@@ -93,6 +83,51 @@ def startup_problem(timeout=15):
                    "which blocks the user namespace bwrap needs (set it "
                    "to 0, or give bwrap an AppArmor profile)")
     return reason
+
+
+def startup_problem(timeout=15, cfg=None):
+    """None when bwrap can confine a job here, else why not.
+
+    Run once at startup under confinement: enforce (Decision 1's
+    refuse class: a security mode whose mechanism cannot engage
+    changes what the box protects, docs/steady/seats/questions.md Q9). It
+    checks the platform, finds bwrap on PATH, and starts it once
+    with the same namespace flags a job gets, running `true`. The
+    first env-axes pair showed why a trial run and not a PATH
+    lookup: with apparmor_restrict_unprivileged_userns=1, Ubuntu
+    24.04's default, bwrap is installed and every start fails.
+
+    When `cfg` names security.confinement.extra_flags, the trial
+    runs a second time with those flags in the position a job's
+    argv gives them (after the defaults, before the command): a
+    flag bwrap rejects, or one that breaks the start the defaults
+    alone survive, is a startup refusal under enforce, not a
+    per-job failure discovered later (Q133). Extra binds are not
+    trialled: they name operator paths, applied per job.
+    """
+    if os.name == "nt" or not sys.platform.startswith("linux"):
+        return ("confinement (bwrap) is Linux-only; this machine is "
+                "%s" % sys.platform)
+    path = shutil.which(BWRAP_BIN)
+    if path is None:
+        return "bwrap is not installed (not found on PATH)"
+    reason = _trial_run(path, (), timeout)
+    if reason is not None:
+        return reason
+    if cfg is None:
+        return None
+    flags = _confinement_cfg(cfg).get("extra_flags", [])
+    try:
+        _flag_list(flags)
+    except RuntimeError as e:
+        return str(e)
+    if not flags:
+        return None
+    reason = _trial_run(path, flags, timeout)
+    if reason is None:
+        return None
+    return ("with the configured security.confinement.extra_flags "
+            "%s: %s" % (", ".join(flags), reason))
 
 
 def _confinement_cfg(cfg):
@@ -114,9 +149,14 @@ def _absolute_mount(value, label):
 
 
 def _flag_list(flags):
+    # A flag is one argv token: no "..", no path separator, and
+    # no character a token cannot carry -- the control
+    # characters, and whitespace of any kind (Q135: a
+    # whitespace-bearing token is never a bwrap flag).
     if not isinstance(flags, list) or not all(
             isinstance(f, str) and f and ".." not in f
             and not any(ch in f for ch in "\x00\r\n/")
+            and not any(ch.isspace() for ch in f)
             for f in flags):
         raise RuntimeError(
             "config error: security.confinement.extra_flags "
@@ -171,6 +211,21 @@ def _under(path, roots):
     return False
 
 
+def _is_user_home(path):
+    """True when `path` is a user home directory: the process
+    user's own home, any /home/<name> or /Users/<name>, or /root."""
+    if not isinstance(path, str) or not path:
+        return False
+    own = os.path.expanduser("~")
+    if own.startswith("/") and path == own:
+        return True
+    if path == "/root":
+        return True
+    parts = path.split("/")
+    return (len(parts) == 3 and parts[0] == ""
+            and parts[1] in ("home", "Users") and bool(parts[2]))
+
+
 def _install_prefix(path):
     """The directory to bind so `path` can run: its grandparent when
     the parent is `bin` (…/x64/bin/python3 -> …/x64, bringing lib/
@@ -180,13 +235,19 @@ def _install_prefix(path):
     findings disposition): a prefix shallower than two components
     is not bound at all, and this returns None -- an interpreter
     resolved directly in the root or a top-level directory gets no
-    prefix bind instead of binding the whole root or tree."""
+    prefix bind instead of binding the whole root or tree. Never a
+    user home directory either (Q-new-25): a bin grandparent that
+    is a home directory (/home/<user>/bin/python3) falls back to
+    the bin directory itself, so the whole home is never bound."""
     parent = os.path.dirname(path)
     if os.path.basename(parent) == "bin":
         grand = os.path.dirname(parent)
-        if grand.count("/") >= 2 and grand != "/":
+        if grand.count("/") >= 2 and grand != "/" \
+                and not _is_user_home(grand):
             return grand
     if parent.count("/") >= 2:
+        if _is_user_home(parent):
+            return None
         return parent
     return None
 

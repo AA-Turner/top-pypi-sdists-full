@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.52.0
+Version: 2.53.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://dataframes.bigquery.dev
 Download-URL: https://github.com/google/bigframes/releases
@@ -16,78 +16,77 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: cloudpickle>=2.0.0
+Requires-Dist: cloudpickle>=2.1.0
 Requires-Dist: fsspec>=2023.3.0
 Requires-Dist: gcsfs!=2025.5.0,!=2026.2.0,!=2026.3.0,>=2023.3.0
-Requires-Dist: geopandas>=0.12.2
-Requires-Dist: google-auth[pyopenssl]<3.0,>=2.15.0
-Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.42.0
-Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.30.0
-Requires-Dist: google-cloud-functions>=1.20.2
-Requires-Dist: google-cloud-bigquery-connection>=1.18.2
-Requires-Dist: google-cloud-resource-manager>=1.14.2
+Requires-Dist: geopandas>=1.0.0
+Requires-Dist: google-auth[pyopenssl]<3.0,>=2.56.3
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.47.0
+Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.43.0
+Requires-Dist: google-cloud-functions>=1.25.0
+Requires-Dist: google-cloud-bigquery-connection>=1.23.0
+Requires-Dist: google-cloud-resource-manager>=1.19.0
 Requires-Dist: google-cloud-storage>=2.0.0
-Requires-Dist: google-crc32c<2.0.0,>=1.0.0
-Requires-Dist: grpc-google-iam-v1>=0.14.2
-Requires-Dist: numpy>=1.24.0
+Requires-Dist: google-crc32c<2.0.0,>=1.8.0
+Requires-Dist: grpc-google-iam-v1>=0.14.6
+Requires-Dist: numpy>=1.24.1
 Requires-Dist: pandas>=1.5.3
 Requires-Dist: pandas-gbq>=0.26.1
 Requires-Dist: pyarrow>=23.0.1
-Requires-Dist: pydata-google-auth>=1.8.2
-Requires-Dist: requests>=2.27.1
-Requires-Dist: shapely>=1.8.5
+Requires-Dist: pydata-google-auth>=1.9.1
+Requires-Dist: requests>=2.34.2
+Requires-Dist: shapely>=2.0.0
 Requires-Dist: tabulate>=0.9
 Requires-Dist: humanize>=4.6.0
 Requires-Dist: matplotlib>=3.7.1
-Requires-Dist: db-dtypes>=1.4.2
-Requires-Dist: atpublic<6,>=2.3
+Requires-Dist: db-dtypes>=1.9.0
+Requires-Dist: atpublic<6,>=5.1
 Requires-Dist: python-dateutil<3,>=2.8.2
 Requires-Dist: pytz>=2022.7
 Requires-Dist: toolz<2,>=0.11
-Requires-Dist: typing-extensions<5,>=4.5.0
-Requires-Dist: rich<14,>=12.4.4
+Requires-Dist: typing-extensions<5,>=4.6.1
+Requires-Dist: rich<14,>=13.9.4
 Provides-Extra: tests
-Requires-Dist: freezegun; extra == "tests"
-Requires-Dist: pytest-snapshot; extra == "tests"
+Requires-Dist: freezegun>=1.5.5; extra == "tests"
+Requires-Dist: pytest-snapshot>=0.9.0; extra == "tests"
 Requires-Dist: google-cloud-bigtable>=2.30.0; extra == "tests"
 Requires-Dist: google-cloud-pubsub>=2.29.0; extra == "tests"
-Requires-Dist: tzdata; extra == "tests"
+Requires-Dist: tzdata>=2025.2; extra == "tests"
 Provides-Extra: polars
 Requires-Dist: polars<2.0.0,>=1.21.0; extra == "polars"
 Provides-Extra: scikit-learn
-Requires-Dist: scikit-learn>=1.2.2; extra == "scikit-learn"
+Requires-Dist: scikit-learn>=1.8.0; extra == "scikit-learn"
 Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: nox; extra == "dev"
-Requires-Dist: google-cloud-testutils; extra == "dev"
+Requires-Dist: pytest>=8.4.2; extra == "dev"
+Requires-Dist: pre-commit>=4.6.2; extra == "dev"
+Requires-Dist: nox>=2026.10.20; extra == "dev"
+Requires-Dist: google-cloud-testutils>=1.10.1; extra == "dev"
 Provides-Extra: anywidget
-Requires-Dist: anywidget>=0.9.18; extra == "anywidget"
+Requires-Dist: anywidget>=0.9.21; extra == "anywidget"
 Requires-Dist: traitlets>=5.0.0; extra == "anywidget"
 Provides-Extra: all
-Requires-Dist: anywidget>=0.9.18; extra == "all"
-Requires-Dist: freezegun; extra == "all"
+Requires-Dist: anywidget>=0.9.21; extra == "all"
+Requires-Dist: freezegun>=1.5.5; extra == "all"
 Requires-Dist: google-cloud-bigtable>=2.30.0; extra == "all"
 Requires-Dist: google-cloud-pubsub>=2.29.0; extra == "all"
-Requires-Dist: google-cloud-testutils; extra == "all"
-Requires-Dist: nox; extra == "all"
+Requires-Dist: google-cloud-testutils>=1.10.1; extra == "all"
+Requires-Dist: nox>=2026.10.20; extra == "all"
 Requires-Dist: polars<2.0.0,>=1.21.0; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: pytest-snapshot; extra == "all"
-Requires-Dist: scikit-learn>=1.2.2; extra == "all"
+Requires-Dist: pre-commit>=4.6.2; extra == "all"
+Requires-Dist: pytest>=8.4.2; extra == "all"
+Requires-Dist: pytest-snapshot>=0.9.0; extra == "all"
+Requires-Dist: scikit-learn>=1.8.0; extra == "all"
 Requires-Dist: traitlets>=5.0.0; extra == "all"
-Requires-Dist: tzdata; extra == "all"
+Requires-Dist: tzdata>=2025.2; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

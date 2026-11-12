@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from ibm_watsonx_orchestrate.cli.config import Config, ENV_WXO_URL_OPT, ENV_CRN_OPT, ENVIRONMENTS_SECTION_HEADER, CONTEXT_SECTION_HEADER, CONTEXT_ACTIVE_ENV_OPT, CHAT_UI_PORT
 from ibm_watsonx_orchestrate.cli.commands.channels.types import EnvironmentType, RuntimeEnvironmentType
+from ibm_watsonx_orchestrate.cli.commands.channels.channels_common import is_control_plane_only
 from ibm_watsonx_orchestrate.client.utils import is_local_dev, is_ibm_cloud_platform, get_environment, get_cpd_instance_id_from_url, is_saas_env, AUTH_CONFIG_FILE_FOLDER, AUTH_SECTION_HEADER, AUTH_MCSP_TOKEN_OPT, AUTH_CONFIG_FILE
 
 from ibm_watsonx_orchestrate.client.agents.agent_client import AgentClient
@@ -68,7 +69,11 @@ class ChannelsWebchatController:
         if not existing_native_agents:
             logger.error(f"No agent found with the name '{agent_name}'")
             exit(1)
-        agent_id = existing_native_agents[0]['id']
+        agent = existing_native_agents[0]
+        if is_control_plane_only(agent):
+            logger.error(f"Cannot create webchat for agent '{agent_name}': agent is registered for control plane only.")
+            exit(1)
+        agent_id = agent['id']
         return agent_id
 
     def get_environment_id(self, agent_name: str, env: str):

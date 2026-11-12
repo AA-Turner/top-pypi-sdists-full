@@ -34,7 +34,10 @@ from anyscale._private.anyscale_client.common import (
 )
 from anyscale._private.models.image_uri import ImageURI
 from anyscale._private.utils.progress_util import FileDownloadProgress
-from anyscale.api_utils.logs_util import _download_log_from_s3_url_sync
+from anyscale.api_utils.logs_util import (
+    _download_log_from_s3_url,
+    _download_log_from_s3_url_sync,
+)
 from anyscale.authenticate import AuthenticationBlock, get_auth_api_client
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.api.default_api import DefaultApi as InternalApi
@@ -78,6 +81,7 @@ from anyscale.client.openapi_client.models import (
     DecoratedProductionServiceV2VersionAPIModel,
     DecoratedSession,
     DeleteResourceTagsRequest,
+    DescribeSystemWorkloadResponse,
     ExperimentalWorkspace,
     GetOrCreateBuildFromImageUriRequest,
     GpuDetail,
@@ -85,6 +89,8 @@ from anyscale.client.openapi_client.models import (
     JobQueueSortDirective,
     JobQueuesQuery,
     ListResourceQuotasQuery,
+    LogDownloadResult,
+    LogFileChunk,
     LogItemBatch,
     NodeGpusResponse,
     OrganizationCollaborator,
@@ -182,6 +188,7 @@ from anyscale.sdk.anyscale_client.models.page_query import PageQuery
 from anyscale.sdk.anyscale_client.rest import ApiException as ExternalApiException
 from anyscale.shared_anyscale_utils.bytes_util import Bytes
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
+from anyscale.shared_anyscale_utils.utils.asyncio import gather_in_batches, run_sync
 from anyscale.util import (
     AWS_PRM_USER_AGENT_STRING,
     get_cluster_model_for_current_workspace,
@@ -208,6 +215,12 @@ OVERWRITE_EXISTING_CLOUD_STORAGE_FILES = (
 
 # internal_logger is used for logging internal errors or debug messages that we do not expect users to see.
 internal_logger = logging.getLogger(__name__)
+
+
+# Timeouts of the two observability_api calls, in seconds: the console gives the cookie
+# exchange 5s; a data query can take longer on a cluster the service has not loaded yet.
+OBSERVABILITY_API_AUTH_TIMEOUT_S = 10
+OBSERVABILITY_API_READ_TIMEOUT_S = 120
 
 
 # A decorator to handle ApiException and raise ValueError with the error message.
@@ -2536,6 +2549,121 @@ class AnyscaleClient(AnyscaleClientInterface):
         return self._internal_api_client.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(
             cluster_id, gpu_uuid, **kwargs
         ).result
+
+    @handle_api_exceptions
+    def list_log_files(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        log_type: str,
+        latest: bool,
+        page_size: int,
+        next_page_token: Optional[str] = None,
+        job_run: Optional[str] = None,
+        service_version: Optional[str] = None,
+        ray_session: Optional[str] = None,
+        node_type: Optional[str] = None,
+        node_ip: Optional[str] = None,
+        instance_id: Optional[str] = None,
+        glob: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> LogDownloadResult:
+        kwargs: Dict[str, Any] = {"log_type": log_type, "latest": latest, "page_size": page_size}
+        optional = {
+            "next_page_token": next_page_token,
+            "job_run": job_run,
+            "service_version": service_version,
+            "ray_session": ray_session,
+            "node_type": node_type,
+            "node_ip": node_ip,
+            "instance_id": instance_id,
+            "glob": glob,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+        kwargs.update({key: value for key, value in optional.items() if value is not None})
+        return (
+            self._internal_api_client.list_log_files_api_v2_logs_entity_type_entity_id_files_get(
+                entity_type, entity_id, **kwargs
+            ).result
+        )
+
+    def download_log_chunks(
+        self,
+        chunks: List[LogFileChunk],
+        *,
+        bearer_token: Optional[str] = None,
+        parallelism: int = 10,
+    ) -> List[str]:
+        # The URLs are presigned, so this needs no API client; the bearer token is the
+        # GCP variant of the same grant.
+        return run_sync(
+            gather_in_batches(
+                parallelism,
+                *[
+                    _download_log_from_s3_url(chunk.chunk_url, bearer_token=bearer_token)
+                    for chunk in chunks
+                ],
+            )
+        )
+
+    @handle_api_exceptions
+    def get_cluster_cloud_id(self, cluster_id: str) -> str:
+        cluster: DecoratedSession = self._internal_api_client.get_decorated_cluster_api_v2_decorated_sessions_cluster_id_get(
+            cluster_id
+        ).result
+        return cluster.cloud_id
+
+    @handle_api_exceptions
+    def describe_ray_observability_api(
+        self, *, cloud_id: str, cluster_id: str, start_cluster: bool
+    ) -> DescribeSystemWorkloadResponse:
+        try:
+            return self._internal_api_client.describe_system_workload_api_v2_system_workload_cloud_id_describe_post(
+                cloud_id,
+                SystemWorkloadName.RAY_OBS_EVENTS_API_SERVICE,
+                cluster_id=cluster_id,
+                start_cluster=start_cluster,
+            ).result
+        except InternalApiException as e:
+            # 501 is the backend declining to start the system cluster (the cloud
+            # resource cannot host one). The console reads it like the 409 refusal;
+            # handle_api_exceptions maps only 4xx, so it is mapped here.
+            if e.status == 501:
+                raise ValueError(
+                    server_error_text(e.body)
+                    or f"The system cluster of cloud '{cloud_id}' cannot be started."
+                ) from None
+            raise
+
+    def get_observability_api_json(
+        self, *, service_url: str, auth_url: str, path: str, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        with requests.Session() as session:
+            # `auth_only` makes the endpoint answer with the cookie instead of
+            # redirecting into the console, as the console's own call asks.
+            separator = "&" if "?" in auth_url else "?"
+            auth = session.get(
+                f"{auth_url}{separator}redirect_to=system_cluster&auth_only=true",
+                timeout=OBSERVABILITY_API_AUTH_TIMEOUT_S,
+                allow_redirects=False,
+            )
+            if auth.status_code >= 400:
+                raise ValueError(
+                    f"Could not sign in to the system cluster ({auth.status_code}): {auth.text}"
+                )
+            response = session.get(
+                f"{service_url.rstrip('/')}/{path.lstrip('/')}",
+                params=params,
+                timeout=OBSERVABILITY_API_READ_TIMEOUT_S,
+            )
+        if response.status_code >= 400:
+            raise ValueError(
+                f"The observability API request failed ({response.status_code}): {response.text}"
+            )
+        return response.json()
 
     @handle_api_exceptions
     def get_cluster_node(

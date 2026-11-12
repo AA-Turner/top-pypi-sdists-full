@@ -714,6 +714,15 @@ def catalog(code: str, **kwargs) -> DreamscaleError:
             "checkpoints",
             fix=f"build it with dreamscale.{helper}.observation(...)",
         ),
+        "episode_steps_required": ErrorInfo(
+            code="episode_steps_required",
+            problem=f"{public_model(model)} continues its episode from the steps your robot ran",
+            cause="predict() was called without past_observations after the episode's first "
+            "call, so the model would start again with no context",
+            fix="pass past_observations: the observation each action was executed from since "
+            "the last predict(), oldest first ([] starts a new episode), or use next_action(), "
+            "which keeps them for you",
+        ),
         "past_observations_unsupported": ErrorInfo(
             code="past_observations_unsupported",
             problem=f"predict() can't send {public_model(model)}'s history",

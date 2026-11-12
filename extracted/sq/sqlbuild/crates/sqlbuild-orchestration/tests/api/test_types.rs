@@ -1,6 +1,7 @@
 use crate::runs::models::RunStatus;
 use crate::store::errors::ControlError;
 use crate::store::tests::store_test_types::Backend;
+use crate::warehouse_metadata::models::WarehouseHistoryKind;
 
 pub(crate) struct ApiContractTestCase {
     pub(crate) description: &'static str,
@@ -103,6 +104,12 @@ pub(crate) struct ColumnLineageTestCase {
     pub(crate) expected_leaf_edges: usize,
 }
 
+pub(crate) struct StateTableClassificationTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) expected_tables: Vec<&'static str>,
+    pub(crate) expected_last_kinds: [WarehouseHistoryKind; 2],
+}
+
 pub(crate) struct WarehouseMetadataTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
@@ -184,6 +191,16 @@ pub(crate) struct UiPathTestCase {
     pub(crate) expected_body: &'static str,
 }
 
+pub(crate) struct CompressionTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) method: reqwest::Method,
+    /// `{location}` stands for the fixture's location ID.
+    pub(crate) path: &'static str,
+    pub(crate) accept_encoding: &'static str,
+    pub(crate) expected_status: u16,
+    pub(crate) expected_gzip: bool,
+}
+
 pub(crate) struct ServerErrorTestCase {
     pub(crate) description: &'static str,
     pub(crate) path: &'static str,
@@ -226,4 +243,14 @@ pub(crate) struct UpcomingTestCase {
     pub(crate) backend: Backend,
     pub(crate) expected_hourly: [&'static str; 5],
     pub(crate) expected_calendar: [&'static str; 3],
+}
+
+pub(crate) struct AcknowledgementTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    /// Statuses of: acknowledge, the same request retried, a run of another target, withdraw.
+    pub(crate) expected_statuses: [u16; 4],
+    /// Whether acknowledging, retrying and withdrawing each changed anything.
+    pub(crate) expected_applied: [bool; 3],
+    pub(crate) expected_acknowledged_by: &'static str,
 }

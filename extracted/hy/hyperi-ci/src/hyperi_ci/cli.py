@@ -522,6 +522,18 @@ def push(
         bool,
         typer.Option("--no-ci", help="Amend last commit with [skip ci] and push"),
     ] = False,
+    hotfix: Annotated[
+        str | None,
+        typer.Option(
+            "--hotfix",
+            help=(
+                "Release X.Y.Z straight away on a release.candidates repo, "
+                "with no release candidate. Takes the reason, a CVE, advisory "
+                "or incident id, and adds it as a `Hotfix:` trailer. Implies "
+                "--release. From main only."
+            ),
+        ),
+    ] = None,
     allow_feat: Annotated[
         bool,
         typer.Option(
@@ -606,6 +618,7 @@ def push(
         dry_run=dry_run,
         force=force,
         project_dir=dir_path,
+        hotfix=hotfix,
     )
     raise typer.Exit(rc)
 
@@ -1233,7 +1246,8 @@ def release_notify_cmd(
     is waiting in the morning; `--outcome commit-back-failed` records a release
     that shipped but could not push VERSION and CHANGELOG.md back to main. All
     are idempotent, and all always exit 0 -- a notification must never be the
-    thing that fails a release.
+    thing that fails a release. A success that is a hotfix on a
+    `release.candidates` repo is also reported to the alert bridge.
 
     Slack is off unless `notify.slack.webhook_env` names an env var holding a
     webhook URL.
@@ -1241,6 +1255,7 @@ def release_notify_cmd(
     from hyperi_ci.release_notify import (
         notify_commit_back_failed,
         notify_failure,
+        notify_hotfix,
         notify_slack,
         notify_success,
     )
@@ -1256,7 +1271,9 @@ def release_notify_cmd(
         rc = notify_commit_back_failed(version=version, run_url=run_url)
         notify_slack(cfg, text=f"Released v{bare}, but its commit-back to main FAILED")
     else:
-        rc = notify_success(version=version, cwd=str(dir_path) if dir_path else None)
+        cwd = str(dir_path) if dir_path else None
+        rc = notify_success(version=version, cwd=cwd)
+        notify_hotfix(cfg, version=version, cwd=cwd)
         notify_slack(cfg, text=f"Released v{bare}")
     raise typer.Exit(rc)
 
@@ -1643,6 +1660,59 @@ def vendor_check_cmd(
 
     root = Path(project_dir) if project_dir else Path.cwd()
     raise typer.Exit(run(load_config(project_dir=root), root))
+
+
+licenses_app = typer.Typer(help="Dependency licence policy")
+app.add_typer(licenses_app, name="licenses")
+
+
+@licenses_app.command(name="judge")
+def licenses_judge_cmd(
+    licence: Annotated[
+        str,
+        typer.Argument(help="SPDX id, expression or alias, as an override names it"),
+    ],
+    mode: Annotated[
+        str,
+        typer.Option("--mode", help="import, static, vendored or modified"),
+    ] = "import",
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print the answer as JSON"),
+    ] = False,
+    project_dir: Annotated[
+        str | None,
+        typer.Option("--project-dir", "-C", help="Project root directory"),
+    ] = None,
+) -> None:
+    """Print the verdict this repo's licence policy gives an override naming LICENCE."""
+    from hyperi_ci.quality.dep_licenses import (
+        Mode,
+        PolicyError,
+        judge_override,
+        load_settings,
+    )
+
+    root = Path(project_dir) if project_dir else Path.cwd()
+    if mode not in {m.value for m in Mode}:
+        typer.echo(f"--mode {mode!r}: use one of {', '.join(Mode)}", err=True)
+        raise typer.Exit(2)
+    try:
+        policy, _ = load_settings(load_config(project_dir=root))
+    except PolicyError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    answer = judge_override(licence, Mode(mode), policy)
+    if as_json:
+        typer.echo(json.dumps(answer))
+        return
+    obligations = (
+        f" [{', '.join(answer['obligations'])}]" if answer["obligations"] else ""
+    )
+    typer.echo(
+        f"{answer['spdx'] or 'unknown'} {mode} -> {answer['verdict']}{obligations} "
+        f"(rule {answer['rule'] or 'none'})"
+    )
 
 
 @app.command(name="seed-version")
@@ -2583,6 +2653,29 @@ def publish(
     _release_impl(
         tag=tag, list_tags=list_tags, dry_run=dry_run, bump=bump, version=version
     )
+
+
+@app.command()
+def promote(
+    tag: Annotated[
+        str,
+        typer.Argument(help="The release candidate to ship, e.g. v2.2.3-rc.2"),
+    ],
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Show the tag and dispatch only"),
+    ] = False,
+) -> None:
+    """Ship a release candidate as its GA version.
+
+    Tags the candidate's commit ``vX.Y.Z`` and dispatches that tag's release.
+    The run rebuilds the commit as a GA, with PGO and BOLT where the project
+    builds them, and marks the GitHub Release latest unless a newer GA holds
+    it. For a repo that sets ``release.candidates``.
+    """
+    from hyperi_ci.release.dispatch import promote as promote_candidate
+
+    raise typer.Exit(promote_candidate(tag, dry_run=dry_run))
 
 
 @app.command(name="tag-head", hidden=True)

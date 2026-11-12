@@ -308,7 +308,7 @@ class DefaultAccountAdapter(BaseAdapter):
         Next to simply returning True/False you can also intervene the
         regular flow by raising an ImmediateHttpResponse
         """
-        return True
+        return app_settings.SIGNUP_ENABLED
 
     def new_user(self, request: HttpRequest) -> AbstractBaseUser:
         """
@@ -905,6 +905,13 @@ class DefaultAccountAdapter(BaseAdapter):
                 "id": "reauthenticate",
                 "description": _("Use your password"),
                 "url": reverse("account_reauthenticate"),
+            }
+            ret.append(entry)
+        if "reauthenticate_by_code" in flow_by_id:
+            entry = {
+                "id": "reauthenticate_by_code",
+                "description": _("Send me a sign-in code"),
+                "url": reverse("account_request_reauthentication_code"),
             }
             ret.append(entry)
         if "mfa_reauthenticate" in flow_by_id:

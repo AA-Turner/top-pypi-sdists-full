@@ -40,6 +40,7 @@ from .paginator import (
     ListResourcesForTagOptionPaginator,
     ListServiceActionsForProvisioningArtifactPaginator,
     ListServiceActionsPaginator,
+    ListStackInstancesForProvisionedProductPaginator,
     ListTagOptionsPaginator,
     ScanProvisionedProductsPaginator,
     SearchProductsAsAdminPaginator,
@@ -1296,6 +1297,17 @@ class ServiceCatalogClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_service_actions"]
     ) -> ListServiceActionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/servicecatalog/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_servicecatalog/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_stack_instances_for_provisioned_product"]
+    ) -> ListStackInstancesForProvisionedProductPaginator:
         """
         Create a paginator for an operation.
 

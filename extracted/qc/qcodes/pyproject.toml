@@ -75,7 +75,7 @@ test = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
-    "pytest-mock>=3.13.0",
+    "pytest-mock>=3.14.0",
     "pytest-rerunfailures>=14.0",
     "pytest-xdist>=3.6.1",
     "PyVisa-sim>=0.6.0",
@@ -86,8 +86,9 @@ test = [
     "types-tabulate>=0.1.0",
     "types-tqdm>=4.64.6",
     "types_pywin32>=305.0.0.7",
+    "typing_extensions>=4.16.0", # Sentinel used in tests
     "qcodes_loop>=0.1.1",
-    "zhinst.qcodes>=0.5; python_version < '3.15'", # typecheck zhinst driver alias. zhinst-core has no Python 3.15 wheels yet
+    "zhinst.qcodes>=0.5",
     "libcst>=1.2.0", # refactor tests
 ]
 docs = [
@@ -180,13 +181,6 @@ module = [
 ]
 ignore_missing_imports = true
 
-# zhinst-qcodes is not installable on all Python versions we test
-# (no Python 3.15 wheels for zhinst-core yet). When it is installed,
-# the Zurich Instruments driver aliases are still typechecked against it.
-[[tool.mypy.overrides]]
-module = ["zhinst.*"]
-ignore_missing_imports = true
-
 [tool.pyright]
 include = ["src","tests"]
 ignore = [
@@ -215,13 +209,6 @@ reportUnnecessaryTypeIgnoreComment = "none"
 # it would be nice to filter for not needed pyright ignore comments
 # but not type ignore comments since mypy already checks if type ignores are necessary
 reportUnnecessaryContains = "none"
-
-executionEnvironments = [
-  # zhinst-qcodes is not installable on all Python versions we test
-  # (no Python 3.15 wheels for zhinst-core yet). When it is installed,
-  # the Zurich Instruments driver aliases are still typechecked against it.
-  { root = "src/qcodes/instrument_drivers/zurich_instruments", reportMissingImports = "none" },
-]
 
 [tool.pytest.ini_options]
 minversion = "7.2"
@@ -497,7 +484,7 @@ name = "Under the hood:"
 # we hard code the default version to match a development version
 # due to
 # https://github.com/orgs/community/discussions/163397#discussioncomment-13888710
-default-version = "0.54.0dev+Unknown"
+default-version = "0.63.0dev+Unknown"
 
 
 [tool.versioningit.format]

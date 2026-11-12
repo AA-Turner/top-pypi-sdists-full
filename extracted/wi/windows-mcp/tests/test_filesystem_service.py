@@ -1,4 +1,7 @@
+import codecs
+import ctypes
 import os
+import stat
 
 import pytest
 
@@ -12,6 +15,7 @@ from windows_mcp.filesystem.service import (
     search_files,
     get_file_info,
 )
+from windows_mcp.filesystem.views import MAX_READ_SIZE
 
 
 class TestReadFile:
@@ -37,6 +41,76 @@ class TestReadFile:
         result = read_file(str(tmp_path))
         assert "Error: Path is not a file" in result
 
+    @pytest.mark.parametrize(
+        "bom, codec",
+        [
+            (codecs.BOM_UTF8, "utf-8"),
+            (codecs.BOM_UTF16_LE, "utf-16-le"),
+            (codecs.BOM_UTF16_BE, "utf-16-be"),
+        ],
+        ids=["utf-8-sig", "utf-16-le", "utf-16-be"],
+    )
+    def test_read_decodes_bom(self, tmp_path, bom, codec):
+        # Windows PowerShell 5.1's `>` writes UTF-16 LE; Notepad writes UTF-8 with a BOM.
+        f = tmp_path / "bom.txt"
+        f.write_bytes(bom + "héllo\r\nwörld\r\n".encode(codec))
+        assert read_file(str(f)).endswith("\nhéllo\nwörld\n")
+        assert read_file(str(f), offset=2, limit=1).endswith("of 2:\nwörld\n")
+
+    def test_read_keeps_explicit_encoding_over_bom(self, tmp_path):
+        f = tmp_path / "bom.txt"
+        f.write_bytes(codecs.BOM_UTF8 + b"hi")
+        assert read_file(str(f), encoding="latin-1").endswith("\nï»¿hi")
+
+    @pytest.fixture
+    def large_file(self, tmp_path):
+        # 110,000 numbered lines of 101 bytes: 11,110,000 bytes, just over MAX_READ_SIZE.
+        f = tmp_path / "large.log"
+        f.write_bytes(b"".join(b"%06d " % n + b"x" * 93 + b"\n" for n in range(1, 110_001)))
+        assert f.stat().st_size > MAX_READ_SIZE
+        return f
+
+    @pytest.mark.parametrize(
+        "offset, limit, first, last",
+        [
+            (None, 3, 1, 3),
+            (100, 2, 100, 101),
+            (109_999, 10, 109_999, 110_000),
+            (109_999, None, 109_999, 110_000),
+        ],
+        ids=["first-lines", "middle", "end", "offset-only"],
+    )
+    def test_read_range_of_file_over_size_limit(self, large_file, offset, limit, first, last):
+        result = read_file(str(large_file), offset=offset, limit=limit)
+        lines = [f"{n:06d} " + "x" * 93 for n in range(first, last + 1)]
+        assert result.splitlines()[1:] == [f"Lines {first}-{last} of 110000:", *lines]
+
+    def test_read_whole_file_over_size_limit_is_refused(self, large_file):
+        result = read_file(str(large_file))
+        assert result.startswith("Error: File too large (11,110,000 bytes).")
+        assert "or the PowerShell tool" in result
+
+    @pytest.mark.parametrize(
+        "offset, limit", [(1, 110_000), (1, None)], ids=["limit", "offset-only"]
+    )
+    def test_read_range_too_large_is_refused(self, large_file, offset, limit):
+        result = read_file(str(large_file), offset=offset, limit=limit)
+        assert result.startswith(
+            f"Error: The requested lines add up to more than {MAX_READ_SIZE:,} characters."
+        )
+
+    def test_read_range_after_line_longer_than_size_limit(self, tmp_path):
+        # The first line is longer than MAX_READ_SIZE, so it is read in two pieces.
+        f = tmp_path / "long.txt"
+        f.write_bytes(b"x" * (MAX_READ_SIZE + 1) + b"\nlast\n")
+        assert read_file(str(f), offset=2, limit=1).endswith("\nLines 2-2 of 2:\nlast\n")
+        assert read_file(str(f), limit=1).startswith("Error: The requested lines add up to")
+
+    def test_read_rejects_negative_limit(self, tmp_path):
+        f = tmp_path / "lines.txt"
+        f.write_text("line1\nline2\nline3\n", encoding="utf-8")
+        assert read_file(str(f), offset=2, limit=-1) == "Error: limit cannot be negative."
+
 
 class TestWriteFile:
     def test_write_new_file(self, tmp_path):
@@ -56,6 +130,44 @@ class TestWriteFile:
         result = write_file(str(f), "deep")
         assert "Written to" in result
         assert f.read_text(encoding="utf-8") == "deep"
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_write_uses_crlf_line_endings(self, tmp_path, newline):
+        f = tmp_path / "out.txt"
+        write_file(str(f), f"first{newline}second{newline}")
+        assert f.read_bytes() == b"first\r\nsecond\r\n"
+        assert read_file(str(f)).endswith("\nfirst\nsecond\n")
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_append_uses_crlf_line_endings(self, tmp_path, newline):
+        f = tmp_path / "out.txt"
+        f.write_bytes(b"first\r\n")
+        write_file(str(f), f"second{newline}", append=True)
+        assert f.read_bytes() == b"first\r\nsecond\r\n"
+
+    @pytest.mark.parametrize(
+        "bom, codec",
+        [
+            (codecs.BOM_UTF8, "utf-8"),
+            (codecs.BOM_UTF16_LE, "utf-16-le"),
+            (codecs.BOM_UTF16_BE, "utf-16-be"),
+        ],
+        ids=["utf-8-sig", "utf-16-le", "utf-16-be"],
+    )
+    def test_append_keeps_bom_encoding(self, tmp_path, bom, codec):
+        # Windows PowerShell 5.1's `>` and Out-File write UTF-16 LE; appending
+        # UTF-8 bytes to such a file turned the new text into CJK mojibake.
+        f = tmp_path / "bom.txt"
+        f.write_bytes(bom + "héllo\r\n".encode(codec))
+        write_file(str(f), "wörld\n", append=True)
+        assert f.read_bytes() == bom + "héllo\r\nwörld\r\n".encode(codec)
+        assert read_file(str(f)).endswith("\nhéllo\nwörld\n")
+
+    def test_append_keeps_explicit_encoding_over_bom(self, tmp_path):
+        f = tmp_path / "bom.txt"
+        f.write_bytes(codecs.BOM_UTF16_LE + "a".encode("utf-16-le"))
+        write_file(str(f), "b", append=True, encoding="latin-1")
+        assert f.read_bytes() == codecs.BOM_UTF16_LE + b"a\x00b"
 
 
 class TestCopyPath:
@@ -97,6 +209,19 @@ class TestCopyPath:
         assert "Copied file" in result
         assert dst.read_text(encoding="utf-8") == "new"
 
+    def test_copy_directory_overwrites_read_only_files(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "new.txt").write_text("new", encoding="utf-8")
+        dst = tmp_path / "dst"
+        dst.mkdir()
+        old = dst / "old.txt"
+        old.write_text("old", encoding="utf-8")
+        os.chmod(old, stat.S_IREAD)
+        result = copy_path(str(src), str(dst), overwrite=True)
+        assert "Copied directory" in result
+        assert [p.name for p in dst.iterdir()] == ["new.txt"]
+
 
 class TestMovePath:
     def test_move_file(self, tmp_path):
@@ -122,6 +247,54 @@ class TestMovePath:
 
 
 class TestDeletePath:
+    @pytest.mark.parametrize("recursive", [False, True])
+    @pytest.mark.parametrize("kind", ["file", "directory", "dangling"])
+    def test_delete_symlink_preserves_target(self, tmp_path, recursive, kind):
+        target = tmp_path / "target"
+        if kind == "file":
+            target.write_text("keep me", encoding="utf-8")
+        elif kind == "directory":
+            target.mkdir()
+            (target / "child.txt").write_text("keep me", encoding="utf-8")
+        link = tmp_path / "link"
+        try:
+            link.symlink_to(target, target_is_directory=kind == "directory")
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                pytest.skip("Creating symbolic links requires Windows privileges")
+            raise
+
+        result = delete_path(str(link), recursive=recursive)
+
+        assert "Deleted file" in result
+        assert not link.is_symlink()
+        if kind == "file":
+            assert target.read_text(encoding="utf-8") == "keep me"
+        elif kind == "directory":
+            assert (target / "child.txt").read_text(encoding="utf-8") == "keep me"
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows junctions")
+    @pytest.mark.parametrize("recursive", [False, True])
+    @pytest.mark.parametrize("dangling", [False, True])
+    def test_delete_junction_preserves_target(self, tmp_path, recursive, dangling):
+        import _winapi
+
+        target = tmp_path / "target"
+        target.mkdir()
+        link = tmp_path / "link"
+        _winapi.CreateJunction(str(target), str(link))
+        if dangling:
+            target.rmdir()
+        else:
+            (target / "child.txt").write_text("keep me", encoding="utf-8")
+
+        result = delete_path(str(link), recursive=recursive)
+
+        assert "Deleted directory" in result
+        assert not link.is_junction()
+        if not dangling:
+            assert (target / "child.txt").read_text(encoding="utf-8") == "keep me"
+
     def test_delete_file(self, tmp_path):
         f = tmp_path / "del.txt"
         f.write_text("bye", encoding="utf-8")
@@ -152,12 +325,96 @@ class TestDeletePath:
         assert "Deleted directory" in result
         assert not d.exists()
 
+    def test_delete_recursive_removes_read_only_files(self, tmp_path):
+        # Git marks .git/objects files read-only, which blocks a plain rmtree on Windows.
+        d = tmp_path / "repo"
+        pack = d / ".git" / "objects" / "pack" / "pack-1.pack"
+        pack.parent.mkdir(parents=True)
+        pack.write_bytes(b"x")
+        os.chmod(pack, stat.S_IREAD)
+        result = delete_path(str(d), recursive=True)
+        assert "Deleted directory" in result
+        assert not d.exists()
+
     def test_delete_not_found(self, tmp_path):
         result = delete_path(str(tmp_path / "ghost"))
         assert "Error: Path not found" in result
 
 
+def _hide(path):
+    """Set the Windows hidden attribute on *path*."""
+    attributes = os.stat(path).st_file_attributes | stat.FILE_ATTRIBUTE_HIDDEN
+    assert ctypes.windll.kernel32.SetFileAttributesW(str(path), attributes)
+
+
 class TestListDirectory:
+    @pytest.mark.parametrize("pattern", [None, "*.txt"])
+    @pytest.mark.parametrize("show_hidden", [False, True])
+    def test_recursive_hidden_ancestors(self, tmp_path, pattern, show_hidden):
+        hidden = tmp_path / ".hidden" / "nested"
+        hidden.mkdir(parents=True)
+        (hidden / "secret.txt").write_text("hidden", encoding="utf-8")
+        visible = tmp_path / "visible"
+        visible.mkdir()
+        (visible / "public.txt").write_text("visible", encoding="utf-8")
+        (visible / ".private.txt").write_text("hidden", encoding="utf-8")
+
+        result = list_directory(
+            str(tmp_path), pattern=pattern, recursive=True, show_hidden=show_hidden
+        )
+
+        assert "public.txt" in result
+        assert ("secret.txt" in result) is show_hidden
+        assert (".private.txt" in result) is show_hidden
+
+    def test_recursive_listing_inside_explicit_hidden_root(self, tmp_path):
+        root = tmp_path / ".config"
+        root.mkdir()
+        (root / "settings.txt").write_text("visible", encoding="utf-8")
+
+        assert "settings.txt" in list_directory(str(root), recursive=True)
+
+    @pytest.fixture
+    def hidden_attribute_tree(self, tmp_path):
+        # Windows gives desktop.ini, AppData and NTUSER.DAT the hidden attribute, not a dot name.
+        (tmp_path / "report.txt").write_text("report", encoding="utf-8")
+        ini = tmp_path / "desktop.ini"
+        ini.write_text("[.ShellClassInfo]", encoding="utf-8")
+        _hide(ini)
+        folder = tmp_path / "Hidden Folder"
+        (folder / "nested").mkdir(parents=True)
+        (folder / "nested" / "inside.txt").write_text("inside", encoding="utf-8")
+        _hide(folder)
+        return tmp_path
+
+    @pytest.mark.parametrize("pattern", [None, "*.*"])
+    @pytest.mark.parametrize("recursive", [False, True])
+    def test_hidden_attribute_entries_are_not_listed(
+        self, hidden_attribute_tree, recursive, pattern
+    ):
+        result = list_directory(str(hidden_attribute_tree), pattern=pattern, recursive=recursive)
+
+        assert "report.txt" in result
+        assert "desktop.ini" not in result
+        assert "Hidden Folder" not in result
+        assert "inside.txt" not in result
+
+    @pytest.mark.parametrize("recursive", [False, True])
+    def test_hidden_attribute_entries_listed_with_show_hidden(
+        self, hidden_attribute_tree, recursive
+    ):
+        result = list_directory(str(hidden_attribute_tree), recursive=recursive, show_hidden=True)
+
+        assert "report.txt" in result
+        assert "desktop.ini" in result
+        assert "Hidden Folder" in result
+        assert ("inside.txt" in result) is recursive
+
+    def test_recursive_listing_inside_explicit_hidden_attribute_root(self, hidden_attribute_tree):
+        result = list_directory(str(hidden_attribute_tree / "Hidden Folder"), recursive=True)
+
+        assert "inside.txt" in result
+
     def test_list_basic(self, tmp_path):
         (tmp_path / "a.txt").write_text("a", encoding="utf-8")
         (tmp_path / "b.txt").write_text("b", encoding="utf-8")
@@ -245,3 +502,41 @@ class TestGetFileInfo:
     def test_not_found(self, tmp_path):
         result = get_file_info(str(tmp_path / "nope"))
         assert "Error: Path not found" in result
+
+    @pytest.mark.parametrize("dangling", [False, True])
+    def test_symlink_info_reports_link(self, tmp_path, dangling):
+        target = tmp_path / "target.txt"
+        target.write_text("hello", encoding="utf-8")
+        link = tmp_path / "link.txt"
+        try:
+            link.symlink_to(target)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                pytest.skip("Creating symbolic links requires Windows privileges")
+            raise
+        if dangling:
+            target.unlink()
+
+        result = get_file_info(str(link))
+
+        assert f"Path: {link}" in result
+        assert "Type: Symlink" in result
+        assert f"Link target: {target}" in result
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows junctions")
+    @pytest.mark.parametrize("dangling", [False, True])
+    def test_junction_info_reports_link(self, tmp_path, dangling):
+        import _winapi
+
+        target = tmp_path / "target"
+        target.mkdir()
+        link = tmp_path / "link"
+        _winapi.CreateJunction(str(target), str(link))
+        if dangling:
+            target.rmdir()
+
+        result = get_file_info(str(link))
+
+        assert f"Path: {link}" in result
+        assert "Type: Junction" in result
+        assert f"Link target: {target}" in result

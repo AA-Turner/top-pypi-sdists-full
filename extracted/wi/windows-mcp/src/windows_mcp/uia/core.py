@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import comtypes
 import comtypes.client
 from _ctypes import COMError
-from typing import Any, Callable, Dict, Generator, List, Tuple
+from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
 
 
 METRO_WINDOW_CLASS_NAME = "Windows.UI.Core.CoreWindow"  # for Windows 8 and 8.1
@@ -49,6 +49,27 @@ from .exceptions import from_com_error  # noqa: E402
 from .comtypes_cache import safe_get_module  # noqa: E402
 
 
+DEFAULT_UIA_CONNECTION_TIMEOUT_MS = 2000
+DEFAULT_UIA_TRANSACTION_TIMEOUT_MS = 5000
+
+
+def _uia_timeout_ms(name: str, default: int, env: Mapping[str, str] | None = None) -> int:
+    """Read a UI Automation client timeout (milliseconds) from the environment.
+
+    Args:
+        name: Environment variable to read.
+        default: Value used when the variable is unset, blank, not an integer, or below 1.
+        env: Mapping to read from. Defaults to ``os.environ``.
+    """
+    source = os.environ if env is None else env
+    raw = source.get(name, "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value >= 1 else default
+
+
 class _AutomationClient:
     _instance = None
 
@@ -70,10 +91,7 @@ class _AutomationClient:
                 self.UIAutomationCore = safe_get_module(
                     "UIAutomationCore.dll", required_attr="IUIAutomation"
                 )
-                self.IUIAutomation = comtypes.client.CreateObject(
-                    "{ff48dba4-60ef-4201-aa87-54103eef594e}",
-                    interface=self.UIAutomationCore.IUIAutomation,
-                )
+                self.IUIAutomation = self._create_client()
                 self.ViewWalker = self.IUIAutomation.RawViewWalker
                 # self.ViewWalker = self.IUIAutomation.ControlViewWalker
                 break
@@ -81,6 +99,32 @@ class _AutomationClient:
                 if retry + 1 == tryCount:
                     raise from_com_error(ex) from ex
                 time.sleep(0.1)
+
+    def _create_client(self):
+        """Create the shared client with bounded connection/transaction timeouts.
+
+        The v1 ``CUIAutomation`` coclass only implements ``IUIAutomation``, which has no
+        timeouts: a call into a window whose UI thread has stopped pumping messages blocks
+        until that window recovers. ``CUIAutomation8`` implements ``IUIAutomation2``, whose
+        ConnectionTimeout/TransactionTimeout make such a call fail with ERROR_TIMEOUT
+        instead. It is still a valid ``IUIAutomation``, so every existing caller keeps
+        working. Falls back to ``CUIAutomation`` where ``CUIAutomation8`` is unavailable.
+        """
+        core = self.UIAutomationCore
+        try:
+            client = comtypes.client.CreateObject(core.CUIAutomation8, interface=core.IUIAutomation2)
+            client.ConnectionTimeout = _uia_timeout_ms(
+                "WINDOWS_MCP_UIA_CONNECTION_TIMEOUT_MS", DEFAULT_UIA_CONNECTION_TIMEOUT_MS
+            )
+            client.TransactionTimeout = _uia_timeout_ms(
+                "WINDOWS_MCP_UIA_TRANSACTION_TIMEOUT_MS", DEFAULT_UIA_TRANSACTION_TIMEOUT_MS
+            )
+            return client
+        except (COMError, AttributeError, OSError):
+            return comtypes.client.CreateObject(
+                "{ff48dba4-60ef-4201-aa87-54103eef594e}",
+                interface=core.IUIAutomation,
+            )
 
 
 # set Windows dll restype
@@ -201,9 +245,21 @@ def SetCursorPos(x: int, y: int) -> bool:
     Set mouse cursor to point x, y.
     x: int.
     y: int.
-    Return bool, True if succeed otherwise False.
+    Return True on success; raise OSError if Windows rejects the movement.
     """
-    return bool(ctypes.windll.user32.SetCursorPos(x, y))
+    # Some failures do not set an extended error. Clear stale errors first and
+    # read the native last-error value directly: windll does not use_last_error.
+    ctypes.windll.kernel32.SetLastError(0)
+    if not ctypes.windll.user32.SetCursorPos(x, y):
+        error = ctypes.GetLastError()
+        message = (
+            f"SetCursorPos({x}, {y}) failed. Check access to the input desktop "
+            "and whether the foreground application is elevated."
+        )
+        if error:
+            raise ctypes.WinError(error, message)
+        raise OSError(message + " Windows did not provide an error code.")
+    return True
 
 
 def GetDoubleClickTime() -> int:
@@ -1496,6 +1552,8 @@ def SendKeys(
     waitTime: float.
     charMode: bool, if False, the text typed is depend on the input method if a input method is on.
     debug: bool, if True, print the keys.
+    Unknown braced key names raise ValueError before any input is sent.
+    If sending is interrupted, release virtual keys pressed by this call.
     Examples:
     {Ctrl}, {Delete} ... are special keys' name in SpecialKeyNames.
     SendKeys('{Ctrl}a{Delete}{Ctrl}v{Ctrl}s{Ctrl}{Shift}s{Win}e{PageDown}') #press Ctrl+a, Delete, Ctrl+v, Ctrl+s, Ctrl+Shift+s, Win+e, PageDown
@@ -1554,6 +1612,8 @@ def SendKeys(
             if (len(key) == 2 and not key[1].isdigit()) or len(key) > 2:
                 raise ValueError('"{}" is not valid'.format(text[i : rindex + 1]))
             upperKey = key[0].upper()
+            if upperKey not in SpecialKeyNames and len(key[0]) != 1:
+                raise ValueError(f"Unknown key name: {key[0]!r}")
             count = 1
             if len(key) > 1:
                 count = int(key[1])
@@ -1700,47 +1760,55 @@ def SendKeys(
         if i >= length:
             break
     hotkeyInterval = 0.01
-    for i, key in enumerate(keys):
-        if key[1] == "UnicodeChar":
-            SendUnicodeChar(key[0], charMode)
-            time.sleep(interval)
-            if debug:
-                pass
-        else:
-            scanCode = _VKtoSC(key[0])
-            keybd_event(key[0], scanCode, key[1], 0)
-            if debug:
-                pass
-            if i + 1 == len(keys):
+    pressedKeys: dict[int, tuple[int, int]] = {}
+    try:
+        for i, key in enumerate(keys):
+            if key[1] == "UnicodeChar":
+                SendUnicodeChar(key[0], charMode)
                 time.sleep(interval)
                 if debug:
                     pass
             else:
+                scanCode = _VKtoSC(key[0])
+                if not key[1] & KeyboardEventFlag.KeyUp:
+                    # Record before injection: the call may raise after sending.
+                    pressedKeys[key[0]] = (scanCode, key[1] | KeyboardEventFlag.KeyUp)
+                keybd_event(key[0], scanCode, key[1], 0)
                 if key[1] & KeyboardEventFlag.KeyUp:
-                    if (
-                        keys[i + 1][1] == "UnicodeChar"
-                        or keys[i + 1][1] & KeyboardEventFlag.KeyUp == 0
-                    ):
-                        time.sleep(interval)
-                        if debug:
-                            pass
-                    else:
-                        time.sleep(
-                            hotkeyInterval
-                        )  # must sleep for a while, otherwise combined keys may not be caught
-                        if debug:
-                            pass
-                else:  # KeyboardEventFlag.KeyDown
-                    time.sleep(hotkeyInterval)
+                    pressedKeys.pop(key[0], None)
+                if debug:
+                    pass
+                if i + 1 == len(keys):
+                    time.sleep(interval)
                     if debug:
                         pass
-    # make sure hold keys are not pressed
-    # win = ctypes.windll.user32.GetAsyncKeyState(Keys.VK_LWIN)
-    # ctrl = ctypes.windll.user32.GetAsyncKeyState(Keys.VK_CONTROL)
-    # alt = ctypes.windll.user32.GetAsyncKeyState(Keys.VK_MENU)
-    # shift = ctypes.windll.user32.GetAsyncKeyState(Keys.VK_SHIFT)
-    # if shift & 0x8000:
-    # keybd_event(Keys.VK_SHIFT, 0, KeyboardEventFlag.KeyUp | KeyboardEventFlag.ExtendedKey, 0)
+                else:
+                    if key[1] & KeyboardEventFlag.KeyUp:
+                        if (
+                            keys[i + 1][1] == "UnicodeChar"
+                            or keys[i + 1][1] & KeyboardEventFlag.KeyUp == 0
+                        ):
+                            time.sleep(interval)
+                            if debug:
+                                pass
+                        else:
+                            time.sleep(
+                                hotkeyInterval
+                            )  # must sleep for a while, otherwise combined keys may not be caught
+                            if debug:
+                                pass
+                    else:  # KeyboardEventFlag.KeyDown
+                        time.sleep(hotkeyInterval)
+                        if debug:
+                            pass
+    except BaseException:
+        for vk, (scanCode, flags) in reversed(pressedKeys.items()):
+            try:
+                keybd_event(vk, scanCode, flags, 0)
+            except Exception:
+                # Attempt every release without masking the original failure.
+                pass
+        raise
     time.sleep(waitTime)
 
 
@@ -2051,17 +2119,21 @@ def GetClipboardFormats() -> Dict[int, str]:
 def GetClipboardText() -> str:
     with _ClipboardLock:
         if _OpenClipboard(0):
-            if ctypes.windll.user32.IsClipboardFormatAvailable(ClipboardFormat.CF_UNICODETEXT):
-                hClipboardData = ctypes.windll.user32.GetClipboardData(
-                    ClipboardFormat.CF_UNICODETEXT
-                )
-                hText = ctypes.windll.kernel32.GlobalLock(ctypes.c_void_p(hClipboardData))
-                text = ctypes.c_wchar_p(hText).value
-                ctypes.windll.kernel32.GlobalUnlock(ctypes.c_void_p(hClipboardData))
+            # Close the clipboard on every path: it used to stay open when it
+            # held no text, e.g. after the user copied an image.
+            try:
+                if ctypes.windll.user32.IsClipboardFormatAvailable(ClipboardFormat.CF_UNICODETEXT):
+                    hClipboardData = ctypes.windll.user32.GetClipboardData(
+                        ClipboardFormat.CF_UNICODETEXT
+                    )
+                    hText = ctypes.windll.kernel32.GlobalLock(ctypes.c_void_p(hClipboardData))
+                    text = ctypes.c_wchar_p(hText).value
+                    ctypes.windll.kernel32.GlobalUnlock(ctypes.c_void_p(hClipboardData))
+                    if text is None:
+                        return ""
+                    return text
+            finally:
                 ctypes.windll.user32.CloseClipboard()
-                if text is None:
-                    return ""
-                return text
     return ""
 
 
@@ -2097,6 +2169,90 @@ def SetClipboardText(text: str) -> bool:
             else:
                 ctypes.windll.kernel32.GlobalFree(ctypes.c_void_p(hClipboardData))
             ctypes.windll.user32.CloseClipboard()
+    return ret
+
+
+# Formats whose clipboard data is a GDI or metafile handle rather than global
+# memory, plus the private and GDI object ranges, whose handles Windows does not
+# manage. Windows synthesizes CF_BITMAP from CF_DIB, so an image survives without it.
+_CLIPBOARD_HANDLE_FORMATS = frozenset({2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E})
+_CLIPBOARD_UNMANAGED_RANGE = range(0x200, 0x400)
+# OLE's own bookkeeping: they point at the data object of the program that
+# copied, which is no longer what the clipboard holds after a restore.
+_CLIPBOARD_OLE_FORMATS = frozenset(
+    ctypes.windll.user32.RegisterClipboardFormatW(name)
+    for name in ("DataObject", "Ole Private Data")
+)
+ctypes.windll.kernel32.GlobalSize.restype = ctypes.c_size_t
+
+
+def GetClipboardSnapshot() -> List[Tuple[int, bytes]] | None:
+    """
+    Copy every clipboard format held in global memory: text, HTML, images (CF_DIB,
+    CF_DIBV5, PNG), copied files (CF_HDROP) and the formats programs register.
+    Return a list of (format, data) for SetClipboardSnapshot, or None if the
+    clipboard could not be opened.
+    """
+    snapshot = []
+    with _ClipboardLock:
+        if not _OpenClipboard(0):
+            return None
+        try:
+            clipboardFormat = 0
+            while clipboardFormat := ctypes.windll.user32.EnumClipboardFormats(clipboardFormat):
+                if (
+                    clipboardFormat in _CLIPBOARD_HANDLE_FORMATS
+                    or clipboardFormat in _CLIPBOARD_UNMANAGED_RANGE
+                    or clipboardFormat in _CLIPBOARD_OLE_FORMATS
+                ):
+                    continue
+                hData = ctypes.windll.user32.GetClipboardData(clipboardFormat)
+                if not hData:
+                    continue
+                size = ctypes.windll.kernel32.GlobalSize(ctypes.c_void_p(hData))
+                pData = ctypes.windll.kernel32.GlobalLock(ctypes.c_void_p(hData))
+                if not pData:
+                    continue
+                try:
+                    snapshot.append((clipboardFormat, ctypes.string_at(pData, size)))
+                finally:
+                    ctypes.windll.kernel32.GlobalUnlock(ctypes.c_void_p(hData))
+        finally:
+            ctypes.windll.user32.CloseClipboard()
+    return snapshot
+
+
+def SetClipboardSnapshot(snapshot: List[Tuple[int, bytes]]) -> bool:
+    """
+    Replace the clipboard with a snapshot from GetClipboardSnapshot.
+    Return bool, True if succeed otherwise False.
+    """
+    ret = False
+    with _ClipboardLock:
+        if _OpenClipboard(0):
+            try:
+                ctypes.windll.user32.EmptyClipboard()
+                ret = True
+                for clipboardFormat, data in snapshot:
+                    # GMEM_MOVEABLE
+                    hData = ctypes.windll.kernel32.GlobalAlloc(0x2, max(len(data), 1))
+                    pData = None
+                    if hData:
+                        pData = ctypes.windll.kernel32.GlobalLock(ctypes.c_void_p(hData))
+                    if not pData:
+                        if hData:
+                            ctypes.windll.kernel32.GlobalFree(ctypes.c_void_p(hData))
+                        ret = False
+                        continue
+                    ctypes.memmove(pData, data, len(data))
+                    ctypes.windll.kernel32.GlobalUnlock(ctypes.c_void_p(hData))
+                    if not ctypes.windll.user32.SetClipboardData(
+                        ctypes.c_uint(clipboardFormat), ctypes.c_void_p(hData)
+                    ):
+                        ctypes.windll.kernel32.GlobalFree(ctypes.c_void_p(hData))
+                        ret = False
+            finally:
+                ctypes.windll.user32.CloseClipboard()
     return ret
 
 
@@ -2602,14 +2758,12 @@ def _get_automation3():
     """
     Get an `IUIAutomation3` object, for the TextEdit-changed handlers below.
 
-    Naively QueryInterface-ing the shared `_AutomationClient.instance().IUIAutomation`
-    singleton up to `IUIAutomation3` does NOT work -- verified live: that singleton is created
-    from the `CUIAutomation` coclass (CLSID `{ff48dba4-...}`), which only ever implements
-    plain `IUIAutomation`; `QueryInterface(IUIAutomation2/3/.../6)` on it fails with
-    E_NOINTERFACE regardless of Windows version. The whole newer interface ladder
-    (IUIAutomation2 through IUIAutomation6) is only reachable through the separate
-    `CUIAutomation8` coclass, so this creates and caches its own independent COM object from
-    that coclass instead of trying to upgrade the existing one.
+    The shared `_AutomationClient.instance().IUIAutomation` singleton is normally created
+    from `CUIAutomation8` (see `_AutomationClient._create_client`), but it falls back to the
+    v1 `CUIAutomation` coclass (CLSID `{ff48dba4-...}`), which only ever implements plain
+    `IUIAutomation`: `QueryInterface(IUIAutomation2/3/.../6)` on that fails with
+    E_NOINTERFACE regardless of Windows version. So this still creates and caches its own
+    independent `CUIAutomation8` object instead of trying to upgrade the shared one.
     """
     global _automation3_instance
     if _automation3_instance is None:

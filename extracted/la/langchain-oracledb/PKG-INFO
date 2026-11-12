@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-oracledb
-Version: 1.6.0
+Version: 1.7.0
 Summary: An integration package connecting Oracle Database and LangChain
 License-Expression: UPL-1.0
 License-File: LICENSE.txt
@@ -30,6 +30,8 @@ Description-Content-Type: text/markdown
 [![License](https://img.shields.io/badge/license-UPL--1.0-blue)](https://oss.oracle.com/licenses/upl/)
 
 This package contains the LangChain integrations with [Oracle AI Vector Search](https://www.oracle.com/database/ai-vector-search/).
+
+Tables created by LangChain are annotated with `LANGCHAIN_ORACLE` when the database supports annotations.
 
 > ⭐ If this package is useful to you, consider [starring the repository](https://github.com/oracle/langchain-oracle) — it helps other developers discover these integrations.
 

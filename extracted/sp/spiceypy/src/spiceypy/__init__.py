@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 __author__ = "AndrewAnnex"
-__version__ = "8.3.0"
+__version__ = "8.4.0"
 import importlib
 import sys
 
@@ -741,7 +741,7 @@ from .utils import support_types
 from .utils import exceptions
 
 __all__ = [
-    "cyice",  # TODO exclude if emscripten?
+    "cyice",
     "support_types",
     "exceptions",
     "stypes",

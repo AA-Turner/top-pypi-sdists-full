@@ -1,6 +1,6 @@
 """Form Field Collection - Pre-configured AssetCollection for Form Fields"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.company.form_field import FormField, FormFieldPreview
 from ....models.data_base.mongo_connection import MongoConnection
 

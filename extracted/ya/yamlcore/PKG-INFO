@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: yamlcore
-Version: 0.0.4
+Version: 0.1.1
 Summary: YAML 1.2 Support for PyYAML
 Author-email: Tina Müller <cpan2@tinita.de>
 License: MIT License
         
-        Copyright (c) 2024 Tina Müller (tinita)
+        Copyright (c) 2026 Tina Müller (tinita)
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -36,10 +36,11 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML
+Dynamic: license-file
 
 ## pyyaml-core - YAML 1.2 Core Schema Support for PyYAML
 

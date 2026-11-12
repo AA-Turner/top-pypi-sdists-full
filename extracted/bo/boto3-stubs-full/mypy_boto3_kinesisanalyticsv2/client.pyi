@@ -31,6 +31,8 @@ from .paginator import (
     ListApplicationSnapshotsPaginator,
     ListApplicationsPaginator,
     ListApplicationVersionsPaginator,
+    ListSnapshotOperationsPaginator,
+    ListSnapshotsPaginator,
 )
 from .type_defs import (
     AddApplicationCloudWatchLoggingOptionRequestTypeDef,
@@ -50,6 +52,8 @@ from .type_defs import (
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
     CreateApplicationSnapshotRequestTypeDef,
+    CreateSnapshotRequestTypeDef,
+    CreateSnapshotResponseTypeDef,
     DeleteApplicationCloudWatchLoggingOptionRequestTypeDef,
     DeleteApplicationCloudWatchLoggingOptionResponseTypeDef,
     DeleteApplicationInputProcessingConfigurationRequestTypeDef,
@@ -62,6 +66,8 @@ from .type_defs import (
     DeleteApplicationSnapshotRequestTypeDef,
     DeleteApplicationVpcConfigurationRequestTypeDef,
     DeleteApplicationVpcConfigurationResponseTypeDef,
+    DeleteSnapshotRequestTypeDef,
+    DeleteSnapshotResponseTypeDef,
     DescribeApplicationOperationRequestTypeDef,
     DescribeApplicationOperationResponseTypeDef,
     DescribeApplicationRequestTypeDef,
@@ -70,8 +76,16 @@ from .type_defs import (
     DescribeApplicationSnapshotResponseTypeDef,
     DescribeApplicationVersionRequestTypeDef,
     DescribeApplicationVersionResponseTypeDef,
+    DescribeSnapshotOperationRequestTypeDef,
+    DescribeSnapshotOperationResponseTypeDef,
+    DescribeSnapshotRequestTypeDef,
+    DescribeSnapshotResponseTypeDef,
     DiscoverInputSchemaRequestTypeDef,
     DiscoverInputSchemaResponseTypeDef,
+    ExportSnapshotRequestTypeDef,
+    ExportSnapshotResponseTypeDef,
+    ImportSnapshotRequestTypeDef,
+    ImportSnapshotResponseTypeDef,
     ListApplicationOperationsRequestTypeDef,
     ListApplicationOperationsResponseTypeDef,
     ListApplicationSnapshotsRequestTypeDef,
@@ -80,6 +94,10 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListApplicationVersionsRequestTypeDef,
     ListApplicationVersionsResponseTypeDef,
+    ListSnapshotOperationsRequestTypeDef,
+    ListSnapshotOperationsResponseTypeDef,
+    ListSnapshotsRequestTypeDef,
+    ListSnapshotsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     RollbackApplicationRequestTypeDef,
@@ -249,6 +267,17 @@ class KinesisAnalyticsV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#create_application_snapshot)
         """
 
+    def create_snapshot(
+        self, **kwargs: Unpack[CreateSnapshotRequestTypeDef]
+    ) -> CreateSnapshotResponseTypeDef:
+        """
+        Creates an enhanced snapshot of the state data of a running Managed Service for
+        Apache Flink application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/create_snapshot.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#create_snapshot)
+        """
+
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -322,6 +351,16 @@ class KinesisAnalyticsV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#delete_application_vpc_configuration)
         """
 
+    def delete_snapshot(
+        self, **kwargs: Unpack[DeleteSnapshotRequestTypeDef]
+    ) -> DeleteSnapshotResponseTypeDef:
+        """
+        Deletes an enhanced snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/delete_snapshot.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#delete_snapshot)
+        """
+
     def describe_application(
         self, **kwargs: Unpack[DescribeApplicationRequestTypeDef]
     ) -> DescribeApplicationResponseTypeDef:
@@ -363,6 +402,27 @@ class KinesisAnalyticsV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#describe_application_version)
         """
 
+    def describe_snapshot(
+        self, **kwargs: Unpack[DescribeSnapshotRequestTypeDef]
+    ) -> DescribeSnapshotResponseTypeDef:
+        """
+        Returns information about an enhanced snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/describe_snapshot.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#describe_snapshot)
+        """
+
+    def describe_snapshot_operation(
+        self, **kwargs: Unpack[DescribeSnapshotOperationRequestTypeDef]
+    ) -> DescribeSnapshotOperationResponseTypeDef:
+        """
+        Provides a detailed description of a specified operation that was performed on
+        an enhanced snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/describe_snapshot_operation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#describe_snapshot_operation)
+        """
+
     def discover_input_schema(
         self, **kwargs: Unpack[DiscoverInputSchemaRequestTypeDef]
     ) -> DiscoverInputSchemaResponseTypeDef:
@@ -373,6 +433,27 @@ class KinesisAnalyticsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/discover_input_schema.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#discover_input_schema)
+        """
+
+    def export_snapshot(
+        self, **kwargs: Unpack[ExportSnapshotRequestTypeDef]
+    ) -> ExportSnapshotResponseTypeDef:
+        """
+        Exports the data of an enhanced snapshot to an Amazon S3 location.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/export_snapshot.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#export_snapshot)
+        """
+
+    def import_snapshot(
+        self, **kwargs: Unpack[ImportSnapshotRequestTypeDef]
+    ) -> ImportSnapshotResponseTypeDef:
+        """
+        Imports an Apache Flink savepoint from an Amazon S3 location as an enhanced
+        snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/import_snapshot.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#import_snapshot)
         """
 
     def list_application_operations(
@@ -415,6 +496,28 @@ class KinesisAnalyticsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/list_applications.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#list_applications)
+        """
+
+    def list_snapshot_operations(
+        self, **kwargs: Unpack[ListSnapshotOperationsRequestTypeDef]
+    ) -> ListSnapshotOperationsResponseTypeDef:
+        """
+        Lists the operations that were performed on the specified enhanced snapshot,
+        such as <code>CreateSnapshot</code>, <code>ImportSnapshot</code>, and
+        <code>ExportSnapshot</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/list_snapshot_operations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#list_snapshot_operations)
+        """
+
+    def list_snapshots(
+        self, **kwargs: Unpack[ListSnapshotsRequestTypeDef]
+    ) -> ListSnapshotsResponseTypeDef:
+        """
+        Lists the enhanced snapshots in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/list_snapshots.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#list_snapshots)
         """
 
     def list_tags_for_resource(
@@ -532,6 +635,28 @@ class KinesisAnalyticsV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_applications"]
     ) -> ListApplicationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_snapshot_operations"]
+    ) -> ListSnapshotOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalyticsv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_snapshots"]
+    ) -> ListSnapshotsPaginator:
         """
         Create a paginator for an operation.
 

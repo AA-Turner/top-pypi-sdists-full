@@ -141,6 +141,9 @@ def get(  # noqa: PLR0913
 
     A node that already died still resolves, with its end time and status DEAD. A node
     the cluster never had, or a cluster that is not ready yet, is an error.
+
+    Needs Ray 2.50.0 or newer. Node data comes from Ray's event export, which older Ray
+    versions do not have, so on an older version every node is reported as not found.
     """
     ids = resource_ids(cluster_id, workspace_id, job_id, service_id)
     node = anyscale.node.get(node_id, **ids, ray_session=ray_session)
@@ -224,6 +227,9 @@ def list_nodes(  # noqa: PLR0913
 
     Dead nodes stay listed, with their end time. When more nodes match than --max-items,
     the output says so on stderr and `total` carries the full count.
+
+    Needs Ray 2.50.0 or newer. Node data comes from Ray's event export, which older Ray
+    versions do not have, so a cluster on an older version lists no nodes.
     """
     ids = resource_ids(cluster_id, workspace_id, job_id, service_id)
     page = anyscale.node.list(

@@ -30,6 +30,7 @@ from typing import (Dict, Iterable, Iterator, List, Optional, Sequence, Tuple,
 from radicale import (httputils, pathutils, rights, sharing, storage, types,
                       utils, xmlutils)
 from radicale.app.base import Access, ApplicationBase
+from radicale.hook.email.scheduling import owner_addresses
 from radicale.log import logger
 
 
@@ -256,6 +257,18 @@ def xml_propfind_response(
                       xmlutils.make_clark("CR:addressbook-home-set"),
                       xmlutils.make_clark("C:calendar-home-set")) and
               is_collection and collection.is_principal):
+            if (tag == xmlutils.make_clark("C:calendar-user-address-set") and
+                    user and not shares and collection.path == user):
+                # RFC 6638 2.4.1: the user's own principal also lists the
+                # addresses the email hook accepts as ORGANIZER, first, for
+                # clients taking the first href of the set
+                for address in owner_addresses(
+                        user,
+                        self.configuration.get("hook", "itip_owner_map"),
+                        self.configuration.get("hook", "itip_organizer_is_username")):
+                    child_element = ET.Element(xmlutils.make_clark("D:href"))
+                    child_element.text = "mailto:" + address
+                    element.append(child_element)
             child_element = ET.Element(xmlutils.make_clark("D:href"))
             child_element.text = xmlutils.make_href(base_prefix, path)
             if share:
@@ -363,8 +376,11 @@ def xml_propfind_response(
                 # only offer this privileges if sharing is enabled and not being a share (nested sharing is not supported)
                 if ("T" in raw_permissions or (self._sharing.permit_create_token and "t" not in raw_permissions)):
                     privileges.append("RADICALE:share-token")
-                if ("M" in raw_permissions or (self._sharing.permit_create_map and "m" not in raw_permissions)):
+                map_create_level = self._sharing.map_create_level(raw_permissions)
+                if map_create_level == "true":
                     privileges.append("RADICALE:share-map")
+                elif map_create_level == "self":
+                    privileges.append("RADICALE:share-map-self")
 
             for human_tag in privileges:
                 privilege = ET.Element(xmlutils.make_clark("D:privilege"))

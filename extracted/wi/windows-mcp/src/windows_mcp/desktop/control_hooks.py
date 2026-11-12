@@ -23,32 +23,44 @@ def physical_mouse(owner: Any, code: int, wparam: int, lparam: int) -> int:
     button = None
     try:
         data = ctypes.cast(lparam, ctypes.POINTER(_MouseHookData)).contents
+        point = (int(data.pt.x), int(data.pt.y))
         if data.flags & 1:  # LL mouse injection flags.
+            # Keep the cursor baseline on the AI's own pointer so the stationary
+            # repeats that follow an AI move are not read as user movement.
+            owner._last_point = point
             return _user32.CallNextHookEx(owner._mouse_hook, code, wparam, lparam)
         valid = True
-        owner._last_physical_event = time.monotonic()
-        if wparam == 0x200 and owner._suppress:
-            owner._fast_pending = True  # Pause AI before queued movement is processed.
-            owner.input_ledger.block_new()
         button = _mouse_button(wparam, data.mouseData)
+        # Some wireless receivers stream WM_MOUSEMOVE at an unchanged position
+        # for as long as they are powered. Counting that as user activity keeps
+        # the coordinator in "user" forever, so only a button or real cursor
+        # displacement counts. Motion is still swallowed, but does not interrupt
+        # AI until the raw accumulator confirms a deliberate takeover.
+        active = button is not None or point != owner._last_point
+        owner._last_point = point
+        if active:
+            owner._last_physical_event = time.monotonic()
         if button:
             if button[1]:
                 owner._mouse_down.add(button[0])
             else:
                 owner._mouse_down.discard(button[0])
-        owner._queue(("point", data.pt.x, data.pt.y, int(wparam)))
+        if active:
+            owner._queue(("point", data.pt.x, data.pt.y, int(wparam)))
         if owner._suppress and not owner._emergency:
             if time.monotonic() <= owner._deadline:
                 return 1
             owner._fail_open()
     except Exception:
         owner._fail_open()
+    result = _user32.CallNextHookEx(owner._mouse_hook, code, wparam, lparam)
     if valid and button:
         if button[1]:
-            owner._delivered_mouse.add(button[0])
+            if not result:  # A downstream hook can still swallow this down.
+                owner._delivered_mouse.add(button[0])
         else:
             owner._delivered_mouse.discard(button[0])
-    return _user32.CallNextHookEx(owner._mouse_hook, code, wparam, lparam)
+    return result
 
 
 def physical_key(owner: Any, code: int, wparam: int, lparam: int) -> int:
@@ -57,6 +69,7 @@ def physical_key(owner: Any, code: int, wparam: int, lparam: int) -> int:
         return _user32.CallNextHookEx(owner._key_hook, code, wparam, lparam)
     vk = None
     down = False
+    mode_switch = False
     try:
         data = ctypes.cast(lparam, ctypes.POINTER(_KeyHookData)).contents
         if data.flags & 0x10:  # LLKHF_INJECTED: AI SendInput stays usable.
@@ -64,11 +77,16 @@ def physical_key(owner: Any, code: int, wparam: int, lparam: int) -> int:
         owner._last_physical_event = time.monotonic()
         vk = int(data.vkCode)
         down = wparam in (0x100, 0x104)
+        # Japanese Hankaku/Zenkaku emits VK_DBE_SBCSCHAR / VK_DBE_DBCSCHAR
+        # as persistent mode state, not physical holds. Keep activity and
+        # suppression handling, but do not record these as held/delivered keys.
+        mode_switch = vk in (0xF3, 0xF4) and data.scanCode == 0x29 and not data.flags & 0x01
         was_down = vk in owner._pressed
-        if down:
-            owner._pressed.add(vk)
-        else:
-            owner._pressed.discard(vk)
+        if not mode_switch:
+            if down:
+                owner._pressed.add(vk)
+            else:
+                owner._pressed.discard(vk)
         if vk in owner._quarantine:
             if not down:
                 owner._quarantine.discard(vk)
@@ -95,11 +113,14 @@ def physical_key(owner: Any, code: int, wparam: int, lparam: int) -> int:
             owner._fail_open()
     except Exception:
         owner._fail_open()
-    if vk is not None and down:
-        owner._delivered_keys.add(vk)
-    elif vk is not None:
-        owner._delivered_keys.discard(vk)
-    return _user32.CallNextHookEx(owner._key_hook, code, wparam, lparam)
+    result = _user32.CallNextHookEx(owner._key_hook, code, wparam, lparam)
+    if vk is not None and not mode_switch:
+        if down:
+            if not result:  # Forwarding alone is not proof of delivery.
+                owner._delivered_keys.add(vk)
+        else:
+            owner._delivered_keys.discard(vk)
+    return result
 
 
 def raw_input(owner: Any, lparam: int) -> None:
@@ -107,8 +128,8 @@ def raw_input(owner: Any, lparam: int) -> None:
     raw = _read_raw_mouse(lparam)
     if raw is None:
         return  # Null devices can be touchpads; do not infer source.
+    if not raw[1] and not raw[2]:
+        return  # A zero-delta report is device chatter, not user activity.
     owner._last_physical_event = time.monotonic()
-    if owner._suppress:
-        owner._fast_pending = True
-        owner.input_ledger.block_new()
-    owner._queue(("raw", *raw))
+    # Preserve arrival time: queue latency must not join separate gestures.
+    owner._queue(("raw", *raw, owner._last_physical_event))

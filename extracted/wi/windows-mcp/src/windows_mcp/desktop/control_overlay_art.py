@@ -10,12 +10,17 @@ from windows_mcp.desktop.overlay_bitmap import premultiplied_bgra
 
 _BORDER = 56
 _CURSOR_SIZE = 88
+_CURSOR_LABEL = "AI"
+_RIPPLE_SIZE = 96
+_RIPPLE_FRAMES = 9
+_FONT_DIR = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
 _NOTICE_GLOW_PAD = 32
 _BREATH_PERIOD_SECONDS = 3.0
 _BREATH_MIN_ALPHA = 140
 _NOTICE_TITLE = "AI is controlling this computer"
 _NOTICE_SHORTCUT = "Ctrl + Alt + Shift + Backspace"
-_NOTICE_HINT = f"Press {_NOTICE_SHORTCUT} to take over"
+_NOTICE_MOUSE_HINT = "Move the mouse a significant distance"
+_NOTICE_HINT = f"or press {_NOTICE_SHORTCUT} to take over"
 
 
 def _breath_opacity(elapsed: float) -> int:
@@ -72,7 +77,48 @@ def _cursor_bitmap(color: tuple[int, int, int]) -> bytes:
             pixels.append((*color, alpha))
     image = Image.new("RGBA", (_CURSOR_SIZE, _CURSOR_SIZE))
     image.putdata(pixels)
+    _draw_cursor_label(image, color)
     return premultiplied_bgra(image, 1.0)
+
+
+def _draw_cursor_label(image: Image.Image, color: tuple[int, int, int]) -> None:
+    """Tag the glow above and right of the hotspot, clear of the arrow body."""
+    try:
+        font = ImageFont.truetype(str(_FONT_DIR / "seguisb.ttf"), 13)
+    except OSError:
+        font = ImageFont.load_default()
+    draw = ImageDraw.Draw(image)
+    box = draw.textbbox((0, 0), _CURSOR_LABEL, font=font)
+    width, height = box[2] - box[0] + 12, box[3] - box[1] + 8
+    left, bottom = _CURSOR_SIZE // 2 + 8, _CURSOR_SIZE // 2 - 8
+    draw.rounded_rectangle(
+        (left, bottom - height, left + width, bottom), radius=height // 2, fill=(*color, 255)
+    )
+    draw.text(
+        (left + 6 - box[0], bottom - height + 4 - box[1]),
+        _CURSOR_LABEL,
+        font=font,
+        fill=(255, 255, 255, 255),
+    )
+
+
+def _ripple_frames(color: tuple[int, int, int]) -> list[bytes]:
+    """Render an expanding, fading ring that marks where AI clicked."""
+    scale = 4  # Supersample so the thin ring stays smooth after downsizing.
+    size = _RIPPLE_SIZE * scale
+    frames = []
+    for index in range(_RIPPLE_FRAMES):
+        progress = (index + 1) / _RIPPLE_FRAMES
+        radius = (6 + progress * (_RIPPLE_SIZE / 2 - 9)) * scale
+        image = Image.new("RGBA", (size, size), (*color, 0))
+        ImageDraw.Draw(image).ellipse(
+            (size / 2 - radius, size / 2 - radius, size / 2 + radius, size / 2 + radius),
+            outline=(*color, round(240 * (1 - progress) ** 0.7)),
+            width=3 * scale,
+        )
+        image = image.resize((_RIPPLE_SIZE, _RIPPLE_SIZE), Image.Resampling.LANCZOS)
+        frames.append(premultiplied_bgra(image, 1.0))
+    return frames
 
 
 def _notice_shape_mask(width: int, height: int, radius: int = 22) -> Image.Image:
@@ -100,22 +146,23 @@ def _notice_panel_mask(width: int, height: int) -> Image.Image:
 
 
 def _notice_bitmap(screen_width: int) -> tuple[int, int, bytes] | None:
-    """Render a centered two-line prompt below the upper glow."""
+    """Render both takeover methods below the ownership title."""
     available_width = screen_width - 32
     if available_width < 200:
         return None
     horizontal_padding = 32 if screen_width >= 640 else 20
-    font_dir = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
     # Prefer presentation-sized text, then shrink only when a monitor is narrow.
     for hint_size in range(24, 7, -1):
         try:
-            title_font = ImageFont.truetype(str(font_dir / "seguisb.ttf"), hint_size + 8)
-            hint_font = ImageFont.truetype(str(font_dir / "segoeui.ttf"), hint_size)
+            title_font = ImageFont.truetype(str(_FONT_DIR / "seguisb.ttf"), hint_size + 8)
+            hint_font = ImageFont.truetype(str(_FONT_DIR / "segoeui.ttf"), hint_size)
         except OSError:
             title_font = hint_font = ImageFont.load_default()
         measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
         title_box = measure.textbbox((0, 0), _NOTICE_TITLE, font=title_font)
         hint_box = measure.textbbox((0, 0), _NOTICE_HINT, font=hint_font)
+        mouse_box = measure.textbbox((0, 0), _NOTICE_MOUSE_HINT, font=hint_font)
+        mouse_width, mouse_height = mouse_box[2] - mouse_box[0], mouse_box[3] - mouse_box[1]
         hint_prefix, _, hint_suffix = _NOTICE_HINT.partition(_NOTICE_SHORTCUT)
         prefix_width = math.ceil(measure.textlength(hint_prefix, font=hint_font))
         shortcut_width = math.ceil(measure.textlength(_NOTICE_SHORTCUT, font=hint_font))
@@ -125,19 +172,25 @@ def _notice_bitmap(screen_width: int) -> tuple[int, int, bytes] | None:
             prefix_width + shortcut_width + suffix_width + 16,
             hint_box[3] - hint_box[1],
         )
-        width = max(title_width, hint_width) + 2 * horizontal_padding
+        width = max(title_width, hint_width, mouse_width) + 2 * horizontal_padding
         if width <= available_width:
             break
     else:
         return None
 
-    height = title_height + hint_height + 46
+    height = title_height + mouse_height + hint_height + 54
     image = Image.new("RGBA", (width, height), (8, 42, 88, 0))
     # Fade every edge from transparent to 80%; the rounded mask softens the corners too.
     image.putalpha(_notice_panel_mask(width, height).point(lambda alpha: round(alpha * 0.8)))
     draw = ImageDraw.Draw(image)
     title_y = 18 - title_box[1]
-    hint_y = 28 + title_height - hint_box[1]
+    hint_y = 36 + title_height + mouse_height - hint_box[1]
+    draw.text(
+        ((width - mouse_width) // 2 - mouse_box[0], 28 + title_height - mouse_box[1]),
+        _NOTICE_MOUSE_HINT,
+        font=hint_font,
+        fill=(225, 240, 255, 255),
+    )
     draw.text(
         ((width - title_width) // 2 - title_box[0], title_y),
         _NOTICE_TITLE,
@@ -150,9 +203,9 @@ def _notice_bitmap(screen_width: int) -> tuple[int, int, bytes] | None:
     draw.rounded_rectangle(
         (
             badge_left,
-            24 + title_height,
+            32 + title_height + mouse_height,
             badge_left + shortcut_width + 15,
-            31 + title_height + hint_height,
+            39 + title_height + mouse_height + hint_height,
         ),
         radius=6,
         fill=(0, 0, 0, 255),

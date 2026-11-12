@@ -70,12 +70,25 @@ const send = async (body, reload) => {
 };
 const idx = el => { const t = el.closest('[data-index]'); return t ? [t, +t.dataset.index] : []; };
 const plain = el => el.matches('input[type=checkbox],input[type=radio],input[type=file]');
-document.addEventListener('click', e => {
-  const [el, i] = idx(e.target);
-  if (el === undefined || el.isContentEditable || el.matches('select,textarea,input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button])')) return;
-  e.preventDefault();
-  send({type: 'click', index: i}, true);
-}, true);
+const clickDocs = new WeakSet();
+const bindClicks = (doc, framePath) => {
+  if (!doc || clickDocs.has(doc)) return;
+  clickDocs.add(doc);
+  doc.addEventListener('click', e => {
+    const [el, i] = idx(e.target);
+    if (el === undefined || el.isContentEditable || el.matches('select,textarea,input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button])')) return;
+    e.preventDefault();
+    send({type: 'click', index: i, frame_path: framePath}, true);
+  }, true);
+  doc.querySelectorAll('iframe').forEach((frame, index) => {
+    const bindFrame = () => {
+      try { bindClicks(frame.contentDocument, [...framePath, index]); } catch {}
+    };
+    bindFrame();
+    frame.addEventListener('load', bindFrame);
+  });
+};
+bindClicks(document, []);
 document.addEventListener('submit', e => e.preventDefault(), true);
 document.addEventListener('change', e => {
   const [el, i] = idx(e.target);
@@ -939,6 +952,67 @@ async def cdp_ws_endpoint(ws: WebSocket, target_id: str) -> None:
         pass
 
 
+async def _frame_ids(call, frame_path: List[int]) -> List[str]:
+    """Frame IDs from the main frame down to the frame at *frame_path*."""
+    tree = await call("Page.getFrameTree")
+    node = tree.get("frameTree")
+    if not node:
+        raise ValueError("Frame tree is unavailable")
+    ids = [(node.get("frame") or {}).get("id")]
+    for index in frame_path:
+        children = node.get("childFrames") or []
+        if index >= len(children):
+            raise ValueError("Frame path does not exist")
+        node = children[index]
+        ids.append((node.get("frame") or {}).get("id"))
+    if not all(ids):
+        raise ValueError("Frame ID is unavailable")
+    return ids
+
+
+async def _evaluate_in_frame_path(call, frame_path: List[int], expression: str):
+    """Evaluate JavaScript in the frame addressed by its iframe-index path."""
+    from ..mcp.browser_dom import _evaluate_in_frame
+
+    ids = await _frame_ids(call, frame_path)
+    return await _evaluate_in_frame(call, ids[-1], expression, root=not frame_path)
+
+
+async def _native_click(call, frame_path: List[int], rect_js: str) -> dict:
+    """Click an element with real mouse input events (works for captcha widgets).
+
+    The element's center is measured inside its own frame, then translated to
+    main-frame viewport coordinates through each ancestor <iframe>.
+    """
+    from ..mcp.browser_dom import FRAME_OFFSET_JS, _evaluate_in_frame
+
+    ids = await _frame_ids(call, frame_path)
+    rect = await _evaluate_in_frame(call, ids[-1], rect_js, root=not frame_path)
+    if not isinstance(rect, dict) or not rect.get("ok"):
+        return rect if isinstance(rect, dict) else {"ok": False, "error": "Element not found"}
+    x, y = float(rect["x"]), float(rect["y"])
+    for depth, index in enumerate(frame_path):
+        offset = await _evaluate_in_frame(call, ids[depth], FRAME_OFFSET_JS % index, root=depth == 0)
+        if not offset:
+            return {"ok": False, "error": "iframe element not found"}
+        x += offset["x"]
+        y += offset["y"]
+    await call("Input.dispatchMouseEvent", type="mouseMoved", x=x, y=y)
+    await call("Input.dispatchMouseEvent", type="mousePressed", x=x, y=y, button="left", buttons=1, clickCount=1)
+    await call("Input.dispatchMouseEvent", type="mouseReleased", x=x, y=y, button="left", buttons=0, clickCount=1)
+    return {"ok": True, "native": True, "x": x, "y": y}
+
+
+async def _try_native_click(call, frame_path: List[int], rect_js: str) -> Optional[dict]:
+    """Native click, or ``None`` so the caller falls back to a JS click."""
+    try:
+        result = await _native_click(call, frame_path, rect_js)
+    except Exception as e:
+        debug.warning(f"CDP relay: native click failed, using JS click: {e}")
+        return None
+    return result if result.get("ok") else None
+
+
 def register_cdp_relay(app) -> None:
     """Attach relay routes to the FastAPI app."""
 
@@ -1123,6 +1197,8 @@ def register_cdp_relay(app) -> None:
     async def _browser_action(target_id: str, payload: dict = Body(...)) -> dict:
         from ..mcp.browser_dom import (
             click_js,
+            click_rect_js,
+            selector_click_rect_js,
             debug_js,
             select_js,
             type_js,
@@ -1133,7 +1209,14 @@ def register_cdp_relay(app) -> None:
         )
 
         try:
+            frame_path = payload.get("frame_path")
+            if frame_path is not None and (
+                not isinstance(frame_path, list)
+                or any(type(index) is not int or index < 0 for index in frame_path)
+            ):
+                raise HTTPException(status_code=400, detail="Invalid frame path")
             kind = payload.get("type")
+            rect_js = None
             if kind == "debug":
                 js = debug_js(_debug_js_source())
             elif "selector" in payload:
@@ -1142,6 +1225,7 @@ def register_cdp_relay(app) -> None:
                 selector = str(payload["selector"])
                 if kind == "click":
                     js = selector_click_js(selector)
+                    rect_js = selector_click_rect_js(selector)
                 elif kind == "type":
                     js = selector_type_js(selector, str(payload.get("value", "")), True, bool(payload.get("submit")))
                 elif kind == "select":
@@ -1154,6 +1238,7 @@ def register_cdp_relay(app) -> None:
                 index = int(payload["index"])
                 if kind == "click":
                     js = click_js(index)
+                    rect_js = click_rect_js(index)
                 elif kind == "type":
                     js = type_js(index, str(payload.get("value", "")), True, bool(payload.get("submit")))
                 elif kind == "select":
@@ -1163,14 +1248,37 @@ def register_cdp_relay(app) -> None:
         except (KeyError, TypeError, ValueError):
             raise HTTPException(status_code=400, detail="Invalid action")
         if target_id in relay.known:
-            result = await relay.evaluate(target_id, js)
+            try:
+                call = lambda method, **params: relay.call(target_id, method, **params)
+                result = None
+                if rect_js:
+                    result = await _try_native_click(call, frame_path or [], rect_js)
+                if result is not None:
+                    pass
+                elif frame_path:
+                    result = await _evaluate_in_frame_path(call, frame_path, js)
+                else:
+                    result = await relay.evaluate(target_id, js)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
         else:
             from ..requests.cdp import _open_sessions
 
             session = _open_sessions.get(target_id)
             if session is None or not session.is_alive:
                 raise HTTPException(status_code=409, detail="Target is not open")
-            result = await session.evaluate_js(js)
+            try:
+                result = None
+                if rect_js:
+                    result = await _try_native_click(session.call, frame_path or [], rect_js)
+                if result is not None:
+                    pass
+                elif frame_path:
+                    result = await _evaluate_in_frame_path(session.call, frame_path, js)
+                else:
+                    result = await session.evaluate_js(js)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
         await asyncio.sleep(0.3 if kind in ("type", "debug") and not payload.get("submit") else 1)  # let the page settle before the copy reloads
         return {"result": result}
 

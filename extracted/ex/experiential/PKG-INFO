@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: experiential
-Version: 0.7.236
+Version: 0.7.238
 Summary: Build simulations and optimize model routing from agent traces.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -199,7 +199,7 @@ Requires-Dist: botocore==1.43.72
 Requires-Dist: brotli==1.2.1; python_version >= '3.13'
 Requires-Dist: click==8.4.2
 Requires-Dist: cryptography==50.0.1; python_version >= '3.13'
-Requires-Dist: exp-gateway-native==0.3.183
+Requires-Dist: exp-gateway-native==0.3.185
 Requires-Dist: exp-mitmproxy-rs==0.12.11.post1; python_version >= '3.13'
 Requires-Dist: exp-mitmproxy==12.2.3.post3; python_version >= '3.13'
 Requires-Dist: filelock==4.2.1
@@ -303,6 +303,19 @@ with exp.load_router("my-project") as client:
         messages=[{"role": "user", "content": "hello"}],
     )
 ```
+
+## Coding Agent
+
+`exp code` runs [exp-code](./agent/README.md), Experiential's open-source coding and cowork
+agent built on [Pi](https://github.com/earendil-works/pi). It needs Node.js 22.19 or newer and
+uses your running local gateway, or the hosted gateway after `exp login`:
+
+```bash
+exp code                       # interactive terminal UI
+exp code -p "Summarize sales.csv into report.docx"
+```
+
+Every argument goes to exp-code, so its print, JSON, and RPC modes work through `exp code` too.
 
 ## Capture Traffic
 

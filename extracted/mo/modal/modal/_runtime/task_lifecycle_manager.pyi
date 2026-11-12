@@ -5,6 +5,8 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+def _read_spec_environ() -> dict[str, str]: ...
+
 class UserException(Exception):
     """Used to shut down the task gracefully."""
 
@@ -18,6 +20,7 @@ class _TaskLifecycleManager:
     checkpoint_id: typing.Optional[str]
     _client: modal.client._Client
     _cuda_checkpoint_session: typing.Optional[modal._runtime.gpu_memory_snapshot.CudaCheckpointSession]
+    _snapshot_spec_environ: dict[str, str]
 
     def _init(
         self,
@@ -67,6 +70,7 @@ class TaskLifecycleManager:
     checkpoint_id: typing.Optional[str]
     _client: modal.client.Client
     _cuda_checkpoint_session: typing.Optional[modal._runtime.gpu_memory_snapshot.CudaCheckpointSession]
+    _snapshot_spec_environ: dict[str, str]
 
     def __init__(self, /, *args, **kwargs):
         """Initialize self.  See help(type(self)) for accurate signature."""
@@ -136,3 +140,5 @@ def check_fastapi_pydantic_compatibility(exc: ImportError) -> None:
     building an image that specifies a more recent version only for pydantic.
     """
     ...
+
+SPEC_ENVIRON_PATH: str

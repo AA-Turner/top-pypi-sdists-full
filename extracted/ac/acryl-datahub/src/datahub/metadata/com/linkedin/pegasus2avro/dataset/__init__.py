@@ -20,6 +20,7 @@ from .....schema_classes import DatasetUpstreamLineageClass
 from .....schema_classes import DatasetUsageStatisticsClass
 from .....schema_classes import DatasetUserUsageCountsClass
 from .....schema_classes import EditableDatasetPropertiesClass
+from .....schema_classes import EditablePrimaryKeysClass
 from .....schema_classes import FineGrainedLineageClass
 from .....schema_classes import FineGrainedLineageDownstreamTypeClass
 from .....schema_classes import FineGrainedLineageUpstreamTypeClass
@@ -49,6 +50,7 @@ DatasetUpstreamLineage = DatasetUpstreamLineageClass
 DatasetUsageStatistics = DatasetUsageStatisticsClass
 DatasetUserUsageCounts = DatasetUserUsageCountsClass
 EditableDatasetProperties = EditableDatasetPropertiesClass
+EditablePrimaryKeys = EditablePrimaryKeysClass
 FineGrainedLineage = FineGrainedLineageClass
 FineGrainedLineageDownstreamType = FineGrainedLineageDownstreamTypeClass
 FineGrainedLineageUpstreamType = FineGrainedLineageUpstreamTypeClass

@@ -27,7 +27,7 @@ PROMPT = "yaql> "
 
 def main(context, show_tokens, parser):
     print("Yet Another Query Language - command-line query tool")
-    print("Version {}".format(version))
+    print(f"Version {version}")
     if context.get_data('legacy', False):
         print("Running in a legacy (0.2.x compatible) mode")
     print("Copyright (c) 2013-2017 Mirantis, Inc")
@@ -78,15 +78,14 @@ def main(context, show_tokens, parser):
             res = expr.evaluate(context=context)
             print_output(res, context)
         except Exception as ex:
-            print('Execution exception: {}'.format(ex), file=sys.stderr)
+            print(f'Execution exception: {ex}', file=sys.stderr)
 
 
 def load_data(data_file, context):
     try:
         json_str = open(os.path.expanduser(data_file)).read()
     except OSError as e:
-        print("Unable to read data file '{}': {}".format(data_file,
-                                                         e.strerror))
+        print(f"Unable to read data file '{data_file}': {e.strerror}")
         return
     try:
         data = json.loads(json_str)
@@ -94,13 +93,14 @@ def load_data(data_file, context):
         print('Unable to parse data: ' + str(e))
         return
     context['$'] = utils.convert_input_data(data)
-    print('Data from file {} loaded into context'.format(data_file))
+    print(f'Data from file {data_file} loaded into context')
 
 
 def register_in_context(context, parser):
     context.register_function(
         lambda context, show_tokens: main(context, show_tokens, parser),
-        name='__main')
+        name='__main',
+    )
 
 
 def parse_service_command(comm):
@@ -108,7 +108,7 @@ def parse_service_command(comm):
     if space_index == -1:
         return comm, None
     func_name = comm[:space_index]
-    args = comm[len(func_name) + 1:]
+    args = comm[len(func_name) + 1 :]
     return func_name, args
 
 
@@ -117,7 +117,7 @@ def evaluate(expr, parser, data, context):
         res = parser(expr).evaluate(data, context)
         print_output(res, context)
     except Exception as ex:
-        print('Execution exception: {}'.format(ex), file=sys.stderr)
+        print(f'Execution exception: {ex}', file=sys.stderr)
         exit(1)
 
 

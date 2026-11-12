@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: mujoco
-Version: 4.0.0
+Version: 4.0.1
 Summary: MuJoCo Physics Simulator
 Author-email: Google DeepMind <mujoco@deepmind.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/google-deepmind/mujoco
-Project-URL: Documentation, https://mujoco.readthedocs.io/en/4.0.0
+Project-URL: Documentation, https://mujoco.readthedocs.io/en/4.0.1
 Project-URL: Repository, https://github.com/google-deepmind/mujoco
-Project-URL: Changelog, https://mujoco.readthedocs.io/en/4.0.0/changelog.html
+Project-URL: Changelog, https://mujoco.readthedocs.io/en/4.0.1/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -24,8 +24,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSES_THIRD_PARTY.md
 Requires-Dist: glfw
-Requires-Dist: mujoco-core==4.0.0
-Requires-Dist: mujoco-studio==4.0.0
+Requires-Dist: mujoco-core==4.0.1
+Requires-Dist: mujoco-studio==4.0.1
 Requires-Dist: numpy
 Requires-Dist: pyopengl
 Provides-Extra: sysid
@@ -40,7 +40,7 @@ Requires-Dist: scipy; extra == "sysid"
 Requires-Dist: tabulate; extra == "sysid"
 Requires-Dist: typing_extensions; extra == "sysid"
 Provides-Extra: usd
-Requires-Dist: mujoco-usd==4.0.0; python_version <= "3.13" and extra == "usd"
+Requires-Dist: mujoco-usd==4.0.1; python_version <= "3.13" and extra == "usd"
 Requires-Dist: pillow; extra == "usd"
 Requires-Dist: usd-core; extra == "usd"
 Dynamic: description
@@ -57,9 +57,10 @@ Dynamic: license-file
 [pypi]: https://pypi.org/project/mujoco/
 
 This package is the canonical Python distribution for the
-[MuJoCo physics engine](https://github.com/google-deepmind/mujoco).
-These bindings are developed and maintained by Google DeepMind, and are kept
-up-to-date with the latest developments in MuJoCo itself.
+[MuJoCo](https://mujoco.org) physics engine
+([GitHub](https://github.com/google-deepmind/mujoco)). These bindings are
+developed and maintained by Google DeepMind, and are kept up-to-date with the
+latest developments in MuJoCo itself.
 
 Installing `mujoco` installs:
 
@@ -76,7 +77,7 @@ workers) that do not need Studio, Filament, or OpenGL, you can install
 `numpy`. To switch an existing `mujoco` installation to `mujoco-core` only, run:
 
 ```sh
-pip uninstall -y mujoco mujoco-studio && pip install --force-reinstall --no-deps mujoco-core
+pip uninstall -y mujoco mujoco-studio mujoco-studio-wasm && pip install --force-reinstall --no-deps mujoco-core
 ```
 
 ## Installation

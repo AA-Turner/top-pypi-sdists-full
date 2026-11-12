@@ -16,6 +16,8 @@ Usage::
         ListApplicationSnapshotsPaginator,
         ListApplicationVersionsPaginator,
         ListApplicationsPaginator,
+        ListSnapshotOperationsPaginator,
+        ListSnapshotsPaginator,
     )
 
     session = Session()
@@ -25,6 +27,8 @@ Usage::
     list_application_snapshots_paginator: ListApplicationSnapshotsPaginator = client.get_paginator("list_application_snapshots")
     list_application_versions_paginator: ListApplicationVersionsPaginator = client.get_paginator("list_application_versions")
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
+    list_snapshot_operations_paginator: ListSnapshotOperationsPaginator = client.get_paginator("list_snapshot_operations")
+    list_snapshots_paginator: ListSnapshotsPaginator = client.get_paginator("list_snapshots")
     ```
 """
 
@@ -34,6 +38,8 @@ from .paginator import (
     ListApplicationSnapshotsPaginator,
     ListApplicationsPaginator,
     ListApplicationVersionsPaginator,
+    ListSnapshotOperationsPaginator,
+    ListSnapshotsPaginator,
 )
 
 Client = KinesisAnalyticsV2Client
@@ -46,4 +52,6 @@ __all__ = (
     "ListApplicationSnapshotsPaginator",
     "ListApplicationVersionsPaginator",
     "ListApplicationsPaginator",
+    "ListSnapshotOperationsPaginator",
+    "ListSnapshotsPaginator",
 )

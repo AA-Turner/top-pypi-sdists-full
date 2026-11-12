@@ -75,6 +75,8 @@ from .type_defs import (
     GetDomainResponseTypeDef,
     GetLayoutRequestTypeDef,
     GetLayoutResponseTypeDef,
+    GetMergeCasesStatusRequestTypeDef,
+    GetMergeCasesStatusResponseTypeDef,
     GetTemplateRequestTypeDef,
     GetTemplateResponseTypeDef,
     ListCaseRulesRequestTypeDef,
@@ -100,6 +102,7 @@ from .type_defs import (
     SearchCasesResponseTypeDef,
     SearchRelatedItemsRequestTypeDef,
     SearchRelatedItemsResponseTypeDef,
+    StartMergeCasesRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateCaseRequestTypeDef,
@@ -393,6 +396,16 @@ class ConnectCasesClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#get_layout)
         """
 
+    def get_merge_cases_status(
+        self, **kwargs: Unpack[GetMergeCasesStatusRequestTypeDef]
+    ) -> GetMergeCasesStatusResponseTypeDef:
+        """
+        Returns the merge status of a case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/get_merge_cases_status.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#get_merge_cases_status)
+        """
+
     def get_template(
         self, **kwargs: Unpack[GetTemplateRequestTypeDef]
     ) -> GetTemplateResponseTypeDef:
@@ -519,6 +532,14 @@ class ConnectCasesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/search_related_items.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#search_related_items)
+        """
+
+    def start_merge_cases(self, **kwargs: Unpack[StartMergeCasesRequestTypeDef]) -> dict[str, Any]:
+        """
+        Merges a secondary case into a primary case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/start_merge_cases.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectcases/client/#start_merge_cases)
         """
 
     def tag_resource(

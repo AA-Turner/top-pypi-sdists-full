@@ -73,6 +73,7 @@ async def _new_token(
     source: typing.Optional[str] = None,
     next_url: typing.Optional[str] = None,
     expires_in_seconds: typing.Optional[int] = None,
+    delete_existing: bool = False,
 ): ...
 async def _set_token(
     token_id: str,
@@ -82,4 +83,5 @@ async def _set_token(
     activate: bool = True,
     verify: bool = True,
     server_url: typing.Optional[str] = None,
+    delete_existing: bool = False,
 ): ...

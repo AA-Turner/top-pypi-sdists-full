@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisper-ctranslate2
-Version: 0.5.8
+Version: 0.5.9
 Summary: Whisper command line client that uses CTranslate2 and faster-whisper
 Home-page: https://github.com/Softcatala/whisper-ctranslate2
 Author: Jordi Mas

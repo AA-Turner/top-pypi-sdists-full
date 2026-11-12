@@ -146,7 +146,8 @@ pub(crate) fn primitive_expansion(f: Primitive, g: Primitive, right: &Value, spa
     if let Some(route) = route {
         let square = matrix(right).filter(|&[m, n]| m == n && n > 0 && !crate::transform::carried(None, right)).map(|[_, n]| n);
         let fast = match (route, square) {
-            (crate::events::routes::Determinant, Some(n)) => crate::primitive::determinant(right, n)?, (crate::events::routes::Permanent, Some(n)) if n < 64 => permanent(right, n)?, _ => None
+            (crate::events::routes::Determinant, Some(n)) => crate::primitive::determinant(right, n)?,
+            (crate::events::routes::Permanent, Some(n)) if n < 64 => permanent(right, n)?, _ => None
         };
         let Some(value) = fast else {
             crate::events::declined(route, "arguments that don't suit it", right.len());

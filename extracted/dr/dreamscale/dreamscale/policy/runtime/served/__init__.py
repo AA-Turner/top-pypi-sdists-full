@@ -16,6 +16,8 @@ may define:
   on; True when that settles it (region_probe.validate_provider_selection), False to go on to
   the catalog's provider and region lists.
 - ``sim_task(model, benchmark, suite)``: refuse a simulator task the model wasn't trained on.
+- ``execution_horizon(model, served)``: the rows a session runs of each answer, given the
+  server's ``execution_horizon`` (None when it sent none).
 
 The runtime contract (``policy.runtime.contract``) asks a model's wire module and never names a
 model; ``catalog_check`` is the check most wires make, from the model's catalog contract.

@@ -14,6 +14,7 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     hash::{Hash, Hasher},
+    ops::ControlFlow,
     str::FromStr,
     sync::atomic::{AtomicPtr, Ordering},
 };
@@ -136,6 +137,8 @@ fn types_init(py: Python<'_>) -> &'static TypePtrs {
     t
 }
 
+// Inlined into each accessor: one validation classifies a node several times.
+#[inline]
 fn object_type(node: Borrowed<'_, '_, PyAny>) -> ObjType {
     let ptr = node.as_ptr();
     let t = types(node.py());
@@ -156,7 +159,14 @@ fn object_type(node: Borrowed<'_, '_, PyAny>) -> ObjType {
         ObjType::Bool
     } else if ty == t.float {
         ObjType::Float
-    } else if ty == t.tuple {
+    } else {
+        uncommon_type(ty, t)
+    }
+}
+
+#[inline(never)]
+fn uncommon_type(ty: *mut ffi::PyTypeObject, t: &TypePtrs) -> ObjType {
+    if ty == t.tuple {
         ObjType::Tuple
     } else if !t.decimal.is_null() && ty == t.decimal {
         ObjType::Decimal
@@ -450,21 +460,32 @@ impl Drop for PendingErrorScope {
 
 // PyPy runs `PyDict_Next` over one key snapshot per dict and drops it when any loop over that dict
 // finishes, so a loop nested over the same dict ends the outer one. There each cursor walks its own.
-// The value under `key`, or null; lookups by a string key never raise.
+// The value under `key`, or null. A key comparison that raises counts as a miss.
 #[inline]
 fn dict_get(dict: *mut ffi::PyObject, key: *mut ffi::PyObject) -> *mut ffi::PyObject {
     #[cfg(Py_GIL_DISABLED)]
     {
         let mut value: *mut ffi::PyObject = std::ptr::null_mut();
-        if unsafe { ffi::PyDict_GetItemRef(dict, key, &raw mut value) } > 0 {
-            hold(value)
-        } else {
-            std::ptr::null_mut()
+        match unsafe { ffi::PyDict_GetItemRef(dict, key, &raw mut value) } {
+            1 => hold(value),
+            0 => std::ptr::null_mut(),
+            _ => {
+                unsafe { ffi::PyErr_Clear() };
+                std::ptr::null_mut()
+            }
         }
     }
     #[cfg(not(Py_GIL_DISABLED))]
     {
-        held(unsafe { ffi::PyDict_GetItem(dict, key) })
+        // Unlike `PyDict_GetItem`, leaves the exception state alone unless a comparison raises.
+        let value = unsafe { ffi::PyDict_GetItemWithError(dict, key) };
+        if value.is_null() {
+            if unsafe { !ffi::PyErr_Occurred().is_null() } {
+                unsafe { ffi::PyErr_Clear() };
+            }
+            return value;
+        }
+        held(value)
     }
 }
 
@@ -626,8 +647,13 @@ pub(crate) fn probe_root(node: Borrowed<'_, '_, PyAny>) {
         ObjType::Unknown => record_unsupported(node),
         // Key types only.
         ObjType::Dict => {
+            let str_type = types(node.py()).str_;
             let mut cursor = DictCursor::new(unsafe { node.cast_unchecked::<PyDict>() });
             while let Some((key, _)) = cursor.next() {
+                // Almost every key is an exact `str`, which needs no further classification.
+                if unsafe { ffi::Py_TYPE(key) } == str_type {
+                    continue;
+                }
                 let key = unsafe { Borrowed::from_ptr(node.py(), key) };
                 if !key_is_usable(key) {
                     record_unusable_key(key);
@@ -1074,6 +1100,31 @@ impl<'py> Object<'py, Pyo3> for Borrowed<'py, 'py, PyDict> {
 
     fn members(&self) -> PyMembers<'py> {
         PyMembers(DictCursor::new(*self))
+    }
+
+    fn try_for_each_name_node<B>(
+        &self,
+        buffer: &mut (),
+        mut f: impl FnMut(PyNode<'_>) -> ControlFlow<B>,
+    ) -> ControlFlow<B> {
+        let py = self.py();
+        let mut cursor = DictCursor::new(*self);
+        while let Some((key, _)) = cursor.next() {
+            let flow = if unsafe { ffi::Py_TYPE(key) } == types(py).str_ {
+                // The key is already a string node; reading its text records any decoding error.
+                match unsafe { str_ref_ptr(key) } {
+                    Some(_) => f(unsafe { Borrowed::from_ptr(py, key) }),
+                    None => Pyo3::with_string_node(buffer, "", &mut f),
+                }
+            } else {
+                let name = key_to_string(unsafe { Borrowed::from_ptr(py, key) });
+                Pyo3::with_string_node(buffer, &name, &mut f)
+            };
+            if let ControlFlow::Break(value) = flow {
+                return ControlFlow::Break(value);
+            }
+        }
+        ControlFlow::Continue(())
     }
 }
 

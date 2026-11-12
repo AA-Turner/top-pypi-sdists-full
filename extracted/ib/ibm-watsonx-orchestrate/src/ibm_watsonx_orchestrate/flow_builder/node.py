@@ -1,5 +1,5 @@
 import json
-from typing import Any, ClassVar, List, NoReturn, cast, Type
+from typing import Any, ClassVar, List, Literal, NoReturn, cast, Type, Self
 import uuid
 
 import yaml
@@ -9,7 +9,7 @@ from ibm_watsonx_orchestrate.flow_builder.types import UserForm
 from ibm_watsonx_orchestrate.utils.file_manager import safe_open
 
 from .types import DocExtConfigField, EndNodeSpec, NodeSpec, AgentNodeSpec, PageRange, PromptNodeSpec, SchemaRef, ScriptNodeSpec, TimerNodeSpec, StartNodeSpec, ToolNodeSpec, UserField, UserField, UserFieldKind, UserFieldOption, UserForm, UserFormButton, UserNodeSpec, DocProcSpec, \
-                    DocExtSpec, DocExtConfig, DocClassifierSpec, DecisionsNodeSpec, DocClassifierConfig, LanguageCode, _build_activity_field
+                    DocExtSpec, DocExtConfig, DocClassifierSpec, DecisionsNodeSpec, DocClassifierConfig, LanguageCode, _build_activity_field, TransferEndNodeSpec, ChannelConfig, TransferChannelSpec, ConversationSummarySpec, TransferChannelType
 
 from .data_map import DataMap, DataMapSpec, Assignment, ensure_datamap, add_assignment
 
@@ -627,8 +627,8 @@ class UserNode(Node):
              is_integer: Whether the field should accept only integers. If False, accepts decimal numbers. Defaults to True.
              help_text: Optional help text for the field.
              default: Optional default value for the field, passed as DataMap.
-             minimum: Optional minimum allowed value, passed as DataMap.
-             maximum: Optional maximum allowed value, passed as DataMap.
+             minimum: Optional minimum allowed value, passed as DataMap. Use target_variable="self.input.minimum".
+             maximum: Optional maximum allowed value, passed as DataMap. Use target_variable="self.input.maximum".
 
          Returns:
              UserField: The created number input field.
@@ -1384,7 +1384,86 @@ class DecisionsNode(Node):
 
     def get_spec(self) -> DecisionsNodeSpec:
         return cast(DecisionsNodeSpec, self.spec)
-    
+
+
+class TransferEndNode(Node):
+    def __repr__(self):
+        return f"TransferEndNode(name='{self.spec.name}', description='{self.spec.description}')"
+
+    def get_spec(self) -> TransferEndNodeSpec:
+        return cast(TransferEndNodeSpec, self.spec)
+
+    def to_json(self) -> dict[str, Any]:
+        '''Serialize the node, with ``output_map`` beside ``spec`` like ``input_map`` on other nodes.'''
+        model_spec = super().to_json()
+        model_spec["output_map"] = self.get_spec().build_output_map()
+        return model_spec
+
+    def _channel(self,
+                 name: str | TransferChannelType,
+                 agent_available: str | None = None,
+                 agent_unavailable: str | None = None) -> Self:
+        '''Internal: delegates to TransferEndNodeSpec._channel().'''
+        channel_name = name.value if isinstance(name, TransferChannelType) else str(name)
+        self.get_spec()._channel(
+            name=channel_name,
+            agent_available=agent_available,
+            agent_unavailable=agent_unavailable
+        )
+        return self
+
+    def configure_channel(self,
+                          name: str | TransferChannelType,
+                          agent_available: str | None = None,
+                          agent_unavailable: str | None = None) -> ChannelConfig:
+        '''Configure a channel and its custom properties fluently.'''
+        channel_name = name.value if isinstance(name, TransferChannelType) else str(name)
+        return self.get_spec().configure_channel(
+            name=channel_name,
+            agent_available=agent_available,
+            agent_unavailable=agent_unavailable
+        )
+
+    def set_conversation_summary(self,
+                                 enabled: bool = True,
+                                 prompt_override: str | None = None) -> Self:
+        '''Configure the conversation summary generation for the transfer.'''
+        self.get_spec().set_conversation_summary(
+            enabled=enabled,
+            prompt_override=prompt_override
+        )
+        return self
+
+    def map_output_variable(self,
+                            channel: str | TransferChannelType,
+                            property_path: str,
+                            expression: str,
+                            assignment_type: Literal["literal", "variable", "pyExpression"] = "pyExpression") -> Self:
+        '''
+        Set the value of a channel property in this node's output map, from a literal,
+        a flow variable or a Python expression.
+
+        Use this to populate built-in channel properties such as SIP's
+        ``service_desk_info``::
+
+            transfer_end_node.configure_channel(name=TransferChannelType.SIP)
+            transfer_end_node.map_output_variable(
+                channel="sip",
+                property_path="service_desk_info.uri",
+                expression="tel:+1xxx",
+                assignment_type="literal",
+            )
+
+        See :meth:`TransferEndNodeSpec.map_output_variable` for the parameters.
+        '''
+        self.get_spec().map_output_variable(
+            channel=channel,
+            property_path=property_path,
+            expression=expression,
+            assignment_type=assignment_type
+        )
+        return self
+
 class NodeInstance(BaseModel):
     node: Node
     id: str # unique id of this task instance

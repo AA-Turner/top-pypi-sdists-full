@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fivetran_connector_sdk_common.constants import GITIGNORE_FILENAME, GITIGNORE_REPLAY_PATTERN, REPLAY_ROOT_DIR
+from fivetran_connector_sdk_common.helpers import print_library_log
+from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_cli.regression_test.fixture_helper import (
     FIXTURE_HEADER_KEY, FIXTURE_JSONL, FIXTURE_VERSION, RECORD_DATA_DIR, RECORD_END_DIR, RECORD_START_DIR,
     copy_initial_state, read_state,
@@ -96,6 +98,11 @@ def prepare_replay(project_path: str, scenario: str, scenario_path: Path) -> Pat
     return replay_dir
 
 
+def _canonical_state_value(value) -> str:
+    """JSON text of a state value. Unlike Python ==, it keeps 1, 1.0 and true apart, and equates NaN with NaN."""
+    return json.dumps(value, sort_keys=True)
+
+
 def compare_state_files(record_end_dir: Path, replay_dir: Path) -> list:
     """Compare state.json in the two folders key by key; return mismatch messages (empty = equal)."""
     expected = read_state(record_end_dir)
@@ -106,7 +113,7 @@ def compare_state_files(record_end_dir: Path, replay_dir: Path) -> list:
             mismatches.append(f"'{key}': the replay saved it, but the recording has no such state value")
         elif key not in actual:
             mismatches.append(f"'{key}': the recording has it, but the replay didn't save it")
-        elif expected[key] != actual[key]:
+        elif _canonical_state_value(expected[key]) != _canonical_state_value(actual[key]):
             mismatches.append(f"'{key}': recorded {expected[key]!r}, replay {actual[key]!r}")
     return mismatches
 
@@ -124,11 +131,14 @@ class Replayer:
     _file_handle: Optional[io.TextIOBase] = None
     # Guards _file_handle, because connectors may call @action functions from several threads.
     _lock: threading.Lock = threading.Lock()
+    # The first lookup error of this replay. Connector code can catch that error, so the replay checks this after the sync.
+    _lookup_failure: Optional[str] = None
 
     @classmethod
     def start(cls, fixture_path: str) -> None:
         """Open the fixture, validate its header and apply its recorded --max-records cap."""
         with cls._lock:
+            cls._lookup_failure = None
             cls._close_locked()
             try:
                 fh = open(fixture_path, "r", encoding="utf-8")
@@ -172,8 +182,14 @@ class Replayer:
     def stop(cls) -> None:
         """Close the fixture and remove the cap. Safe to call when not replaying."""
         with cls._lock:
+            cls._lookup_failure = None
             cls._close_locked()
         MaxRecordHandler.stop()
+
+    @classmethod
+    def lookup_failure(cls) -> Optional[str]:
+        """The first lookup error since start(), or None. Set even when connector code caught the error."""
+        return cls._lookup_failure
 
     @classmethod
     def _close_locked(cls) -> None:
@@ -184,6 +200,16 @@ class Replayer:
     @classmethod
     def lookup(cls, name: str, arguments: dict) -> Any:
         """Return the recorded result of the first interaction matching (name, arguments)."""
+        try:
+            return cls._find(name, arguments)
+        except ReplayError as e:
+            # After the cap ends the sync, run_update() ignores connector errors, so a miss from a late worker is not a failure.
+            if cls._lookup_failure is None and not MaxRecordHandler.is_stopped_by_cap():
+                cls._lookup_failure = str(e)
+            raise
+
+    @classmethod
+    def _find(cls, name: str, arguments: dict) -> Any:
         target = json.dumps(arguments, sort_keys=True)
         with cls._lock:
             if cls._file_handle is not None:
@@ -223,5 +249,12 @@ class Replayer:
         if version != FIXTURE_VERSION:
             raise _replay_error(f"fixture_version '{version}' is not supported. Supported version: {FIXTURE_VERSION}.",
                                 error_class=FixtureVersionError)
-        # Recording always writes it; fall back to the recording default so a replay is never uncapped.
-        return header.get("capped_count") or DEFAULT_MAX_RECORDS
+        capped_count = header.get("capped_count")
+        # Recording always writes a positive integer. A missing or invalid value means the file was edited or damaged,
+        # so warn and use the recording default rather than running without a cap.
+        if isinstance(capped_count, bool) or not isinstance(capped_count, int) or capped_count <= 0:
+            print_library_log(f"fixture.jsonl at {fixture_path} has a missing or incorrect capped_count "
+                              f"({capped_count!r}); using the default of {DEFAULT_MAX_RECORDS}.",
+                              Logging.Level.WARNING)
+            return DEFAULT_MAX_RECORDS
+        return capped_count

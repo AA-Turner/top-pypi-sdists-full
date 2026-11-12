@@ -3,11 +3,14 @@ File system service for the Windows MCP server.
 Provides structured, safe file operations as an alternative to raw Shell commands.
 """
 
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+import codecs
 import fnmatch
 import logging
 import shutil
+import stat
 import os
 from windows_mcp.desktop.utils import is_elevated
 
@@ -16,11 +19,66 @@ from windows_mcp.filesystem.views import (
     MAX_RESULTS,
     File,
     Directory,
-    format_size,
 )
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# Windows tools write byte order marks: Windows PowerShell's `>` and `reg export`
+# write UTF-16 LE, and Notepad and `Out-File -Encoding utf8` write UTF-8 with a BOM.
+_BOM_ENCODINGS = (
+    (codecs.BOM_UTF8, 'utf-8-sig'),
+    (codecs.BOM_UTF16_LE, 'utf-16'),
+    (codecs.BOM_UTF16_BE, 'utf-16'),
+)
+
+
+def _bom_encoding(file_path: Path, encoding: str) -> str:
+    """Return the encoding named by the file's BOM when reading as UTF-8, else *encoding*."""
+    if codecs.lookup(encoding).name != 'utf-8':
+        return encoding
+    with open(file_path, 'rb') as f:
+        head = f.read(3)
+    for bom, bom_encoding in _BOM_ENCODINGS:
+        if head.startswith(bom):
+            return bom_encoding
+    return encoding
+
+
+# Codecs that continue a file after its BOM: appended text must not repeat the
+# BOM, and must keep the byte order the file already uses.
+_BOM_APPEND_ENCODINGS = (
+    (codecs.BOM_UTF8, 'utf-8'),
+    (codecs.BOM_UTF16_LE, 'utf-16-le'),
+    (codecs.BOM_UTF16_BE, 'utf-16-be'),
+)
+
+
+def _append_encoding(file_path: Path, encoding: str) -> str:
+    """Return the encoding to append to *file_path* with: its BOM's, when appending as UTF-8."""
+    if codecs.lookup(encoding).name != 'utf-8' or not file_path.is_file():
+        return encoding
+    with open(file_path, 'rb') as f:
+        head = f.read(3)
+    for bom, bom_encoding in _BOM_APPEND_ENCODINGS:
+        if head.startswith(bom):
+            return bom_encoding
+    return encoding
+
+
+def _rmtree(path: Path) -> None:
+    """Remove a directory tree, including read-only entries, as `rd /s` does.
+
+    Git marks the files under .git/objects read-only, so a plain rmtree cannot
+    delete a cloned repository on Windows.
+    """
+    def clear_readonly(func, entry, exc):
+        if not isinstance(exc, PermissionError):
+            raise exc
+        os.chmod(entry, stat.S_IWRITE)
+        func(entry)
+
+    shutil.rmtree(str(path), onexc=clear_readonly)
 
 
 def read_file(path: str, offset: int | None = None, limit: int | None = None, encoding: str = 'utf-8') -> str:
@@ -31,18 +89,33 @@ def read_file(path: str, offset: int | None = None, limit: int | None = None, en
         return f'Error: File not found: {file_path}'
     if not file_path.is_file():
         return f'Error: Path is not a file: {file_path}'
-    if file_path.stat().st_size > MAX_READ_SIZE:
-        return f'Error: File too large ({file_path.stat().st_size:,} bytes). Maximum is {MAX_READ_SIZE:,} bytes. Use offset/limit parameters or the Shell tool for large files.'
+    if limit is not None and limit < 0:
+        return 'Error: limit cannot be negative.'
+    if offset is None and limit is None and file_path.stat().st_size > MAX_READ_SIZE:
+        return f'Error: File too large ({file_path.stat().st_size:,} bytes). Maximum is {MAX_READ_SIZE:,} bytes. Use offset/limit parameters or the PowerShell tool for large files.'
 
     try:
+        encoding = _bom_encoding(file_path, encoding)
         with open(file_path, 'r', encoding=encoding, errors='replace') as f:
             if offset is not None or limit is not None:
-                lines = f.readlines()
                 start = (offset or 1) - 1  # Convert 1-based to 0-based
                 start = max(0, start)
-                end = start + limit if limit else len(lines)
-                selected = lines[start:end]
-                total = len(lines)
+                end = start + limit if limit else float('inf')
+                selected = []
+                size = 0
+                total = 0
+                at_line_start = True
+                # Stream the file instead of loading it, so ranges of files over MAX_READ_SIZE
+                # work. readline() is capped, so a very long line is read in pieces.
+                while piece := f.readline(MAX_READ_SIZE):
+                    if at_line_start:
+                        total += 1
+                    at_line_start = piece.endswith('\n')
+                    if start < total <= end:
+                        size += len(piece)
+                        if size > MAX_READ_SIZE:
+                            return f'Error: The requested lines add up to more than {MAX_READ_SIZE:,} characters. Use a smaller limit or the PowerShell tool.'
+                        selected.append(piece)
                 content = ''.join(selected)
                 return f'File: {file_path}\nLines {start + 1}-{min(end, total)} of {total}:\n{content}'
             else:
@@ -68,8 +141,13 @@ def write_file(path: str, content: str, append: bool = False, encoding: str = 'u
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
         mode = 'a' if append else 'w'
+        if append:
+            # Appending UTF-8 to a UTF-16 file (what Windows PowerShell's `>` writes)
+            # would corrupt it, so continue in the encoding its BOM names.
+            encoding = _append_encoding(file_path, encoding)
         with open(file_path, mode, encoding=encoding) as f:
-            f.write(content)
+            # Text mode turns '\n' into '\r\n', so CRLF content would be saved as '\r\r\n'.
+            f.write(content.replace('\r\n', '\n'))
 
         action = 'Appended to' if append else 'Written to'
         size = file_path.stat().st_size
@@ -83,6 +161,22 @@ def write_file(path: str, content: str, append: bool = False, encoding: str = 'u
         return f'Error writing file: {e}'
 
 
+def _kind_mismatch(src: Path, dst: Path, verb: str) -> str | None:
+    """Return an error if *dst* exists and only one of *src* and *dst* is a directory.
+
+    An overwrite removes the destination first, so letting a file replace a directory
+    would delete everything in it.
+    """
+    if not dst.exists() or src.is_dir() == dst.is_dir():
+        return None
+    if dst.is_dir():
+        return (
+            f'Error: Destination is a directory: {dst}. A file cannot replace a directory; '
+            f'to {verb} the file into it, use {dst / src.name} as the destination.'
+        )
+    return f'Error: Destination is a file: {dst}. A directory cannot replace a file.'
+
+
 def copy_path(source: str, destination: str, overwrite: bool = False) -> str:
     """Copy a file or directory to a new location."""
     src = Path(source).resolve()
@@ -90,6 +184,12 @@ def copy_path(source: str, destination: str, overwrite: bool = False) -> str:
 
     if not src.exists():
         return f'Error: Source not found: {src}'
+
+    if src == dst or dst in src.parents or (src.is_dir() and src in dst.parents):
+        return 'Error: Source and destination paths overlap.'
+
+    if error := _kind_mismatch(src, dst, 'copy'):
+        return error
 
     if dst.exists() and not overwrite:
         return f'Error: Destination already exists: {dst}. Set overwrite=True to replace.'
@@ -101,7 +201,7 @@ def copy_path(source: str, destination: str, overwrite: bool = False) -> str:
             return f'Copied file: {src} -> {dst}'
         elif src.is_dir():
             if dst.exists() and overwrite:
-                shutil.rmtree(str(dst))
+                _rmtree(dst)
             shutil.copytree(str(src), str(dst))
             return f'Copied directory: {src} -> {dst}'
         else:
@@ -123,6 +223,26 @@ def move_path(source: str, destination: str, overwrite: bool = False) -> str:
     if not src.exists():
         return f'Error: Source not found: {src}'
 
+    # On a case-insensitive file system, renaming 'a.txt' to 'A.txt' resolves to the source.
+    raw_dst = Path(destination).absolute()
+    if (
+        src == dst
+        and raw_dst.name != src.name
+        and raw_dst.name.casefold() == src.name.casefold()
+        and raw_dst.parent.resolve() == src.parent
+    ):
+        try:
+            src.rename(src.with_name(raw_dst.name))
+            return f'Moved: {src} -> {src.with_name(raw_dst.name)}'
+        except Exception as e:
+            return f'Error moving: {e}'
+
+    if src == dst or dst in src.parents or (src.is_dir() and src in dst.parents):
+        return 'Error: Source and destination paths overlap.'
+
+    if error := _kind_mismatch(src, dst, 'move'):
+        return error
+
     if dst.exists() and not overwrite:
         return f'Error: Destination already exists: {dst}. Set overwrite=True to replace.'
 
@@ -130,7 +250,7 @@ def move_path(source: str, destination: str, overwrite: bool = False) -> str:
         dst.parent.mkdir(parents=True, exist_ok=True)
         if dst.exists() and overwrite:
             if dst.is_dir():
-                shutil.rmtree(str(dst))
+                _rmtree(dst)
             else:
                 dst.unlink()
         shutil.move(str(src), str(dst))
@@ -145,14 +265,19 @@ def move_path(source: str, destination: str, overwrite: bool = False) -> str:
 
 
 def delete_path(path: str, recursive: bool = False) -> str:
-    """Delete a file or directory."""
-    target = Path(path).resolve()
-
-    if not target.exists():
-        return f'Error: Path not found: {target}'
+    """Delete a file or directory, removing links without following their targets."""
+    target = Path(path).absolute()
 
     try:
-        if target.is_file() or target.is_symlink():
+        if target.is_symlink():
+            target.unlink()
+            return f'Deleted file: {target}'
+        if target.is_junction():
+            target.rmdir()
+            return f'Deleted directory: {target}'
+        if not target.exists():
+            return f'Error: Path not found: {target}'
+        if target.is_file():
             target.unlink()
             return f'Deleted file: {target}'
         elif target.is_dir():
@@ -162,7 +287,7 @@ def delete_path(path: str, recursive: bool = False) -> str:
                     return f'Error: Directory is not empty: {target}. Set recursive=True to delete non-empty directories.'
                 target.rmdir()
             else:
-                shutil.rmtree(str(target))
+                _rmtree(target)
             return f'Deleted directory: {target}'
         else:
             return f'Error: Unsupported file type: {target}'
@@ -173,6 +298,95 @@ def delete_path(path: str, recursive: bool = False) -> str:
         return msg
     except Exception as e:
         return f'Error deleting: {e}'
+
+
+def _is_hidden(path: Path) -> bool:
+    """Return whether *path* has a dot name or the Windows hidden attribute.
+
+    Windows hides desktop.ini, AppData and NTUSER.DAT with the attribute, not a dot name.
+    lstat() reads a junction's own attribute, so the hidden legacy junctions in a profile
+    folder, such as My Documents, count as hidden although their targets are not.
+    """
+    if path.name.startswith('.'):
+        return True
+    try:
+        return bool(path.lstat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
+    except OSError:
+        return False
+
+
+def _is_hidden_below(root: Path, entry: Path, cache: dict[Path, bool]) -> bool:
+    """Return whether *entry* or a directory between *root* and *entry* is hidden.
+
+    *root* itself is not checked, so a hidden directory can still be listed explicitly.
+    """
+    path = root
+    for part in entry.relative_to(root).parts:
+        path = path / part
+        if path not in cache:
+            cache[path] = _is_hidden(path)
+        if cache[path]:
+            return True
+    return False
+
+
+def _enters(entry: os.DirEntry) -> bool:
+    """Whether a recursive walk goes into *entry*.
+
+    Directories do; symlinks and junctions do not. A volume mounted into a
+    folder is a junction too, but its target is a volume, not a folder that
+    can lead back to an ancestor, so the walk goes into it.
+    """
+    try:
+        if not entry.is_dir(follow_symlinks=False):
+            return False
+        if not entry.is_junction():
+            return True
+        return os.readlink(entry.path).lower().startswith("\\\\?\\volume{")
+    except OSError:
+        return False
+
+
+def _walk(root: Path, pattern: str, recursive: bool = True) -> Iterator[Path]:
+    """Yield the entries below *root* that match *pattern*.
+
+    Matches what ``root.rglob(pattern)`` matches (``root.glob(pattern)`` when
+    *recursive* is false), but does not descend into directory junctions.
+    Path globbing enters junctions, though not symlinks, so a junction that
+    points at one of its own ancestors (as packages linking each other in a
+    pnpm workspace do) was walked again and again until the path grew too
+    long, and every file under it was listed once per round. The junction
+    itself is still listed, like a symlink.
+    """
+    pattern_path = Path(pattern)
+    if (
+        not pattern
+        or pattern.endswith(("/", "\\"))
+        or pattern_path.anchor
+        or ".." in pattern_path.parts
+    ):
+        # Globbing gives these a meaning of its own (directories only, parents,
+        # an error for an absolute pattern); keep it.
+        yield from root.rglob(pattern) if recursive else root.glob(pattern)
+        return
+    full_pattern = f"**/{pattern}" if recursive else pattern
+    if all(part == "**" for part in pattern_path.parts):
+        # A pattern of only ** also matches the root itself.
+        yield root
+    pending = [root]
+    while pending:
+        current = pending.pop()
+        try:
+            with os.scandir(current) as scan:
+                entries = list(scan)
+        except OSError:
+            continue
+        for entry in entries:
+            entry_path = Path(entry.path)
+            if entry_path.relative_to(root).full_match(full_pattern):
+                yield entry_path
+            if _enters(entry):
+                pending.append(entry_path)
 
 
 def list_directory(path: str, pattern: str | None = None, recursive: bool = False, show_hidden: bool = False) -> str:
@@ -187,16 +401,17 @@ def list_directory(path: str, pattern: str | None = None, recursive: bool = Fals
     try:
         entries: list[str] = []
         count = 0
+        hidden: dict[Path, bool] = {}
 
         if recursive:
-            iterator = dir_path.rglob(pattern or '*')
+            iterator = _walk(dir_path, pattern or '*')
         else:
             iterator = dir_path.iterdir()
 
         for entry in sorted(iterator, key=lambda e: (not e.is_dir(), e.name.lower())):
-            if not show_hidden and entry.name.startswith('.'):
-                continue
             if pattern and not recursive and not fnmatch.fnmatch(entry.name, pattern):
+                continue
+            if not show_hidden and _is_hidden_below(dir_path, entry, hidden):
                 continue
 
             count += 1
@@ -244,7 +459,10 @@ def search_files(path: str, pattern: str, recursive: bool = True) -> str:
         count = 0
 
         if recursive:
-            iterator = search_root.rglob(pattern)
+            iterator = _walk(search_root, pattern)
+        elif "**" in pattern:
+            # A ** in the pattern makes glob recurse too, into junctions as well.
+            iterator = _walk(search_root, pattern, recursive=False)
         else:
             iterator = search_root.glob(pattern)
 
@@ -276,16 +494,33 @@ def search_files(path: str, pattern: str, recursive: bool = True) -> str:
         return f'Error searching: {e}'
 
 
+def _strip_nt_prefix(path: str) -> str:
+    """Drop the ``\\\\?\\`` prefix that ``os.readlink`` keeps on absolute targets."""
+    if path.startswith('\\\\?\\UNC\\'):
+        return '\\\\' + path[8:]
+    if path.startswith('\\\\?\\'):
+        return path[4:]
+    return path
+
+
 def get_file_info(path: str) -> str:
     """Get detailed metadata about a file or directory."""
-    target = Path(path).resolve()
+    target = Path(path).absolute()
+    is_link = target.is_symlink() or target.is_junction()
+    if not is_link:
+        target = target.resolve()
 
-    if not target.exists():
+    if not is_link and not target.exists():
         return f'Error: Path not found: {target}'
 
     try:
-        stat = target.stat()
-        file_type = 'Directory' if target.is_dir() else 'File' if target.is_file() else 'Symlink' if target.is_symlink() else 'Other'
+        stat = target.lstat() if is_link else target.stat()
+        if target.is_symlink():
+            file_type = 'Symlink'
+        elif target.is_junction():
+            file_type = 'Junction'
+        else:
+            file_type = 'Directory' if target.is_dir() else 'File' if target.is_file() else 'Other'
 
         file = File(
             path=str(target),
@@ -300,7 +535,7 @@ def get_file_info(path: str) -> str:
         if target.is_dir():
             try:
                 items = list(target.iterdir())
-                file.contents_dirs = sum(1 for i in items if i.is_dir())    
+                file.contents_dirs = sum(1 for i in items if i.is_dir())
                 file.contents_files = sum(1 for i in items if i.is_file())
             except PermissionError:
                 pass
@@ -308,8 +543,8 @@ def get_file_info(path: str) -> str:
         if target.is_file():
             file.extension = target.suffix or '(none)'
 
-        if target.is_symlink():
-            file.link_target = str(os.readlink(target))
+        if is_link:
+            file.link_target = _strip_nt_prefix(os.readlink(target))
 
         return file.to_string()
     except PermissionError:

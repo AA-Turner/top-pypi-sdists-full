@@ -25,6 +25,45 @@ _BOARD_SUBJECT = re.compile(_subject.pattern_kind(
     "task_submit|task_request|task_result|task_approve"), re.I)
 import email
 
+def audit_owner_instruction_tensions(cfg, base_dir):
+    """The startup pass of the briefing's contradiction check.
+
+    The deployment's owner_instructions are compared against
+    the Oracle's standing layer once per start; each likely
+    contradiction is written to the audit as its own row --
+    feature "briefing", the rule's id as the detail, never the
+    owner's text -- for the operator. The signal itself is
+    delivered in the assembled briefing, beside the standing
+    layer; this pass deliberately logs no warning and refuses
+    nothing, because a startup line is read by nobody and a
+    heuristic must never refuse an honest deployment on a
+    guess. Returns the finding count. Never raises.
+    """
+    R = _runner()
+    try:
+        owner = cfg.get("owner_instructions") \
+            if isinstance(cfg, dict) else None
+        if not isinstance(owner, str) or not owner.strip():
+            return 0
+        check = getattr(R, "oracle_briefing_tension_check", None)
+        if check is None:
+            return 0
+        findings = check(base_dir, owner)
+        if not findings:
+            return 0
+        sec = getattr(R, "_security", None)
+        if sec is not None:
+            for finding in findings:
+                sec.write_audit_entry(
+                    base_dir, "briefing", "marked",
+                    "owner_instructions_tension",
+                    detail="rule=" + str(finding.get("rule", "")),
+                    cfg=cfg)
+        return len(findings)
+    except Exception:
+        return 0
+
+
 def log_startup(cfg, args, base_dir):
     """One block: what is configured, what is running, what it expects.
 
@@ -51,9 +90,17 @@ def log_startup(cfg, args, base_dir):
     auth = "oauth" if _runner()._use_oauth(cfg) else "password"
     inf = _runner().inference_config(cfg)
     keys = sorted((cfg.get("additional_secrets") or {}).keys())
-    R.log(f"homing-pigeon {_runner().__version__} invocation: "
+    # The build stamp (runner/_build.py, written by the build
+    # tooling): when a packaged tree carries its source commit,
+    # both lines name it, so a log reader can tell which code is
+    # running. A plain checkout stamps "unknown" and the lines
+    # print the version alone -- no parenthetical, no noise.
+    _build = getattr(_runner(), "__build__", "unknown")
+    _suffix = f" (build {_build})" if isinstance(_build, str) \
+        and _build and _build != "unknown" else ""
+    R.log(f"homing-pigeon {_runner().__version__}{_suffix} invocation: "
         f"{_runner()._invocation_line()}")
-    R.log(f"homing-pigeon {_runner().__version__} starting "
+    R.log(f"homing-pigeon {_runner().__version__}{_suffix} starting "
         f"(base={base_dir}, platform={_runner().sys.platform})")
     R.log(f"auth={auth} mailbox={cfg.get('mailbox_user')} "
         f"poll={cfg.get('poll_interval_sec', 20)}s "

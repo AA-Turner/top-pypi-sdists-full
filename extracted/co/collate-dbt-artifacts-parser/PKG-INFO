@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: collate-dbt-artifacts-parser
-Version: 0.1.4
+Version: 0.1.5
 Summary: A dbt artifacts parser in python
 Project-URL: Home, https://github.com/open-metadata/collate-dbt-artifacts-parser
 Author: open-metadata

@@ -14,6 +14,12 @@ use super::aes_ssl_protocol::{AesSslLogin, AesSslProtocol};
 use super::klap_protocol::KlapProtocol;
 use super::tpap_protocol::{TpapInfo, TpapProtocol};
 
+#[cfg(feature = "bluetooth")]
+use std::time::Duration;
+
+#[cfg(feature = "bluetooth")]
+use super::bluetooth_protocol::{BluetoothProtocol, BluetoothSetupDevice};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DeviceFamily {
     Smart,
@@ -49,6 +55,8 @@ enum ActiveProtocol {
     AesSsl(AesSslProtocol),
     Klap(KlapProtocol),
     Tpap(Box<TpapProtocol>),
+    #[cfg(feature = "bluetooth")]
+    Bluetooth(Box<BluetoothProtocol>),
 }
 
 pub(crate) struct TapoProtocol {
@@ -155,6 +163,10 @@ impl TapoProtocol {
                 format!("http://{}/app", host_with_port(ip_address, http_port, 80))
             }
             Some(ActiveProtocol::Tpap(p)) => p.info().url(ip_address)?,
+            #[cfg(feature = "bluetooth")]
+            Some(ActiveProtocol::Bluetooth(_)) => {
+                return Err(anyhow::anyhow!("A Bluetooth session takes no IP address").into());
+            }
             None => unreachable!(),
         };
         debug!("Device url: {url}");
@@ -166,10 +178,110 @@ impl TapoProtocol {
             }
             Some(ActiveProtocol::Klap(p)) => p.login(url, username, password).await?,
             Some(ActiveProtocol::Tpap(p)) => p.login(url, username, password).await?,
+            #[cfg(feature = "bluetooth")]
+            Some(ActiveProtocol::Bluetooth(_)) => unreachable!(),
             None => unreachable!(),
         }
 
         Ok(address)
+    }
+
+    /// Logs in to a new or factory-reset device in setup mode, at
+    /// `ip_address` on its setup network, and returns the IP address and the
+    /// port that it was reached at. A device that answers `discover` in TPAP
+    /// mode takes the default passcode; any other takes the factory login
+    /// `username` and `password` over KLAP.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the device cannot be reached, or if it does not
+    /// take the login of a device in setup mode, as a device that is set up
+    /// does not.
+    pub async fn login_for_setup(
+        &mut self,
+        ip_address: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<(String, u16), Error> {
+        self.device_family = DeviceFamily::Smart;
+
+        let address = host_with_port(ip_address, None, 80);
+        let Some((info, mac)) = TpapProtocol::discover_with_mac(&self.client, &address).await?
+        else {
+            debug!("Using KLAP protocol (negotiated)...");
+            let url = format!("http://{address}/app");
+            debug!("Device url: {url}");
+            let address = url_address(&url)?;
+
+            let mut klap = KlapProtocol::new(self.client.clone());
+            klap.login(url, username, password)
+                .await
+                .map_err(|error| match error {
+                    Error::Tapo(TapoResponseError::Unauthorized {
+                        kind: "HASH_MISMATCH",
+                        ..
+                    }) => Error::Tapo(TapoResponseError::setup_hash_mismatch()),
+                    error => error,
+                })?;
+            self.active = Some(ActiveProtocol::Klap(klap));
+
+            return Ok(address);
+        };
+
+        // A device in TPAP mode that is set up takes the account password
+        // only.
+        if !info.takes_default_passcode() {
+            return Err(Error::Tapo(TapoResponseError::setup_hash_mismatch()));
+        }
+
+        debug!("Using TPAP protocol with the default passcode (negotiated)...");
+        let url = info.url(ip_address)?;
+        debug!("Device url: {url}");
+        let address = url_address(&url)?;
+
+        let Some(mac) = mac else {
+            return Err(Error::unsupported_setup_tpap(
+                "the discover answer has no `mac`".to_string(),
+            ));
+        };
+        let mut tpap = TpapProtocol::with_default_passcode(self.client.clone(), info, &mac)?;
+        tpap.login(url, username, password).await?;
+        self.active = Some(ActiveProtocol::Tpap(Box::new(tpap)));
+
+        Ok(address)
+    }
+
+    /// Logs in to a new or factory-reset device in setup mode over
+    /// Bluetooth, with the default passcode.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the device cannot be reached, or if it does not
+    /// take the login of a device in setup mode.
+    #[cfg(feature = "bluetooth")]
+    pub async fn login_over_bluetooth(
+        &mut self,
+        device: &BluetoothSetupDevice,
+        timeout: Duration,
+    ) -> Result<(), Error> {
+        self.device_family = DeviceFamily::Smart;
+
+        debug!("Using TPAP protocol over Bluetooth with the default passcode...");
+        let mut bluetooth = BluetoothProtocol::connect(device, timeout).await?;
+        bluetooth.login().await?;
+        self.active = Some(ActiveProtocol::Bluetooth(Box::new(bluetooth)));
+
+        Ok(())
+    }
+
+    /// Whether the session runs over Bluetooth.
+    pub fn is_bluetooth(&self) -> bool {
+        #[cfg(feature = "bluetooth")]
+        if let Some(ActiveProtocol::Bluetooth(_)) = &self.active {
+            return true;
+        }
+
+        false
     }
 
     /// Logs in to a camera: over TPAP, and over AES SSL if the device does
@@ -225,6 +337,8 @@ impl TapoProtocol {
             Some(ActiveProtocol::AesSsl(p)) => p.refresh_session(username, password).await,
             Some(ActiveProtocol::Klap(p)) => p.refresh_session(username, password).await,
             Some(ActiveProtocol::Tpap(p)) => p.refresh_session(username, password).await,
+            #[cfg(feature = "bluetooth")]
+            Some(ActiveProtocol::Bluetooth(p)) => p.login().await,
             None => Err(anyhow::anyhow!(
                 "Cannot refresh session: protocol not yet initialized (login first)"
             )
@@ -240,6 +354,8 @@ impl TapoProtocol {
             Some(ActiveProtocol::AesSsl(p)) => p.execute_request(request).await,
             Some(ActiveProtocol::Klap(p)) => p.execute_request(request).await,
             Some(ActiveProtocol::Tpap(p)) => p.execute_request(request).await,
+            #[cfg(feature = "bluetooth")]
+            Some(ActiveProtocol::Bluetooth(p)) => p.execute_request(request).await,
             None => Err(anyhow::anyhow!(
                 "Cannot execute request: protocol not yet initialized (login first)"
             )

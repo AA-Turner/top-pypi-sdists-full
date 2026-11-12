@@ -5,6 +5,8 @@ import pytest
 from _pytest.main import ExitCode
 from flask import jsonify
 
+from test.apps.catalog.openapi import basic, users
+
 
 def test_before_call_no_kwargs_unpacking(ctx, cli):
     api = ctx.openapi.apps.success()
@@ -21,7 +23,7 @@ def before_call(context, case, kwargs):
 
 
 @pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+@pytest.mark.snapshot(replace_phase_statistic=True)
 def test_before_call_system_exit(ctx, cli, snapshot_cli, phase):
     api = ctx.openapi.apps.users_crud()
     module = ctx.write_pymodule(
@@ -34,7 +36,7 @@ def before_call(context, case, kwargs):
     assert cli.main("run", api.schema_url, f"--phases={phase}", "--max-examples=1", hooks=module) == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+@pytest.mark.snapshot(replace_phase_statistic=True)
 def test_before_call_error_in_stateful_phase(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     module = ctx.write_pymodule(
@@ -47,7 +49,6 @@ def before_call(context, case, kwargs):
     assert cli.main("run", api.schema_url, "--phases=stateful", "--max-examples=1", hooks=module) == snapshot_cli
 
 
-@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_hypothesis_deadline_from_hooks_is_reported(ctx, cli):
     api = ctx.openapi.apps.success()
     module = ctx.write_pymodule(
@@ -67,7 +68,6 @@ def before_call(context, case, kwargs):
     assert "exceeds the deadline of 50.00ms" in result.stdout
 
 
-@pytest.mark.usefixtures("restore_hypothesis_profile")
 @pytest.mark.parametrize("max_examples", [3, 100])
 def test_max_examples_option_wins_over_profile_from_hooks(ctx, cli, app_runner, max_examples):
     app, _ = ctx.openapi.make_flask_app(
@@ -104,7 +104,6 @@ hypothesis.settings.load_profile("large")
     assert f"{max_examples} generated" in result.stdout
 
 
-@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_stateful_run_with_default_profile_settings(ctx, cli):
     api = ctx.openapi.apps.stateful_users()
     module = ctx.write_pymodule(
@@ -136,7 +135,7 @@ def before_init_operation(context, operation):
 
 
 @pytest.mark.parametrize("invalid_schema", [{"pattern": "["}, {"minLength": "x"}], ids=["regex", "non-regex"])
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_traceback=True)
+@pytest.mark.snapshot(replace_traceback=True)
 def test_before_generate_case_validation_error(ctx, cli, snapshot_cli, invalid_schema):
     api = ctx.openapi.apps.success()
     module = ctx.write_pymodule(
@@ -167,8 +166,13 @@ def before_call(context, case, **kwargs):
     assert "division by zero" in result.stdout
 
 
-def test_hooks_file_path_runs_once_per_call(ctx, cli, tmp_path):
-    api = ctx.openapi.apps.success()
+@pytest.mark.parametrize(
+    ("factory", "phases", "prefix"),
+    [(basic.success, "coverage,fuzzing", "/api/"), (users.crud, "stateful", "/users")],
+    ids=["coverage-fuzzing", "stateful"],
+)
+def test_hooks_file_path_runs_once_per_call(ctx, cli, tmp_path, factory, phases, prefix):
+    api = ctx.openapi.serve(factory())
     calls = tmp_path / "calls.txt"
     hooks_file = tmp_path / "counting_hooks.py"
     hooks_file.write_text(f"""
@@ -189,17 +193,20 @@ def after_validate(context, case, response, results):
     result = cli.main(
         "run",
         api.schema_url,
-        "--phases=coverage,fuzzing",
+        f"--phases={phases}",
         "--max-examples=3",
         "--checks=not_a_server_error",
         env={"SCHEMATHESIS_HOOKS": str(hooks_file)},
     )
-    assert result.exit_code == ExitCode.OK, result.stdout
-    api_calls = [request for request in api.requests if request.path.startswith("/api/")]
-    assert Counter(calls.read_text().splitlines()) == {
+    api_calls = [request for request in api.requests if request.path.startswith(prefix)]
+    hook_calls = Counter(calls.read_text().splitlines())
+    # The stateful app has a planted server error that a short run finds only on some runs.
+    failed = hook_calls.pop("after_validate [('not_a_server_error', 'FAILURE')]", 0)
+    assert hook_calls == {
         "before_call": len(api_calls),
-        "after_validate [('not_a_server_error', 'SUCCESS')]": len(api_calls),
+        "after_validate [('not_a_server_error', 'SUCCESS')]": len(api_calls) - failed,
     }
+    assert result.exit_code == (ExitCode.TESTS_FAILED if failed else ExitCode.OK), result.stdout
 
 
 def test_env_hooks_extend_cli_when_config_sets_hooks(ctx, cli):
@@ -255,7 +262,6 @@ def test_hooks_file_path_unloadable(ctx, cli, tmp_path):
     assert "Cannot load hooks from:" in result.stdout
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_filter_case_rejects_all(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     # When the `filter_case` hook rejects all generated test cases
@@ -270,7 +276,6 @@ def filter_case(context, case):
     assert cli.main("run", api.schema_url, "--max-examples=10", hooks=module) == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_filter_failure_drops_a_failure(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.failure()
     module = ctx.write_pymodule(
@@ -375,6 +380,7 @@ def filter_failure(context, failure, case, response):
     ['apply_to(name="GET /api/success")', 'skip_for(name="GET /api/failure")'],
     ids=["apply_to", "skip_for"],
 )
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_named_hook_respects_filters(ctx, cli, snapshot_cli, filter_call):
     api = ctx.openapi.apps.success_and_failure()
     module = ctx.write_pymodule(
@@ -393,7 +399,6 @@ def reject_call(context, case, kwargs):
     ["before_load_schema(context, raw_schema)", "after_load_schema(context, schema)"],
     ids=["before_load_schema", "after_load_schema"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_load_schema_hook_error(ctx, cli, snapshot_cli, command, hook):
     api = ctx.openapi.apps.success()
     module = ctx.write_pymodule(

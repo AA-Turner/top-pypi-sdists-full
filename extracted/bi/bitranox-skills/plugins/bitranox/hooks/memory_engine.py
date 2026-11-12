@@ -39,10 +39,13 @@ from pathlib import Path
 import capture_constraints
 import self_improve_signals as sig
 import tell_chars
+import topic_placement as tp
+import topic_store
 import uuid_store as us
 
 WRITE_VERBS = frozenset({"add", "amend-pinned", "move", "relocate", "rename", "retitle", "set-scope",
-                         "heal", "ensure-memory-structure", "ensure-all-trees"})
+                         "heal", "ensure-memory-structure", "ensure-all-trees", "topics-set-list",
+                         "set-topics", "set-level-topics", "set-top-topics"})
 """CLI verbs that write the store or a pointer block; refused under BITRANOX_MEMORY_WRITES=off."""
 
 SCOPE_BEGIN = sig.SCOPE_MARK_BEGIN          # <!-- bitranox:self-learning -->
@@ -139,6 +142,20 @@ class EmptyBody(ValueError):
         super().__init__("%r is new and its body is empty; a frame-only fact ships a hook with "
                          "nothing behind it. Pass --body/--body-file with the fact plus its "
                          "**Why:** and **How to apply:** lines" % slug)
+
+
+class TopicsOnCreate(ValueError):
+    """Raised when a NEW fact's body brings a frontmatter `topics:` line. Only `set-topics` changes
+    a fact's topics: it checks each name against the tree's closed list and records the tagging,
+    while a create would store the line unchecked - a name off the list, a line that does not
+    parse, a tagging from another tree's list. An UPDATE is unaffected: there the stored line wins
+    over whatever the new frame says."""
+
+    def __init__(self, slug):
+        self.slug = slug
+        super().__init__("%r has no body file yet and the body given carries a frontmatter topics: "
+                         "line; topics change only through set-topics. Write the fact without the "
+                         "line, then run set-topics on it" % slug)
 
 
 class HookTooLong(ValueError):
@@ -403,6 +420,11 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
     # (rehome/migrate, which pass no body) is unaffected.
     if not _has_prose(body) and not us.body_path(anchor, slug).is_file():
         raise EmptyBody(slug)
+    # Same key, same moment: a create (no body file yet) whose framed body brings a `topics:` line
+    # would store a tagging set-topics never checked. Refused before the level is scaffolded, so
+    # the refusal writes nothing at all.
+    if _body_topics_line(body) is not None and not us.body_path(anchor, slug).is_file():
+        raise TopicsOnCreate(slug)
     store_dir = us.central_facts_dir(anchor).parent   # the `.claude-memory` store dir for this tree
     store_existed = store_dir.exists()
     lock_target = sig.claude_local_md_path(proj)
@@ -437,7 +459,10 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
                 # that always lands on "project".
                 kept_skill = skill or _body_skill(body) or _body_skill(e.body)
                 framed = _framed_body(slug, e.hook, type_ or _body_type(e.body), body)
-                e.body = _with_skill(_synced_frame(slug, e.hook, type_, framed), kept_skill)
+                # The stored topics line wins over whatever the new body's frame says or lacks:
+                # topics change only through set-topics (`e.body` is still the stored body here).
+                e.body = _with_stored_topics(_with_skill(_synced_frame(slug, e.hook, type_, framed),
+                                                         kept_skill), e.body)
             else:
                 if e.hook != old_hook:
                     e.body = _reframe_description(e.body, e.hook)   # keep body description in sync
@@ -698,6 +723,75 @@ def _with_title(text, title):
             break
         new_inner, n = re.subn(r"(?m)^(%s:[^\r\n]*)(?=\r?$)" % key,
                                lambda t: "%s%stitle: %s" % (t.group(1), nl, title), inner, count=1)
+    return _with_frame(head, m, new_inner) if n else text
+
+
+def _body_topics(text):
+    """The topics a framed body's frontmatter carries on its `topics:` line: None when the line is
+    absent (the fact was never tagged), an empty tuple for `topics: []` (tagged, and bound to no
+    topic), else the sorted tags. Scoped to the leading frontmatter block (see `_frontmatter`),
+    like `_body_title`. A line that does not parse as a topic list reads as None: the fact is
+    then placed by nothing, and stays where its pointer is."""
+    _head, m = _frontmatter(text)
+    if m is None:
+        return None
+    t = re.search(r"(?m)^topics:[ \t]*([^\r\n]*)", m.group(1))
+    if t is None:
+        return None
+    try:
+        return tp.parse_topics(t.group(1))
+    except tp.InvalidTopic:
+        return None
+
+
+def _body_topics_line(text):
+    """The raw `topics:` line of a framed body's frontmatter, exactly as stored (no line break), or
+    None when there is none. Unlike `_body_topics` it does not parse: a line that is no valid topic
+    list is still returned, so a writer can carry it over instead of erasing it."""
+    _head, m = _frontmatter(text)
+    if m is None:
+        return None
+    t = re.search(r"(?m)^topics:[^\r\n]*", m.group(1))
+    return t.group(0) if t else None
+
+
+def _with_topics(text, topics):
+    """Return framed `text` with its frontmatter `topics:` line set to `topics`, prose untouched;
+    `topics=None` removes the line. A frame without the key gains it after `title:` (else after
+    `description:`, else after `name:`). An unframed `text` is returned unchanged: every write
+    path frames first."""
+    line = None if topics is None else "topics: %s" % tp.format_topics(topics)
+    return _with_topics_line(text, line)
+
+
+def _with_stored_topics(text, stored):
+    """Return framed `text` carrying the `topics:` line of the `stored` body: the parsed tags in
+    their stored form, the raw line verbatim when it does not parse, and no line when `stored` has
+    none. Whatever `text`'s own frame says is replaced - topics change only through set-topics.
+    A line that does not parse is kept rather than dropped or refused: it is the author's data, and
+    refusing would wedge every ordinary write to the fact over one bad line."""
+    topics = _body_topics(stored)
+    if topics is not None:
+        return _with_topics(text, topics)
+    return _with_topics_line(text, _body_topics_line(stored))
+
+
+def _with_topics_line(text, line):
+    """`_with_topics` for a whole `topics:` line given as it should be written (None removes it)."""
+    head, m = _frontmatter(text)
+    if m is None:
+        return text
+    inner = m.group(1)
+    nl = "\r\n" if inner.endswith("\r\n") else "\n"
+    if line is None:
+        new_inner = re.sub(r"(?m)^topics:[^\r\n]*\r?\n", "", inner, count=1)
+        return _with_frame(head, m, new_inner)
+    new_inner, n = re.subn(r"(?m)^topics:[^\r\n]*", lambda _t: line, inner, count=1)
+    for key in ("title", "description", "name"):
+        if n:
+            break
+        new_inner, n = re.subn(r"(?m)^(%s:[^\r\n]*)(?=\r?$)" % key,
+                               lambda t: "%s%s%s" % (t.group(1), nl, line), inner, count=1)
     return _with_frame(head, m, new_inner) if n else text
 
 
@@ -1121,7 +1215,11 @@ def ensure_level(proj, scope_default="", _locked=False):
     that pollutes recall (bitten twice on 2026-07-05).
 
     Refuses first under BITRANOX_MEMORY_WRITES=off, before the lock: it writes both level files
-    with no entry, so `upsert_entry`'s guard does not cover a direct caller."""
+    with no entry, so `upsert_entry`'s guard does not cover a direct caller.
+
+    A descriptor it writes new (harvested or `scope_default`) passes `scope_keeping_topics` against
+    the level's current one first: TopicRefusal or InvalidTopic, before either file is written, for
+    a `scope_default` carrying a `TOPICS:` line and for a legacy block whose line does not parse."""
     sig.refuse_if_memory_writes_off()
     proj = os.path.abspath(str(proj))
     if _is_excluded_level(proj):
@@ -1132,12 +1230,19 @@ def ensure_level(proj, scope_default="", _locked=False):
         # files, and text it could not decode is text it would write back wrong.
         md = read_store_text(md_path)
         legacy_scope = sig.read_scope_block(md)             # a scope block left in CLAUDE.md (migration)
-        if legacy_scope is not None:
-            _write_if_changed(md_path, _strip_scope_block(md))
         local = sig.claude_local_md_path(proj)
         text = read_store_text(local)
         scope, pointers = us.parse_pointer_index(text)
         want_scope = scope or (legacy_scope or scope_default or "").strip()
+        if not scope and want_scope:
+            # A new descriptor passes the one TOPICS gate before either file is written: checked
+            # against what the level holds now - its legacy block, else nothing - so a scope_default
+            # cannot bring a TOPICS line, nor a harvest move one that does not parse.
+            want_scope = scope_keeping_topics(
+                (legacy_scope or "").strip(), want_scope,
+                stored_in=md_path if legacy_scope is not None else None)
+        if legacy_scope is not None:
+            _write_if_changed(md_path, _strip_scope_block(md))
         if us.INDEX_BEGIN not in text or want_scope != scope:
             us.write_if_changed(local, us.upsert_pointer_block(text, want_scope, pointers))
         if not sig.load_config().get("track_private"):     # keep local wiring + central store unpushed
@@ -1238,21 +1343,31 @@ def _heal_level(proj, report):
             report["healed"].append(str(local))
 
 
+_REFUSED_LEVEL_LINE = "    ! refused level, left untouched: %s [%s]"
+"""How heal, ensure-memory-structure and ensure-all-trees print a level they left because its
+legacy CLAUDE.md scope block has a TOPICS line that does not parse: the refusal text, then the
+level. The text itself names the file and the fix, so the line adds no remedy of its own."""
+
+
 def heal(proj):
     """Self-heal the WHOLE altitude chain for `proj`: (re)create any missing `CLAUDE.md`,
     `CLAUDE.local.md`, or managed pointer block, NORMALIZE a malformed SCOPE/pointer block to canonical.
     A pointer whose central body is missing is REPORTED (never fabricated). Idempotent, mtime-neutral,
     A pointer whose slug is not a plain filename is dropped by that normalisation and REPORTED.
     A level whose files cannot be read or are not UTF-8 is left untouched and REPORTED under
-    'unreadable' - skipping it without a word read exactly like a healthy level.
+    'unreadable' - skipping it without a word read exactly like a healthy level. A level whose
+    legacy CLAUDE.md scope block has a TOPICS line that does not parse is left untouched and
+    REPORTED under 'refused' with the refusal, which names the file to fix by hand.
     FAIL-OPEN (never raises). Returns {'healed': [paths], 'orphans': [(level, slug)],
-    'invalid_pointers': [(level, line)], 'unreadable': [(level, reason)], 'levels': n}.
+    'invalid_pointers': [(level, line)], 'unreadable': [(level, reason)],
+    'refused': [(level, reason)], 'levels': n}.
     Under BITRANOX_MEMORY_WRITES=off it touches nothing and returns every key empty plus
     'skipped': the refusal line (SessionStart calls it on every start, so it must not raise)."""
     if sig.memory_writes_off():
-        return {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "levels": 0,
-                "skipped": sig.MEMORY_WRITES_OFF_LINE}
-    report = {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "levels": 0}
+        return {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "refused": [],
+                "levels": 0, "skipped": sig.MEMORY_WRITES_OFF_LINE}
+    report = {"healed": [], "orphans": [], "invalid_pointers": [], "unreadable": [], "refused": [],
+              "levels": 0}
     try:
         levels = sig.altitude_chain(proj)            # level dirs, narrowest -> the tree's anchor
     except Exception:                                # noqa: BLE001 - self-heal must never raise
@@ -1264,6 +1379,8 @@ def heal(proj):
             _heal_one_level(level, report)
         except TreeWalkError as exc:
             report["unreadable"].append((level, str(exc)))
+        except (TopicRefusal, tp.InvalidTopic) as exc:
+            report["refused"].append((level, str(exc)))
         except Exception:                            # noqa: BLE001 - one bad level never blocks the rest
             continue
     return report
@@ -1334,9 +1451,12 @@ def _heal_one_level(level, report):
             report["orphans"].append((level, ptr.slug))
 
 
-def scaffold(proj):
+def scaffold(proj, refused=None):
     """Create every MISSING CLAUDE.md (marker) + CLAUDE.local.md (pointer block) from `proj` up to the
     anchor, and the anchor's `.claude-memory/` body-store. Idempotent; returns the created paths.
+    A level whose legacy CLAUDE.md scope block has a TOPICS line that does not parse is left as it
+    is and the rest of the chain is still scaffolded; when `refused` is a list, each such level is
+    appended to it as (level, refusal text), the refusal naming the file to fix by hand.
     Refuses first under BITRANOX_MEMORY_WRITES=off: it writes the CLAUDE.md marker
     (`_ensure_claude_md`) before `ensure_level`'s own guard is reached."""
     sig.refuse_if_memory_writes_off()
@@ -1355,8 +1475,13 @@ def scaffold(proj):
             ensure_level(level)
             if not local_before and sig.claude_local_md_path(level).exists():
                 created.append(str(sig.claude_local_md_path(level)))
+        except (TopicRefusal, tp.InvalidTopic) as exc:
+            # a legacy block ensure_level refuses to harvest stays where it is; the next level
+            # is still scaffolded, and the caller learns which level was left and why
+            if refused is not None:
+                refused.append((level, str(exc)))
         except OSError:
-            continue
+            continue                                   # an unwritable level; the next is still scaffolded
     try:
         facts_dir = us.central_facts_dir(_anchor(proj))
         store_existed = facts_dir.parent.exists()     # the `.claude-memory` store dir
@@ -1369,6 +1494,17 @@ def scaffold(proj):
 
 
 # ---- tree-wide sweeps (curated-level walk shared by the engine + reconcile) ----------------------
+
+def _without_topics_line(data):
+    """(bytes, dropped): a body's bytes with its frontmatter `topics:` line removed, and whether
+    there was one. Only the leading frontmatter is read, so a `topics:` line in the prose stays.
+    Decoded with surrogateescape, so bytes that are not UTF-8 and CRLF line ends come back as
+    they were."""
+    text = data.decode("utf-8", "surrogateescape")
+    if _body_topics_line(text) is None:
+        return data, False
+    return _with_topics_line(text, None).encode("utf-8", "surrogateescape"), True
+
 
 def relocate_entry(from_level, to_level, slug, force=False):
     """Relocate a fact to another level, INCLUDING across knowledge trees.
@@ -1389,11 +1525,13 @@ def relocate_entry(from_level, to_level, slug, force=False):
     It also refuses when any level of the target tree OTHER than the target level already points at
     the slug: that level owns it, whatever its body. The archived source body never replaces an
     earlier archived body of the same slug.
-    Returns {"slug","from","to","cross_tree","relocated","refused","warnings"}.
+    A cross-tree copy drops the body's frontmatter `topics:` line (topics are tagged against one
+    tree's closed list) and says so in `notes`; a same-tree move leaves the body untouched.
+    Returns {"slug","from","to","cross_tree","relocated","refused","warnings","notes"}.
     """
     sig.refuse_if_memory_writes_off()
     rep = {"slug": slug, "from": str(from_level), "to": str(to_level),
-           "cross_tree": False, "relocated": False, "refused": None, "warnings": []}
+           "cross_tree": False, "relocated": False, "refused": None, "warnings": [], "notes": []}
     src, dst = Path(from_level).resolve(), Path(to_level).resolve()
     a_from, a_to = us.resolve_anchor(str(src)), us.resolve_anchor(str(dst))
     if a_from is None or a_to is None:
@@ -1441,11 +1579,20 @@ def relocate_entry(from_level, to_level, slug, force=False):
     # sees only the target level. A different body there is a different fact; an identical one is
     # the residue of an interrupted relocate, which re-running completes.
     src_body, dst_body = us.body_path(a_from, slug), us.body_path(a_to, slug)
+    try:
+        src_data = src_body.read_bytes() if src_body.is_file() else b""
+    except OSError as exc:
+        rep["refused"] = "could not read the body %s: %s" % (src_body, exc)
+        return rep
+    # Topics are tagged against ONE tree's closed list, so the copy leaves them behind.
+    data, dropped_topics = _without_topics_line(src_data)
     if dst_body.is_file():
         # BYTES, not text: whether two files are one fact needs no decoding, and a text compare
-        # crashed on a target body that was not UTF-8 instead of refusing to land on it.
+        # crashed on a target body that was not UTF-8 instead of refusing to land on it. Either
+        # copy is the residue of an interrupted relocate: with its topics line dropped, or one
+        # made before relocate dropped it.
         try:
-            same = dst_body.read_bytes() == (src_body.read_bytes() if src_body.is_file() else b"")
+            same = dst_body.read_bytes() in (data, src_data)
         except OSError as exc:
             rep["refused"] = "could not compare with the target tree's body %s: %s" % (dst_body, exc)
             return rep
@@ -1467,11 +1614,10 @@ def relocate_entry(from_level, to_level, slug, force=False):
         rep["warnings"].append("relocated despite dangling inbound [[refs]]: %s" % what)
 
     # COPY-THEN-DROP (same crash-safety direction as move_entry): a crash between the two leaves a
-    # visible duplicate, never a lost fact. The body file is copied VERBATIM - it is already framed,
-    # and re-writing it through add_or_update_entry would double-wrap the frontmatter. As BYTES: a
-    # text round-trip rewrote a CRLF body's line endings on the way across.
+    # visible duplicate, never a lost fact. The body file is copied VERBATIM but for its topics
+    # line - it is already framed, and re-writing it through add_or_update_entry would double-wrap
+    # the frontmatter. As BYTES: a text round-trip rewrote a CRLF body's line endings on the way.
     try:
-        data = src_body.read_bytes() if src_body.is_file() else b""
         dst_body.parent.mkdir(parents=True, exist_ok=True)
         dst_body.write_bytes(data)
     except OSError as exc:
@@ -1480,6 +1626,9 @@ def relocate_entry(from_level, to_level, slug, force=False):
     us.add_pointer(str(dst), slug=slug, title=entry.title, hook=entry.hook,
                    pin=entry.pin)
     _drop_pointer(str(src), slug)
+    if dropped_topics:
+        rep["notes"].append("dropped the topics: line of %s - topics are tagged against one tree's "
+                            "list; tag it in the target tree with set-topics" % slug)
 
     # Archive the source body only once nothing in the source tree points at the slug any more.
     if not _other_levels_pointing_in(a_from, slug):
@@ -1890,6 +2039,343 @@ def lint_tree(anchor):
             "invalid_pointers": invalid}
 
 
+# ---- topics: which facts and levels a rule is about ------------------------------------------
+
+FRONTMATTER_HEAD_BYTES = 16384
+"""How much of a body a topic scan reads: the frontmatter sits at the head, and a scan over every
+body of a tree must not read every body whole."""
+MAX_TOPIC_BATCH = 5000
+"""Most rows one `set-topics --batch` takes: the batch is held as one dict while it is applied."""
+MAX_TOPIC_BATCH_LINE_BYTES = 4096
+"""Longest line a `set-topics --batch` file may hold, its line break counted. A row is one slug and
+at most tp.MAX_TOPICS tags of 32 characters, far under this; the reader holds one line at a time."""
+_REFUSALS_SHOWN = 20
+
+
+# A topic write declined as a whole (`uuid_store.TopicRefusal`). Defined by the store, whose
+# add_pointer refuses a TOPICS line as well: uuid_store cannot import this module (the import runs
+# the other way), so the shared type lives there, as InvalidSlug's does.
+TopicRefusal = us.TopicRefusal
+
+
+ADD_REFUSALS = (SlugCollision, HookTooLong, EmptyBody, TopicsOnCreate, PinnedEntry, InvalidSlug,
+                InvalidSkill, TopicRefusal, tp.InvalidTopic)
+"""What a fact write through `add_with_advice` raises when it declines the whole write (nothing
+written): the CLI `add` and the mod bridge both report these as a refusal. TopicRefusal and
+InvalidTopic come from the level's descriptor (an add --scope with a TOPICS line, a legacy block
+whose line does not parse)."""
+
+
+def read_body_topics(path):
+    """`_body_topics` of the body at `path`, reading only its first FRONTMATTER_HEAD_BYTES.
+    None too when the file is missing. Raises TreeWalkError when it exists and cannot be read."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(FRONTMATTER_HEAD_BYTES)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    except OSError as exc:
+        raise TreeWalkError(path, "unreadable: %s" % exc) from exc
+    return _body_topics(head.decode("utf-8", errors="replace"))
+
+
+def iter_fact_topics(anchor):
+    """Yield (slug, topics) for every body of the tree that carries a `topics:` line, one body at a
+    time: nothing is held but the body's head being read."""
+    facts = us.central_facts_dir(anchor)
+    try:
+        scan = os.scandir(facts)
+    except (FileNotFoundError, NotADirectoryError):
+        return
+    except OSError as exc:
+        raise TreeWalkError(facts, "cannot list this directory: %s" % exc) from exc
+    with scan:
+        for item in scan:
+            if not item.name.endswith(".md") or not us.is_valid_slug(item.name[:-3]):
+                continue
+            topics = read_body_topics(item.path)
+            if topics is not None:
+                yield item.name[:-3], topics
+
+
+def _topic_list(anchor):
+    """The tree's topic list as {name: meaning}. Raises TopicRefusal when the tree has none."""
+    data = topic_store.load(anchor)
+    if data is None:
+        raise TopicRefusal(["this tree has no topic list yet (topics-set-list writes one)"])
+    return data["topics"]
+
+
+def _outside_list(topics, allowed):
+    return [t for t in topics if t not in allowed]
+
+
+def set_topic_list(proj, topics, tagger):
+    """Replace the tree's closed topic list. Raises TopicRefusal, before writing, for an empty
+    list (every set-topics would then be refused) and when a topic the new list drops is still
+    carried by a fact or declared by a level, naming the first users. A level whose `TOPICS:` line
+    or a fact whose `topics:` line does not parse declares nothing it could lose, and does not
+    block the list."""
+    sig.refuse_if_memory_writes_off()
+    if not topics:
+        raise TopicRefusal(["an empty topic list: a tree's list names at least one topic"])
+    anchor = _anchor(proj)
+    old = topic_store.load(anchor)
+    # By the name the list will store (trimmed), one name at a time: the list is capped by
+    # topic_store.MAX_LIST, not by the per-fact tp.MAX_TOPICS a whole-list normalise applies.
+    names = {tp.normalise_topics([name])[0] for name in topics}
+    dropped = set(old["topics"]) - names if old else set()
+    users, total = [], 0
+    if dropped:
+        for slug, carried in iter_fact_topics(anchor):
+            if dropped & set(carried):
+                total += 1
+                if len(users) < _REFUSALS_SHOWN:
+                    users.append("fact %s carries %s" % (slug, ", ".join(sorted(dropped & set(carried)))))
+        for level in curated_levels_under(anchor):
+            scope = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[0]
+            try:
+                declared = set(tp.descriptor_topics(scope) or ())
+            except tp.InvalidTopic:
+                continue
+            if dropped & declared:
+                total += 1
+                if len(users) < _REFUSALS_SHOWN:
+                    users.append("level %s declares %s" % (level, ", ".join(sorted(dropped & declared))))
+    if total:
+        raise TopicRefusal(users, total)
+    return topic_store.save_list(anchor, topics, tagger)
+
+
+def _pointer_owners(anchor, wanted):
+    """{slug: (first level pointing at it, pinned anywhere)} for the slugs in `wanted`, from one
+    walk over the tree's levels. Holds one entry per wanted slug."""
+    owners = {}
+    for level in curated_levels_under(anchor):
+        for ptr in us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[1]:
+            if ptr.slug in wanted:
+                first, pinned = owners.get(ptr.slug, (level, False))
+                owners[ptr.slug] = (first, pinned or ptr.pin)
+    return owners
+
+
+def _topic_row_problem(slug, topics, anchor, allowed, owners):
+    """Why this row cannot be applied, or None."""
+    if not us.is_valid_slug(slug):
+        return "%r is not a valid slug" % (slug,)
+    if slug not in owners:
+        return "%s: no level points at it" % slug
+    if owners[slug][1] and topics is not None:
+        # Clearing (None) only removes an inert line, so a pinned fact may lose it; tagging one
+        # would change where an always-loaded rule is read.
+        return "%s is pinned; a pinned fact stays where it is (only --clear may change it)" % slug
+    if topics and _outside_list(topics, allowed):
+        return "%s: %s not in the topic list" % (slug, ", ".join(_outside_list(topics, allowed)))
+    body = read_store_text(us.body_path(anchor, slug))
+    if _frontmatter(body)[1] is None:
+        return "%s: its body has no frontmatter to carry topics" % slug
+    return None
+
+
+def set_fact_topics(proj, rows, dry_run=False):
+    """Set the `topics:` line of each fact in `rows`, a {slug: topics} mapping where topics is a
+    tuple of tags, an empty tuple (bound to no topic) or None (remove the line).
+
+    Every row is checked before any is written: an invalid slug, a slug no level points at, a
+    pinned fact being tagged (clearing one, None, is allowed), a tag outside the tree's list or a body without frontmatter refuses the WHOLE call with TopicRefusal
+    (the first refusals and their total). Each body is then read and written under the lock of
+    the first level that points at it, the lock an ordinary write to that fact holds. Pointer
+    lines are not touched: `render-topics` places them. Returns {'set': [slugs], 'unchanged': n}.
+    Holds `rows` and one owner entry per row; a batch over MAX_TOPIC_BATCH rows is refused."""
+    if not dry_run:
+        sig.refuse_if_memory_writes_off()
+    if len(rows) > MAX_TOPIC_BATCH:
+        raise TopicRefusal(["%d rows, over the limit of %d per call" % (len(rows), MAX_TOPIC_BATCH)])
+    anchor = _anchor(proj)
+    allowed = _topic_list(anchor)
+    owners = _pointer_owners(anchor, set(rows))
+    problems, total = [], 0
+    for slug in sorted(rows):
+        why = _topic_row_problem(slug, rows[slug], anchor, allowed, owners)
+        if why:
+            total += 1
+            if len(problems) < _REFUSALS_SHOWN:
+                problems.append(why)
+    if total:
+        raise TopicRefusal(problems, total)
+    rep = {"set": [], "unchanged": 0}
+    for slug in sorted(rows):
+        with sig.memory_lock(sig.claude_local_md_path(owners[slug][0])):
+            body = read_store_text(us.body_path(anchor, slug)).rstrip("\n")
+            tagged = _with_topics(body, rows[slug])
+            if tagged == body:
+                rep["unchanged"] += 1
+                continue
+            if not dry_run:
+                us.put_body(str(anchor), slug, tagged)
+            rep["set"].append(slug)
+    return rep
+
+
+def set_level_topics(level, topics, top=False):
+    """Set the `TOPICS:` line of `level`'s descriptor and record the descriptor it was chosen from.
+
+    `top` says which verb is asking. The tree top's topics decide what every session of the tree
+    loads, so they change only through `set-top-topics`, a verb of its own that a nap or dream is
+    told never to run; `set-level-topics` refuses the top, and `set-top-topics` refuses any other
+    level. Raises TopicRefusal before writing for that, for a tag outside the list, and for a
+    level with no descriptor to tag. Returns True if the descriptor changed.
+
+    The level is named LEXICALLY, as `resolve_anchor` names its anchor: a level reached through a
+    symlink is the level its path names, keyed and judged top-or-not by that path. The topic file
+    is checked (list present, level keyable) before the descriptor is written, and recorded right
+    after it under both locks, so a refusal there writes neither; TopicStoreError is raised for it."""
+    sig.refuse_if_memory_writes_off()
+    level = os.path.abspath(str(level))
+    anchor = _anchor(level)
+    is_top = os.path.normcase(level) == os.path.normcase(os.path.abspath(str(anchor)))
+    topic_store.level_key(anchor, level)              # a level it cannot key refuses before any write
+    if is_top and not top:
+        raise TopicRefusal(["%s is the tree top: its topics are the user's decision "
+                            "(set-top-topics, on the user's word)" % level])
+    if top and not is_top:
+        raise TopicRefusal(["%s is not the tree top (%s); use set-level-topics" % (level, anchor)])
+    topics = tp.normalise_topics(topics)
+    bad = _outside_list(topics, _topic_list(anchor))
+    if bad:
+        raise TopicRefusal(["%s not in the topic list" % ", ".join(bad)])
+    local = sig.claude_local_md_path(level)
+    with sig.memory_lock(local):
+        text = read_store_text(local)
+        scope, pointers = us.parse_pointer_index(text)
+        if not scope.strip():
+            raise TopicRefusal(["%s has no descriptor yet (set-scope writes one)" % level])
+        tagged = tp.with_descriptor_topics(scope, topics)
+        written = []
+        topic_store.record_level(
+            anchor, level, tp.descriptor_digest(tagged),
+            before=lambda: written.append(
+                us.write_if_changed(local, us.upsert_pointer_block(text, tagged, pointers))))
+    return written[0]
+
+
+def level_topics_stale(level):
+    """(stale, why) for one level: stale when its descriptor has no `TOPICS:` line, or says
+    something other than the text its topics were chosen from. (False, "") when fresh, and when
+    the tree has no topic list (nothing is tagged there at all)."""
+    level = os.path.abspath(str(level))
+    anchor = _anchor(level)
+    data = topic_store.load(anchor)
+    if data is None:
+        return False, ""
+    scope = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(level)))[0]
+    if not scope.strip():
+        return True, "no descriptor"
+    try:
+        declared = tp.descriptor_topics(scope)
+    except tp.InvalidTopic:
+        return True, "its TOPICS line does not parse (set-level-topics replaces it)"
+    if declared is None:
+        return True, "never tagged"
+    if data["levels"].get(topic_store.level_key(anchor, level)) != tp.descriptor_digest(scope):
+        return True, "descriptor changed since its topics were chosen"
+    return False, ""
+
+
+def scope_keeping_topics(old_scope, new_scope, stored_in=None):
+    """`new_scope` for a descriptor write, with the stored `TOPICS:` line carried over when the
+    new text has none. The one gate every descriptor writer passes: set-scope, add's --scope (an
+    ensure_level `scope_default`) and ensure_level's harvest of a legacy CLAUDE.md block.
+
+    Raises TopicRefusal when the new text carries a DIFFERENT `TOPICS:` line:
+    topics change only through set-level-topics / set-top-topics, so a rewritten descriptor can
+    neither drop nor change them by accident; a never-tagged level gains no line this way either,
+    not even an empty one. Raises TopicRefusal too when the stored line does not parse (carried
+    over or dropped, the result would be a guess; set-level-topics replaces it), and InvalidTopic
+    when the new text's line does not parse. `stored_in` names the CLAUDE.md whose legacy block
+    holds `old_scope`: no verb rewrites that block, so the refusal names the file to fix by hand."""
+    try:
+        old = tp.descriptor_topics(old_scope)
+    except tp.InvalidTopic as exc:
+        if stored_in is not None:
+            raise TopicRefusal(["the legacy scope block in %s has a TOPICS line that does not parse "
+                                "(%s); fix or remove that line there by hand, then run this again"
+                                % (stored_in, exc)]) from exc
+        raise TopicRefusal(["the stored TOPICS line does not parse (%s); replace it with "
+                            "set-level-topics (set-top-topics at the tree top) first" % exc]) from exc
+    new = tp.descriptor_topics(new_scope)
+    if new is not None and new != old:
+        raise TopicRefusal(["a descriptor's TOPICS line changes only through set-level-topics "
+                            "(set-top-topics at the tree top); leave the line out of the new text"])
+    if old is None or new is not None:
+        return new_scope
+    return tp.with_descriptor_topics(new_scope, old)
+
+
+def _current_scope(proj):
+    """(descriptor, stored_in): `proj`'s descriptor as a descriptor writer must judge it - its
+    pointer block's, else the legacy CLAUDE.md block ensure_level would harvest (read here, never
+    moved) together with that CLAUDE.md's path, else ("", None) for a level that has none."""
+    scope = us.parse_pointer_index(read_store_text(sig.claude_local_md_path(proj)))[0]
+    if scope:
+        return scope, None
+    md = sig.claude_md_path(proj)
+    legacy = sig.read_scope_block(read_store_text(md))
+    return ("", None) if legacy is None else (legacy.strip(), md)
+
+
+def _read_topic_batch(path):
+    """({slug: topics}, error_message) from a JSONL batch file: one `{"slug": ..., "topics": [...]}`
+    object per line, `[]` for bound to no topic, `null` to remove the line.
+
+    Read one line at a time and never past the first problem, so what it holds is the rows taken
+    so far (at most MAX_TOPIC_BATCH) and one line of at most MAX_TOPIC_BATCH_LINE_BYTES, whatever
+    the file's size. Each of these is an error naming the line: a line over that byte cap (its
+    line break counted), a row past MAX_TOPIC_BATCH, a slug a row before already named, bytes
+    that are not UTF-8 (a leading BOM is dropped), and a line that is no such object."""
+    try:
+        fh = open(path, "rb")
+    except OSError as exc:
+        return None, "! error: cannot read %s (%s)" % (path, exc.strerror or exc)
+    rows, first_on = {}, {}
+    with fh:
+        n = 0
+        while True:
+            n += 1
+            try:
+                raw_line = fh.readline(MAX_TOPIC_BATCH_LINE_BYTES + 1)
+            except OSError as exc:
+                return None, "! error: cannot read %s (%s)" % (path, exc.strerror or exc)
+            if not raw_line:
+                return rows, None
+            if len(raw_line) > MAX_TOPIC_BATCH_LINE_BYTES:
+                return None, "! error: %s line %d is longer than %d bytes" % (
+                    path, n, MAX_TOPIC_BATCH_LINE_BYTES)
+            if n == 1 and raw_line.startswith(b"\xef\xbb\xbf"):
+                raw_line = raw_line[3:]
+            try:
+                line = raw_line.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                return None, "! error: %s line %d is not UTF-8 (byte at offset %d) - re-save it " \
+                             "as UTF-8" % (path, n, exc.start)
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+                slug, raw = obj["slug"], obj["topics"]
+                if not isinstance(slug, str) or not (raw is None or isinstance(raw, list)):
+                    raise TypeError("'slug' must be a string and 'topics' a list or null")
+                topics = None if raw is None else tp.normalise_topics(raw)
+            except (ValueError, KeyError, TypeError, RecursionError) as exc:
+                return None, "! error: %s line %d: %s" % (path, n, exc)
+            if slug in rows:
+                return None, "! error: %s line %d: slug %r is named twice (first on line %d)" % (
+                    path, n, slug, first_on[slug])
+            if len(rows) >= MAX_TOPIC_BATCH:
+                return None, "! error: %s holds more than %d rows" % (path, MAX_TOPIC_BATCH)
+            rows[slug], first_on[slug] = topics, n
+
+
 # ---- multi-tree: whole-machine discovery + scaffolding -------------------------------------------
 
 def tree_top(proj):
@@ -1921,7 +2407,7 @@ def ensure_all_trees(roots=None, apply=False):
     for top, members in sorted(groups.items(), key=lambda kv: str(kv[0])):
         store = Path(top) / sig.MEMORY_DIRNAME
         entry = {"top": str(top), "store_exists": store.is_dir(),
-                 "members": [str(m) for m in members], "status": "ok", "created": []}
+                 "members": [str(m) for m in members], "status": "ok", "created": [], "refused": []}
         if not store.is_dir():
             beneath = [str(o) for o in tops if o != top and top in o.parents]
             if beneath:
@@ -1930,7 +2416,7 @@ def ensure_all_trees(roots=None, apply=False):
                                 "scaffolding would merge them" % (len(beneath), ", ".join(sorted(beneath))))
         if entry["status"] == "ok" and apply:
             for m in members:
-                entry["created"] += [str(c) for c in scaffold(str(m))]
+                entry["created"] += [str(c) for c in scaffold(str(m), refused=entry["refused"])]
         report["trees"].append(entry)
     return report
 
@@ -1993,6 +2479,90 @@ def _user_decided_escalation(body):
     return bool(_USER_ESCALATION_RX.search(body or ""))
 
 
+def _topic_read(args):
+    """The two topic check verbs: `topics-show` (exit 1: no list) and `topics-stale` (exit 1: the
+    level is stale). A topic file that cannot be used is raised to the caller as TopicStoreError."""
+    if args.cmd == "topics-stale":
+        stale, why = level_topics_stale(args.proj)
+        print("stale: %s" % why if stale else "fresh")
+        return 1 if stale else 0
+    data = topic_store.load(_anchor(args.proj))
+    if data is None:
+        print("no topic list in this tree")
+        return 1
+    if args.as_json:
+        print(json.dumps({"tagger": data["tagger"], "topics": data["topics"]}, sort_keys=True))
+        return 0
+    print("tagger: %s" % data["tagger"])
+    for name in sorted(data["topics"]):
+        print("%s - %s" % (name, data["topics"][name]))
+    return 0
+
+
+TOPIC_WRITE_VERBS = frozenset({"topics-set-list", "set-topics", "set-level-topics", "set-top-topics"})
+
+
+def _is_topic_dry_run(raw):
+    """True when argv `raw` is a topic verb's `--dry-run`: it writes nothing, so it runs while
+    memory writes are off. Only `set-topics` has the flag (argparse refuses it on the others), and
+    `set_fact_topics` refuses a real write under the switch whatever this says."""
+    return raw[0] in TOPIC_WRITE_VERBS and "--dry-run" in raw[1:]
+
+
+def _topics_arg(value):
+    """(topics, error_message) for a `--topics` value: a value that is no topic list is a usage
+    error (exit 2, `! error` on stderr) like any other bad argument, not the engine declining."""
+    try:
+        return tp.parse_topics(value), None
+    except tp.InvalidTopic as exc:
+        return None, "! error: --topics %r: %s" % (value, exc)
+
+
+def _topic_write(args):
+    """The four topic write verbs; refusals are raised and mapped by the caller."""
+    if args.cmd == "topics-set-list":
+        text, err = _read_input_file(args.from_file)
+        if err:
+            return _input_error(err)
+        try:
+            spec = json.loads(text)
+            topics, tagger = spec["topics"], spec["tagger"]
+            if not isinstance(topics, dict):
+                raise TypeError("'topics' must be an object of tag: meaning")
+        except (ValueError, KeyError, TypeError) as exc:
+            return _input_error("! error: %s: %s" % (args.from_file, exc))
+        changed = set_topic_list(args.proj, topics, tagger)
+        print("topic list %s: %d topic(s), tagger %s"
+              % ("updated" if changed else "unchanged", len(topics), tagger))
+        return 0
+    if args.cmd == "set-topics":
+        if args.batch:
+            rows, err = _read_topic_batch(args.batch)
+            if err:
+                return _input_error(err)
+        else:
+            given = [args.topics is not None, args.universal, args.clear]
+            if not args.slug or sum(given) != 1:
+                return _input_error("! error: pass --batch, or --slug with exactly one of "
+                                    "--topics, --universal, --clear")
+            topics = None
+            if not args.clear:
+                topics, err = _topics_arg("" if args.universal else args.topics)
+                if err:
+                    return _input_error(err)
+            rows = {args.slug: topics}
+        rep = set_fact_topics(args.proj, rows, dry_run=args.dry_run)
+        print("%s topics on %d fact(s); %d unchanged"
+              % ("would set" if args.dry_run else "set", len(rep["set"]), rep["unchanged"]))
+        return 0
+    topics, err = _topics_arg(args.topics)
+    if err:
+        return _input_error(err)
+    changed = set_level_topics(args.proj, topics, top=args.cmd == "set-top-topics")
+    print("topics %s: %s" % ("updated" if changed else "unchanged", args.proj))
+    return 0
+
+
 # ---- CLI: the capture procedure invokes this (never hand-writes memory files) ------------------
 
 def main(argv=None):
@@ -2000,13 +2570,15 @@ def main(argv=None):
 
     0  done (a write verb wrote, or found nothing to change; a report verb ran);
     1  `lint --tree` found something (over-cap hook, trigger-less hook, unlabelled body, invalid
-       pointer) - the one verb that is a check, so its findings are a "no";
+       pointer), `topics-show` found no list, or `topics-stale` found the level stale - the
+       verbs that are a check, so their findings are a "no";
     2  could not run: a usage error, an input file it could not read or decode, a store it could
        not read, a level lock held past its timeout, a failed write, `heal` leaving a level it
        could not read, or a refusal - `! refused: <why>` on stdout - where the engine declined
        the whole action (slug collision, hook over the hard cap, empty body on a new fact, pinned
        target, unknown or invalid slug, excluded altitude, a refused move/relocate/rename/retitle,
-       any WRITE_VERBS verb under BITRANOX_MEMORY_WRITES=off). Nothing is written on a refusal.
+       any WRITE_VERBS verb under BITRANOX_MEMORY_WRITES=off, a refused topic write). Nothing
+       is written on a refusal.
 
     TreeWalkError and OSError (TimeoutError from the lock is one) are mapped HERE, once, rather
     than at each verb: they can surface from any read or write of the store, and a verb that
@@ -2017,7 +2589,9 @@ def main(argv=None):
     except TreeWalkError as exc:
         print("! error: cannot read the memory store - %s" % exc, file=sys.stderr)
         return 2
-    except ExcludedLevel as exc:
+    except (ExcludedLevel, TopicRefusal) as exc:
+        # TopicRefusal: ensure_level's descriptor gate, reachable from any verb that scaffolds a
+        # level; it raises before writing, so it is a refusal wherever it surfaces
         return _refused(exc)
     except OSError as exc:
         # TimeoutError (lock contention) is an OSError subclass whose strerror is None
@@ -2142,8 +2716,31 @@ def _main(argv=None):
     rt.add_argument("--slug", required=True, help="the fact to retitle")
     rt.add_argument("--to-title", required=True, dest="to_title",
                     help="the new title (whitespace collapsed to one line)")
+    tl = sub.add_parser("topics-show", help="print the tree's closed topic list (exit 1: none yet)")
+    tl.add_argument("--proj", required=True)
+    tl.add_argument("--json", action="store_true", dest="as_json")
+    ts = sub.add_parser("topics-set-list", help="replace the tree's closed topic list")
+    ts.add_argument("--proj", required=True)
+    ts.add_argument("--from-file", required=True, dest="from_file",
+                    help='a JSON file: {"tagger": "jev" or "opus", "topics": {"<tag>": "<one-line meaning>"}}')
+    st = sub.add_parser("set-topics", help="set the topics a fact is bound to (its body's topics: line)")
+    st.add_argument("--proj", required=True, help="any dir of the tree")
+    st.add_argument("--slug", default=None)
+    st.add_argument("--topics", default=None, help="comma-separated tags from the tree's list")
+    st.add_argument("--universal", action="store_true", help="bound to no topic (topics: [])")
+    st.add_argument("--clear", action="store_true", help="remove the topics: line (never tagged)")
+    st.add_argument("--batch", default=None,
+                    help='a JSONL file, one {"slug": ..., "topics": [...]} per line ([] universal, null clear)')
+    st.add_argument("--dry-run", action="store_true", dest="dry_run")
+    for verb, text in (("set-level-topics", "set a level's TOPICS: line (refused at the tree top)"),
+                       ("set-top-topics", "set the tree top's TOPICS: line - the user's decision only")):
+        lt = sub.add_parser(verb, help=text)
+        lt.add_argument("--proj", required=True, help="the level dir")
+        lt.add_argument("--topics", required=True, help="comma-separated tags; '' for none")
+    sl = sub.add_parser("topics-stale", help="exit 1 when a level's topics need choosing again")
+    sl.add_argument("--proj", required=True, help="the level dir")
     raw = sys.argv[1:] if argv is None else argv
-    if raw and raw[0] in WRITE_VERBS and sig.memory_writes_off():
+    if raw and raw[0] in WRITE_VERBS and sig.memory_writes_off() and not _is_topic_dry_run(raw):
         return _refused(sig.MEMORY_WRITES_OFF_LINE)
     args = ap.parse_args(raw)
     if getattr(args, "proj", None):
@@ -2160,6 +2757,20 @@ def _main(argv=None):
             print("store: %s%s" % (info["store"], "  (bootstrap: not created yet)" if info["bootstrap"] else ""))
         return 0
 
+    if args.cmd in ("topics-show", "topics-stale"):
+        try:
+            return _topic_read(args)
+        except topic_store.TopicStoreError as exc:
+            # a damaged topic file: the check could not run, which is not its "no"
+            print("! error: %s" % exc, file=sys.stderr)
+            return 2
+
+    if args.cmd in TOPIC_WRITE_VERBS:
+        try:
+            return _topic_write(args)
+        except (TopicRefusal, tp.InvalidTopic, topic_store.TopicStoreError) as exc:
+            return _refused(exc)
+
     if args.cmd == "ensure-all-trees":
         rep = ensure_all_trees(roots=args.roots or None, apply=args.apply)
         tag = "APPLIED" if args.apply else "DRY-RUN"
@@ -2171,6 +2782,8 @@ def _main(argv=None):
                 print("    ! %s" % tr["why"])
             for c in tr["created"]:
                 print("    + %s" % c)
+            for level, why in tr["refused"]:
+                print(_REFUSED_LEVEL_LINE % (why, level))
         return 0
 
     if args.cmd == "lint":
@@ -2209,6 +2822,8 @@ def _main(argv=None):
             return _refused(rep["refused"])
         for w in rep["warnings"]:
             print("~ warning: %s" % w)
+        for note in rep.get("notes", []):
+            print("~ note: %s" % note)
         print("relocated %s: %s -> %s (%s)" % (
             rep["slug"], rep["from"], rep["to"],
             "CROSS-TREE: body moved + source archived" if rep["cross_tree"]
@@ -2238,10 +2853,13 @@ def _main(argv=None):
         return 0
 
     if args.cmd == "ensure-memory-structure":
-        created = scaffold(args.proj)
+        refused = []
+        created = scaffold(args.proj, refused=refused)
         print("ensure-memory-structure: created %d file(s) up the chain" % len(created))
         for p in created:
             print("    +", p)
+        for level, why in refused:
+            print(_REFUSED_LEVEL_LINE % (why, level))
         return 0
 
     if args.cmd == "set-scope":
@@ -2249,11 +2867,27 @@ def _main(argv=None):
         scope, err = _text_from_flag_or_file(args.scope, args.scope_file, "--scope", "--scope-file")
         if err:
             return _input_error(err)
-        ensure_level(args.proj)                       # make sure the pointer block exists first
         local = sig.claude_local_md_path(args.proj)
-        text = read_store_text(local)
-        _scope, pointers = us.parse_pointer_index(text)
-        changed = us.write_if_changed(local, us.upsert_pointer_block(text, scope.strip(), pointers))
+        if _is_excluded_level(args.proj):             # before the lock, which creates a file there
+            raise ExcludedLevel(args.proj)
+        # One read-modify-write under the level's lock. The topics check runs on the level's
+        # CURRENT descriptor - its pointer block's, else the legacy CLAUDE.md block ensure_level
+        # would harvest, else none - before ensure_level writes anything, so a refused call leaves
+        # no level behind and no legacy block moved.
+        with sig.memory_lock(local):
+            current, stored_in = _current_scope(args.proj)
+            try:
+                scope_keeping_topics(current, scope.strip(), stored_in=stored_in)
+            except (TopicRefusal, tp.InvalidTopic) as exc:
+                return _refused(exc)
+            ensure_level(args.proj, _locked=True)     # make sure the pointer block exists first
+            text = read_store_text(local)
+            old_scope, pointers = us.parse_pointer_index(text)
+            try:
+                scope = scope_keeping_topics(old_scope, scope.strip())
+            except (TopicRefusal, tp.InvalidTopic) as exc:
+                return _refused(exc)
+            changed = us.write_if_changed(local, us.upsert_pointer_block(text, scope, pointers))
         print("scope %s: %s" % ("updated" if changed else "unchanged", local))
         return 0
 
@@ -2281,6 +2915,8 @@ def _main(argv=None):
         for level, why in rep["unreadable"]:
             print("    ! unreadable level, left untouched (fix its permissions, or re-save it as "
                   "UTF-8): %s [%s]" % (why, level))
+        for level, why in rep["refused"]:
+            print(_REFUSED_LEVEL_LINE % (why, level))
         # heal could not do its job at an unreadable level, so "done" would be a lie there
         return 2 if rep["unreadable"] else 0
 
@@ -2311,7 +2947,7 @@ def _main(argv=None):
             slug, _created, advice = add_with_advice(
                 args.proj, title=args.title, hook=hook, body=body, type_=args.type_,
                 pin=args.pin, scope_default=scope_default, slug=args.slug, skill=args.skill)
-        except (SlugCollision, HookTooLong, EmptyBody, PinnedEntry, InvalidSlug, InvalidSkill) as c:
+        except ADD_REFUSALS as c:
             return _refused(c)
         print(slug)
         for line in advice:

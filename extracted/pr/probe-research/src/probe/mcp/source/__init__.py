@@ -61,6 +61,7 @@ _HOMES = {
     # probe.mcp.source.runs
     "nonfinite": "probe.mcp.source.runs",
     "SOURCE_READ_CONTRACT": "probe.mcp.source.runs",
+    "RunListQuery": "probe.mcp.source.runs",
     # probe.mcp.source.entities
     "Anchor": "probe.mcp.source.entities",
     "_RETIRED_REF_KIND": "probe.mcp.source.entities",

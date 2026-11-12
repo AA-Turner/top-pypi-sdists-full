@@ -4,7 +4,7 @@
 //! - **Reads.** Objects as Fetcher locations, whose redirects the client follows without
 //!   credentials across origins; [`Endpoint::resolve`] names a model's commit.
 //! - **Uploads.** Per object HEAD → PUT (to the HEAD's `Location`, else here) → HEAD; `412` means
-//!   present. [`upload_commit`] sends chunks, assets and repo files, then the header, then the
+//!   present. [`upload_checkpoint`] sends chunks, assets and repo files, then the header, then the
 //!   tree, then records the commit as the model's ([`Endpoint::commit`]).
 //! - **A directory** writes through a store over it: objects verified, temp and rename; its
 //!   records under the store's record lock.
@@ -22,13 +22,13 @@ use futures_util::StreamExt;
 use base64::engine::{general_purpose::STANDARD, Engine as _};
 use serde_json::Value;
 
-use super::ask::{self, Backoff, ATTEMPTS};
-use super::net::{join, same_origin, shown, Body, Client, GetError, HeaderMap};
+use super::ask::{self, Backoff};
+use super::net::{join, same_origin, shown, Body, Client, GetError, HeaderMap, Pulse};
 use super::origin::{Boxed, Location, Origin};
 use super::policy::is_loopback_origin;
 use super::token::{default_for, s3_base, Request, TokenProvider};
 use crate::err::{refuse, Code, Refusal, Result};
-use crate::format::{is_digest, repo_name, Header, ObjectRef, Repo, Tree};
+use crate::format::{is_digest, model_name, Header, ObjectRef, Model, Tree};
 use crate::sha256::hex_digest;
 use crate::store::{self, Checkpoint, Store};
 use crate::writer::{Upload, Writer};
@@ -44,8 +44,12 @@ pub struct Endpoint {
     at: At,
     client: Client,
     token: Option<Arc<dyn TokenProvider>>,
-    /// Bytes of file bodies sent, ever: an upload's progress while its objects are on their way.
+    /// Bytes of file bodies that landed or are on their way ([`Endpoint::sent`]): an upload's
+    /// progress while its objects are on their way.
     sent: Arc<AtomicU64>,
+    /// When any of its requests last sent a byte: a request is cut for silence only when all of them are
+    /// silent, so the streams of one upload on a slow link never cut each other's starved ones.
+    pulse: Arc<Pulse>,
 }
 
 enum At {
@@ -61,10 +65,10 @@ pub enum Payload {
     Part(fs::File, u64),
 }
 
-/// What [`upload_commit`] did: the commit, the closure's objects, and those it sent.
+/// What [`upload_checkpoint`] did: the commit, the closure's objects, and those it sent.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Uploaded {
-    pub commit: ObjectRef,
+    pub checkpoint: ObjectRef,
     pub objects: usize,
     pub sent: usize,
     pub bytes: u64,
@@ -91,7 +95,8 @@ pub struct Resolved {
     pub release: String,
     #[serde(default)]
     pub lane: String,
-    pub commit: ObjectRef,
+    #[serde(rename = "commit", alias = "checkpoint")]
+    pub checkpoint: ObjectRef,
     pub header: ObjectRef,
     #[serde(default)]
     pub reasons: Vec<String>,
@@ -150,7 +155,7 @@ impl Endpoint {
             At::Http(_) => token.or_else(|| default_for(&url)),
             At::Dir(..) => None,
         };
-        Ok(Endpoint { url, at, client: client.clone(), token, sent: Arc::default() })
+        Ok(Endpoint { url, at, client: client.clone(), token, sent: Arc::default(), pulse: Pulse::new() })
     }
 
     pub fn url(&self) -> &str {
@@ -167,20 +172,20 @@ impl Endpoint {
     /// one `hardware` runs best (the Hub's choice; a directory's release has one lane, or its
     /// model no releases: its newest commit).
     pub async fn resolve(&self, name: &str, release: Option<&str>, lane: Option<&str>, hardware: &Hardware) -> Result<Resolved> {
-        check_repo_name(name)?;
+        check_model_name(name)?;
         let base = match &self.at {
             At::Http(base) => base,
             At::Dir(..) => {
                 // The store's own record of the model: the one way refs are read and written.
-                let Some(repo) = self.store()?.get_ref(name).map_err(crate::store::Error::refusal)? else {
+                let Some(model) = self.store()?.get_ref(name).map_err(crate::store::Error::refusal)? else {
                     return refuse(Code::REF_NOT_FOUND, format!("no model {name} at {}", self.url));
                 };
                 let unread = |e: crate::format::Error| Refusal { code: Code::UNKNOWN_FORMAT, detail: format!("{name}: {e}") };
-                let (release, lane, commit) = repo.resolve(release, lane)
+                let (release, lane, commit) = model.resolve(release, lane)
                     .map_err(|e| Refusal { code: Code::REF_NOT_FOUND, detail: e.to_string() })?;
                 let tree = Tree::from_json(&self.document(&commit).await?).map_err(unread)?;
                 let header = tree.header().map_err(unread)?.1.clone();
-                return Ok(Resolved { release, lane: lane.unwrap_or(tree.lane), commit, header, reasons: vec![] });
+                return Ok(Resolved { release, lane: lane.unwrap_or(tree.lane), checkpoint: commit, header, reasons: vec![] });
             }
         };
         let mut url = format!("{}?", repo_url(base, &format!("v1/models/{}/resolve", name.to_ascii_lowercase())));
@@ -205,7 +210,7 @@ impl Endpoint {
     /// Records the uploaded tree `commit` (its closure already here) as one of model `name`'s
     /// commits: true when the model had it already.
     pub async fn commit(&self, name: &str, commit: &ObjectRef) -> Result<bool> {
-        check_repo_name(name)?;
+        check_model_name(name)?;
         let base = match &self.at {
             At::Http(base) => base,
             At::Dir(..) => {
@@ -215,10 +220,10 @@ impl Endpoint {
                     tree.header().map_err(crate::store::Error::Format)?;
                     let mut had = false;
                     store.update_ref(&name, |old| {
-                        let mut repo = old.unwrap_or_else(|| Repo::new(&name));
-                        had = repo.commits.last() == Some(&commit);
-                        repo.add_commit(commit.clone());
-                        Some(repo)
+                        let mut model = old.unwrap_or_else(|| Model::new(&name));
+                        had = model.checkpoints.last() == Some(&commit);
+                        model.add_checkpoint(commit.clone());
+                        Some(model)
                     })?;
                     Ok::<_, crate::store::Error>(had)
                 });
@@ -316,7 +321,7 @@ impl Endpoint {
         }
     }
 
-    /// The bytes of file bodies sent, ever.
+    /// The bytes of file bodies sent that landed or are on their way: a failed attempt's are given back.
     pub fn sent(&self) -> u64 {
         self.sent.load(Ordering::Relaxed)
     }
@@ -340,6 +345,16 @@ impl Endpoint {
     /// Sends `object` unless the endpoint holds it: true when it sent it. `payload` gives its
     /// bytes, only when they are needed (once per attempt).
     pub async fn upload(&self, object: &ObjectRef, payload: &(dyn Fn() -> Result<Payload> + Send + Sync)) -> Result<bool> {
+        self.upload_noted(object, payload, &|_| {}).await
+    }
+
+    /// [`Endpoint::upload`], each attempt asked again said to `note` (`<why>; attempt 2/10 in 3 s`).
+    ///
+    /// A HEAD of an absent object may answer where to PUT it: a presigned URL, a grant with a
+    /// lifetime. Each PUT spends the grant the HEAD just before it minted, and a PUT asked again asks
+    /// for a new one, so no transfer, however slow or retried, outlives its grant; storage refusing
+    /// the grant (R2's `403 ExpiredRequest`) is asked again the same way.
+    pub(crate) async fn upload_noted(&self, object: &ObjectRef, payload: &(dyn Fn() -> Result<Payload> + Send + Sync), note: &(dyn Fn(&str) + Sync)) -> Result<bool> {
         let base = match &self.at {
             At::Http(base) => base,
             At::Dir(..) => {
@@ -364,13 +379,13 @@ impl Endpoint {
         // server verifies what it was sent) may name another place, as when another account's
         // copy landed first and this writer proves it holds the bytes: they go there too.
         let mut sent: Vec<String> = vec![];
+        let mut backoff = Backoff::transfer();
         loop {
             match reply.status {
                 200 => return held(&reply, object).map(|()| !sent.is_empty()),
                 404 | 410 => {}
                 _ => return Err(refusal(&reply, if sent.is_empty() { "HEAD" } else { "the confirming HEAD" })),
             }
-            // A writer's HEAD of an absent object may say where to PUT it (a presigned URL).
             let target = reply.header("location").and_then(|at| join(&url, at)).unwrap_or_else(|| url.clone());
             let place = target.split('?').next().unwrap_or_default().to_owned();
             if sent.contains(&place) {
@@ -382,13 +397,30 @@ impl Endpoint {
                 ("x-amz-checksum-sha256".to_owned(), checksum),
                 ("if-none-match".to_owned(), "*".to_owned()),
             ];
+            // A presigned target carries its own authority; the endpoint's credential stays with it.
             let auth = same_origin(&target, &url);
             let ask = Ask { method: "PUT", url: &target, headers, body: Some(payload), payload: Some(&object.sha256), auth };
-            let put = self.exchange(ask).await?;
-            if !matches!(put.status, 200 | 201 | 204 | 412) {
-                return Err(refusal(&put, "PUT"));
-            }
-            sent.push(place);
+            let (why, wait) = match self.challenged(&ask).await {
+                Ok(put) if matches!(put.status, 200 | 201 | 204 | 412) => {
+                    sent.push(place);
+                    reply = self.exchange(head()).await?;
+                    continue;
+                }
+                Ok(put) if ask::weather(put.status) || !auth && matches!(put.status, 401 | 403) => {
+                    let wait = put.header("retry-after").and_then(|s| s.trim().parse().ok()).map(std::time::Duration::from_secs);
+                    (refusal(&put, "PUT"), wait)
+                }
+                Ok(put) => return Err(refusal(&put, "PUT")),
+                Err(GetError::Exchange(refusal)) if ask::transient(&refusal) => (refusal, None),
+                Err(error) => return Err(error.refusal()),
+            };
+            // Bytes a failed PUT sent are not kept: it never moved the upload on.
+            let Some((pause, line)) = backoff.again(&why.detail, false, wait) else {
+                return Err(Refusal { code: why.code, detail: backoff.spent(&why.detail) });
+            };
+            tracing::info!(object = %object.id(), "{line}");
+            note(&line);
+            tokio::time::sleep(pause).await;
             reply = self.exchange(head()).await?;
         }
     }
@@ -424,37 +456,37 @@ impl Endpoint {
         }
     }
 
-    /// One exchange, its answer read whole, asked again by the one rule ([`ask`]); the provider
-    /// may ask once more (a nonce, a refresh). Bytes of a body sent are progress.
+    /// One exchange, its answer read whole, asked again by the one rule ([`ask`]). Nothing an
+    /// exchange sends or reads is kept from a failed attempt, so each counts toward [`Backoff::transfer`]'s.
     async fn exchange(&self, ask: Ask<'_>) -> Result<Reply> {
-        let (mut backoff, mut challenged) = (Backoff::transfer(), false);
+        let mut backoff = Backoff::transfer();
         loop {
-            let sent = self.sent.load(Ordering::Relaxed);
-            let (why, wait) = match self.attempt(&ask).await {
+            let (why, wait) = match self.challenged(&ask).await {
+                Ok(reply) if !ask::weather(reply.status) => return Ok(reply),
                 Ok(reply) => {
-                    let presented = Request { method: ask.method, url: ask.url, headers: &reply.presented, payload: ask.payload };
-                    let again = match (ask.auth, &self.token) {
-                        (true, Some(token)) => token.retry(&presented, reply.status, &reply.headers)?,
-                        _ => false,
-                    };
-                    if again && !challenged {
-                        challenged = true;
-                        continue;
-                    }
-                    if !ask::weather(reply.status) {
-                        return Ok(reply);
-                    }
-                    tracing::warn!(method = ask.method, url = %shown(ask.url), status = reply.status, "answer not 2xx");
                     let wait = reply.header("retry-after").and_then(|s| s.trim().parse().ok()).map(std::time::Duration::from_secs);
                     (format!("{} {}: {}", ask.method, shown(ask.url), reply.status), wait)
                 }
                 Err(GetError::Exchange(refusal)) if ask::transient(&refusal) => (refusal.detail, None),
                 Err(error) => return Err(error.refusal()),
             };
-            match backoff.after(self.sent.load(Ordering::Relaxed) > sent, wait) {
-                Some(pause) => tokio::time::sleep(pause).await,
-                None => return refuse(Code::HUB_UNREACHABLE, format!("{why}; {ATTEMPTS} attempts in a row moved nothing")),
+            match backoff.again(&why, false, wait) {
+                Some((pause, line)) => {
+                    tracing::info!("{line}");
+                    tokio::time::sleep(pause).await;
+                }
+                None => return refuse(Code::HUB_UNREACHABLE, backoff.spent(&why)),
             }
+        }
+    }
+
+    /// One attempt, made once more when the provider asks to (a nonce, a refresh).
+    async fn challenged(&self, ask: &Ask<'_>) -> std::result::Result<Reply, GetError> {
+        let reply = self.attempt(ask).await?;
+        let presented = Request { method: ask.method, url: ask.url, headers: &reply.presented, payload: ask.payload };
+        match (ask.auth, &self.token) {
+            (true, Some(token)) if token.retry(&presented, reply.status, &reply.headers).map_err(GetError::Caller)? => self.attempt(ask).await,
+            _ => Ok(reply),
         }
     }
 
@@ -464,24 +496,31 @@ impl Endpoint {
             // A provider's failure is the caller's verdict, not failed network traffic.
             headers.extend(self.authorize(ask.method, ask.url, &ask.headers, ask.payload).await.map_err(GetError::Caller)?);
         }
+        // This attempt's bytes, given back when it fails: what is on its way or landed, never twice.
+        let mine = Arc::new(AtomicU64::new(0));
+        let sent = || vec![Arc::clone(&self.sent), Arc::clone(&mine)];
         let body = match ask.body {
             Some(make) => Some(match make()? {
                 Payload::Bytes(bytes) => Body::Bytes(bytes),
                 Payload::File(file) => {
                     let length = file.metadata().map_err(|e| crate::err::classify_io(ask.url, e))?.len();
-                    Body::File { file, length, sent: Arc::clone(&self.sent) }
+                    Body::File { file, length, sent: sent() }
                 }
-                Payload::Part(file, length) => Body::File { file, length, sent: Arc::clone(&self.sent) },
+                Payload::Part(file, length) => Body::File { file, length, sent: sent() },
             }),
             None => None,
         };
-        let mut reply = self.round_trip(ask.method, ask.url, &headers, body).await?;
+        let reply = self.round_trip(ask.method, ask.url, &headers, body).await;
+        if !reply.as_ref().is_ok_and(|reply| matches!(reply.status, 200..=299 | 412)) {
+            self.sent.fetch_sub(mine.load(Ordering::Relaxed), Ordering::Relaxed);
+        }
+        let mut reply = reply?;
         reply.presented = headers;
         Ok(reply)
     }
 
     async fn round_trip(&self, method: &str, url: &str, headers: &[(String, String)], body: Option<Body>) -> Result<Reply> {
-        let mut answer = self.client.send(method, url, headers, body).await?;
+        let mut answer = self.client.send(method, url, headers, body, Some(&self.pulse)).await?;
         let (status, headers) = (answer.status(), answer.response.headers().clone());
         let mut body = Vec::new();
         while let Some(frame) = answer.frame().await? {
@@ -525,17 +564,19 @@ impl Endpoint {
 
 /// Cooperative control of one upload. `commit` is called once after the objects land, before
 /// the commit is recorded; once it accepts, cancellation no longer interrupts. Progress counts
-/// verified bytes, including objects the endpoint already holds.
+/// verified bytes, including objects the endpoint already holds. `retrying` hears each object asked
+/// again (`<why>; attempt 2/10 in 3 s`).
 pub struct UploadControl<'a> {
     pub cancelled: &'a (dyn Fn() -> bool + Sync),
     pub progress: &'a (dyn Fn(u64, u64) + Sync),
+    pub retrying: &'a (dyn Fn(&str) + Sync),
     pub commit: &'a (dyn Fn() -> bool + Sync),
 }
 
 /// Sends what `endpoint` lacks of commit `tree`'s closure in `store` (chunks, assets and repo
 /// files, then the header, then the tree), then records it as model `name`'s
 /// ([`Endpoint::commit`]).
-pub async fn upload_commit(endpoint: &Endpoint, name: &str, tree: &ObjectRef, store: &Store, control: &UploadControl<'_>) -> Result<Uploaded> {
+pub async fn upload_checkpoint(endpoint: &Endpoint, name: &str, tree: &ObjectRef, store: &Store, control: &UploadControl<'_>) -> Result<Uploaded> {
     let stopped = || Refusal { code: Code::TRANSFER_FAILED, detail: "upload stopped before its commit; admitted objects remain available".into() };
     if (control.cancelled)() {
         return Err(stopped());
@@ -569,7 +610,7 @@ pub async fn upload_commit(endpoint: &Endpoint, name: &str, tree: &ObjectRef, st
             .map(|object| async move {
                 let (from, at) = (store.clone(), object.clone());
                 let payload = move || from.file(&at).map(Payload::File).map_err(crate::store::Error::refusal);
-                endpoint.upload(&object, &payload).await.map(|s| (s, object.length))
+                endpoint.upload_noted(&object, &payload, control.retrying).await.map(|s| (s, object.length))
             })
             .buffer_unordered(STREAMS);
         loop {
@@ -596,10 +637,10 @@ pub async fn upload_commit(endpoint: &Endpoint, name: &str, tree: &ObjectRef, st
         return Err(stopped());
     }
     let converged = endpoint.commit(name, tree).await?;
-    Ok(Uploaded { commit: tree.clone(), objects, sent, bytes, converged })
+    Ok(Uploaded { checkpoint: tree.clone(), objects, sent, bytes, converged })
 }
 
-/// A writer's objects on their way to an endpoint (`Writer(repo_id=…)`): each is sent (HEAD →
+/// A writer's objects on their way to an endpoint (`Writer(model_id=…)`): each is sent (HEAD →
 /// PUT → HEAD) as soon as it is sealed while the writer goes on, at most [`IN_FLIGHT`] at once;
 /// at commit the header, then the tree, then the commit recorded.
 /// File-backed objects queue without blocking the caller's runtime. Byte-backed puts and
@@ -713,8 +754,8 @@ impl Drop for Stream {
 }
 
 // Generic endpoints use format segments, independent of a Hub's catalog name policy.
-fn check_repo_name(name: &str) -> Result<()> {
-    match repo_name(name) {
+fn check_model_name(name: &str) -> Result<()> {
+    match model_name(name) {
         true => Ok(()),
         false => refuse(Code::KEY_GRAMMAR, format!("{name:?} is not <org>/<name>")),
     }
@@ -818,4 +859,22 @@ pub(crate) fn streaming_writer(store: &Store, stream: Arc<Stream>, name: &str, l
     let mut writer = crate::writer(store, base, key)?;
     writer.uploading(Arc::new(Streamed { stream, name: name.to_owned(), lane: lane.to_owned() }));
     Ok(writer)
+}
+
+#[cfg(test)]
+mod checkpoint_wire_tests {
+    #[test]
+    fn resolved_checkpoint_reads_both_names_and_emits_the_supported_wire_field() {
+        let object = crate::format::ObjectRef::of(b"fixture");
+        let legacy = serde_json::json!({"commit":object,"header":object});
+        let canonical = serde_json::json!({"checkpoint":object,"header":object});
+        let resolved: super::Resolved = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(serde_json::from_value::<super::Resolved>(canonical).unwrap(), resolved);
+        let wire = serde_json::to_value(&resolved).unwrap();
+        assert!(wire.get("commit").is_some());
+        assert!(wire.get("checkpoint").is_none());
+        let mut ambiguous = legacy;
+        ambiguous["checkpoint"] = serde_json::to_value(object).unwrap();
+        assert!(serde_json::from_value::<super::Resolved>(ambiguous).is_err());
+    }
 }

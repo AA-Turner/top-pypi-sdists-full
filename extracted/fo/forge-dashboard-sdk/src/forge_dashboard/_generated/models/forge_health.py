@@ -55,11 +55,16 @@ class ForgeHealth:
                 errorKind, not the raw underlying error text. Omitted when reachable.
             error_kind (ForgeErrorKind | Unset): Why a forge is unreachable, or why a write to it was rejected, as
                 coarse as every forge this service talks to can agree on.
-                "unauthorized" covers both a bad token and a forbidden request;
-                "not_found" usually means a wrong instance URL. "conflict" is only
-                ever returned from a pull-request write — the forge reports the PR
-                itself isn't currently mergeable. "unknown" covers a signal this
+                "unreachable" is a request that got no response; "upstream_error" is
+                the forge answering with a 5xx (a gateway timeout, say), and the
+                status is in ForgeHealth.upstreamStatus. "unauthorized" covers both a
+                bad token and a forbidden request; "not_found" usually means a wrong
+                instance URL. "conflict" is only ever returned from a pull-request
+                write — the forge reports the PR itself isn't currently mergeable. "unknown" covers a signal this
                 service doesn't recognize, rather than a guessed-at specific cause.
+            upstream_status (int | Unset): The 5xx status the forge answered with, set only when errorKind is
+                upstream_error. The forge is not shown as down until three fetches in a row have failed, whatever the cause,
+                with the latest a 5xx; one failure among healthy ones changes nothing.
             rate_limit_graph_ql (RateLimit | Unset): One of a forge API's own request budgets for the credential the last
                 refresh used — see ForgeHealth.rateLimitGraphQL/rateLimitREST for which budget this is and when each is (or
                 isn't) reported.
@@ -86,6 +91,7 @@ class ForgeHealth:
     stale_since: datetime.datetime | Unset = UNSET
     error: str | Unset = UNSET
     error_kind: ForgeErrorKind | Unset = UNSET
+    upstream_status: int | Unset = UNSET
     rate_limit_graph_ql: RateLimit | Unset = UNSET
     rate_limit_rest: RateLimit | Unset = UNSET
     dependabot_commands_blocked: str | Unset = UNSET
@@ -117,6 +123,8 @@ class ForgeHealth:
             error_kind = self.error_kind.value
 
 
+        upstream_status = self.upstream_status
+
         rate_limit_graph_ql: dict[str, Any] | Unset = UNSET
         if not isinstance(self.rate_limit_graph_ql, Unset):
             rate_limit_graph_ql = self.rate_limit_graph_ql.to_dict()
@@ -145,6 +153,8 @@ class ForgeHealth:
             field_dict["error"] = error
         if error_kind is not UNSET:
             field_dict["errorKind"] = error_kind
+        if upstream_status is not UNSET:
+            field_dict["upstreamStatus"] = upstream_status
         if rate_limit_graph_ql is not UNSET:
             field_dict["rateLimitGraphQL"] = rate_limit_graph_ql
         if rate_limit_rest is not UNSET:
@@ -195,6 +205,8 @@ class ForgeHealth:
 
 
 
+        upstream_status = d.pop("upstreamStatus", UNSET)
+
         _rate_limit_graph_ql = d.pop("rateLimitGraphQL", UNSET)
         rate_limit_graph_ql: RateLimit | Unset
         if isinstance(_rate_limit_graph_ql,  Unset):
@@ -227,6 +239,7 @@ class ForgeHealth:
             stale_since=stale_since,
             error=error,
             error_kind=error_kind,
+            upstream_status=upstream_status,
             rate_limit_graph_ql=rate_limit_graph_ql,
             rate_limit_rest=rate_limit_rest,
             dependabot_commands_blocked=dependabot_commands_blocked,

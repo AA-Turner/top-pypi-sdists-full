@@ -29,6 +29,7 @@ warnings.filterwarnings(
 
 import anyscale as anyscale
 from anyscale import (
+    actor as actor,
     aggregated_instance_usage as aggregated_instance_usage,
     cloud as cloud,
     compute_config as compute_config,
@@ -52,11 +53,13 @@ from anyscale import (
     service as service,
     service_account as service_account,
     skills as skills,
+    task as task,
     user as user,
     user_group as user_group,
 )
 from anyscale._private.anyscale_client import AnyscaleClient, AnyscaleClientInterface
 from anyscale._private.sdk.base_sdk import Timer
+from anyscale.actor import ActorSDK
 from anyscale.aggregated_instance_usage import AggregatedInstanceUsageSDK
 from anyscale.authenticate import AuthenticationBlock
 from anyscale.cli_logger import BlockLogger
@@ -88,6 +91,7 @@ from anyscale.scheduler import SchedulerSDK
 from anyscale.service import ServiceSDK
 from anyscale.service_account import ServiceAccountSDK
 from anyscale.skills import SkillsSDK
+from anyscale.task import TaskSDK
 from anyscale.user import UserSDK
 from anyscale.user_group import UserGroupSDK
 from anyscale.workspace import WorkspaceSDK
@@ -187,6 +191,8 @@ class Anyscale:
         self._gpus_sdk = GpusSDK(client=self._anyscale_client)
         self._metrics_sdk = MetricsSDK(client=self._anyscale_client)
         self._node_sdk = NodeSDK(client=self._anyscale_client)
+        self._task_sdk = TaskSDK(client=self._anyscale_client)
+        self._actor_sdk = ActorSDK(client=self._anyscale_client)
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
@@ -241,6 +247,12 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._node_sdk = NodeSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._task_sdk = TaskSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._actor_sdk = ActorSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._cloud_sdk = CloudSDK(  # noqa: SLF001
@@ -325,6 +337,14 @@ class Anyscale:
     @property
     def node(self) -> NodeSDK:  # noqa: F811
         return self._node_sdk
+
+    @property
+    def task(self) -> TaskSDK:  # noqa: F811
+        return self._task_sdk
+
+    @property
+    def actor(self) -> ActorSDK:  # noqa: F811
+        return self._actor_sdk
 
     @property
     def cloud(self) -> CloudSDK:  # noqa: F811

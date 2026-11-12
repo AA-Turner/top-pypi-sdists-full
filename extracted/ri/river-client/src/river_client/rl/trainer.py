@@ -703,6 +703,11 @@ class AsyncTrainer:
             "pending_groups": len(getattr(self, "_pending", [])),
             "operations": self._activities.snapshot(),
             "rollouts": self.engine.progress(),
+            **(
+                {"checkpoint": copy.deepcopy(self._store.stats)}
+                if getattr(self, "_store", None)
+                else {}
+            ),
         }
 
     async def _call(self, operation, function, *args, **kwargs):
@@ -2267,7 +2272,11 @@ class AsyncTrainer:
                 and getattr(self.engine.model, "checkpoint", None) is None
             )
             with store_context as self._store:
-                saved = self._store.load(lazy_records=True) if self._store else None
+                saved = (
+                    self._store.load(lazy_records=True, restore=True)
+                    if self._store
+                    else None
+                )
                 resumed = bool(saved)
                 if saved:
                     self._durable_base = saved.get("durable_base", False)

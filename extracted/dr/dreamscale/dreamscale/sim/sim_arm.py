@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import inspect
 import json
 import sys
@@ -982,6 +983,53 @@ async def _send_observation_and_next(*, transport: Any, chunks: Any,
     return chunk
 
 
+class _SimEpisode:
+    """An episode the server keeps (a contract with ``episode_tick_steps``: Praxis-1) in a
+    stateful sim. Steps count executed actions from the episode's first request; every executed
+    step's frames go ahead (``history_frame``, keyed by the step), and each request names its
+    step and carries the joints of every step executed since the last one (``state_history``,
+    oldest first), its frames at the model's wire image."""
+
+    def __init__(self, *, contract, env, send) -> None:
+        self.contract = contract
+        self.env = env
+        self.send = send
+        self.step = 0
+        self.chunk = 0
+        self.states: list[list[float]] = []
+
+    def _inputs(self, obs: Any) -> dict:
+        return self.env.observation_inputs(obs)
+
+    @staticmethod
+    def _state(inputs: dict) -> list[float]:
+        return [*map(float, inputs["joint_positions"]), float(inputs["gripper"])]
+
+    def executed(self, obs: Any, executed: int, more: bool) -> None:
+        self.step = executed
+        inputs = self._inputs(obs)
+        if not more:
+            return  # the next request carries this step's frames and state itself
+        self.states.append(self._state(inputs))
+        with wire.wire_image(self.contract.wire_image):
+            frames = {camera_id: wire._camera_frame(camera_id, inputs[source])[1]
+                      for camera_id, source in (
+                          (wire.CAMERA_KEY_DROID_EXTERIOR_1, "exterior_frame"),
+                          (wire.CAMERA_KEY_DROID_WRIST, "wrist_frame"))}
+        self.send(executed, frames)
+
+    def request(self, observation: Any, obs: Any) -> Any:
+        from dreamscale_transport.messages import EpisodeRequestContext, RuntimeRequestContext
+
+        update: dict[str, Any] = {"runtime_context": RuntimeRequestContext(
+            episode=EpisodeRequestContext(step=self.step, chunk=self.chunk, seed=0))}
+        if self.states:
+            update["state_history"] = self.states
+        self.chunk += 1
+        self.states = [self._state(self._inputs(obs))]
+        return dataclasses.replace(observation, frame=observation.frame.model_copy(update=update))
+
+
 class SimArm:
     def __init__(self, *, runner, client, session, transport, chunks, env,
                  heartbeat, on_line, render_frame, close_render, model=MODEL_LIBERO,
@@ -1310,6 +1358,14 @@ class SimArm:
             # Each episode is a new DreamZero cache generation that restarts at T1.
             self._dreamzero_generation += 1
         boundaries = 0
+        episode = None
+        if self._contract.episode_tick_steps and self.model in NATIVE_OBSERVATION_MODELS:
+            def send_frames(key, frames):
+                # Submitted in order with the requests that read them, on the same stream.
+                sent = self._runner.submit(self._transport.send_history_frames(key, frames))
+                sent.add_done_callback(lambda future: future.exception())  # repeats a neighbour
+
+            episode = _SimEpisode(contract=self._contract, env=self._env, send=send_frames)
 
         def submit(frames):
             nonlocal boundaries
@@ -1328,6 +1384,12 @@ class SimArm:
                     observation_id=observation_id, action_index=action_index,
                     cache_generation=self._dreamzero_generation,
                 )
+            elif episode is not None:
+                with wire.wire_image(self._contract.wire_image):
+                    observation = _build_sim_observation(builder=_sim_builder(self.model),
+                        session_id=self._session.session_id, observation_id=observation_id,
+                        env=self._env, obs=frames)
+                observation = episode.request(observation, frames)
             elif self.model in NATIVE_OBSERVATION_MODELS:
                 observation = _build_sim_observation(builder=_sim_builder(self.model),
                     session_id=self._session.session_id, observation_id=observation_id,
@@ -1437,6 +1499,7 @@ class SimArm:
                 on_frame=frame,
                 on_buffer=buffer,
                 metrics=metrics,
+                on_executed=episode.executed if episode is not None else None,
                 **({"action_dim": 8, "initial_chunk_size": DREAMZERO_REPLAN_STRIDE,
                     "chunk_size": DREAMZERO_REPLAN_STRIDE,
                     "request_input": lambda obs: obs, "hold_action": self._env.hold_action,
@@ -1449,7 +1512,8 @@ class SimArm:
                    # A native observation: the model's own width, executing its executed
                    # prefix, with its observation's hold and feedback.
                    {"action_dim": self._contract.action_dim, "initial_chunk_size": execute,
-                    "chunk_size": execute, "request_input": lambda obs: obs,
+                    "chunk_size": execute, "min_chunk_size": self._contract.fewest_chunk_rows,
+                    "request_input": lambda obs: obs,
                     "hold_action": self._env.hold_action,
                     **_STATEFUL_SETTINGS.get(_observation(self.model), {})}
                    if self.model in NATIVE_OBSERVATION_MODELS else {}),

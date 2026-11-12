@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 else:
     ValidatorsConfigValue: TypeAlias = Mapping[str, Any]
 
-Config = cast("Any", object)
+Config: TypeAlias = Any
 
 _HttpKeyValuePair: TypeAlias = tuple[str, str]
 _HttpKeyValueInput: TypeAlias = str | _HttpKeyValuePair
@@ -448,7 +448,7 @@ def _get_config_class() -> type[Config]:
                 self.generate_client = None
             elif "generate_client" in set_args:
                 self.generate_server = None
-            for field_name in set_args:
+            for field_name in parsed_args.model_fields_set:
                 setattr(self, field_name, getattr(parsed_args, field_name))
 
     Config.__qualname__ = "Config"

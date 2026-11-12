@@ -6,7 +6,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from reflex_base.components.component import ComponentNamespace
+from reflex_base.components.component import Component, ComponentNamespace
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
@@ -884,7 +884,7 @@ class Callout(CalloutRoot):
         cls,
         *children,
         text: Var[str] | str | None = None,
-        icon: Var[str] | str | None = None,
+        icon: Component | Var[Component | str] | str | None = None,
         as_child: Var[bool] | bool | None = None,
         size: Breakpoints[str, Literal["1", "2", "3"]]
         | Literal["1", "2", "3"]
@@ -1165,7 +1165,7 @@ class Callout(CalloutRoot):
         Args:
             text: The text of the callout.
             text: The text of the callout.
-            icon: The icon of the callout.
+            icon: The icon of the callout: a Lucide icon name or a component.
             as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
             size: Size "1" - "3"
             variant: Variant of button: "soft" | "surface" | "outline"
@@ -1224,7 +1224,7 @@ class CalloutNamespace(ComponentNamespace):
     def __call__(
         *children,
         text: Var[str] | str | None = None,
-        icon: Var[str] | str | None = None,
+        icon: Component | Var[Component | str] | str | None = None,
         as_child: Var[bool] | bool | None = None,
         size: Breakpoints[str, Literal["1", "2", "3"]]
         | Literal["1", "2", "3"]
@@ -1505,7 +1505,7 @@ class CalloutNamespace(ComponentNamespace):
         Args:
             text: The text of the callout.
             text: The text of the callout.
-            icon: The icon of the callout.
+            icon: The icon of the callout: a Lucide icon name or a component.
             as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
             size: Size "1" - "3"
             variant: Variant of button: "soft" | "surface" | "outline"

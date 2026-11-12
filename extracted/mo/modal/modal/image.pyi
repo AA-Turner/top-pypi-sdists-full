@@ -32,6 +32,7 @@ class Image(modal.object.Object):
     _deferred_mounts: collections.abc.Sequence[modal.mount.Mount]
     _added_python_source_set: frozenset[str]
     _metadata: typing.Optional[modal_proto.api_pb2.ImageMetadata]
+    _cache_hit: typing.Optional[bool]
     _is_empty: bool
     _build_steps: typing.Optional[list[modal_proto.api_pb2.ImageBuildStep]]
     _failed_build_attempt: typing.Optional[modal._image._FailedBuildAttempt]
@@ -264,7 +265,7 @@ class Image(modal.object.Object):
     from_id: typing.ClassVar[__from_id_spec[typing_extensions.Self]]
 
     class __build_spec(typing_extensions.Protocol):
-        def __call__(self, /, app: modal.app.App) -> Image:
+        def __call__(self, /, app: typing.Optional[modal.app.App] = None) -> Image:
             """Eagerly build an image.
 
             If your image was previously built, then this method will not rebuild your image
@@ -274,7 +275,8 @@ class Image(modal.object.Object):
             You do not need to build the image explicitly in that case.
 
             Args:
-                app: Initialized app used as the load context for the image build.
+                app: App for running the build. If not provided, the build will run
+                    in an ephemeral App.
 
             Returns:
                 This image after the build (and resolver load) completes.
@@ -283,9 +285,8 @@ class Image(modal.object.Object):
                 ```python
                 image = modal.Image.debian_slim().uv_pip_install("scipy", "numpy")
 
-                app = modal.App.lookup("build-image", create_if_missing=True)
                 with modal.enable_output():  # To see logs in your local terminal
-                    image.build(app)
+                    image.build()
 
                 # Save the image id
                 my_image_id = image.object_id
@@ -320,7 +321,7 @@ class Image(modal.object.Object):
             """
             ...
 
-        async def aio(self, /, app: modal.app.App) -> Image:
+        async def aio(self, /, app: typing.Optional[modal.app.App] = None) -> Image:
             """Eagerly build an image.
 
             If your image was previously built, then this method will not rebuild your image
@@ -330,7 +331,8 @@ class Image(modal.object.Object):
             You do not need to build the image explicitly in that case.
 
             Args:
-                app: Initialized app used as the load context for the image build.
+                app: App for running the build. If not provided, the build will run
+                    in an ephemeral App.
 
             Returns:
                 This image after the build (and resolver load) completes.
@@ -339,9 +341,8 @@ class Image(modal.object.Object):
                 ```python
                 image = modal.Image.debian_slim().uv_pip_install("scipy", "numpy")
 
-                app = modal.App.lookup("build-image", create_if_missing=True)
                 with modal.enable_output():  # To see logs in your local terminal
-                    image.build(app)
+                    image.build()
 
                 # Save the image id
                 my_image_id = image.object_id
@@ -1243,8 +1244,8 @@ class Image(modal.object.Object):
             volumes: Volume and bucket mounts attached for the build.
             network_file_systems: Network file systems attached for the build.
             gpu: GPU type or list of types for the builder container.
-            cpu: CPU cores to request (soft limit).
-            memory: Memory to request in MiB (soft limit).
+            cpu: CPU cores to request.
+            memory: Memory to request in MiB.
             timeout: Maximum build-step runtime in seconds.
             cloud: Cloud provider for the builder function.
             region: Region or regions for the builder function.
@@ -1431,7 +1432,7 @@ class Image(modal.object.Object):
 
             ```python notest
             image = modal.Image.debian_slim().pip_install("numpy")
-            image.build(app)
+            image.build()
             image.publish("my-image-with-numpy")     # my-image-with-numpy:latest
             image.publish("my-image-with-numpy:v1")
             ```
@@ -1456,7 +1457,7 @@ class Image(modal.object.Object):
 
             ```python notest
             image = modal.Image.debian_slim().pip_install("numpy")
-            image.build(app)
+            image.build()
             image.publish("my-image-with-numpy")     # my-image-with-numpy:latest
             image.publish("my-image-with-numpy:v1")
             ```

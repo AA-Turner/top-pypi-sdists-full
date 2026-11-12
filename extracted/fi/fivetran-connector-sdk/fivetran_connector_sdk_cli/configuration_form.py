@@ -64,7 +64,7 @@ class _SerializedForm:
     def __init__(self, response: "ConfigurationFormResponse"):
         self.response = response
 
-    def SerializeToString(self) -> bytes:
+    def serialize_to_string(self) -> bytes:
         out = b"".join(_field(3, _encode_form_field(f)) for f in self.response.fields)
         out += b"".join(_field(4, _text(1, t.name) + _text(2, t.label)) for t in self.response.tests)
         return out
@@ -144,7 +144,7 @@ class ConfigurationForm:
         return None
 
     def _to_proto(self) -> _SerializedForm:
-        """The form as the platform reads it from a package (`SerializeToString()` gives the bytes)."""
+        """The form as the platform reads it from a package (`serialize_to_string()` gives the bytes)."""
         return _SerializedForm(self.to_response())
 
     def to_response(self) -> ConfigurationFormResponse:

@@ -18,9 +18,10 @@ So is a case whose outcome holds no verdict -- no ``result`` object, a
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..batch_report import print_summary
 from ..failure import Failure, FailureCategory
@@ -34,6 +35,7 @@ from .manifest import (
     sbatch_timed_out,
     write_json,
 )
+from .records import JsonMembers
 
 __all__ = [
     "RecordedResult",
@@ -49,48 +51,76 @@ class _Status:
     label: str
     satisfied: bool
     message: str
-    data: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass
+def _value_json(members: JsonMembers, key: str) -> str:
+    """The JSON text of the value of the member *key* of *members*, ``null``
+    when there is none: what ``dict.get(key)`` gave of the object."""
+    return members.value_text(key) if members.has(key) else "null"
+
+
 class RecordedResult:
     """A case's :class:`~autoware_carla_scenario.conditions.ScenarioResult`, as
-    a task recorded it (``ScenarioResult.to_dict()``)."""
+    a task recorded it (``ScenarioResult.to_dict()``): the members of its
+    ``result`` (:meth:`.manifest.CaseOutcome.result`).
 
-    data: dict[str, Any]
+    Each member is read from its JSON text when it is asked for, so a value
+    of the wrong type raises there, as reading it from the record read as a
+    ``dict`` did; :meth:`to_dict` gives back values equal to the record's, so
+    the batch's summary (``batch_report``) is written as it was."""
+
+    members: JsonMembers
+
+    def __init__(self, members: JsonMembers) -> None:
+        self.members = members
 
     @property
     def passed(self) -> bool:
         # Only a boolean is a verdict: ``"false"`` or ``1`` is no pass (#1718).
-        return self.data.get("passed") is True
+        passed = json.loads(_value_json(self.members, "passed"))
+        return isinstance(passed, bool) and bool(passed)
 
     @property
     def message(self) -> str:
-        return str(self.data["message"])
+        return str(self.members.value("message"))
 
     @property
     def elapsed_seconds(self) -> float:
-        return float(self.data["elapsed_seconds"])
+        return float(self.members.value("elapsed_seconds"))
 
     @property
     def condition_statuses(self) -> list[_Status]:
-        return [
-            _Status(str(s["label"]), bool(s["satisfied"]), str(s["message"]), s)
-            for s in self.data.get("condition_statuses") or []
-        ]
+        statuses = json.loads(_value_json(self.members, "condition_statuses"))
+        read: list[_Status] = []
+        if not bool(statuses):
+            return read
+        for s in statuses:
+            read.append(
+                _Status(str(s["label"]), bool(s["satisfied"]), str(s["message"]))
+            )
+        return read
 
     @property
     def rerun_recording(self) -> str | None:
-        recording = self.data.get("rerun_recording")
-        return None if recording is None else str(recording)
+        recording_json = _value_json(self.members, "rerun_recording")
+        if recording_json == "null":
+            return None
+        return str(json.loads(recording_json))
 
     @property
     def failure(self) -> Failure | None:
-        failure = self.data.get("failure")
-        return None if failure is None else Failure.from_dict(failure)
+        failure_json = _value_json(self.members, "failure")
+        if failure_json == "null":
+            return None
+        if TYPE_CHECKING:
+            # Failure.from_dict() reads a mapping of any values, which Codon
+            # cannot express (typecheck/library.py's UNCALLED).
+            return None
+        else:
+            return Failure.from_dict(json.loads(failure_json))
 
     def to_dict(self) -> dict[str, Any]:
-        return dict(self.data)
+        return {key: self.members.value(key) for key in self.members.keys()}
 
 
 def _last_submission_of(
@@ -143,33 +173,111 @@ def _missing_message(
 ) -> tuple[str, str, int | None]:
     """The message of *case*, which has no outcome, which advice it gives
     (``_RUNNING``, ``_IN_FLIGHT``, ``_TIMED_OUT`` or ``_RESUBMIT``), and the
-    submission that advice is about (None for ``_RESUBMIT``).
+    submission that advice is about (None for ``_RESUBMIT``): what
+    :func:`_advice` says of what the batch's records say of it.
+
+    The records are read here, in the order and only as far as before the
+    advice was split from them: the clock is read as often, and a state no
+    set holds or a ``submitted_at`` no float holds raises in the same cases
+    (each condition below short-circuits as the advice's did)."""
+    where = _last_submission_of(layout, case)
+    if where is None:
+        return _advice(
+            layout,
+            target,
+            submitted=False,
+            index=0,
+            task=0,
+            job="",
+            has_job=False,
+            state="",
+            has_status=False,
+            unfinished=False,
+            error=None,
+            note="",
+            timed_out=False,
+            in_flight=False,
+        )
+    index, task, submission = where
+    status = layout.read_task(index, task)
+    state = "never started" if status is None else status.get("state", "?")
+    job = submission.get("job_id")
+    # Never "job None" (#1796): why the submission has no job id.
+    note = "" if job else no_job_note(submission)
+    error = f"{status['error']}" if status is not None and status.get("error") else None
+    # Queued (no status yet) or running -- or killed before its status said
+    # so; a state no set holds raises, where a job's task has a status.
+    unfinished = bool(job) and status is not None and state in _UNFINISHED_TASK_STATES
+    timed_out = (
+        not job and sbatch_timed_out(submission) and sbatch_in_flight(submission)
+    )
+    in_flight = not job and not timed_out and sbatch_in_flight(submission)
+    return _advice(
+        layout,
+        target,
+        submitted=True,
+        index=index,
+        task=task,
+        job=f"{job}",
+        has_job=bool(job),
+        state=f"{state}",
+        has_status=status is not None,
+        unfinished=unfinished,
+        error=error,
+        note=note,
+        timed_out=timed_out,
+        in_flight=in_flight,
+    )
+
+
+def _advice(
+    layout: BatchLayout,
+    target: str,
+    *,
+    submitted: bool,
+    index: int,
+    task: int,
+    job: str,
+    has_job: bool,
+    state: str,
+    has_status: bool,
+    unfinished: bool,
+    error: str | None,
+    note: str,
+    timed_out: bool,
+    in_flight: bool,
+) -> tuple[str, str, int | None]:
+    """The message of a case with no outcome, which advice it gives
+    (``_RUNNING``, ``_IN_FLIGHT``, ``_TIMED_OUT`` or ``_RESUBMIT``), and the
+    submission that advice is about (None for ``_RESUBMIT``), from what the
+    batch's records say of it (:func:`_missing_message` reads them): whether
+    any submission gave it (*submitted*), and if so the last one (*index*), its
+    *task*, the submission's *job* id as text and whether it has one
+    (*has_job*), the task's *state* as text and whether it has a status
+    (*has_status*), whether that state is one of an unfinished task
+    (*unfinished*), its *error* (None when it has none), why the submission
+    has no job id (*note*), whether its sbatch timed out less than
+    SBATCH_IN_FLIGHT_SECONDS ago (*timed_out*), and, if not, whether it is
+    in flight (*in_flight*).
 
     The advice is chosen from what the batch's records say, asking SLURM
     nothing, as ``wait`` words it (#1801): a resubmit is advised only where
     ``resubmit`` takes it, or with the reason it is refused for now."""
-    where = _last_submission_of(layout, case)
     resubmit = f"Run it again with: scenario-slurm resubmit {target}"
     advice = _RESUBMIT
     about: int | None = None
-    if where is None:
+    if not submitted:
         detail = "it was never submitted"
         then = resubmit
     else:
-        index, task, submission = where
-        status = layout.read_task(index, task)
-        state = "never started" if status is None else status.get("state", "?")
-        job = submission.get("job_id")
-        if job:
+        if has_job:
             detail = f"task {task} of job {job} {state}"
         else:
             # Never "job None" (#1796): say why the submission has no job id.
-            detail = (
-                f"task {task} of submission {index} {state}; {no_job_note(submission)}"
-            )
-        if status is not None and status.get("error"):
-            detail += f": {status['error']}"
-        if job and (status is None or state in _UNFINISHED_TASK_STATES):
+            detail = f"task {task} of submission {index} {state}; {note}"
+        if error is not None:
+            detail += f": {error}"
+        if has_job and (not has_status or unfinished):
             # Queued (no status yet) or running -- or killed before its status
             # said so: only squeue can tell, and resubmit refuses while it is.
             advice, about = _RUNNING, index
@@ -179,14 +287,14 @@ def _missing_message(
                 "once it has ended, run the case again with: "
                 f"scenario-slurm resubmit {target}"
             )
-        elif not job and sbatch_timed_out(submission) and sbatch_in_flight(submission):
+        elif not has_job and timed_out:
             advice, about = _TIMED_OUT, index
             then = (
                 "If `squeue --me` lists the job, collect the batch once it "
                 f"ends: scenario-slurm collect {target}; if not, run the case "
                 f"again with: scenario-slurm resubmit {target} ({_REFUSED_UNTIL})"
             )
-        elif not job and sbatch_in_flight(submission):
+        elif not has_job and in_flight:
             advice, about = _IN_FLIGHT, index
             then = (
                 "Its submission is being submitted; try again once sbatch "
@@ -232,18 +340,29 @@ def _missing_hint(layout: BatchLayout, target: str, advice: dict[str, set[int]])
     return f"Run them again with: scenario-slurm resubmit {target}"
 
 
+def _failure_json(failure: Failure) -> str:
+    """The JSON text of *failure*'s ``to_dict()``."""
+    members = JsonMembers()
+    members.set_text("condition", json.dumps(failure.condition))
+    members.set_text("category", json.dumps(failure.category.name.lower()))
+    members.set_text("at", json.dumps(failure.at))
+    members.set_text("message", json.dumps(failure.message))
+    detail = failure.detail
+    members.set_text("detail", "null" if detail is None else json.dumps(detail))
+    members.set_text("also_triggered", json.dumps(list(failure.also_triggered)))
+    return members.object_text()
+
+
 def _error_result(message: str) -> RecordedResult:
     """The outcome reported for a case that has none to report: ``ERROR``."""
     failure = Failure("", FailureCategory.INFRASTRUCTURE, 0.0, message)
-    return RecordedResult(
-        {
-            "passed": False,
-            "message": message,
-            "elapsed_seconds": 0.0,
-            "condition_statuses": [],
-            "failure": failure.to_dict(),
-        }
-    )
+    members = JsonMembers()
+    members.set_text("passed", "false")
+    members.set_text("message", json.dumps(message))
+    members.set_text("elapsed_seconds", "0.0")
+    members.set_text("condition_statuses", "[]")
+    members.set_text("failure", _failure_json(failure))
+    return RecordedResult(members)
 
 
 def _no_verdict_message(layout: BatchLayout, case: int, target: str) -> str:
@@ -322,14 +441,16 @@ def collect(layout: BatchLayout, *, quiet_hint: bool = False) -> int:
             results.append(_error_result(message))
             continue
         # Reported whatever the result holds: the task recorded why (#1726).
-        if record.get("rerun_error"):
-            rerun_errors[position] = str(record["rerun_error"])
-        if recorded_verdict(record) is None:
+        rerun_error = record.rerun_error
+        if rerun_error is not None:
+            rerun_errors[position] = rerun_error
+        result = record.result()
+        if result is None or recorded_verdict(record) is None:
             unreadable.append(position)
             results.append(_error_result(_no_verdict_message(layout, index, target)))
             continue
-        results.append(RecordedResult(dict(record["result"])))
-        if record.get("errored"):
+        results.append(RecordedResult(result))
+        if record.errored:
             errored.append(position)
     overrides = (
         [list(case["case_overrides"]) for case in manifest["cases"]]

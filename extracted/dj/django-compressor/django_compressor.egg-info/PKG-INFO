@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django_compressor
-Version: 4.6.0
+Version: 4.7.0
 Summary: Compresses linked and inline JavaScript or CSS into single cached files.
 Maintainer: Mathieu Pillard
 License-Expression: MIT
@@ -8,25 +8,24 @@ Project-URL: Homepage, https://django-compressor.readthedocs.io/en/latest/
 Project-URL: Source, https://github.com/django-compressor/django-compressor
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: django-appconf>=1.0.3
 Requires-Dist: rcssmin>=1.2.1
 Requires-Dist: rjsmin>=1.2.4

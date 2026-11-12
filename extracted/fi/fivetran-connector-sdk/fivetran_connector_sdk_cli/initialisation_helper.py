@@ -33,11 +33,13 @@ def init(project_dir: str, template: str, prompt_mode: PromptMode):
         else:
             print_library_log("skipping project setup; existing files were not overwritten",
                               log_icon=Logging.LogIcon.STEP)
+        plugin_installed = False
         if prompt_mode == PromptMode.INTERACTIVE:
-            setup_ai_agent()
+            plugin_installed = setup_ai_agent()
         else:
             print_library_log(f"skipping AI agent setup; {prompt_mode.value} is set", log_icon=Logging.LogIcon.STEP)
-        sys.exit(0)
+        # nothing was done (no project setup and no plugin install), so signal a no-op with a non-zero exit code
+        sys.exit(0 if run_project_setup or plugin_installed else 1)
     except Exception as e:
         print_library_log(f"failed to initialize project error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
@@ -153,7 +155,8 @@ def is_agent_plugin_install_supported(agent_key: str) -> bool:
     return False
 
 
-def setup_ai_agent():
+def setup_ai_agent() -> bool:
+    """Returns True only if an agent plugin was installed."""
     installed = detect_installed_agents()
 
     if not installed:
@@ -162,7 +165,7 @@ def setup_ai_agent():
             log_icon=Logging.LogIcon.STEP,
         )
         _print_plugin_install_guidance()
-        return
+        return False
 
     agent_list = list(installed.items())
     skip_num = len(agent_list) + 1
@@ -179,21 +182,24 @@ def setup_ai_agent():
             raise ValueError
     except ValueError:
         print_library_log("invalid choice; skipping agent setup", log_icon=Logging.LogIcon.FAILURE)
-        return
+        return False
 
     if choice_num == skip_num:
         print_library_log("skipping plugin setup", log_icon=Logging.LogIcon.STEP)
         _print_plugin_install_guidance()
-    else:
-        agent_key = agent_list[choice_num - 1][0]
-        if not is_agent_plugin_install_supported(agent_key):
-            return
-        if not install_agent_plugin(agent_key):
-            print_library_log(
-                "agent plugin setup failed; skipping plugin setup",
-                level=Logging.Level.WARNING,
-                log_icon=Logging.LogIcon.FAILURE,
-            )
+        return False
+
+    agent_key = agent_list[choice_num - 1][0]
+    if not is_agent_plugin_install_supported(agent_key):
+        return False
+    if not install_agent_plugin(agent_key):
+        print_library_log(
+            "agent plugin setup failed; skipping plugin setup",
+            level=Logging.Level.WARNING,
+            log_icon=Logging.LogIcon.FAILURE,
+        )
+        return False
+    return True
 
 
 def validate_example_directory(files_to_download: list, requested_path: str = ""):

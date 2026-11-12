@@ -11,6 +11,7 @@ from contextlib import contextmanager, redirect_stdout
 from itertools import groupby
 from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union, cast
 import requests
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
 import json
@@ -30,6 +31,7 @@ from raindrop.models import (
     EditSignal,
     PartialTrackAIEvent,
     PartialAIData,
+    FlushResult,
 )
 from raindrop.interaction import Interaction
 from raindrop.local_debugger import (
@@ -245,7 +247,10 @@ _tracing_enabled = False
 _bypass_otel_for_tools = False
 flush_thread = None
 shutdown_event = threading.Event()
-max_ingest_size_bytes = 1 * 1024 * 1024  # 1 MB
+# Deprecated and unused: there is no client-side event size cap. Whether a
+# payload is too large is ingest's decision (a 413 is a logged permanent
+# drop); kept so code that reads or assigns it keeps working.
+max_ingest_size_bytes = 1 * 1024 * 1024
 _direct_tool_upload_size = 50
 _direct_tool_spans_buffer: list[dict[str, Any]] = []
 _app_git_snapshot: AppGitSnapshot = EMPTY_SNAPSHOT
@@ -253,6 +258,15 @@ _app_git_generation = 0
 _partial_app_git_snapshots: dict[str, Any] = {}
 _partial_app_git_inference_disabled = False
 _partial_app_git_lock = threading.Lock()
+_partial_starts: dict[str, str] = {}
+_partial_content_seen: set[str] = set()
+_resumed_event_ids: set[str] = set()
+_resumed_identity: dict[str, dict[str, str]] = {}
+_live_interactions: "weakref.WeakValueDictionary[str, Any]" = weakref.WeakValueDictionary()
+_inflight_sends = 0
+_inflight_cond = threading.Condition()
+_background_drops = 0
+flush_timeout = 10.0
 
 # The globals above are the storage of the DEFAULT client — the one behind
 # the module-level API (init / track_ai / begin / ...). Pipeline functions
@@ -406,12 +420,21 @@ _HTTP_CONNECT_TIMEOUT_SECONDS = 5.0
 _HTTP_READ_TIMEOUT_SECONDS = 15.0
 _HTTP_MAX_ATTEMPTS = 3
 _HTTP_RETRY_BACKOFF_SECONDS = (0.5, 1.0)  # sleep before attempt 2 / attempt 3
+# Default flush/shutdown deadline. One setting governs both (``flush_timeout``,
+# CONTRACT 1.2.1); this constant is kept for code that reads it and as the
+# fallback for an invalid setting.
 _SHUTDOWN_DEADLINE_SECONDS = 10.0
 # After shutdown() completes (deadline cleared, shutdown_event still set),
 # stragglers send synchronously on the CALLER's thread — keep those to a
 # single short-bounded attempt so a late track_ai()/finish() can never block
 # a caller for the full retry schedule.
 _POST_SHUTDOWN_TIMEOUT = (2.0, 5.0)
+# A read timeout counts as a deadline cut-off (not resent, CONTRACT 1.2.1)
+# only when the deadline has (nearly) passed; earlier it is retried.
+_CUT_OFF_SLACK_SECONDS = 0.25
+# Per-event start/identity/content state is bounded so interactions that
+# never finish can't grow it without limit (oldest finished/abandoned first).
+_PARTIAL_STATE_CAP = 10_000
 _shutdown_deadline: float | None = None  # time.monotonic() based; set by shutdown()
 
 # --- Payload bounds ----------------------------------------------------------
@@ -423,10 +446,9 @@ _shutdown_deadline: float | None = None  # time.monotonic() based; set by shutdo
 # init(max_text_field_chars=...). OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT still
 # applies when it is stricter.
 #
-# Default is 1M chars: a single ASCII field at the cap still fits under the
-# 1MiB event-level ingest gate (max_ingest_size_bytes), and production data
-# shows real-world fields in the 100k-1MB range that must keep round-
-# tripping unchanged. The cap exists to bound CPU on pathological multi-MB
+# Default is 1M chars (CONTRACT 7.4): production data shows real-world fields
+# in the 100k-1MB range that must keep round-tripping unchanged. There is no
+# event-level size cap on the client; ingest decides (CONTRACT 15.1). The cap exists to bound CPU on pathological multi-MB
 # payloads, not to shave real ones.
 max_text_field_chars = 1_000_000
 _TRUNCATION_MARKER = "...[truncated by raindrop]"
@@ -470,7 +492,7 @@ def _shutdown_budget(state: Optional[RaindropState] = None) -> float | None:
 def _prepare_event_for_send(
     event: Dict[str, Any], state: RaindropState
 ) -> Optional[Dict[str, Any]]:
-    """Apply deferred PII redaction and the ingest-size gate; None means drop."""
+    """Apply deferred PII redaction; None means drop."""
     data = event["data"]
     if not event.get("_redact_pii"):
         return data
@@ -482,15 +504,6 @@ def _prepare_event_for_send(
             logging.ERROR,
             "PII redaction failed for event; sending unredacted event was NOT attempted: %s",
             e,
-        )
-        return None
-    size = _get_size(data)
-    if size > max_ingest_size_bytes:
-        _rate_limited_log(
-            "redacted_event_oversized",
-            logging.WARNING,
-            "[raindrop] redacted event > %d MB; skipping",
-            max_ingest_size_bytes // (1024 * 1024),
         )
         return None
     return data
@@ -558,11 +571,11 @@ def flush_loop(state: Optional[RaindropState] = None) -> None:
             event.get("_defer_initial_flush") for event in st.buffer
         )
     if defer_initial_flush:
-        # Plain-track hot-path scenarios need deterministic first delivery:
-        # give consecutive enqueues one interval to coalesce before the first
-        # drain. This delays the first background flush of the state's entire
+        # Track calls made together coalesce into one batch (CONTRACT 7.2):
+        # give consecutive enqueues one interval before the first drain. This delays the first background flush of the state's entire
         # buffer by upload_interval; later iterations keep the normal cadence.
-        time.sleep(st.upload_interval)
+        # Waits on the shutdown event so shutdown() never waits it out.
+        st.shutdown_event.wait(st.upload_interval)
 
     while not st.shutdown_event.is_set():
         try:
@@ -595,24 +608,58 @@ def flush_loop(state: Optional[RaindropState] = None) -> None:
             _instance_states.discard(st)
             logger.debug("[raindrop] flush loop exiting: client was collected")
             break
-        time.sleep(st.upload_interval)
+        st.shutdown_event.wait(st.upload_interval)
 
 
 def flush(
     state: Optional[RaindropState] = None,
     _throttle_traces: bool = False,
     _background: bool = False,
-) -> None:
+) -> FlushResult:
+    """Send everything queued so far, within the flush deadline.
+
+    An explicit flush() is the caller's request to make data durable
+    (CONTRACT 1.2 and 1.2.1): it runs the full bounded retry schedule under
+    ``flush_timeout`` (default 10 s) and returns once every payload enqueued
+    before it, including batches the background thread already has in
+    flight, was handed to ingest, or the deadline passed. Payloads not yet
+    sent at the deadline (or waiting on a retry or a Retry-After pause) go
+    back to the queue for the background sender; a request cut off
+    mid-flight is dropped, since ingest may already have it.
+
+    Returns a ``FlushResult`` (truthy when everything was delivered). It never
+    raises, and ignoring it changes nothing.
+    """
+    try:
+        return _flush(state, _throttle_traces=_throttle_traces, _background=_background)
+    except Exception as e:
+        logger.error("[raindrop] flush failed (%s: %s)", type(e).__name__, e)
+        return FlushResult(delivered=False)
+
+
+def _flush(
+    state: Optional[RaindropState],
+    _throttle_traces: bool,
+    _background: bool,
+) -> FlushResult:
     st = _resolve_state(state)
-    # Most explicit caller-thread flushes get one bounded attempt per batch.
-    # Event types that opt into durable explicit delivery use the same bounded
-    # retry policy as the background worker.
-    max_attempts = None if _background else 1
+    max_attempts = None
+    deadline = None if _background else time.monotonic() + _resolved_flush_timeout(st)
+    if not _background and st._shutdown_deadline is None and st.shutdown_event.is_set():
+        # shutdown() already finished: a manual flush of stragglers gets the
+        # short post-shutdown attempt, not a fresh flush budget.
+        deadline = None
+
+    if not _background and st._shutdown_deadline is None:
+        # Open interactions go out as they stand, still pending, so a begin
+        # is durable once flush() returns. shutdown() drains these itself.
+        for eid in list(st._partial_timers.keys()):
+            _flush_partial_event(eid, state=st)
 
     if st.buffer is None:
         logger.error("No buffer available")
         _flush_traces(state=st, force=not _throttle_traces)
-        return
+        return FlushResult(delivered=False)
 
     logger.debug("Starting flush")
 
@@ -623,26 +670,145 @@ def flush(
         st._direct_tool_spans_buffer = []
         current_partials = st._partial_flush_queue
         st._partial_flush_queue = []
+        # Count drained payloads as in flight from the moment they leave the
+        # queues, under the same lock, so a concurrent explicit flush() never
+        # sees them neither queued nor in flight and returns early.
+        drained = bool(current_buffer or current_direct_tool_spans or current_partials)
+        if drained:
+            with st._inflight_cond:
+                st._inflight_sends += 1
+    outcome = None
+    trimmed = 0
+    try:
+        outcome = _send_drained(
+            st, current_buffer, current_direct_tool_spans, current_partials, max_attempts, deadline
+        )
+        pending, trimmed = _requeue(st, outcome)
+    finally:
+        with st._inflight_cond:
+            if _background and outcome is not None and outcome.dropped + trimmed:
+                # Lost by the background sender: counted by the explicit
+                # flush() waiting for this send (or the next one), so its
+                # result never claims delivery of a dropped payload. Recorded
+                # before the completion signal so a waiter can't miss it.
+                st._background_drops += outcome.dropped + trimmed
+            if drained:
+                st._inflight_sends -= 1
+                st._inflight_cond.notify_all()
 
+    dropped = outcome.dropped + trimmed
+    background_done = True
+    if deadline is not None:
+        background_done = _wait_for_inflight_sends(st, deadline)
+        with st._inflight_cond:
+            dropped += st._background_drops
+            st._background_drops = 0
+    result = FlushResult(
+        delivered=pending == 0 and dropped == 0 and background_done,
+        pending=pending,
+        dropped=dropped,
+        timed_out=pending > 0
+        or not background_done
+        or (deadline is not None and time.monotonic() >= deadline),
+    )
+    if deadline is not None and not result.delivered:
+        _rate_limited_log(
+            "flush.not_delivered",
+            logging.WARNING,
+            "[raindrop] flush deadline exceeded or delivery failed: %d payload(s) stay queued "
+            "for the background sender, %d dropped%s",
+            pending,
+            dropped,
+            "" if background_done else "; a background send was still in progress",
+        )
+
+    logger.debug("Flush complete")
+    _flush_traces(state=st, force=not _throttle_traces)
+    return result
+
+
+@dataclass
+class _DrainOutcome:
+    """What one drain left behind: deferred payloads per queue, and losses."""
+
+    buffer: List[Dict[str, Any]] = field(default_factory=list)
+    partials: List[PartialTrackAIEvent] = field(default_factory=list)
+    spans: List[Dict[str, Any]] = field(default_factory=list)
+    dropped: int = 0
+
+
+def _requeue(st: RaindropState, outcome: _DrainOutcome) -> tuple[int, int]:
+    """Put deferred payloads back ahead of newer ones (bounded by
+    ``max_queue_size``). Returns (requeued count, count trimmed by the bound)."""
+    if not (outcome.buffer or outcome.partials or outcome.spans):
+        return 0, 0
+    if _in_shutdown(st):
+        # Nothing will send them after shutdown: drop, with a warning.
+        lost = len(outcome.buffer) + len(outcome.partials) + len(outcome.spans)
+        _rate_limited_log(
+            "flush.shutdown_deadline",
+            logging.WARNING,
+            "[raindrop] shutdown flush deadline exceeded; dropping %d remaining payload(s)",
+            lost,
+        )
+        return 0, lost
+    limit = st.max_queue_size
+    trimmed = 0
+    with st.flush_lock:
+        merged_buffer = outcome.buffer + st.buffer
+        merged_partials = outcome.partials + st._partial_flush_queue
+        merged_spans = outcome.spans + st._direct_tool_spans_buffer
+        for merged in (merged_buffer, merged_partials, merged_spans):
+            if len(merged) > limit:
+                trimmed += len(merged) - limit
+                del merged[limit:]
+        st.buffer = merged_buffer
+        st._partial_flush_queue = merged_partials
+        st._direct_tool_spans_buffer = merged_spans
+        start_flush_thread(state=st)
+    if trimmed:
+        _rate_limited_log(
+            "flush.requeue_full",
+            logging.WARNING,
+            "[raindrop] queue full while keeping undelivered payloads; dropped %d newest",
+            trimmed,
+        )
+    requeued = (
+        len(outcome.buffer) + len(outcome.partials) + len(outcome.spans)
+    )
+    return max(0, requeued - trimmed), trimmed
+
+
+def _send_drained(
+    st: RaindropState,
+    current_buffer: List[Dict[str, Any]],
+    current_direct_tool_spans: List[Dict[str, Any]],
+    current_partials: List[PartialTrackAIEvent],
+    max_attempts: Optional[int],
+    deadline: Optional[float],
+) -> _DrainOutcome:
     logger.debug(f"Flushing buffer size: {len(current_buffer)}")
+    out = _DrainOutcome()
 
-    grouped_events = {}
+    def note(outcome: str, count: int) -> None:
+        if outcome == _DROPPED:
+            out.dropped += count
+
+    grouped_events: Dict[str, List[Dict[str, Any]]] = {}
     for event in current_buffer:
-        endpoint = event["type"]
-        if endpoint not in grouped_events:
-            grouped_events[endpoint] = []
-        grouped_events[endpoint].append(event)
+        grouped_events.setdefault(event["type"], []).append(event)
 
     for endpoint, events in grouped_events.items():
         policy_groups = groupby(
             events,
             key=lambda event: bool(event.get("_retry_on_explicit_flush")),
         )
-        for retry_on_explicit_flush, policy_events in policy_groups:
+        for _policy, policy_events in policy_groups:
             events_with_policy = list(policy_events)
             for i in range(0, len(events_with_policy), st.upload_size):
                 batch_events = events_with_policy[i : i + st.upload_size]
                 batch = []
+                prepared: List[Dict[str, Any]] = []
                 for event in batch_events:
                     budget = _shutdown_budget(state=st)
                     if budget is not None and budget <= 0:
@@ -656,26 +822,29 @@ def flush(
                     if data is None:
                         continue
                     batch.append(data)
+                    # Redaction already applied: a requeued copy must not
+                    # be redacted twice.
+                    prepared.append({**event, "data": data, "_redact_pii": False})
+                out.dropped += len(batch_events) - len(batch)
                 if not batch:
                     continue
-                batch_max_attempts = (
-                    None
-                    if _background or retry_on_explicit_flush
-                    else max_attempts
-                )
                 logger.debug(f"Sending {len(batch)} events to {endpoint}")
-                send_request(
+                outcome = send_request(
                     endpoint,
                     batch,
                     state=st,
-                    max_attempts=batch_max_attempts,
+                    max_attempts=max_attempts,
+                    deadline=deadline,
                 )
+                if outcome == _DEFERRED:
+                    out.buffer.extend(prepared)
+                note(outcome, len(batch))
 
     for partial_event in current_partials:
-        # Serialization / PII redaction / size checks deliberately run here,
-        # on the flush thread, so interaction.finish() stays O(1) for callers.
-        # Guarded per event: one unserializable payload must not discard the
-        # rest of the drained batch.
+        # Serialization / PII redaction deliberately run here, on the flush
+        # thread, so interaction.finish() stays O(1) for callers. Guarded
+        # per event: one unserializable payload must not discard the rest of
+        # the drained batch.
         try:
             partial_data = _serialize_partial_event(partial_event, state=st)
         except Exception as e:
@@ -686,18 +855,26 @@ def flush(
                 getattr(partial_event, "event_id", "<unknown>"),
                 e,
             )
+            out.dropped += 1
             continue
         if partial_data is not None:
-            send_request(
-                "events/track_partial", partial_data, state=st, max_attempts=max_attempts
+            outcome = send_request(
+                "events/track_partial",
+                partial_data,
+                state=st,
+                max_attempts=max_attempts,
+                deadline=deadline,
             )
+            if outcome == _DEFERRED:
+                out.partials.append(partial_event)
+            note(outcome, 1)
 
-    _flush_direct_tool_spans(
-        current_direct_tool_spans, state=st, max_attempts=max_attempts
+    deferred_spans, dropped_spans = _flush_direct_tool_spans(
+        current_direct_tool_spans, state=st, max_attempts=max_attempts, deadline=deadline
     )
-
-    logger.debug("Flush complete")
-    _flush_traces(state=st, force=not _throttle_traces)
+    out.spans.extend(deferred_spans)
+    out.dropped += dropped_spans
+    return out
 
 
 # The OTLP trace pipeline is process-global (one TracerWrapper), while flush
@@ -809,8 +986,14 @@ def _build_direct_tool_span(
     association_properties: Dict[str, Any],
     extra_attributes: Optional[Dict[str, Any]] = None,
     app_git_properties: Optional[Dict[str, Any]] = None,
+    parent_ids: Optional[tuple[str, str]] = None,
 ) -> Dict[str, Any]:
-    trace_id_b64, parent_span_id_b64 = _get_active_trace_context_b64()
+    if parent_ids is not None:
+        # A saved parent from another process (CONTRACT 12.2), hex ids.
+        trace_id_b64 = base64.b64encode(bytes.fromhex(parent_ids[0])).decode("ascii")
+        parent_span_id_b64 = base64.b64encode(bytes.fromhex(parent_ids[1])).decode("ascii")
+    else:
+        trace_id_b64, parent_span_id_b64 = _get_active_trace_context_b64()
     if trace_id_b64 is None:
         trace_id_b64 = _random_id_b64(16)
 
@@ -943,28 +1126,193 @@ def _post_local_mirror(path: str, payload: Any, state: Optional[RaindropState] =
         )
 
 
+_MAX_RETRY_AFTER_SECONDS = 30.0
+# Overload pauses (CONTRACT 15.2): a 429 or 503 with Retry-After pauses ALL
+# sending to that server until the time it names, not just the retry of the
+# rejected request. Process-wide, keyed by scheme + host, like the other SDKs.
+_send_paused_until: dict[str, float] = {}
+_send_pause_lock = threading.Lock()
+
+
+def _pause_key(url: str) -> str:
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return f"{parsed.scheme}://{parsed.netloc.rsplit('@', 1)[-1]}"
+    except Exception:
+        return url
+
+
+def _parse_retry_after(response: Any) -> Optional[float]:
+    """Seconds named by a Retry-After header (delta or HTTP date), capped."""
+    try:
+        raw = response.headers.get("Retry-After") if response is not None else None
+    except Exception:
+        return None
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    try:
+        seconds = float(raw)
+    except ValueError:
+        try:
+            from email.utils import parsedate_to_datetime
+
+            seconds = (parsedate_to_datetime(raw) - datetime.now(timezone.utc)).total_seconds()
+        except Exception:
+            return None
+    if seconds != seconds or seconds < 0:  # NaN or in the past
+        return 0.0
+    return min(seconds, _MAX_RETRY_AFTER_SECONDS)
+
+
+def _note_send_pause(url: str, status_code: int, retry_after: Optional[float]) -> None:
+    if retry_after is None or retry_after <= 0 or status_code not in (429, 503):
+        return
+    until = time.monotonic() + retry_after
+    key = _pause_key(url)
+    with _send_pause_lock:
+        if until > _send_paused_until.get(key, 0.0):
+            _send_paused_until[key] = until
+
+
+def _wait_for_send_pause(url: str, max_wait: Optional[float]) -> None:
+    with _send_pause_lock:
+        until = _send_paused_until.get(_pause_key(url))
+    if until is None:
+        return
+    wait = until - time.monotonic()
+    if max_wait is not None:
+        wait = min(wait, max_wait)
+    if wait > 0:
+        time.sleep(wait)
+
+
+def _reset_send_pauses() -> None:
+    """Test hook: forget overload pauses."""
+    with _send_pause_lock:
+        _send_paused_until.clear()
+
+
+def _describe_ingest_item(item: Dict[str, Any], detail: str) -> str:
+    event_id = item.get("event_id")
+    index = item.get("index")
+    label = f"event {event_id}" if isinstance(event_id, str) and event_id else (
+        f"item {index}" if isinstance(index, int) else "item"
+    )
+    return f"{label} ({detail})" if detail else label
+
+
+def _report_ingest_response(response: Any, safe_url: str) -> None:
+    """Warn about what ingest rejected or changed in an accepted request.
+
+    A 2xx is delivered whatever its body says (CONTRACT 7.1). Ingest lists
+    invalid items it did not store under ``rejected`` and input it accepted
+    with changes (such as ignored fields) under ``warnings``; both warn,
+    rate-limited (CONTRACT 14.2). An empty, non-JSON or unexpected body is
+    ignored.
+    """
+    try:
+        body = response.json()
+    except Exception:
+        return
+    if not isinstance(body, dict):
+        return
+    rejected = [r for r in body.get("rejected") or [] if isinstance(r, dict)] if isinstance(body.get("rejected"), list) else []
+    if rejected:
+        quoted = []
+        for item in rejected[:3]:
+            issues = item.get("issues") if isinstance(item.get("issues"), list) else []
+            detail = "; ".join(
+                f"{i.get('path')}: {i.get('message')}" if i.get("path") else str(i.get("message", "invalid"))
+                for i in issues
+                if isinstance(i, dict)
+            )
+            quoted.append(_describe_ingest_item(item, detail or "invalid"))
+        more = f" (+{len(rejected) - 3} more)" if len(rejected) > 3 else ""
+        _rate_limited_log(
+            "ingest.rejected",
+            logging.WARNING,
+            "[raindrop] %s: ingest rejected %d item(s), which were not stored: %s%s",
+            safe_url,
+            len(rejected),
+            " | ".join(quoted),
+            more,
+        )
+    warnings_list = body.get("warnings")
+    warnings = [w for w in warnings_list if isinstance(w, dict)] if isinstance(warnings_list, list) else []
+    if warnings:
+        quoted = []
+        for item in warnings[:3]:
+            message = item.get("message")
+            fields = item.get("fields") if isinstance(item.get("fields"), list) else []
+            detail = message if isinstance(message, str) and message else (
+                "ignored " + ", ".join(str(f) for f in fields) if fields else "accepted with changes"
+            )
+            quoted.append(_describe_ingest_item(item, detail))
+        more = f" (+{len(warnings) - 3} more)" if len(warnings) > 3 else ""
+        _rate_limited_log(
+            "ingest.warnings",
+            logging.WARNING,
+            "[raindrop] %s: ingest accepted %d item(s) with changes: %s%s",
+            safe_url,
+            len(warnings),
+            " | ".join(quoted),
+            more,
+        )
+
+
+def _is_retryable_status(status_code: int) -> bool:
+    # 408 and 429 are the transient 4xx; every other 4xx is a permanent
+    # rejection (CONTRACT 3 and 15.2).
+    return status_code in (408, 429) or status_code >= 500
+
+
+# Outcome of one payload's send (``_post_with_retries`` / ``send_request``).
+_SENT = "sent"
+"""Handed to ingest (2xx)."""
+_REJECTED = "rejected"
+"""Ingest rejected it permanently (non-429, non-408 4xx): delivered, not retried."""
+_DEFERRED = "deferred"
+"""Not sent, or waiting on a retry, when an explicit flush's deadline came:
+the caller puts it back in its queue for the background sender (1.2.1)."""
+_DROPPED = "dropped"
+"""Lost: out of retries, cut off mid-flight at a deadline, or past shutdown's."""
+
+
+def _in_shutdown(st: RaindropState) -> bool:
+    return st._shutdown_deadline is not None or st.shutdown_event.is_set()
+
+
 def _post_with_retries(
     url: str,
     payload: Any,
     log_key: str,
     state: Optional[RaindropState] = None,
     max_attempts: Optional[int] = None,
-) -> None:
+    deadline: Optional[float] = None,
+) -> str:
     """POST to the cloud API with bounded timeouts and capped retries.
 
-    Outside shutdown: up to ``max_attempts`` (default ``_HTTP_MAX_ATTEMPTS``)
-    attempts with a short, capped backoff between them, each bounded by
-    (connect, read) timeouts. Explicit ``flush()`` batches normally pass
-    ``max_attempts=1``; plain ``track()`` batches opt into the default bounded
-    retry schedule and may therefore sleep in backoff on the caller thread.
+    Up to ``max_attempts`` (default ``_HTTP_MAX_ATTEMPTS``) attempts. 408,
+    429, 5xx and network errors are retried after a short backoff, or after
+    the server's ``Retry-After`` when longer (capped at 30 s); a 429 or 503
+    with ``Retry-After`` also pauses every other send to the server. Any other
+    4xx (including 413) is a permanent rejection: warned, never retried.
 
-    During shutdown — checked fresh on EVERY attempt, so a shutdown that
-    begins while a flush-thread POST is mid-retry takes effect immediately —
-    no further retries or backoff sleeps happen and the (connect, read)
-    timeouts are clamped so their SUM fits the remaining window (``requests``
-    applies the two limits independently and sequentially). Once the window
-    is exhausted, payloads are dropped with a rate-limited warning rather
-    than wedging process exit.
+    ``deadline`` (monotonic) bounds an explicit ``flush()`` (CONTRACT 1.2.1).
+    Each request's timeouts are clamped to what is left of it; a request cut
+    off that way may already have reached ingest, so it is dropped with a
+    warning rather than resent. A payload not yet sent, or waiting on a retry
+    or a ``Retry-After`` pause, when the deadline comes is returned as
+    ``_DEFERRED`` so the caller keeps it queued.
+
+    During shutdown, checked fresh on every attempt, a retry happens only when
+    its wait fits the remaining window, and the timeouts are clamped to it;
+    what is left when the window closes is dropped with a rate-limited
+    warning rather than wedging process exit. After shutdown() has finished,
+    a straggler gets one short attempt.
+
+    Returns ``_SENT``, ``_REJECTED``, ``_DEFERRED`` or ``_DROPPED``.
     """
     st = _resolve_state(state)
     headers = {
@@ -976,47 +1324,104 @@ def _post_with_retries(
     # credentials (https://user:pass@host/...).
     safe_url = _redact_url_for_log(url)
 
-    attempts = max_attempts if max_attempts is not None else _HTTP_MAX_ATTEMPTS
-    for attempt in range(attempts):
-        budget = _shutdown_budget(state=st)
-        if budget is not None and budget <= 0:
+    def remaining() -> Optional[float]:
+        return None if deadline is None else deadline - time.monotonic()
+
+    def out_of_time() -> str:
+        if _in_shutdown(st):
             _rate_limited_log(
                 f"{log_key}.shutdown_deadline",
                 logging.WARNING,
                 "[raindrop] shutdown flush deadline exceeded; dropping payload for %s",
                 safe_url,
             )
-            return
+            return _DROPPED
+        return _DEFERRED
+
+    attempts = max_attempts if max_attempts is not None else _HTTP_MAX_ATTEMPTS
+    for attempt in range(attempts):
+        budget = _shutdown_budget(state=st)
+        if budget is not None and budget <= 0:
+            return out_of_time()
+
+        left = remaining()
+        if budget is None and st.shutdown_event.is_set():
+            # shutdown() has finished: a straggler sends on the caller's
+            # thread and must not sit out a Retry-After pause there.
+            pause_wait: Optional[float] = 0.0
+        else:
+            pause_wait = budget if budget is not None else left
+        _wait_for_send_pause(url, pause_wait)
+        budget = _shutdown_budget(state=st)
+        left = budget if budget is not None else remaining()
+        if left is not None and left <= 0:
+            return out_of_time()
 
         timeout = (_HTTP_CONNECT_TIMEOUT_SECONDS, _HTTP_READ_TIMEOUT_SECONDS)
-        if budget is not None:
+        clamped = False
+        if left is not None:
             # Split the remaining window between connect and read so their
-            # SUM stays within the budget (requests applies them in
-            # sequence); give connect at most half so a slow handshake can't
-            # starve the read phase.
-            connect_timeout = min(_HTTP_CONNECT_TIMEOUT_SECONDS, max(0.05, budget / 2))
+            # SUM stays within it (requests applies them in sequence); give
+            # connect at most half so a slow handshake can't starve the read.
+            connect_timeout = min(_HTTP_CONNECT_TIMEOUT_SECONDS, max(0.05, left / 2))
             read_timeout = min(
                 _HTTP_READ_TIMEOUT_SECONDS,
-                max(0.05, budget - connect_timeout),
+                max(0.05, left - connect_timeout),
             )
+            clamped = read_timeout < _HTTP_READ_TIMEOUT_SECONDS
             timeout = (connect_timeout, read_timeout)
         elif st.shutdown_event.is_set():
             # shutdown() has completed and cleared the deadline; stragglers
             # send synchronously on the caller's thread. Keep them short.
             timeout = _POST_SHUTDOWN_TIMEOUT
 
+        retry_after: Optional[float] = None
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=timeout)
             response.raise_for_status()
             logger.debug("Request successful: %s", response.status_code)
-            return
+            _report_ingest_response(response, safe_url)
+            return _SENT
         except requests.exceptions.RequestException as e:
             # requests embeds the full request URL in exception messages;
             # scrub it the same way.
             error_text = str(e).replace(url, safe_url)
-            _rate_limited_log(
-                log_key,
-                logging.ERROR,
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code is not None:
+                retry_after = _parse_retry_after(e.response)
+                _note_send_pause(url, status_code, retry_after)
+                if not _is_retryable_status(status_code):
+                    _rate_limited_log(
+                        f"{log_key}.rejected",
+                        logging.WARNING,
+                        "[raindrop] %s rejected the payload with HTTP %s (permanent); dropping it: %s",
+                        safe_url,
+                        status_code,
+                        error_text,
+                    )
+                    return _REJECTED
+            left_now = _shutdown_budget(state=st)
+            if left_now is None:
+                left_now = remaining()
+            if (
+                clamped
+                and isinstance(e, requests.exceptions.Timeout)
+                and not isinstance(e, requests.exceptions.ConnectTimeout)
+                and left_now is not None
+                and left_now <= _CUT_OFF_SLACK_SECONDS
+            ):
+                # The deadline cut this request off mid-flight. Ingest may
+                # already have it, so it is not resent (CONTRACT 1.2.1).
+                _rate_limited_log(
+                    f"{log_key}.cut_off",
+                    logging.WARNING,
+                    "[raindrop] request to %s was cut off at the %s deadline; "
+                    "not resending it because ingest may already have it",
+                    safe_url,
+                    "shutdown" if _in_shutdown(st) else "flush",
+                )
+                return _DROPPED
+            logger.debug(
                 "Error sending request to %s (attempt %s/%s): %s: %s",
                 safe_url,
                 attempt + 1,
@@ -1024,45 +1429,56 @@ def _post_with_retries(
                 type(e).__name__,
                 error_text,
             )
-            # In (or after) shutdown, the remaining time is better spent on
-            # other queued payloads than on retrying this one.
-            if _shutdown_budget(state=st) is not None or st.shutdown_event.is_set():
-                break
-            status_code = e.response.status_code if e.response is not None else None
-            if (
-                status_code is not None
-                and 400 <= status_code < 500
-                and status_code != 429
-            ):
+            budget = _shutdown_budget(state=st)
+            if budget is None and st.shutdown_event.is_set():
+                # shutdown() already finished: a straggler gets one short
+                # attempt on the caller's thread, never a retry.
                 break
             if attempt < attempts - 1:
                 backoff_idx = min(attempt, len(_HTTP_RETRY_BACKOFF_SECONDS) - 1)
-                time.sleep(_HTTP_RETRY_BACKOFF_SECONDS[backoff_idx])
+                delay = max(_HTTP_RETRY_BACKOFF_SECONDS[backoff_idx], retry_after or 0.0)
+                # Retry only when the wait still fits the window; otherwise
+                # the payload waits in the queue (flush) or is dropped
+                # (shutdown), CONTRACT 1.2.1.
+                left = budget if budget is not None else remaining()
+                if left is not None and delay >= left:
+                    return out_of_time()
+                time.sleep(delay)
 
     _rate_limited_log(
         f"{log_key}.gave_up",
-        logging.ERROR,
-        "Failed to send request to %s",
+        logging.WARNING,
+        "[raindrop] failed to send to %s after %s attempt(s); dropping payload",
         safe_url,
+        attempts,
     )
+    return _DROPPED
 
 
 def _send_traces_request(
     payload: Dict[str, Any],
     state: Optional[RaindropState] = None,
     max_attempts: Optional[int] = None,
-) -> None:
+    deadline: Optional[float] = None,
+) -> str:
     st = _resolve_state(state)
+    if _deadline_passed(st, deadline):
+        return _DEFERRED
     _post_local_mirror("traces", payload, state=st)
 
     if not st.write_key:
-        return
+        return _SENT
 
     url = urllib.parse.urljoin(
         st.api_url if st.api_url.endswith("/") else f"{st.api_url}/", "traces"
     )
-    _post_with_retries(
-        url, payload, log_key="send.traces", state=st, max_attempts=max_attempts
+    return _post_with_retries(
+        url,
+        payload,
+        log_key="send.traces",
+        state=st,
+        max_attempts=max_attempts,
+        deadline=deadline,
     )
 
 
@@ -1070,15 +1486,24 @@ def _flush_direct_tool_spans(
     spans: List[Dict[str, Any]],
     state: Optional[RaindropState] = None,
     max_attempts: Optional[int] = None,
-) -> None:
-    if not spans:
-        return
-
+    deadline: Optional[float] = None,
+) -> tuple[List[Dict[str, Any]], int]:
+    """Send direct tool spans in batches; returns (deferred spans, dropped count)."""
+    deferred: List[Dict[str, Any]] = []
+    dropped = 0
     for i in range(0, len(spans), _direct_tool_upload_size):
         batch = spans[i : i + _direct_tool_upload_size]
-        _send_traces_request(
-            _build_direct_traces_payload(batch), state=state, max_attempts=max_attempts
+        outcome = _send_traces_request(
+            _build_direct_traces_payload(batch),
+            state=state,
+            max_attempts=max_attempts,
+            deadline=deadline,
         )
+        if outcome == _DEFERRED:
+            deferred.extend(batch)
+        elif outcome == _DROPPED:
+            dropped += len(batch)
+    return deferred, dropped
 
 
 def _enqueue_direct_tool_span(span: Dict[str, Any], state: Optional[RaindropState] = None) -> None:
@@ -1106,17 +1531,54 @@ def send_request(
     data_entries: Union[List[Dict[str, Union[str, Dict]]], Dict[str, Any]],
     state: Optional[RaindropState] = None,
     max_attempts: Optional[int] = None,
-) -> None:
+    deadline: Optional[float] = None,
+) -> str:
+    """Send one payload; returns ``_SENT``, ``_REJECTED``, ``_DEFERRED`` or ``_DROPPED``."""
     st = _resolve_state(state)
+    if _deadline_passed(st, deadline):
+        # Not even mirrored: the payload goes back to the queue untouched.
+        return _DEFERRED
     _post_local_mirror(endpoint, data_entries, state=st)
 
     if not st.write_key:
-        return
+        return _SENT
 
     url = f"{st.api_url}{endpoint}"
-    _post_with_retries(
-        url, data_entries, log_key=f"send.{endpoint}", state=st, max_attempts=max_attempts
+    with st._inflight_cond:
+        st._inflight_sends += 1
+    try:
+        return _post_with_retries(
+            url,
+            data_entries,
+            log_key=f"send.{endpoint}",
+            state=st,
+            max_attempts=max_attempts,
+            deadline=deadline,
+        )
+    finally:
+        with st._inflight_cond:
+            st._inflight_sends -= 1
+            st._inflight_cond.notify_all()
+
+
+def _deadline_passed(st: RaindropState, deadline: Optional[float]) -> bool:
+    """An explicit flush's deadline has passed (outside shutdown)."""
+    return (
+        deadline is not None
+        and not _in_shutdown(st)
+        and deadline - time.monotonic() <= 0
     )
+
+
+def _wait_for_inflight_sends(st: RaindropState, deadline: float) -> bool:
+    """Wait until no send is in progress on any thread; False on timeout."""
+    with st._inflight_cond:
+        while st._inflight_sends > 0:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            st._inflight_cond.wait(timeout=left)
+    return True
 
 
 def save_to_buffer(event: Dict[str, Union[str, Dict]], state: Optional[RaindropState] = None) -> None:
@@ -1199,14 +1661,6 @@ def track(
 
         data = payload.model_dump(mode="json")
 
-        size = _get_size(data)
-        if size > max_ingest_size_bytes:
-            logger.warning(
-                f"[raindrop] Events larger than {max_ingest_size_bytes / (1024 * 1024)} MB may have properties truncated - "
-                f"an event of size {size / (1024 * 1024):.2f} MB was logged"
-            )
-            return None
-
         save_to_buffer(
             {
                 "type": "events/track",
@@ -1280,39 +1734,42 @@ def track_ai(
     data = payload.model_dump(mode="json")
     data["ai_data"] = payload.ai_data.model_dump(mode="json", exclude_none=True)
 
-    size = _get_size(data)
-    if size > max_ingest_size_bytes:
-        logger.warning(
-            f"[raindrop] Events larger than {max_ingest_size_bytes / (1024 * 1024)} MB may have properties truncated - "
-            f"an event of size {size / (1024 * 1024):.2f} MB was logged"
-        )
-        return None  # Skip adding oversized events to buffer
-
     save_to_buffer(
-        {"type": "events/track", "data": data, "_redact_pii": st.redact_pii},
+        {
+            "type": "events/track",
+            "data": data,
+            "_redact_pii": st.redact_pii,
+            # Calls made together coalesce into one batch (CONTRACT 7.2).
+            "_defer_initial_flush": True,
+        },
         state=st,
     )
     return event_id
 
 
-def shutdown(state: Optional[RaindropState] = None, _deadline: float | None = None) -> None:
+def shutdown(
+    state: Optional[RaindropState] = None, _deadline: float | None = None
+) -> FlushResult:
     """Flush pending telemetry and stop, under a hard overall deadline.
 
     Registered via ``atexit``: a dead or slow network must never wedge the
-    host process's exit. Every send issued after this point runs with a
-    single attempt clamped to the remaining shutdown budget (see
-    ``_post_with_retries``); once the budget is exhausted, remaining payloads
-    are dropped with a rate-limited warning.
+    host process's exit. The deadline is the same setting as flush()'s
+    (``flush_timeout``, default 10 s; CONTRACT 1.2.1). Sends retry only while
+    the wait fits what is left of it; whatever is left when it passes is
+    dropped with a rate-limited warning.
 
     ``_deadline`` (monotonic) lets the shared atexit hook drain SEVERAL
     clients under one overall budget instead of one full deadline each.
+
+    Returns a ``FlushResult`` (truthy when everything was delivered). It never
+    raises, and ignoring it changes nothing.
     """
     st = _resolve_state(state)
     logger.info("Shutting down raindrop analytics")
     st._shutdown_deadline = (
         _deadline
         if _deadline is not None
-        else time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
+        else time.monotonic() + _resolved_flush_timeout(st)
     )
 
     try:
@@ -1323,9 +1780,12 @@ def shutdown(state: Optional[RaindropState] = None, _deadline: float | None = No
         if st.flush_thread:
             budget = _shutdown_budget(state=st)
             st.flush_thread.join(
-                timeout=max(0.1, budget if budget is not None else 10.0)
+                timeout=max(0.1, budget if budget is not None else _resolved_flush_timeout(st))
             )
-        flush(state=st)  # Final flush to ensure all events are sent
+        return flush(state=st)  # Final flush to ensure all events are sent
+    except Exception as e:
+        logger.error("[raindrop] shutdown failed (%s: %s)", type(e).__name__, e)
+        return FlushResult(delivered=False)
     finally:
         # Scope the deadline to this call: nothing runs after the atexit hook
         # in production, but tests (and manual callers) may keep using the
@@ -1335,6 +1795,28 @@ def shutdown(state: Optional[RaindropState] = None, _deadline: float | None = No
         # atexit registry so its state doesn't outlive its usefulness.
         if isinstance(st, ClientState):
             _instance_states.discard(st)
+
+
+def _resolved_flush_timeout(st: RaindropState) -> float:
+    try:
+        value = float(st.flush_timeout)
+    except (TypeError, ValueError):
+        return _SHUTDOWN_DEADLINE_SECONDS
+    return value if value > 0 else _SHUTDOWN_DEADLINE_SECONDS
+
+
+def _validated_flush_timeout(value: Any) -> Optional[float]:
+    """``flush_timeout`` from init()/Raindrop(): seconds > 0, else None (warned)."""
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        seconds = float("nan")
+    if not (seconds > 0 and seconds != float("inf")):
+        logger.warning("[raindrop] flush_timeout=%r ignored; must be a positive number of seconds", value)
+        return None
+    return seconds
 
 
 def _check_write_key(state: Optional[RaindropState] = None) -> bool:
@@ -1715,14 +2197,6 @@ def track_signal(
     # model_dump handles the timestamp correctly
     data = payload.model_dump(mode="json")
 
-    size = _get_size(data)
-    if size > max_ingest_size_bytes:
-        logger.warning(
-            f"[raindrop] Events larger than {max_ingest_size_bytes / (1024 * 1024)} MB may have properties truncated - "
-            f"an event of size {size / (1024 * 1024):.2f} MB was logged"
-        )
-        return  # Skip adding oversized events to buffer
-
     save_to_buffer({"type": "signals/track", "data": data}, state=st)
 
 
@@ -1745,9 +2219,14 @@ def begin(
     model: Optional[str] = None,
     state: Optional[RaindropState] = None,
     tools: Optional[ToolsInput] = None,
+    timestamp: Optional[Union[str, datetime]] = None,
 ) -> Interaction:
     """
     Starts (or resumes) an interaction and returns a helper object.
+
+    ``timestamp`` is the interaction's start (ISO-8601 string or datetime);
+    it defaults to now. Every update sent for the interaction carries it, and
+    an ISO-8601 string goes on the wire exactly as given.
 
     ``model`` is nested under ``ai_data`` on the wire (the partial-ai-fields
     nested contract), matching the TS ``begin()`` model parameter. Use
@@ -1758,12 +2237,9 @@ def begin(
     captured (see :func:`prompt_tools` for the accepted shapes and the
     content gate). Use ``Interaction.set_tools()`` to change it mid-lifecycle.
 
-    Note: ``model`` alone is metadata, not AI text. An interaction opened with
-    only ``model`` (no ``input``) and then finished with no ``output`` is
-    dropped by the empty-AI-event gate (see ``_should_drop_empty_ai_event``,
-    which mirrors the Rust SDK) with a warning — it would otherwise render as
-    a phantom ``ai_generation`` row. Provide ``input`` and/or ``output`` for
-    the event to ship.
+    Note: ``model`` alone is metadata, not AI text. An interaction finished
+    with no ``input``, ``output`` or attachments is still sent, with a warning;
+    whether ingest keeps it is the server's decision.
     """
     st = _resolve_state(state)
     operation_app_git = _app_git_operation_snapshot(st)
@@ -1812,6 +2288,7 @@ def begin(
         properties=final_properties
         or None,  # Pass None if empty, matching PartialTrackAIEvent defaults
         attachments=attachments,
+        timestamp=timestamp,
     )
 
     span_attributes = {
@@ -1867,6 +2344,7 @@ def begin(
                 tools, owner=interaction
             )
         st.INTERACTION_EVENT_ID_REGISTRY[eid] = interaction
+        st._live_interactions[eid] = interaction
         if current_trace_id is not None and current_trace_id != 0:
             st.INTERACTION_TRACE_ID_REGISTRY[current_trace_id] = interaction
 
@@ -1954,6 +2432,7 @@ def init(
     max_text_field_chars: int | None = None,
     project_id: str | None = None,
     app_git: bool | AppGitOptions = True,
+    flush_timeout: float | None = None,
     **traceloop_kwargs: Any,
 ) -> None:
     """Initialize Raindrop with Traceloop integration.
@@ -1994,6 +2473,10 @@ def init(
             mapping may provide explicit ``commit_sha``, ``commit_dirty``, or
             ``branch`` and control ``source_directory``, ``detect_branch``,
             and ``auto_detect``. Automatic branch discovery is opt-in.
+        flush_timeout: Deadline in seconds for ``flush()`` and ``shutdown()``
+            (default 10). Payloads not yet sent when flush()'s deadline passes
+            stay queued for the background sender; at shutdown they are
+            dropped with a warning.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
@@ -2010,6 +2493,7 @@ def init(
         max_text_field_chars=max_text_field_chars,
         project_id=project_id,
         app_git=app_git,
+        flush_timeout=flush_timeout,
         # The module-level client keeps its historical re-init semantics:
         # every init() call re-runs Traceloop.init (a de-facto no-op after
         # the first thanks to TracerWrapper's singleton), so repeated
@@ -2032,10 +2516,14 @@ def _configure(
     max_text_field_chars: int | None,
     project_id: str | None,
     app_git: bool | AppGitOptions = True,
+    flush_timeout: float | None = None,
     _always_init_traceloop: bool = False,
     **traceloop_kwargs: Any,
 ) -> None:
     """Shared configuration for the module-level client and Raindrop instances."""
+    resolved_flush_timeout = _validated_flush_timeout(flush_timeout)
+    if resolved_flush_timeout is not None:
+        st.flush_timeout = resolved_flush_timeout
     if max_text_field_chars is not None:
         if max_text_field_chars > 0:
             if st is _default_state:
@@ -2807,21 +3295,81 @@ def _fallback_interaction_app_git(
     return snapshot, {}, _app_git_context_properties(snapshot)
 
 
-def resume_interaction(event_id: str | None = None, state: Optional[RaindropState] = None) -> Interaction:
-    """Return an Interaction associated with the current trace or given event_id."""
+_PLACEHOLDER_USER_IDS = frozenset({"null", "undefined"})
+
+
+def _real_user_id(user_id: Any) -> Optional[str]:
+    """A user id is real or absent (CONTRACT 10.1): ``None``, non-strings,
+    blank strings and placeholders such as ``"null"`` count as absent."""
+    if not isinstance(user_id, str):
+        return None
+    stripped = user_id.strip()
+    if not stripped or stripped in _PLACEHOLDER_USER_IDS:
+        return None
+    return user_id
+
+
+def _non_blank(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def resume_interaction(
+    event_id: str | None = None,
+    state: Optional[RaindropState] = None,
+    *,
+    user_id: str | None = None,
+    convo_id: str | None = None,
+    event_name: str | None = None,
+) -> Interaction:
+    """Return an Interaction associated with the current trace or given event_id.
+
+    With ``event_id``, continue that event, even one begun in another process
+    (CONTRACT 9.2). Nothing is sent by this call. ``user_id``, ``convo_id`` and
+    ``event_name`` are optional: when given, every later update and the finish
+    for this event carry them. Without a ``user_id`` updates are still sent and
+    ingest uses the user it already has for the event (a warning says so). A
+    blank or placeholder ``user_id`` (``"null"``, ``"undefined"``) counts as
+    absent.
+    """
     st = _resolve_state(state)
+    identity: Dict[str, str] = {}
+    try:
+        uid = _real_user_id(user_id)
+        if uid is not None:
+            identity["user_id"] = uid
+        if (cid := _non_blank(convo_id)) is not None:
+            identity["convo_id"] = cid
+        if (name := _non_blank(event_name)) is not None:
+            identity["event"] = name
+    except Exception:
+        identity = {}
 
     if event_id is not None:
         if (interaction := st.INTERACTION_EVENT_ID_REGISTRY.get(event_id)) is not None:
+            if identity:
+                _remember_resumed_identity(st, event_id, identity, interaction)
             return interaction
+        if event_id not in st._partial_starts:
+            # Begun elsewhere: its start and content live with that process.
+            st._resumed_event_ids.add(event_id)
+            _bound_partial_state(st, keep=event_id)
         snapshot, overrides, properties = _fallback_interaction_app_git(st, event_id)
         interaction = Interaction(
             event_id,
+            user_id=identity.get("user_id"),
+            event=identity.get("event"),
+            convo_id=identity.get("convo_id"),
             state=st,
             app_git_properties=properties,
             app_git_snapshot=snapshot,
             app_git_overrides=overrides,
         )
+        try:
+            st._live_interactions[event_id] = interaction
+        except Exception:
+            pass
+        if identity:
+            _remember_resumed_identity(st, event_id, identity, None)
         return interaction
 
     if (trace_id := _safe_current_trace_id()) is not None:
@@ -2841,7 +3389,137 @@ def resume_interaction(event_id: str | None = None, state: Optional[RaindropStat
     return interaction
 
 
+def _remember_resumed_identity(
+    st: Any, event_id: str, identity: Dict[str, str], interaction: Optional[Interaction]
+) -> None:
+    """Keep the identity given to resume_interaction for this event's updates."""
+    merged = dict(st._resumed_identity.get(event_id) or {})
+    merged.update(identity)
+    st._resumed_identity[event_id] = merged
+    if interaction is not None:
+        try:
+            if "user_id" in identity:
+                interaction._user_id = identity["user_id"]
+            if "event" in identity:
+                interaction._event = identity["event"]
+            if "convo_id" in identity:
+                interaction._convo_id = identity["convo_id"]
+        except Exception:
+            pass
+
+
+def _record_partial_identity(event: PartialTrackAIEvent, st: Any) -> None:
+    """Keep the identity an update carries for the event's later updates (CONTRACT 9.3).
+
+    Every request for the event repeats the user, event name and conversation
+    known in this process, not only what changed: the server can process a
+    finish before the request that carried them. A later value replaces an
+    earlier one. A resumed event knows only what its caller passed (9.2).
+    """
+    identity: Dict[str, str] = {}
+    if event.user_id:
+        identity["user_id"] = event.user_id
+    if event.event:
+        identity["event"] = event.event
+    if event.ai_data is not None and event.ai_data.convo_id:
+        identity["convo_id"] = event.ai_data.convo_id
+    if identity:
+        merged = dict(st._resumed_identity.get(event.event_id) or {})
+        merged.update(identity)
+        st._resumed_identity[event.event_id] = merged
+
+
+def _apply_resumed_identity(evt: PartialTrackAIEvent, identity: Dict[str, str]) -> None:
+    """Fill the fields the update leaves empty; the update's own values win."""
+    if not evt.user_id and "user_id" in identity:
+        evt.user_id = identity["user_id"]
+    if not evt.event and "event" in identity:
+        evt.event = identity["event"]
+    if "convo_id" in identity:
+        if evt.ai_data is None:
+            evt.ai_data = PartialAIData(convo_id=identity["convo_id"])
+        elif not evt.ai_data.convo_id:
+            evt.ai_data.convo_id = identity["convo_id"]
+
+
 _UNSET_APP_GIT = object()
+
+
+def _iso_now_ms() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _iso_ms(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _parse_iso(value: str) -> Optional[datetime]:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
+def _record_partial_start(event: PartialTrackAIEvent, st: RaindropState) -> None:
+    """Keep the event's start time (CONTRACT 9.1).
+
+    The first value wins: the caller's timestamp, else the clock when the
+    event was begun in this process. A later explicit timestamp is honoured
+    only when it is earlier. An event continued by id (resume_interaction)
+    gets no clock start: its start was recorded where it began.
+    """
+    eid = event.event_id
+    incoming = event._raw_timestamp or (
+        _iso_ms(event.timestamp) if event.timestamp is not None else None
+    )
+    current = st._partial_starts.get(eid)
+    if incoming is not None:
+        if current is None:
+            st._partial_starts[eid] = incoming
+            return
+        new, old = _parse_iso(incoming), _parse_iso(current)
+        if new is not None and old is not None and new < old:
+            st._partial_starts[eid] = incoming
+    elif current is None and eid not in st._resumed_event_ids:
+        st._partial_starts[eid] = _iso_now_ms()
+
+
+def _bound_partial_state(st: RaindropState, keep: Optional[str] = None) -> None:
+    """Keep per-event state within ``_PARTIAL_STATE_CAP`` entries each.
+
+    Evicts the oldest entries of events that aren't open in this process
+    (no buffered update, no pending timer, no ``Interaction`` the caller
+    still holds): finished events and events whose caller dropped them
+    unfinished. Open events are never evicted.
+    """
+    try:
+        open_ids = (
+            set(st._partial_buffers)
+            | set(st._partial_timers)
+            | set(st._live_interactions.keys())
+        )
+        if keep is not None:
+            open_ids.add(keep)
+        for store in (st._partial_starts, st._resumed_identity):
+            excess = len(store) - _PARTIAL_STATE_CAP
+            if excess > 0:
+                for key in [k for k in store if k not in open_ids][:excess]:
+                    store.pop(key, None)
+        for members in (st._partial_content_seen, st._resumed_event_ids):
+            excess = len(members) - _PARTIAL_STATE_CAP
+            if excess > 0:
+                for key in [k for k in members if k not in open_ids][:excess]:
+                    members.discard(key)
+    except Exception:
+        logger.debug("[raindrop] bounding partial-event state failed", exc_info=True)
+
+
+def _has_content(event: PartialTrackAIEvent) -> bool:
+    ai = event.ai_data
+    return bool(event.attachments) or bool(ai is not None and (ai.input or ai.output))
 
 
 def _track_ai_partial(
@@ -2857,6 +3535,11 @@ def _track_ai_partial(
     """
     st = _resolve_state(state)
     eid = event.event_id
+    _record_partial_start(event, st)
+    _record_partial_identity(event, st)
+    if _has_content(event):
+        st._partial_content_seen.add(eid)
+    _bound_partial_state(st, keep=eid)
 
     with st._partial_app_git_lock:
         new_git_context = eid not in st._partial_app_git_snapshots
@@ -2962,39 +3645,6 @@ def _track_ai_partial(
         )
 
 
-def _should_drop_empty_ai_event(evt: PartialTrackAIEvent) -> bool:
-    """Drop finalized ``events/track_partial`` payloads with no AI text body.
-
-    Mirrors the Rust SDK's ``should_drop_empty_ai_event`` gate
-    (`raindrop-ai/raindrop-rust#12 <https://github.com/raindrop-ai/raindrop-rust/pull/12>`_).
-    A wrapper that calls ``begin()`` with only ``convo_id`` / ``model`` /
-    token-usage ``properties`` and then ``finish()`` with no ``output``
-    produces a finalized payload whose ``ai_data`` (after
-    ``model_dump(exclude_none=True)``) carries neither ``input`` nor
-    ``output`` — these show up in the dashboard as phantom ``ai_generation``
-    rows with empty input/output columns. Drop them at the buffer level with
-    a single ``logger.warning`` rather than shipping.
-
-    Pending intermediates (``is_pending`` not explicitly ``False``) always
-    ship — a still-in-flight interaction with no input yet is expected.
-    Events with attachments also always ship — an attachment-only upload is
-    a real payload regardless of whether ``ai_data`` text fields are
-    populated.
-
-    To record an errored generation, populate at least one of ``input`` /
-    ``output`` (e.g. ship the prompt as ``input`` and set the error in
-    ``properties``) so the event lands in the dashboard.
-    """
-    if evt.is_pending is not False:
-        return False
-    if evt.attachments:
-        return False
-    ai = evt.ai_data
-    if ai is None:
-        return True
-    return not ai.input and not ai.output
-
-
 def _serialize_partial_event(
     evt: PartialTrackAIEvent, state: Optional[RaindropState] = None
 ) -> Optional[Dict[str, Any]]:
@@ -3014,14 +3664,17 @@ def _serialize_partial_event(
             data["properties"] = {}
         data["properties"]["raindrop.wizardSession"] = st._wizard_session
 
+    # Every request carries the event's start, unchanged (CONTRACT 9.1).
+    # A resumed event without a caller timestamp sends none: ingest keeps
+    # the start it already has.
+    if evt._start is not None:
+        data["timestamp"] = evt._start
+    else:
+        data.pop("timestamp", None)
+
     # Apply PII redaction if enabled
     if st.redact_pii:
         data = perform_pii_redaction(data)
-
-    size = _get_size(data)
-    if size > max_ingest_size_bytes:
-        logger.warning(f"[raindrop] partial event {evt.event_id} > 1 MB; skipping")
-        return None
 
     return data
 
@@ -3044,20 +3697,42 @@ def _flush_partial_event(event_id: str, state: Optional[RaindropState] = None) -
     evt = st._partial_buffers.pop(event_id, None)
     if not evt:
         return
+    evt._start = st._partial_starts.get(event_id)
+    if (identity := st._resumed_identity.get(event_id)) is not None:
+        try:
+            _apply_resumed_identity(evt, identity)
+        except Exception:
+            pass
+    if event_id in st._resumed_event_ids and not evt.user_id:
+        # Still sent: ingest uses the user stored for the event (CONTRACT 9.2).
+        _rate_limited_log(
+            "partial.resumed_without_user",
+            logging.WARNING,
+            "[raindrop] sending an update for resumed event %s without a user_id; "
+            "ingest uses the user it already has for this event.",
+            event_id,
+        )
     if evt.is_pending is False:
         with st._partial_app_git_lock:
             st._partial_app_git_snapshots.pop(event_id, None)
-
-    if _should_drop_empty_ai_event(evt):
-        logger.warning(
-            "[raindrop] dropping finalized track_partial with empty ai_input "
-            "and ai_output (event_id=%s, event=%r). Populate input/output via "
-            "begin()/finish() or ship the prompt as input on errored "
-            "generations so the event lands in the dashboard.",
-            event_id,
-            evt.event,
-        )
-        return
+        # The start is kept (bounded below) so a repeated finish, which is
+        # still sent, carries the event's original start (CONTRACT 9.1).
+        had_content = event_id in st._partial_content_seen or _has_content(evt)
+        resumed = event_id in st._resumed_event_ids
+        st._partial_content_seen.discard(event_id)
+        st._resumed_event_ids.discard(event_id)
+        st._resumed_identity.pop(event_id, None)
+        if not had_content and not resumed:
+            # Still sent: whether an empty event is kept is ingest's call
+            # (CONTRACT 14.2, rule C5). A resumed event is exempt because
+            # another process may have sent its content.
+            _rate_limited_log(
+                "partial.empty_finish",
+                logging.WARNING,
+                "[raindrop] event %s finished with no input, output or attachments; "
+                "sending it anyway. Pass input to begin() or output to finish().",
+                event_id,
+            )
 
     if st.shutdown_event.is_set():
         # Synchronous send on the caller's thread (e.g. a late finish()
@@ -3093,18 +3768,23 @@ def _flush_partial_event(event_id: str, state: Optional[RaindropState] = None) -
 def _shutdown_all() -> None:
     """atexit hook: drain the default client and all live instance states.
 
-    ALL clients — default included — share ONE overall deadline, so a
-    process with several clients and a dead network exits within the same
-    ``_SHUTDOWN_DEADLINE_SECONDS`` bound as a single-client process. Iterates
+    ALL clients — default included — share ONE overall deadline, the longest
+    client's ``flush_timeout``, so a process with several clients and a dead
+    network exits within the same bound as a single-client process; each
+    client also stops at its own deadline. Iterates
     STATES (held strongly while their pipeline is live) rather than client
     objects, so buffered events survive to exit even when the host app
     dropped its last reference to the client itself.
     """
-    deadline = time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
-    shutdown(_deadline=deadline)
-    for st in list(_instance_states):
+    # One overall window, as long as the longest client's own deadline; each
+    # client still stops at its own flush_timeout within it.
+    states = [_default_state, *list(_instance_states)]
+    start = time.monotonic()
+    overall = start + max(_resolved_flush_timeout(st) for st in states)
+    for st in states:
         try:
-            shutdown(state=st, _deadline=deadline)
+            own = time.monotonic() + _resolved_flush_timeout(st)
+            shutdown(state=st, _deadline=min(overall, own))
         except Exception as e:
             logger.debug("[raindrop] instance shutdown failed: %s", e)
 

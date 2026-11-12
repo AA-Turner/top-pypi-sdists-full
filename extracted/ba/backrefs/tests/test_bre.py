@@ -4,20 +4,14 @@ import unittest
 from backrefs import bre
 from backrefs.util import PatternError
 import re
+import re._constants as _constants
 import sys
 import pytest
 import random
 from backrefs import _bre_parse
 import copy
 
-PY39_PLUS = (3, 9) <= sys.version_info
-PY311_PLUS = (3, 11) <= sys.version_info
 PY313_PLUS = (3, 13) <= sys.version_info
-
-if PY311_PLUS:
-    import re._constants as _constants
-else:
-    import sre_constants as _constants
 
 
 class TestSearchTemplate(unittest.TestCase):
@@ -88,6 +82,40 @@ class TestSearchTemplate(unittest.TestCase):
         self.assertTrue(bre.match(r'[\p{HorizSpace}-Z]', 'Z') is not None)
         self.assertTrue(bre.match(r'[\p{HorizSpace}-Z]', '\x20') is not None)
         self.assertTrue(bre.match(r'[\p{HorizSpace}-Z]', '-') is not None)
+
+    def test_posix_followed_by_hyphen(self):
+        """A `-` after a POSIX class whose expansion ends in a single character should not form a range."""
+
+        for pattern in (r'[[:blank:]-z]', r'[[:space:]-~]'):
+            p = bre.compile(pattern)
+            self.assertTrue(p.fullmatch(' ') is not None)
+            self.assertTrue(p.fullmatch('-') is not None)
+            self.assertTrue(p.fullmatch(pattern[-2]) is not None)
+            self.assertTrue(p.fullmatch('a') is None)
+
+        p = bre.compile(r'[[:space:]--]')
+        self.assertTrue(p.fullmatch(' ') is not None)
+        self.assertTrue(p.fullmatch('-') is not None)
+
+    def test_escaped_hyphen_before_property(self):
+        """An escaped `-` before a POSIX or Unicode class is a literal, not a range operator."""
+
+        for pattern in (r'[\-\p{N}]', r'[\-[:digit:]]', r'[\Q-\E\p{N}]'):
+            p = bre.compile(pattern)
+            self.assertTrue(p.fullmatch('-') is not None)
+            self.assertTrue(p.fullmatch('1') is not None)
+            self.assertTrue(p.fullmatch('\\') is None)
+            self.assertTrue(p.fullmatch('A') is None)
+
+    def test_empty_property_before_caret(self):
+        """A `^` after a property that resolves to nothing must not negate the set."""
+
+        for pattern in (rb'[\p{Han}^a]', rb'[\N{CJK UNIFIED IDEOGRAPH-4E00}^a]', rb'[^\p{Han}^a]'):
+            p = bre.compile(pattern)
+            negated = pattern.startswith(b'[^')
+            self.assertEqual(p.fullmatch(b'^') is None, negated)
+            self.assertEqual(p.fullmatch(b'a') is None, negated)
+            self.assertEqual(p.fullmatch(b'b') is not None, negated)
 
     def test_non_raw_string_unicode(self):
         """Test non raw string Unicode notation."""
@@ -332,6 +360,65 @@ class TestSearchTemplate(unittest.TestCase):
         )
         self.assertTrue(pattern.match(b'a') is not None)
 
+    def test_byte_string_named_char_ranges(self):
+        """Test ranges in byte strings with named characters beyond the byte range, matching Regex."""
+
+        big = r'\N{CJK UNIFIED IDEOGRAPH-4E00}'
+        big2 = r'\N{CJK UNIFIED IDEOGRAPH-4E01}'
+
+        def matches(pattern):
+            p = bre.compile(pattern.encode('latin-1'))
+            return frozenset(c for c in range(256) if p.fullmatch(bytes([c])))
+
+        # A range that ends beyond the byte range includes everything up to the end of the byte range.
+        self.assertEqual(matches(f'[a-{big}]'), frozenset(range(0x61, 0x100)))
+        self.assertEqual(matches(f'[a-{big}c]'), frozenset(range(0x61, 0x100)))
+        self.assertEqual(matches(f'[^a-{big}]'), frozenset(range(0x61)))
+        self.assertEqual(matches(rf'[\N{{LATIN SMALL LETTER E WITH ACUTE}}-{big}]'), frozenset(range(0xE9, 0x100)))
+
+        # A range that starts beyond the byte range matches nothing, if it is a valid range.
+        self.assertEqual(matches(f'[{big}-{big2}]'), frozenset())
+        self.assertEqual(matches(f'[x{big}-{big2}]'), frozenset(b'x'))
+        for pattern in (f'[{big}-a]', f'[{big2}-{big}]', rf'[{big}-\x41]'):
+            with pytest.raises(PatternError, match='bad character range'):
+                bre.compile(pattern.encode('latin-1'))
+
+        # A `-` that isn't a range operator is a literal, and the named character matches nothing.
+        self.assertEqual(matches(f'[{big}-]'), frozenset(b'-'))
+        self.assertEqual(matches(f'[-{big}]'), frozenset(b'-'))
+        self.assertEqual(matches(f'[x{big}-]'), frozenset(b'-x'))
+        self.assertEqual(matches(f'[a-c-{big}]'), frozenset(b'-abc'))
+        self.assertEqual(matches(rf'[\x21-\x41-{big}]'), frozenset(range(0x21, 0x42)))
+
+    def test_escapes_in_char_groups(self):
+        """Escapes in a character set are single members, so ranges and named characters work with them."""
+
+        esc = '\\'
+        self.assertEqual([c for c in 'ABCD' if bre.fullmatch(f'[{esc}u0041-{esc}u0043]', c)], ['A', 'B', 'C'])
+        self.assertEqual([c for c in 'ABCD' if bre.fullmatch(r'[\U00000041-\U00000043]', c)], ['A', 'B', 'C'])
+
+        # An octal escape ends at the first character that isn't an octal digit.
+        self.assertEqual([c for c in ('\x01', '\x18', '8', '1') if bre.fullmatch(r'[\18]', c)], ['\x01', '8'])
+
+        # The `-` after an octal escape that ends a range is a literal.
+        p = bre.compile(rb'[\041-\101-\N{CJK UNIFIED IDEOGRAPH-4E00}]')
+        self.assertEqual(frozenset(c for c in range(256) if p.fullmatch(bytes([c]))), frozenset(range(0x21, 0x42)))
+
+        # Escapes with too few digits.
+        with pytest.raises(re.error, match='incomplete escape'):
+            bre.compile(r'[\x4]')
+        for pattern in (r'[\x4', f'[{esc}u004', r'[\10'):
+            with pytest.raises(PatternError, match='unterminated character set'):
+                bre.compile(pattern)
+
+    def test_caret_after_negation(self):
+        """A `^` after the negating `^` is a literal."""
+
+        self.assertEqual([c for c in '^]a' if bre.fullmatch(r'[^^]', c)], [']', 'a'])
+        self.assertEqual([c for c in '^]a' if bre.fullmatch(r'[^^^]', c)], [']', 'a'])
+        self.assertEqual([c for c in '^]ab-' if bre.fullmatch(r'[^^-a]', c)], [']', 'b', '-'])
+        self.assertEqual([c for c in '^]ab' if bre.fullmatch(r'[^^]]', c + ']')], [']', 'a', 'b'])
+
     def test_comments(self):
         """Test comments v0."""
 
@@ -386,6 +473,11 @@ class TestSearchTemplate(unittest.TestCase):
 
         pattern = bre.compile_search(r'(?x)test # \l \p{numbers}', re.UNICODE)
         self.assertEqual(pattern.pattern, r'(?x)test # \\l \\p{numbers}', re.UNICODE)
+
+        # Other escapes are left alone.
+        pattern = bre.compile_search('(?x)test # \\d comment\nok', re.UNICODE)
+        self.assertEqual(pattern.pattern, '(?x)test # \\d comment\nok')
+        self.assertTrue(pattern.fullmatch('testok') is not None)
 
     def test_char_group_nested_opening(self):
         """Test char group with nested opening [."""
@@ -891,7 +983,6 @@ class TestSearchTemplate(unittest.TestCase):
         m = pattern2.match('test')
         self.assertTrue(m is not None)
 
-    @unittest.skipUnless(PY39_PLUS, "Python 3.9 required")
     def test_emoji_property(self):
         """Test new emoji properties."""
 
@@ -2057,6 +2148,12 @@ class TestReplaceTemplate(unittest.TestCase):
         results = expand(pattern.match(b'Test'))
         self.assertEqual(b'\x00\x00\x00', results)
 
+        # An octal escape has at most three digits.
+        pattern = re.compile('Test')
+        for template, expected in ((r'\0000', '\x000'), (r'\0123', '\n3'), (r'\1234', 'S4')):
+            self.assertEqual(bre.compile_replace(pattern, template)(pattern.match('Test')), expected)
+            self.assertEqual(re.sub('Test', template, 'Test'), expected)
+
 
 class TestExceptions(unittest.TestCase):
     """Test Exceptions."""
@@ -2604,3 +2701,35 @@ class TestConvenienceFunctions(unittest.TestCase):
         # Fail due to `\l` being an invalid escape.
         with pytest.raises(re.error):
             p.sub(r'\ltest', 'tests')
+
+
+@pytest.mark.parametrize('method', ['sub', 'subn', 'subf', 'subfn'])
+@pytest.mark.parametrize('auto_compile', [False, True])
+def test_foreign_compiled_replacement(method, auto_compile):
+    """Reject templates whose named captures belong to another pattern."""
+
+    first = r'(?P<first>a)(?P<second>b)'
+    second = r'(?P<second>b)(?P<first>a)'
+    text = 'ba'
+    template = '{first}' if method in ('subf', 'subfn') else r'\g<first>'
+    source = bre.compile(first)
+    target = bre.compile(second, auto_compile=auto_compile)
+    replacement = source.compile(template, bre.FORMAT if method in ('subf', 'subfn') else 0)
+
+    with pytest.raises(ValueError, match="Pattern hash doesn't match"):
+        getattr(target, method)(replacement, text)
+
+
+@pytest.mark.parametrize('method', ['sub', 'subn', 'subf', 'subfn'])
+@pytest.mark.parametrize('auto_compile', [False, True])
+def test_matching_compiled_replacement(method, auto_compile):
+    """Matching templates still work without automatic string compilation."""
+
+    pattern = r'(?P<first>a)(?P<second>b)'
+    text, expected = 'ab', 'a'
+    template = '{first}' if method in ('subf', 'subfn') else r'\g<first>'
+    target = bre.compile(pattern, auto_compile=auto_compile)
+    replacement = target.compile(template, bre.FORMAT if method in ('subf', 'subfn') else 0)
+    if method in ('subn', 'subfn'):
+        expected = (expected, 1)
+    assert getattr(target, method)(replacement, text) == expected

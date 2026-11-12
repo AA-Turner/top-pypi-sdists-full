@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from pointblank.contract import Step
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Mapping, Sequence
+    from pathlib import Path
 
     from pointblank._typing import SegmentSpec, Tolerance
     from pointblank.actions import Actions
@@ -23,10 +24,10 @@ class Steps:
 
     A `Steps` object is a list of validation steps that isn't attached to any table. You build it
     with the same methods you'd call on a [`Validate`](`pointblank.Validate`) object
-    (`col_vals_not_null()`, `rows_distinct()`, `col_vals_regex()`, and so on), but each call only
-    records the step. Nothing is checked until the collection is added to a validation with
-    [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and that validation is
-    interrogated.
+    (`~~pointblank.Steps.col_vals_not_null()`, `~~pointblank.Steps.rows_distinct()`,
+    `~~pointblank.Steps.col_vals_regex()`, and so on), but each call only records the step. Nothing
+    is checked until the collection is added to a validation with
+    [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and that validation is interrogated.
 
     This makes it possible to write a group of checks once and use it in many places. Many tables
     share the same rules: every table with a customer ID needs that ID to be present and unique,
@@ -57,7 +58,8 @@ class Steps:
     ---------------
     Each validation method records one step and returns the same `Steps` object, so calls can be
     chained. All of the row-based and table-level validation methods are available, from
-    `col_vals_gt()` to `tbl_reconcile()`. The aggregation methods (`col_sum_*()`, `col_avg_*()`,
+    `~~pointblank.Steps.col_vals_gt()` to `~~pointblank.Steps.tbl_reconcile()`, including
+    `~~pointblank.Steps.col_vals_scored()`. The aggregation methods (`col_sum_*()`, `col_avg_*()`,
     and `col_sd_*()`), `specially()`, and `prompt()` aren't, so add those directly to the
     validation.
 
@@ -146,8 +148,8 @@ class Steps:
     ```
 
     The report has one step per recorded step, in the order they were added. Customer ID `3`
-    appears twice, so both of its rows fail the `rows_distinct` step. The address `"c-at-z.com"`
-    fails the email pattern, and the country `"BR"` isn't in the allowed set.
+    appears twice, so both of its rows fail the `~~pointblank.Steps.rows_distinct` step. The address
+    `"c-at-z.com"` fails the email pattern, and the country `"BR"` isn't in the allowed set.
 
     The same collections can check a table from a billing system, where the ID column is called
     `cust_id`. The `columns_map=` argument renames the column in the added steps, and
@@ -188,7 +190,7 @@ class Steps:
     def __init__(self, steps: list[Step] | None = None) -> None:
         self._steps: list[Step] = list(steps) if steps is not None else []
 
-    def _add(self, method: str, **kwargs: Any) -> Steps:
+    def _add(self, method: str, /, **kwargs: Any) -> Steps:
         self._steps.append(Step(method, **kwargs))
         return self
 
@@ -196,7 +198,26 @@ class Steps:
         return len(self._steps)
 
     @staticmethod
-    def _is_default(key: str, value: Any) -> bool:
+    def _is_default(key: str, value: Any, method: str | None = None) -> bool:
+        # The defaults of the settings of particular methods (where `None` isn't a default, and
+        # a default can differ from that of the other methods)
+        _METHOD_DEFAULTS = {
+            "col_vals_text_quality": {
+                "min_words": 50,
+                "max_words": 100_000,
+                "min_mean_word_length": 3,
+                "max_mean_word_length": 10,
+                "max_symbol_ratio": 0.1,
+                "max_bullet_lines": 0.9,
+                "max_ellipsis_lines": 0.3,
+                "min_alpha_words": 0.8,
+                "min_stop_words": 2,
+                "max_repeated_lines": 0.3,
+                "na_pass": True,
+            },
+            "col_vals_in_language": {"min_confidence": 0.5, "backend": "langid"},
+            "col_vals_no_pii": {"entities": ("email", "phone", "credit_card"), "na_pass": True},
+        }
         _DEFAULTS = {
             "na_pass": False,
             "inverse": False,
@@ -214,7 +235,20 @@ class Steps:
             "null_equal": True,
             "dup_keys": "flag",
             "agg": "sum",
+            # `col_vals_scored()` settings
+            "cache": True,
+            "keep_scores": True,
+            # `rows_near_distinct()`, `rows_not_contaminated()`, and `col_vals_chat_format()`
+            # settings
+            "num_perm": 128,
+            "roles": ("system", "user", "assistant"),
+            "alternate": True,
+            "allow_empty": False,
+            "role_key": "role",
+            "content_key": "content",
         }
+        if key in _METHOD_DEFAULTS.get(method, {}):
+            return value == _METHOD_DEFAULTS[method][key]
         if value is None:
             return True
         if key == "schema" and value == "strict":
@@ -227,7 +261,9 @@ class Steps:
     def __repr__(self) -> str:
         lines = []
         for i, step in enumerate(self._steps):
-            shown = {k: v for k, v in step.kwargs.items() if not self._is_default(k, v)}
+            shown = {
+                k: v for k, v in step.kwargs.items() if not self._is_default(k, v, step.method)
+            }
             if shown:
                 kwargs_str = ", ".join(f"{k}={v!r}" for k, v in shown.items())
                 lines.append(f"  {i + 1}. {step.method}({kwargs_str})")
@@ -1014,6 +1050,322 @@ class Steps:
             dimension=dimension,
         )
 
+    def col_vals_scored(
+        self,
+        columns: str | list[str],
+        scorer: Callable[..., Any],
+        min_val: float | None = None,
+        max_val: float | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        keep_scores: bool = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_scored()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_scored()`](`pointblank.Validate.col_vals_scored`), which checks whether
+        each row's score from a model falls within given bounds. It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when the
+        step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_scored",
+            columns=columns,
+            scorer=scorer,
+            min_val=min_val,
+            max_val=max_val,
+            na_pass=na_pass,
+            cache=cache,
+            keep_scores=keep_scores,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def col_vals_chat_format(
+        self,
+        columns: str | list[str] | Column | ColumnSelector | ColumnSelectorNarwhals,
+        roles: Sequence[str] = ("system", "user", "assistant"),
+        alternate: bool = True,
+        first_role: str | None = None,
+        last_role: str | None = None,
+        allow_empty: bool = False,
+        role_key: str = "role",
+        content_key: str = "content",
+        na_pass: bool = False,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_chat_format()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_chat_format()`](`pointblank.Validate.col_vals_chat_format`), which checks whether each value is a
+        well-formed conversation (a list of messages with roles). It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when the
+        step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_chat_format",
+            columns=columns,
+            roles=roles,
+            alternate=alternate,
+            first_role=first_role,
+            last_role=last_role,
+            allow_empty=allow_empty,
+            role_key=role_key,
+            content_key=content_key,
+            na_pass=na_pass,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def col_vals_text_quality(
+        self,
+        columns: str | list[str],
+        min_words: int | None = 50,
+        max_words: int | None = 100_000,
+        min_mean_word_length: float | None = 3,
+        max_mean_word_length: float | None = 10,
+        max_symbol_ratio: float | None = 0.1,
+        max_bullet_lines: float | None = 0.9,
+        max_ellipsis_lines: float | None = 0.3,
+        min_alpha_words: float | None = 0.8,
+        min_stop_words: int | None = 2,
+        max_repeated_lines: float | None = 0.3,
+        stop_words: Sequence[str] | None = None,
+        na_pass: bool = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_text_quality()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_text_quality()`](`pointblank.Validate.col_vals_text_quality`), which
+        checks text with the heuristic quality filters of web text (adding a validation step for
+        each filter when the collection is added to a validation). It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when
+        the step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_text_quality",
+            columns=columns,
+            min_words=min_words,
+            max_words=max_words,
+            min_mean_word_length=min_mean_word_length,
+            max_mean_word_length=max_mean_word_length,
+            max_symbol_ratio=max_symbol_ratio,
+            max_bullet_lines=max_bullet_lines,
+            max_ellipsis_lines=max_ellipsis_lines,
+            min_alpha_words=min_alpha_words,
+            min_stop_words=min_stop_words,
+            max_repeated_lines=max_repeated_lines,
+            stop_words=stop_words,
+            na_pass=na_pass,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def col_vals_in_language(
+        self,
+        columns: str | list[str],
+        expected: str | list[str] | None = None,
+        expected_column: str | None = None,
+        min_confidence: float = 0.5,
+        backend: str | Callable[[str], Any] = "langid",
+        model: str | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_in_language()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_in_language()`](`pointblank.Validate.col_vals_in_language`), which
+        checks whether text is in the expected language. It takes the same arguments as that
+        method, so see its reference page for what each one does. Nothing is checked when the
+        step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_in_language",
+            columns=columns,
+            expected=expected,
+            expected_column=expected_column,
+            min_confidence=min_confidence,
+            backend=backend,
+            model=model,
+            na_pass=na_pass,
+            cache=cache,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def col_vals_token_len(
+        self,
+        columns: str | list[str],
+        tokenizer: str | Any,
+        min_val: int | None = None,
+        max_val: int | None = None,
+        na_pass: bool = False,
+        cache: bool | str | Path = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_token_len()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_token_len()`](`pointblank.Validate.col_vals_token_len`), which checks
+        whether the length of text in tokens is within bounds. It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when
+        the step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_token_len",
+            columns=columns,
+            tokenizer=tokenizer,
+            min_val=min_val,
+            max_val=max_val,
+            na_pass=na_pass,
+            cache=cache,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def col_vals_no_pii(
+        self,
+        columns: str | list[str],
+        entities: Sequence[str] | Mapping[str, str | None] = ("email", "phone", "credit_card"),
+        na_pass: bool = True,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `col_vals_no_pii()` step to the collection.
+
+        The step records a call to
+        [`Validate.col_vals_no_pii()`](`pointblank.Validate.col_vals_no_pii`), which checks
+        whether text has no personal information (adding a validation step for each kind of
+        information when the collection is added to a validation). It takes the same arguments
+        as that method, so see its reference page for what each one does. Nothing is checked
+        when the step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "col_vals_no_pii",
+            columns=columns,
+            entities=entities,
+            na_pass=na_pass,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
     def col_vals_expr(
         self,
         expr: Any,
@@ -1286,6 +1638,104 @@ class Steps:
         return self._add(
             "rows_distinct",
             columns_subset=columns_subset,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def rows_near_distinct(
+        self,
+        columns: str | list[str],
+        method: Literal["minhash", "exact"] = "minhash",
+        threshold: float = 0.85,
+        ngram: int = 5,
+        num_perm: int = 128,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `rows_near_distinct()` step to the collection.
+
+        The step records a call to
+        [`Validate.rows_near_distinct()`](`pointblank.Validate.rows_near_distinct`), which checks that no row's text is a near
+        duplicate of another's. It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when the
+        step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "rows_near_distinct",
+            columns=columns,
+            method=method,
+            threshold=threshold,
+            ngram=ngram,
+            num_perm=num_perm,
+            pre=pre,
+            segments=segments,
+            thresholds=thresholds,
+            actions=actions,
+            brief=brief,
+            active=active,
+            dimension=dimension,
+        )
+
+    def rows_not_contaminated(
+        self,
+        columns: str | list[str],
+        reference: Any,
+        reference_columns: str | list[str] | None = None,
+        method: Literal["ngram", "exact", "minhash"] = "ngram",
+        ngram: int | None = None,
+        threshold: float = 0.8,
+        num_perm: int = 128,
+        pre: Callable | None = None,
+        segments: SegmentSpec | None = None,
+        thresholds: int | float | bool | tuple | dict | Thresholds | None = None,
+        actions: Actions | None = None,
+        brief: str | bool | None = None,
+        active: bool | Callable = True,
+        dimension: str | None = None,
+    ) -> Steps:
+        """Add a `rows_not_contaminated()` step to the collection.
+
+        The step records a call to
+        [`Validate.rows_not_contaminated()`](`pointblank.Validate.rows_not_contaminated`), which checks that no row's text overlaps
+        with a reference set of texts (such as a benchmark). It takes the same arguments as
+        that method, so see its reference page for what each one does. Nothing is checked when the
+        step is recorded: it runs when the collection is added to a validation with
+        [`Validate.add_steps()`](`pointblank.Validate.add_steps`) and the validation is
+        interrogated.
+
+        Returns
+        -------
+        Steps
+            This same `Steps` object, with the new step added at the end, so that calls
+            can be chained.
+        """
+        return self._add(
+            "rows_not_contaminated",
+            columns=columns,
+            reference=reference,
+            reference_columns=reference_columns,
+            method=method,
+            ngram=ngram,
+            threshold=threshold,
+            num_perm=num_perm,
             pre=pre,
             segments=segments,
             thresholds=thresholds,

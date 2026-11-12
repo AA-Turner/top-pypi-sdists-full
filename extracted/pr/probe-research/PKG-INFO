@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.522.0
+Version: 0.531.0
 Summary: Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP).
 Project-URL: Homepage, https://www.useprobe.ai
 Project-URL: Documentation, https://docs.prbe.ai
@@ -34,7 +34,7 @@ Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
-Requires-Dist: probe-research-cli==0.522.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.531.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
@@ -42,13 +42,13 @@ Requires-Dist: typer<0.29,>=0.12; extra == 'all'
 Requires-Dist: zstandard>=0.23; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.522.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.531.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<0.29,>=0.12; extra == 'cli'
 Requires-Dist: zstandard>=0.23; extra == 'cli'
 Provides-Extra: daemon
-Requires-Dist: probe-research-cli==0.522.0; extra == 'daemon'
+Requires-Dist: probe-research-cli==0.531.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-slim[mcp,openai]==2.51.0; extra == 'daemon'
@@ -67,7 +67,7 @@ Requires-Dist: safetensors>=0.4; extra == 'dev'
 Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: harbor
 Requires-Dist: harbor<0.26,>=0.20; (python_version >= '3.12') and extra == 'harbor'
-Requires-Dist: probe-research-cli==0.522.0; extra == 'harbor'
+Requires-Dist: probe-research-cli==0.531.0; extra == 'harbor'
 Provides-Extra: huggingface
 Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
 Provides-Extra: lightning
@@ -471,7 +471,7 @@ for label, values in aligned.values.items():
 ```
 
 Name the runs with `run_ids=[...]` or select them with the filters `list_runs`
-takes (`experiment_id=`, `group_id=`). One `POST /v1/series/query` per 50 runs —
+takes (`experiment_id=`, `filter={"group_id": G}`). One `POST /v1/series/query` per 50 runs —
 more than that batches rather than truncating, because silently dropping runs 51+
 reads as "these are all of them". Columns are labelled by the server's petname
 `short_id`; runs of differing length keep `None` holes rather than being cut to
@@ -784,12 +784,13 @@ closed, and calls to them now fail as unknown tools.
 `research_resolve` have been REMOVED. They answered as deprecated aliases for one
 release; that window has closed. Calls to them now fail as unknown tools.
 
-`browse(mode=...)` picks the listing. `tree` (the default) is the hierarchy above;
+`browse(mode=...)` picks the listing. `projects` (the default) is the hierarchy above,
+opened at one project or experiment with `project=` / `experiment=` (a slug or a uuid);
 the flat modes each read one route and refuse arguments they do not read:
 
 | `mode` | Lists | Takes |
 |---|---|---|
-| `runs` | every run, newest first | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
+| `runs` | every run, newest first | `project` / `experiment` (a slug or a uuid), `status`, `tags`, `active` |
 | `workspaces` | the team's filing locations, by name | — |
 | `notes` | the notes catalog, sub-notes included; each row is an address `entity` opens | `query` (literal) |
 | `files` | the Shared folder, or one workspace's files | `workspace_id`, `prefix` (a folder) |

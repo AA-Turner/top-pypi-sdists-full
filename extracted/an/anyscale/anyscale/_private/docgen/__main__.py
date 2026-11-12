@@ -10,6 +10,14 @@ import click
 import anyscale
 from anyscale import scripts
 from anyscale._private.docgen.generator import MarkdownGenerator, Module
+from anyscale.actor.models import (
+    ActorAggregateBy,
+    ActorAggregateMetrics,
+    ActorAggregates,
+    ActorExitDetailAggregate,
+    ActorJobAggregate,
+    ActorNameAggregate,
+)
 from anyscale.aggregated_instance_usage.models import DownloadCSVFilters
 from anyscale.cloud.models import (
     AWSConfig,
@@ -28,6 +36,7 @@ from anyscale.cloud.models import (
     ObjectStorage,
 )
 from anyscale.commands import (
+    actor_commands,
     aggregated_instance_usage_commands,
     auth_commands,
     cloud_commands,
@@ -46,6 +55,7 @@ from anyscale.commands import (
     organization_invitation_commands,
     policy_commands,
     project_commands,
+    resource_logs_commands,
     resource_quota_commands,
     role_binding_commands,
     role_commands,
@@ -54,6 +64,7 @@ from anyscale.commands import (
     scim_commands,
     service_account_commands,
     service_commands,
+    task_commands,
     user_commands,
     user_group_commands,
     workspace_commands_v2,
@@ -106,7 +117,15 @@ from anyscale.job_queue.models import (
     SessionState,
     SortOrder,
 )
-from anyscale.logs.models import LogLine, LogsResource
+from anyscale.logs.models import (
+    LogChunk,
+    LogFileLine,
+    LogFilesFilter,
+    LogFilesPage,
+    LogLine,
+    LogLinesPage,
+    LogsResource,
+)
 from anyscale.metrics.models import MetricSample, MetricSeries, MetricsResource
 from anyscale.node.models import Node, NodeList, NodeStatus
 from anyscale.organization_invitation.models import OrganizationInvitation
@@ -176,6 +195,15 @@ from anyscale.service.models import (
     VersionChecklist,
 )
 from anyscale.service_account.models import OrganizationPermissionLevel, ServiceAccount
+from anyscale.task.models import (
+    TaskAggregateBy,
+    TaskAggregateMetrics,
+    TaskAggregates,
+    TaskExceptionAggregate,
+    TaskFunctionAggregate,
+    TaskJobAggregate,
+    TaskType,
+)
 from anyscale.user.models import (
     AdminCreatedUser,
     AdminCreateUser,
@@ -676,6 +704,37 @@ ALL_MODULES = [
         hidden=True,
     ),
     Module(
+        title="Log Files",
+        filename="log_files.md",
+        # The four commands hang under four different groups; the group prefix map
+        # renders each as `anyscale <group> logs` (`anyscale job logs-v2` for jobs: the GA
+        # `anyscale job logs` keeps its name, see commands/resource_logs_commands.py).
+        cli_prefix="anyscale",
+        cli_commands=[
+            resource_logs_commands.job_logs,
+            resource_logs_commands.service_logs,
+            resource_logs_commands.workspace_logs,
+            resource_logs_commands.cluster_logs,
+        ],
+        cli_command_group_prefix={
+            resource_logs_commands.job_logs: "job",
+            resource_logs_commands.service_logs: "service",
+            resource_logs_commands.workspace_logs: "workspace_v2",
+            resource_logs_commands.cluster_logs: "cluster",
+        },
+        sdk_prefix="anyscale.logs",
+        sdk_commands=[
+            anyscale.logs.list_files,
+            anyscale.logs.download,
+            anyscale.logs.read,
+            anyscale.logs.read_page,
+        ],
+        models=[LogFilesFilter, LogFilesPage, LogChunk, LogFileLine, LogLinesPage],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/resource_logs_commands.py.
+        hidden=True,
+    ),
+    Module(
         title="Nodes",
         filename="nodes.md",
         cli_prefix="anyscale node",
@@ -685,6 +744,45 @@ ALL_MODULES = [
         models=[NodeList, Node, NodeStatus],
         # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
         # importable and callable; see the note in commands/node_commands.py.
+        hidden=True,
+    ),
+    Module(
+        title="Tasks",
+        filename="tasks.md",
+        cli_prefix="anyscale task",
+        cli_commands=[task_commands.aggregate],
+        sdk_prefix="anyscale.task",
+        sdk_commands=[anyscale.task.aggregate],
+        models=[
+            TaskAggregates,
+            TaskAggregateBy,
+            TaskFunctionAggregate,
+            TaskJobAggregate,
+            TaskExceptionAggregate,
+            TaskAggregateMetrics,
+            TaskType,
+        ],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/task_commands.py.
+        hidden=True,
+    ),
+    Module(
+        title="Actors",
+        filename="actors.md",
+        cli_prefix="anyscale actor",
+        cli_commands=[actor_commands.aggregate],
+        sdk_prefix="anyscale.actor",
+        sdk_commands=[anyscale.actor.aggregate],
+        models=[
+            ActorAggregates,
+            ActorAggregateBy,
+            ActorNameAggregate,
+            ActorJobAggregate,
+            ActorExitDetailAggregate,
+            ActorAggregateMetrics,
+        ],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/actor_commands.py.
         hidden=True,
     ),
     Module(

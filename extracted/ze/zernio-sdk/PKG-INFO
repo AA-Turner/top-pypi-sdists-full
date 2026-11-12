@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1711
+Version: 1.4.1747
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -267,11 +267,13 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_instagram_follow_status()` | Check whether an Instagram user follows the account |
 | `accounts.get_linked_in_mentions()` | Resolve LinkedIn mention |
 | `accounts.get_slack_settings()` | Get Slack account settings |
+| `accounts.get_stripe_settings()` | Get Stripe account settings |
 | `accounts.get_tik_tok_creator_info()` | Get TikTok creator info |
 | `accounts.update_account()` | Update account |
 | `accounts.update_bluesky_settings()` | Update Bluesky account settings |
 | `accounts.update_hub_spot_settings()` | Update HubSpot account settings |
 | `accounts.update_slack_settings()` | Update Slack account settings |
+| `accounts.update_stripe_settings()` | Update Stripe account settings |
 | `accounts.delete_account()` | Disconnect account |
 | `accounts.delete_google_business_review_reply()` | Delete a review reply |
 | `accounts.batch_get_google_business_reviews()` | Batch get reviews |
@@ -411,6 +413,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `connect.list_facebook_pages()` | List Facebook pages |
 | `connect.list_google_analytics_properties()` | List Google Analytics properties for a pending connect |
+| `connect.list_google_business_categories()` | List Google Business Profile categories |
 | `connect.list_google_business_locations()` | List Google Business Profile locations |
 | `connect.list_instagram_pages()` | List Pages with a linked Instagram account |
 | `connect.list_linked_in_organizations()` | List LinkedIn orgs |
@@ -421,6 +424,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.list_slack_channels()` | List Slack channels for the channel picker |
 | `connect.list_snapchat_profiles()` | List Snapchat profiles |
 | `connect.list_whats_app_phone_numbers()` | List numbers for selection |
+| `connect.create_google_business_location()` | Create Google Business Profile location |
 | `connect.create_google_org_connection()` | Start a Google Workspace organization connection |
 | `connect.create_microsoft_org_connection()` | Start a Microsoft 365 organization connection |
 | `connect.create_o_auth_app()` | Add an OAuth app |
@@ -448,6 +452,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_subreddit_rules()` | Get subreddit rules |
 | `connect.get_telegram_connect_status()` | Generate Telegram code |
 | `connect.get_webflow_connect_url()` | Get Webflow OAuth URL |
+| `connect.get_wechat_ip_whitelist()` | Get WeChat IP whitelist |
 | `connect.get_whats_app_sdk_config()` | Get Embedded Signup SDK config |
 | `connect.get_wix_connect_url()` | Get Wix site install URL |
 | `connect.get_word_press_auth_url()` | Get WordPress.com OAuth connect URL |
@@ -473,10 +478,12 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.connect_ads()` | Connect ads for a platform |
 | `connect.connect_bluesky_credentials()` | Connect Bluesky account |
 | `connect.connect_discord_channel()` | Connect a Discord channel |
+| `connect.connect_line_credentials()` | Connect LINE Official Account |
 | `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
 | `connect.connect_shopify_with_token()` | Connect a Shopify store with a custom-app Admin token |
 | `connect.connect_slack_channel()` | Connect a Slack channel |
 | `connect.connect_webflow_with_site_token()` | Connect Webflow with a site API token |
+| `connect.connect_wechat_credentials()` | Connect WeChat Official Account |
 | `connect.connect_whats_app_credentials()` | Connect WhatsApp via credentials |
 | `connect.connect_whats_app_embedded_signup()` | Connect WhatsApp from Embedded Signup |
 | `connect.connect_whop_ads_credentials()` | Connect a Whop account |
@@ -484,6 +491,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.handle_o_auth_callback()` | Complete OAuth callback |
 | `connect.initiate_telegram_connect()` | Connect Telegram directly |
 | `connect.resync_page_webhook_subscription()` | Re-subscribe an account to Zernio's webhooks |
+| `connect.search_google_business_locations()` | Search existing Google listings |
 | `connect.select_facebook_page()` | Select Facebook page |
 | `connect.select_google_analytics_property()` | Connect the chosen Google Analytics property |
 | `connect.select_google_business_location()` | Select Google Business Profile location |
@@ -971,6 +979,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.list_commerce_channels()` | List sales channels |
 | `commerce.list_commerce_collection_metafields()` | List collection metafields |
 | `commerce.list_commerce_collections()` | List collections |
+| `commerce.list_commerce_customers()` | List customers |
 | `commerce.list_commerce_discounts()` | List discounts |
 | `commerce.list_commerce_inventory()` | Get a product's stock |
 | `commerce.list_commerce_locations()` | List locations |
@@ -987,16 +996,21 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.create_commerce_catalog_sync()` | Sync a store into a Meta catalog |
 | `commerce.create_commerce_collection()` | Create a collection |
 | `commerce.create_commerce_discount()` | Create a discount |
+| `commerce.create_commerce_draft_order()` | Create a draft order |
 | `commerce.create_commerce_menu()` | Create a navigation menu |
 | `commerce.create_commerce_metaobject()` | Create a metaobject |
+| `commerce.create_commerce_order_edit()` | Edit an order |
 | `commerce.create_commerce_page()` | Create a page |
 | `commerce.create_commerce_product()` | Create a product |
 | `commerce.create_commerce_product_options()` | Add options |
 | `commerce.create_commerce_product_variants()` | Add variants |
 | `commerce.create_commerce_redirect()` | Create a URL redirect |
+| `commerce.create_commerce_refund()` | Refund an order |
 | `commerce.get_commerce_catalog_sync()` | Get a catalog sync |
 | `commerce.get_commerce_collection()` | Get a collection |
+| `commerce.get_commerce_customer()` | Get a customer |
 | `commerce.get_commerce_discount()` | Get a discount |
+| `commerce.get_commerce_draft_order()` | Get a draft order |
 | `commerce.get_commerce_menu()` | Get a navigation menu |
 | `commerce.get_commerce_metaobject()` | Get a metaobject |
 | `commerce.get_commerce_order()` | Get an order |
@@ -1027,6 +1041,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.add_commerce_discount_codes()` | Add codes to a discount |
 | `commerce.add_commerce_marketing_engagement()` | Report daily engagement |
 | `commerce.add_commerce_product_images()` | Add images |
+| `commerce.cancel_commerce_order()` | Cancel an order |
 | `commerce.change_commerce_collection_channels()` | Publish or unpublish a collection |
 | `commerce.change_commerce_collection_products()` | Add or remove products in a collection |
 | `commerce.change_commerce_inventory()` | Set or adjust stock |
@@ -1038,6 +1053,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.reorder_commerce_collection_products()` | Reorder products in a collection |
 | `commerce.reorder_commerce_product_images()` | Reorder images |
 | `commerce.run_commerce_catalog_sync()` | Run a catalog sync now |
+| `commerce.send_commerce_draft_order_invoice()` | Send a draft order invoice |
 | `commerce.set_commerce_collection_metafields()` | Set collection metafields |
 | `commerce.set_commerce_discount_active()` | Activate or deactivate a discount |
 | `commerce.set_commerce_price_list_prices()` | Set fixed prices |
@@ -1096,11 +1112,13 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.get_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversions_quality()` | Get Event Match Quality |
 | `conversions.get_event()` | Get one stored event and its deliveries |
+| `conversions.get_events_overview()` | Get today's tracking overview |
 | `conversions.update_ad_conversion_destination()` | Update a conversion destination |
 | `conversions.update_ad_conversion_goals()` | Update account conversion goals |
 | `conversions.update_conversion_action()` | Update a conversion action's settings |
 | `conversions.update_conversion_destination()` | Update a conversion destination |
 | `conversions.update_custom_conversion_goal()` | Update a custom conversion goal |
+| `conversions.update_forwarding_rule()` | Change a forwarding rule's API secret |
 | `conversions.delete_ad_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_conversion_destination()` | Delete a conversion destination |
 | `conversions.delete_event_destination()` | Remove an event destination |

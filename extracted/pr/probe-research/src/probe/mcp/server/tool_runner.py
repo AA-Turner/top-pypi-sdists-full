@@ -87,7 +87,9 @@ def _refusal_text(exc: errors.LimitReachedError) -> str:
     return text
 
 
-def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
+def _tool(
+    fn: Callable[..., Any] | None = None, *, prepare: Callable[[dict], dict] | None = None
+) -> Any:
     """Run a sync tool body on a worker thread so the event loop — and the
     /healthz endpoint the kubelet probes — stays responsive.
 
@@ -105,7 +107,13 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
 
     Admission: waiting past _QUEUE_WARN_S logs a saturation breadcrumb;
     waiting past _QUEUE_TIMEOUT_S sheds the call with a retryable
-    "overloaded" error instead of queueing toward the ingress timeout."""
+    "overloaded" error instead of queueing toward the ingress timeout.
+
+    `prepare` (`@_tool(prepare=...)`) rewrites the CALLER's arguments once, on the
+    worker thread, after a cursor's are filled in and before delivery plans its
+    pages: browse turns a `project` slug into the `ref` its paging reads first."""
+    if fn is None:
+        return functools.partial(_tool, prepare=prepare)
 
     view_default = _view_default(fn)
     accepted = inspect.signature(fn).parameters
@@ -200,6 +208,9 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
                 # cursor's values replace them -- before the view is counted and
                 # before the cursor's binding is checked against them.
                 arguments = continuation.resume(kwargs, defaults, validate)
+                if prepare is not None:
+                    with tool_scope(fn.__name__):
+                        arguments = prepare(arguments)
                 # get_entity is two cost shapes under one name -- bounded row views
                 # and complete document reads. Without this they are one
                 # indistinguishable row. None for every tool that takes no `view`.

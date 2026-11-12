@@ -3,6 +3,7 @@ from assistant_stream.assistant_stream_chunk import (
     AssistantStreamChunk,
     FileChunk,
     ReasoningDeltaChunk,
+    ReasoningPartStartChunk,
     SourceChunk,
     StepFinishChunk,
     StepStartChunk,
@@ -19,21 +20,13 @@ from assistant_stream.serialization.heartbeat import (
     HeartbeatOption,
 )
 from assistant_stream.serialization.stream_encoder import StreamEncoder
-from assistant_stream.state_proxy import StateProxy
+from assistant_stream.serialization.tool_args_settle import ToolCallArgsSettler
+from assistant_stream.state_proxy import StateProxyJSONEncoder
 from typing import AsyncGenerator, Any
 import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class StateProxyJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder that can handle StateProxy objects."""
-
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, StateProxy):
-            return obj._get_value()
-        return super().default(obj)
 
 
 class _Canonicalizer:
@@ -51,14 +44,22 @@ class _Canonicalizer:
         self._part_counter = 0
         self._append_part: tuple[str, list[int], str | None] | None = None
         self._tool_paths: dict[str, list[int]] = {}
-        self._tool_has_args: set[str] = set()
+        self._open_tool_parts: set[str] = set()
+        self._tool_args = ToolCallArgsSettler(
+            self._finish_tool_call_args,
+            self._warn,
+            emit_empty_args_text=False,
+        )
         self._warned_reasons: set[str] = set()
+
+    def _warn(self, reason: str, detail: str) -> None:
+        logger.warning("Dropped assistant-transport chunk (%s): %s", reason, detail)
 
     def _warn_once(self, reason: str, detail: str) -> None:
         if reason in self._warned_reasons:
             return
         self._warned_reasons.add(reason)
-        logger.warning("Dropped assistant-transport chunk (%s): %s", reason, detail)
+        self._warn(reason, detail)
 
     def _next_path(self) -> list[int]:
         path = [self._part_counter]
@@ -71,6 +72,25 @@ class _Canonicalizer:
         path = self._append_part[1]
         self._append_part = None
         return [{"type": "part-finish", "path": path}]
+
+    def _start_reasoning_part(
+        self, chunk: ReasoningPartStartChunk
+    ) -> list[dict[str, Any]]:
+        # Registered as the append target so the deltas that follow extend this
+        # part instead of opening a second one.
+        if chunk.unstable_summary is None:
+            return []
+        frames = self._close_append_part()
+        path = self._next_path()
+        part: dict[str, Any] = {
+            "type": "reasoning",
+            "unstable_summary": chunk.unstable_summary,
+        }
+        if chunk.parent_id is not None:
+            part["parentId"] = chunk.parent_id
+        frames.append({"type": "part-start", "part": part, "path": []})
+        self._append_part = ("reasoning", path, chunk.parent_id)
+        return frames
 
     def _append_delta(
         self, chunk: TextDeltaChunk | ReasoningDeltaChunk, text: str, kind: str
@@ -104,6 +124,8 @@ class _Canonicalizer:
         frames = self._close_append_part()
         path = self._next_path()
         self._tool_paths[chunk.tool_call_id] = path
+        self._open_tool_parts.add(chunk.tool_call_id)
+        self._tool_args.begin(chunk.tool_call_id)
         part: dict[str, Any] = {
             "type": "tool-call",
             "toolCallId": chunk.tool_call_id,
@@ -122,13 +144,14 @@ class _Canonicalizer:
                 f"tool-call-delta for {chunk.tool_call_id}",
             )
             return []
-        self._tool_has_args.add(chunk.tool_call_id)
+        if not self._tool_args.append(chunk.tool_call_id):
+            return []
         return [
             {"type": "text-delta", "textDelta": chunk.args_text_delta, "path": path}
         ]
 
     def _tool_result(self, chunk: ToolResultChunk) -> list[dict[str, Any]]:
-        path = self._tool_paths.pop(chunk.tool_call_id, None)
+        path = self._tool_paths.get(chunk.tool_call_id)
         result: dict[str, Any] = {
             "type": "result",
             "result": chunk.result,
@@ -136,24 +159,54 @@ class _Canonicalizer:
         }
         if chunk.artifact is not None:
             result["artifact"] = chunk.artifact
+        if chunk.is_preliminary:
+            result["isPreliminary"] = True
+        if chunk.messages is not None:
+            result["messages"] = chunk.messages
         if path is None:
             # A result without a matching tool-call part has no part to address;
             # emit it at the message root so it stays on the wire.
             result["path"] = []
             return [result]
         result["path"] = path
-        return [result, *self._close_tool_part(chunk.tool_call_id, path)]
-
-    def _close_tool_part(
-        self, tool_call_id: str, path: list[int]
-    ) -> list[dict[str, Any]]:
-        frames: list[dict[str, Any]] = []
-        if tool_call_id not in self._tool_has_args:
-            frames.append({"type": "text-delta", "textDelta": "{}", "path": path})
-        self._tool_has_args.discard(tool_call_id)
-        frames.append({"type": "tool-call-args-text-finish", "path": path})
-        frames.append({"type": "part-finish", "path": path})
+        frames = [result, *self._tool_args.finish(chunk.tool_call_id)]
+        if not chunk.is_preliminary:
+            frames.extend(self._finish_tool_part(chunk.tool_call_id))
         return frames
+
+    def _finish_tool_call_args(
+        self, tool_call_id: str, args_text_delta: str, has_args_text: bool
+    ) -> list[dict[str, Any]]:
+        path = self._tool_paths.get(tool_call_id)
+        if path is None:
+            return []
+        frames: list[dict[str, Any]] = []
+        if args_text_delta:
+            frames.append(
+                {
+                    "type": "text-delta",
+                    "textDelta": args_text_delta,
+                    "path": path,
+                }
+            )
+        elif not has_args_text:
+            frames.append({"type": "text-delta", "textDelta": "{}", "path": path})
+        frames.append({"type": "tool-call-args-text-finish", "path": path})
+        return frames
+
+    def _finish_tool_part(self, tool_call_id: str) -> list[dict[str, Any]]:
+        if tool_call_id not in self._open_tool_parts:
+            return []
+        self._open_tool_parts.discard(tool_call_id)
+        return [{"type": "part-finish", "path": self._tool_paths[tool_call_id]}]
+
+    def _finish_tool_call(
+        self, tool_call_id: str, args_text_delta: str = ""
+    ) -> list[dict[str, Any]]:
+        return [
+            *self._tool_args.finish(tool_call_id, args_text_delta),
+            *self._finish_tool_part(tool_call_id),
+        ]
 
     def _source(self, chunk: SourceChunk) -> list[dict[str, Any]]:
         frames = self._close_append_part()
@@ -190,12 +243,18 @@ class _Canonicalizer:
         match chunk.type:
             case "text-delta":
                 return self._append_delta(chunk, chunk.text_delta, "text")
+            case "reasoning-part-start":
+                return self._start_reasoning_part(chunk)
             case "reasoning-delta":
                 return self._append_delta(chunk, chunk.reasoning_delta, "reasoning")
             case "tool-call-begin":
                 return self._begin_tool_call(chunk)
             case "tool-call-delta":
                 return self._tool_call_delta(chunk)
+            case "tool-call-args-text-finish":
+                return self._finish_tool_call(
+                    chunk.tool_call_id, chunk.args_text_delta
+                )
             case "tool-result":
                 return self._tool_result(chunk)
             case "source":
@@ -223,7 +282,12 @@ class _Canonicalizer:
                     }
                 ]
             case "error":
-                return [{"type": "error", "error": chunk.error}]
+                error = {"type": "error", "error": chunk.error}
+                if chunk.code is not None:
+                    error["code"] = chunk.code
+                if chunk.severity is not None:
+                    error["severity"] = chunk.severity
+                return [error]
             case "update-state":
                 return [{"type": "update-state", "operations": chunk.operations}]
             case _:
@@ -232,9 +296,11 @@ class _Canonicalizer:
 
     def close(self) -> list[dict[str, Any]]:
         frames = self._close_append_part()
-        for tool_call_id, path in self._tool_paths.items():
-            frames.extend(self._close_tool_part(tool_call_id, path))
+        for tool_call_id in tuple(self._tool_paths):
+            frames.extend(self._finish_tool_call(tool_call_id))
         self._tool_paths.clear()
+        self._open_tool_parts.clear()
+        self._tool_args.clear()
         return frames
 
 

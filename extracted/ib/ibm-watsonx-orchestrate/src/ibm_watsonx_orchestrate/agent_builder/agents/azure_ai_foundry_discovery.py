@@ -119,13 +119,14 @@ class AzureAIFoundryDiscoveryService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def convert_to_wxo_external_agent_dict(agent: dict, endpoint: str, project_name: str) -> dict:
+    def convert_to_wxo_external_agent_dict(agent: dict, endpoint: str, project_name: str, control_plane_only: bool = True) -> dict:
         """Convert a raw Azure AI Foundry agent dict to a WXO ExternalAgentSpec-compatible dict.
 
         Args:
             agent: Raw agent dict from the Azure AI Foundry list API.
             endpoint: Azure AI Foundry account endpoint — used to construct the resource URL.
             project_name: Azure AI Foundry project name — used to construct the resource URL.
+            control_plane_only: Whether the agent is registered for control plane only (default: True).
 
         Returns:
             Dict suitable for ``ExternalAgent.model_validate()``.
@@ -164,6 +165,9 @@ class AzureAIFoundryDiscoveryService:
             "api_url": api_url,
             "auth_scheme": "NONE",
             "auth_config": {},
+            "config": {
+                "control_plane_only": control_plane_only,
+            },
         }
 
     def discover_and_convert(
@@ -172,6 +176,7 @@ class AzureAIFoundryDiscoveryService:
         agents: Optional[list[str]],
         endpoint: str,
         project_name: str,
+        control_plane_only: Optional[bool] = None,
     ) -> list[dict]:
         """Filter raw agents by name and convert to WXO dicts.
 
@@ -182,10 +187,12 @@ class AzureAIFoundryDiscoveryService:
                       :meth:`convert_to_wxo_external_agent_dict`.
             project_name: Azure AI Foundry project name, forwarded to
                           :meth:`convert_to_wxo_external_agent_dict`.
+            control_plane_only: Optional override for control plane only registration.
 
         Returns:
             List of WXO-compatible agent dicts.
         """
+        cpo = control_plane_only if control_plane_only is not None else True
         if agents is not None:
             filter_set = {a.lower() for a in agents}
             matched = [
@@ -200,7 +207,7 @@ class AzureAIFoundryDiscoveryService:
             raw_agents = matched
 
         return [
-            self.convert_to_wxo_external_agent_dict(a, endpoint, project_name)
+            self.convert_to_wxo_external_agent_dict(a, endpoint, project_name, control_plane_only=cpo)
             for a in raw_agents
         ]
 

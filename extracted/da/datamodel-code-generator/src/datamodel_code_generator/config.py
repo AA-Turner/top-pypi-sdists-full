@@ -316,6 +316,7 @@ class ParserConfig(BaseModel):
     use_msgspec_meta_for_map_keys: bool = False
     omit_redundant_constraints: bool = False
     read_length_keywords_by_type: bool = False
+    read_object_keywords_by_type: bool = False
     read_msgspec_union_bounds_exactly: bool = False
     use_site_models_for_constrained_refs: bool = False
     use_one_model_per_ref_site: bool = False
@@ -407,6 +408,7 @@ class ParserConfig(BaseModel):
     type_overrides_replace_whole_type: bool = False
     use_x_python_type_as_written: bool = False
     use_bytes_for_content_media_type: bool = False
+    use_bounds_for_float_const: bool = False
     read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = None
     dedupe_request_response_variants: bool = False
     dedupe_numbered_request_response_variants: bool = False

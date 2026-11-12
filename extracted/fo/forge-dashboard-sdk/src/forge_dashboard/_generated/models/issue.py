@@ -46,9 +46,18 @@ class Issue:
                 closing it,
                 the other side of a pull request's `mentionsIssues`, ordered by
                 repository and number and with the same entry as
-                `linkedPullRequests`. A pull request that closes the issue is only
-                in `linkedPullRequests`. Always present, and empty when there are
-                none. The pull requests counted are the same as in `linkedPullRequests`.
+                `linkedPullRequests`. A pull request that closes or references the
+                issue is only in that list. Always present, and empty when there
+                are none. The pull requests counted are the same as in
+                `linkedPullRequests`.
+            referenced_by_pull_requests (list[LinkedPullRequest]): The open pull requests that reference the issue without
+                closing it
+                (`Refs #5`, `Related to #5`, `See #5`), the other side of a pull
+                request's `refsIssues`, ordered by repository and number and with
+                the same entry as `linkedPullRequests`. A pull request that closes
+                the issue is only in `linkedPullRequests`. Always present, and
+                empty when there are none. The pull requests counted are the same
+                as in `linkedPullRequests`.
             housekeeping (bool): True for an issue a bot keeps open and rewrites, Renovate's
                 "Dependency Dashboard", which is not work for a person. The
                 server decides, so every client lists and counts the same
@@ -72,6 +81,7 @@ class Issue:
     url: str
     linked_pull_requests: list[LinkedPullRequest]
     mentioned_by_pull_requests: list[LinkedPullRequest]
+    referenced_by_pull_requests: list[LinkedPullRequest]
     housekeeping: bool
     author: str
     author_avatar_url: str
@@ -112,6 +122,13 @@ class Issue:
 
 
 
+        referenced_by_pull_requests = []
+        for referenced_by_pull_requests_item_data in self.referenced_by_pull_requests:
+            referenced_by_pull_requests_item = referenced_by_pull_requests_item_data.to_dict()
+            referenced_by_pull_requests.append(referenced_by_pull_requests_item)
+
+
+
         housekeeping = self.housekeeping
 
         author = self.author
@@ -142,6 +159,7 @@ class Issue:
             "url": url,
             "linkedPullRequests": linked_pull_requests,
             "mentionedByPullRequests": mentioned_by_pull_requests,
+            "referencedByPullRequests": referenced_by_pull_requests,
             "housekeeping": housekeeping,
             "author": author,
             "authorAvatarUrl": author_avatar_url,
@@ -193,6 +211,16 @@ class Issue:
             mentioned_by_pull_requests.append(mentioned_by_pull_requests_item)
 
 
+        referenced_by_pull_requests = []
+        _referenced_by_pull_requests = d.pop("referencedByPullRequests")
+        for referenced_by_pull_requests_item_data in (_referenced_by_pull_requests):
+            referenced_by_pull_requests_item = LinkedPullRequest.from_dict(referenced_by_pull_requests_item_data)
+
+
+
+            referenced_by_pull_requests.append(referenced_by_pull_requests_item)
+
+
         housekeeping = d.pop("housekeeping")
 
         author = d.pop("author")
@@ -229,6 +257,7 @@ class Issue:
             url=url,
             linked_pull_requests=linked_pull_requests,
             mentioned_by_pull_requests=mentioned_by_pull_requests,
+            referenced_by_pull_requests=referenced_by_pull_requests,
             housekeeping=housekeeping,
             author=author,
             author_avatar_url=author_avatar_url,

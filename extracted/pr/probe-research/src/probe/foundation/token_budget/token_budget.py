@@ -30,6 +30,14 @@ VOCABULARY_SHA256 = "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cf
 CONFIG_SHA256 = "006868169d3cc1be4af6655c6a3123805e54a9bfba07dc08ad3b6b180194f2ae"
 
 
+def cap_to_range(value: Any, low: int, high: int) -> Any:
+    """An int `value` capped into [low, high]. Anything else (a bool, a float, a string) is returned as
+    is, for the caller's strict type check to refuse: only the RANGE is forgiven, never the type."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return min(max(value, low), high)
+    return value
+
+
 class InvalidBudget(ValueError):
     """Unsupported requested limit; the message never echoes caller data."""
 

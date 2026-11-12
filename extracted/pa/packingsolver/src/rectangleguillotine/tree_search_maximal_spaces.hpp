@@ -17,12 +17,12 @@ namespace rectangleguillotine
  * An unused rectangular space (URS).
  *
  * Each URS corresponds to a leaf node in the guillotine cut tree at the given
- * `depth`. The `cut_orientation` records the first-cut orientation for this
- * URS and all its descendants. `Any` is used only at the root when both
- * orientations are explored; after the first placement it is always Vertical
- * or Horizontal.
+ * `depth`. The `cut_orientation` records the orientation of the first cut of
+ * the bin, which gives the orientation of the cuts at each depth of the cut
+ * tree. `Any` is used only at the root when both orientations are explored;
+ * after the first placement it is always Vertical or Horizontal.
  *
- * The forced cut direction when a block is placed:
+ * The orientation of the cuts of the children of the URS:
  *   cut_is_vertical(depth, cut_orientation).
  *
  * Because the guillotine split of a URS always produces exactly two disjoint
@@ -57,16 +57,22 @@ inline std::ostream& operator<<(std::ostream& os, const EmptySpace& space)
  *
  * At each node the algorithm:
  *   1. Selects the URS with minimum area (most constrained).
- *   2. Generates one insertion per (block, cut_orientation) pair that fits.
- *      When the URS has cut_orientation == Any, both Vertical and Horizontal
- *      are generated per block, giving two children per block at the root.
- *      Once an orientation is chosen, child URSs inherit it and subsequent
- *      insertions generate one child per block.
+ *   2. Generates two insertions per block that fits, one per orientation of
+ *      the first cut in the URS. When the URS has cut_orientation == Any (at
+ *      the root), the two orientations are given by the cut_orientation of
+ *      the bin; child URSs inherit it. Otherwise, the first cut either has
+ *      the orientation of the depth of the URS, or the opposite one
+ *      ('flip_first_cut'): the URS is then first wrapped in a node covering
+ *      it, one depth deeper, whose children are cut with that orientation.
+ *      Otherwise, a URS whose orientation is forced by its depth couldn't
+ *      receive some packings, for example a strip of thin items stacked on
+ *      top of each other with columns of items above them.
  *   3. Places the block at the BL corner of the selected URS and replaces the
- *      URS with two new (non-overlapping) URSs using the guillotine cut
- *      direction forced by the URS depth and cut_orientation.
+ *      URS with two new (non-overlapping) URSs, using the orientation of the
+ *      first cut of the insertion.
  *
- * Placing block (w_b, h_b) in a URS at BL=(xs,ys) with width W, height H:
+ * Placing block (w_b, h_b) in a URS at BL=(xs,ys) with width W, height H,
+ * at depth d (d + 1 if the insertion flips the first cut):
  *
  *   Vertical-first (cut_is_vertical(d, Vertical) == true):
  *     right URS: [xs+w_b+ct, xs+W] × [ys, ys+H]         depth d+1
@@ -90,13 +96,21 @@ public:
         ItemPos block_id = -1;
         ItemPos space_id = -1;
         CutOrientation cut_orientation = CutOrientation::Vertical;
+
+        /**
+         * True iff the first cut in the URS has the orientation opposite to
+         * the one of its depth; see 'BranchingSchemeMaximalSpaces'.
+         */
+        bool flip_first_cut = false;
+
         double guide = 0.0;
 
         bool operator==(const Insertion& other) const
         {
             return this->block_id == other.block_id
                 && this->space_id == other.space_id
-                && this->cut_orientation == other.cut_orientation;
+                && this->cut_orientation == other.cut_orientation
+                && this->flip_first_cut == other.flip_first_cut;
         }
 
         bool operator!=(const Insertion& other) const { return !(*this == other); }
@@ -108,6 +122,7 @@ public:
             ItemPos block_id = -1;
             Coord bl_corner = {0, 0};
             CutOrientation cut_orientation = CutOrientation::Vertical;
+            bool flip_first_cut = false;
         };
 
         NodeId id = -1;
@@ -173,6 +188,9 @@ public:
             const Insertion& insertion) const
     {
         auto node = std::make_shared<Node>(*parent);
+        // The insertions of the parent are not the ones of the child.
+        node->cached_insertions.clear();
+        node->next_child_pos = 0;
         apply_insertion(*node, insertion);
         node->greedy_value = compute_guide_greedy(*node);
         return node;
@@ -190,14 +208,19 @@ public:
             const std::shared_ptr<Node>& parent,
             NodeId number_of_children = -1) const
     {
-        insertions(parent);
+        // 'insertions_' is only filled if the insertions of the parent were
+        // not cached yet.
+        const std::vector<Insertion>& parent_insertions = insertions(parent);
         if (number_of_children < 0
-                || number_of_children > (NodeId)insertions_.size())
-            number_of_children = (NodeId)insertions_.size();
+                || number_of_children > (NodeId)parent_insertions.size())
+            number_of_children = (NodeId)parent_insertions.size();
         std::vector<std::shared_ptr<Node>> nodes(number_of_children);
         for (NodeId i = 0; i < number_of_children; ++i) {
             nodes[i] = std::make_shared<Node>(*parent);
-            apply_insertion(*nodes[i], insertions_[i]);
+            // The insertions of the parent are not the ones of the child.
+            nodes[i]->cached_insertions.clear();
+            nodes[i]->next_child_pos = 0;
+            apply_insertion(*nodes[i], parent_insertions[i]);
             nodes[i]->greedy_value = compute_guide_greedy(*nodes[i]);
         }
         return nodes;
@@ -302,8 +325,36 @@ private:
     /** True iff the bin type has a resource which is not penalized. */
     bool has_hard_resources_ = false;
 
+    /**
+     * For each item type, true iff its consumption of a resource of the bin
+     * type depends on the number of its copies already in the bin.
+     */
+    std::vector<bool> copy_dependent_resource_consumptions_;
+
+    /** Buffer of 'insertion_resource_consumption'. */
+    mutable std::vector<double> insertion_resource_consumption_;
+
+    /**
+     * Consumption of each resource of the bin type by the items of 'block'
+     * if it is inserted in 'node': 'Block::resource_consumption', shifted
+     * for the item types whose consumption depends on the number of their
+     * copies already in 'node'.
+     *
+     * The returned reference may be invalidated by the next call.
+     */
+    const std::vector<double>& insertion_resource_consumption(
+            const Node& node,
+            const Block& block) const;
+
     /** True iff the forced first cut for a URS at (depth, cut_orientation) is vertical. */
     bool cut_is_vertical(Depth depth, CutOrientation cut_orientation) const;
+
+    /**
+     * Return true iff the first cut in a URS at depth 'depth' may have the
+     * orientation opposite to the one of its depth: the cut tree is then one
+     * depth deeper, which must not exceed the number of stages.
+     */
+    bool first_cut_can_be_flipped(Depth depth) const;
 
     /**
      * Return true iff placing 'block' in 'node' doesn't exceed the capacity
@@ -318,6 +369,16 @@ private:
      * penalties of the penalized resources whose capacity it exceeds first.
      */
     Profit insertion_profit(
+            const Node& node,
+            const Block& block) const;
+
+    /**
+     * Guide of the insertion of 'block' in 'node': its profit (see
+     * 'insertion_profit') per unit of area of the block. The insertions of a
+     * node are generated, and the greedy chooses its insertions, in
+     * decreasing order of guide.
+     */
+    double insertion_guide(
             const Node& node,
             const Block& block) const;
 

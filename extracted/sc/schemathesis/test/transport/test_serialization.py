@@ -47,11 +47,6 @@ def csv_serializer():
     def serialize_csv(ctx, value):
         return to_csv(value)
 
-    yield
-
-    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
-        transport.unregister_serializer("text/csv", "text/tsv")
-
 
 @pytest.mark.hypothesis_nested
 @pytest.mark.usefixtures("csv_serializer")
@@ -97,10 +92,32 @@ def test_no_serialization_possible(tsv_setup):
         test()
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_in_cli(ctx, cli, tsv_setup, snapshot_cli):
     api, tsv_schema = tsv_setup
     schema_path = ctx.openapi.write_schema(tsv_schema.raw_schema["paths"])
     assert cli.run(str(schema_path), f"--url={api.base_url}") == snapshot_cli
+
+
+@pytest.fixture
+def open_api_3_schema_with_yaml_payload(ctx):
+    return ctx.openapi.load_schema(
+        {
+            "/yaml": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "text/yaml": {
+                                "schema": {"type": "array", "items": {"enum": [42]}, "minItems": 1, "maxItems": 1}
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
 
 
 @pytest.mark.parametrize("transport", [RequestsTransport, WSGITransport])
@@ -205,25 +222,21 @@ def test_custom_serializer_returning_none_omits_body(ctx):
     def serialize_empty(ctx, value):
         return None
 
-    try:
-        operation = ctx.openapi.load_operation(
-            "POST /data",
-            {
-                "requestBody": {
-                    "required": True,
-                    "content": {"application/x-empty": {"schema": {"type": "object"}}},
-                },
-                "responses": {"200": {"description": "OK"}},
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/x-empty": {"schema": {"type": "object"}}},
             },
-        )
-        case = operation.Case(body={"key": "value"}, media_type="application/x-empty")
-        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
-            serialized = transport.serialize_case(case)
-            assert serialized["headers"]["Content-Type"] == "application/x-empty"
-            assert "data" not in serialized
-    finally:
-        for transport in (ASGI_TRANSPORT, REQUESTS_TRANSPORT, WSGI_TRANSPORT):
-            transport.unregister_serializer("application/x-empty")
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(body={"key": "value"}, media_type="application/x-empty")
+    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
+        serialized = transport.serialize_case(case)
+        assert serialized["headers"]["Content-Type"] == "application/x-empty"
+        assert "data" not in serialized
 
 
 def test_unregister_serializer_is_idempotent():
@@ -243,30 +256,24 @@ def test_custom_serializer_for_multipart_part_receives_the_case(ctx, case_factor
     def serialize_empty(ctx, value):
         received.append((ctx.case.media_type, value))
 
-    try:
-        operation = ctx.openapi.load_operation(
-            "POST /upload",
-            {
-                "requestBody": {
-                    "required": True,
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {"type": "object", "properties": {"meta": {"type": "object"}}},
-                            "encoding": {"meta": {"contentType": "application/x-empty"}},
-                        }
-                    },
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {"type": "object", "properties": {"meta": {"type": "object"}}},
+                        "encoding": {"meta": {"contentType": "application/x-empty"}},
+                    }
                 },
-                "responses": {"200": {"description": "OK"}},
             },
-        )
-        case = case_factory(
-            operation=operation, method="POST", body={"meta": {"a": 1}}, media_type="multipart/form-data"
-        )
-        REQUESTS_TRANSPORT.serialize_case(case)
-        assert received == [("multipart/form-data", {"a": 1})]
-    finally:
-        for transport in (ASGI_TRANSPORT, REQUESTS_TRANSPORT, WSGI_TRANSPORT):
-            transport.unregister_serializer("application/x-empty")
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = case_factory(operation=operation, method="POST", body={"meta": {"a": 1}}, media_type="multipart/form-data")
+    REQUESTS_TRANSPORT.serialize_case(case)
+    assert received == [("multipart/form-data", {"a": 1})]
 
 
 @pytest.mark.parametrize(
@@ -2115,6 +2122,126 @@ def test_serialize_xml_for_undeclared_media_type(ctx):
     assert case.as_transport_kwargs(base_url="http://127.0.0.1")["data"] == b"<data><a>1</a></data>"
 
 
+@pytest.fixture
+def openapi_3_schema_with_xml(ctx):
+    id_schema = {"type": "integer", "enum": [42]}
+
+    def operation(schema: dict):
+        return {
+            "post": {
+                "requestBody": {"content": {"application/xml": {"schema": schema}}, "required": True},
+                "responses": {"200": {"description": "OK"}},
+            }
+        }
+
+    def make_object(id_extra=None, **kwargs):
+        return {
+            "type": "object",
+            "properties": {"id": {**id_schema, **(id_extra or {})}},
+            "required": ["id"],
+            "additionalProperties": False,
+            **kwargs,
+        }
+
+    def make_array(items, **kwargs):
+        return {"type": "array", "items": items, "minItems": 2, "maxItems": 2, **kwargs}
+
+    no_xml_object = make_object()
+    renamed_property_xml_object = make_object(id_extra={"xml": {"name": "renamed-id"}})
+    property_as_attribute = make_object(id_extra={"xml": {"attribute": True}})
+
+    simple_array = make_array(items=id_schema)
+    wrapped_array = make_array(items=id_schema, xml={"wrapped": True})
+    array_with_renaming = make_array(
+        items={**id_schema, "xml": {"name": "item"}}, xml={"wrapped": True, "name": "items-array"}
+    )
+    object_in_array = make_array(
+        items=make_object(id_extra={"xml": {"name": "item-id"}}, xml={"name": "item"}),
+        xml={"wrapped": True, "name": "items"},
+    )
+    array_in_object = {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {**id_schema, "xml": {"name": "id"}},
+                "minItems": 2,
+                "maxItems": 2,
+                "xml": {"wrapped": True, "name": "items-array"},
+            },
+        },
+        "required": ["items"],
+        "additionalProperties": False,
+        "xml": {"name": "items-object"},
+    }
+
+    prefixed_object = make_object(xml={"prefix": "smp"})
+    prefixed_array = make_array(items=id_schema, xml={"prefix": "smp", "namespace": "http://example.com/schema"})
+    prefixed_attribute = make_object(
+        id_extra={"xml": {"attribute": True, "prefix": "smp", "namespace": "http://example.com/schema"}}
+    )
+    namespaced_object = make_object(xml={"namespace": "http://example.com/schema"})
+    namespaced_array = make_array(items=id_schema, xml={"namespace": "http://example.com/schema"})
+    namespaced_wrapped_array = make_array(
+        items=id_schema, xml={"namespace": "http://example.com/schema", "wrapped": True}
+    )
+    namespaced_prefixed_object = make_object(xml={"namespace": "http://example.com/schema", "prefix": "smp"})
+    namespaced_prefixed_array = make_array(
+        items=id_schema, xml={"namespace": "http://example.com/schema", "prefix": "smp"}
+    )
+    namespaced_prefixed_wrapped_array = make_array(
+        items=id_schema, xml={"namespace": "http://example.com/schema", "prefix": "smp", "wrapped": True}
+    )
+
+    return ctx.openapi.load_schema(
+        {
+            "/root-name": operation(make_object()),
+            "/auto-name": operation({"$ref": "#/components/schemas/AutoName"}),
+            "/explicit-name": operation({"$ref": "#/components/schemas/ExplicitName"}),
+            "/renamed-property": operation({"$ref": "#/components/schemas/RenamedProperty"}),
+            "/property-attribute": operation({"$ref": "#/components/schemas/PropertyAsAttribute"}),
+            "/simple-array": operation({"$ref": "#/components/schemas/SimpleArray"}),
+            "/wrapped-array": operation({"$ref": "#/components/schemas/WrappedArray"}),
+            "/array-with-renaming": operation({"$ref": "#/components/schemas/ArrayWithRenaming"}),
+            "/object-in-array": operation({"$ref": "#/components/schemas/ObjectInArray"}),
+            "/array-in-object": operation({"$ref": "#/components/schemas/ArrayInObject"}),
+            "/prefixed-object": operation({"$ref": "#/components/schemas/PrefixedObject"}),
+            "/prefixed-array": operation({"$ref": "#/components/schemas/PrefixedArray"}),
+            "/prefixed-attribute": operation({"$ref": "#/components/schemas/PrefixedAttribute"}),
+            "/namespaced-object": operation({"$ref": "#/components/schemas/NamespacedObject"}),
+            "/namespaced-array": operation({"$ref": "#/components/schemas/NamespacedArray"}),
+            "/namespaced-wrapped-array": operation({"$ref": "#/components/schemas/NamespacedWrappedArray"}),
+            "/namespaced-prefixed-object": operation({"$ref": "#/components/schemas/NamespacedPrefixedObject"}),
+            "/namespaced-prefixed-array": operation({"$ref": "#/components/schemas/NamespacedPrefixedArray"}),
+            "/namespaced-prefixed-wrapped-array": operation(
+                {"$ref": "#/components/schemas/NamespacedPrefixedWrappedArray"}
+            ),
+        },
+        components={
+            "schemas": {
+                "AutoName": no_xml_object,
+                "ExplicitName": {**no_xml_object, "xml": {"name": "CustomName"}},
+                "RenamedProperty": renamed_property_xml_object,
+                "PropertyAsAttribute": property_as_attribute,
+                "SimpleArray": simple_array,
+                "WrappedArray": wrapped_array,
+                "ArrayWithRenaming": array_with_renaming,
+                "ObjectInArray": object_in_array,
+                "ArrayInObject": array_in_object,
+                "PrefixedObject": prefixed_object,
+                "PrefixedArray": prefixed_array,
+                "PrefixedAttribute": prefixed_attribute,
+                "NamespacedObject": namespaced_object,
+                "NamespacedArray": namespaced_array,
+                "NamespacedWrappedArray": namespaced_wrapped_array,
+                "NamespacedPrefixedObject": namespaced_prefixed_object,
+                "NamespacedPrefixedArray": namespaced_prefixed_array,
+                "NamespacedPrefixedWrappedArray": namespaced_prefixed_wrapped_array,
+            }
+        },
+    )
+
+
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
@@ -2887,52 +3014,44 @@ def test_duplicate_xml_attributes(ctx):
 def test_serializer_alias_single(ctx, target, source, body, expected_content):
     schemathesis.serializer.alias(target, source)
 
-    try:
-        operation = ctx.openapi.load_operation(
-            "POST /test",
-            {
-                "requestBody": {
-                    "content": {target: {"schema": {"type": "object"}}},
-                },
-                "responses": {"200": {"description": "OK"}},
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {
+                "content": {target: {"schema": {"type": "object"}}},
             },
-        )
-        case = operation.Case(body=body, media_type=target)
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(body=body, media_type=target)
 
-        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
-            data = transport.serialize_case(case)["data"]
-            data_str = data.decode() if isinstance(data, bytes) else data
-            assert expected_content in data_str
-    finally:
-        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
-            transport.unregister_serializer(target)
+    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
+        data = transport.serialize_case(case)["data"]
+        data_str = data.decode() if isinstance(data, bytes) else data
+        assert expected_content in data_str
 
 
 def test_serializer_alias_multiple_targets(ctx):
     schemathesis.serializer.alias(["application/x-custom-yaml", "text/vnd.yaml.custom"], "application/yaml")
 
-    try:
-        operation = ctx.openapi.load_operation(
-            "POST /test",
-            {
-                "requestBody": {
-                    "content": {
-                        "application/x-custom-yaml": {"schema": {"type": "object"}},
-                    }
-                },
-                "responses": {"200": {"description": "OK"}},
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {
+                "content": {
+                    "application/x-custom-yaml": {"schema": {"type": "object"}},
+                }
             },
-        )
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
 
-        for media_type in ["application/x-custom-yaml", "text/vnd.yaml.custom"]:
-            case = operation.Case(body={"id": 42}, media_type=media_type)
-            for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
-                data = transport.serialize_case(case)["data"]
-                data_str = data.decode() if isinstance(data, bytes) else data
-                assert "id" in data_str and "42" in data_str
-    finally:
+    for media_type in ["application/x-custom-yaml", "text/vnd.yaml.custom"]:
+        case = operation.Case(body={"id": 42}, media_type=media_type)
         for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
-            transport.unregister_serializer("application/x-custom-yaml", "text/vnd.yaml.custom")
+            data = transport.serialize_case(case)["data"]
+            data_str = data.decode() if isinstance(data, bytes) else data
+            assert "id" in data_str and "42" in data_str
 
 
 @pytest.mark.parametrize(

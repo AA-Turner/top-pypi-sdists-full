@@ -50,10 +50,16 @@ from temporalio.worker import (
     WorkflowOutboundInterceptor,
 )
 
-from application_sdk.contracts.base import Output
+from application_sdk.contracts.base import Output, OutputStatus
 from application_sdk.observability.logger_adaptor import get_logger
-from application_sdk.outputs import _current_outputs
+from application_sdk.outputs import current_outputs
 from application_sdk.outputs.collector import OutputCollector
+from application_sdk.outputs.skipped import (
+    SKIPPED_RECORDS_METRIC,
+    current_skipped_records,
+    new_activity_sink,
+    persist_activity_skips,
+)
 
 logger = get_logger(__name__)
 
@@ -147,14 +153,22 @@ class OutputActivityInboundInterceptor(ActivityInboundInterceptor):
             The activity's return value, carrying its collected outputs.
         """
         collector = OutputCollector()
-        _current_outputs.set(collector)
+        current_outputs.set(collector)
+        # Installed up front, like the collector, so skips recorded from child
+        # tasks of the activity body land in the same sink.
+        current_skipped_records.set(new_activity_sink())
 
         try:
             result = await super().execute_activity(input)
+            sink = current_skipped_records.get()
+            if sink is not None:
+                # Fails open: a storage failure is logged and counted.
+                await persist_activity_skips(sink)
         finally:
             # Always reset so a failed/cancelled activity doesn't leak its
             # collector into the next task that runs on this thread.
-            _current_outputs.set(None)
+            current_outputs.set(None)
+            current_skipped_records.set(None)
 
         try:
             return _attach_outputs(result, collector)
@@ -270,11 +284,11 @@ class OutputWorkflowInboundInterceptor(WorkflowInboundInterceptor):
         Returns:
             The workflow result, enriched with collected outputs if any.
         """
-        _current_outputs.set(self._collector)
+        current_outputs.set(self._collector)
         try:
             result = await super().execute_workflow(input)
         finally:
-            _current_outputs.set(None)
+            current_outputs.set(None)
 
         # Only reached when super().execute_workflow() returned without raising.
         try:
@@ -284,6 +298,7 @@ class OutputWorkflowInboundInterceptor(WorkflowInboundInterceptor):
                 result = {k: v for k, v in result.items() if k != _DICT_CARRIER_KEY}
             if self._outbound is not None:
                 self._outbound.flush()
+            result = _mark_partial_success(result, self._collector)
             if self._collector.has_data():
                 result = _merge_outputs_into_result(result, self._collector)
         except Exception:
@@ -295,6 +310,20 @@ class OutputWorkflowInboundInterceptor(WorkflowInboundInterceptor):
             )
 
         return result
+
+
+def _mark_partial_success(result: Any, collector: OutputCollector) -> Any:
+    """Mark a ``SUCCESS`` run that skipped records as ``PARTIAL_SUCCESS``.
+
+    Derived from the summed ``skipped-records`` metric, so nothing new travels
+    on activity results. ``FAILURE`` and ``PARTIAL_SUCCESS`` set by the app
+    are never changed; a run that skipped nothing is untouched.
+    """
+    if not isinstance(result, Output) or result.status != OutputStatus.SUCCESS:
+        return result
+    if collector.numeric_metric(SKIPPED_RECORDS_METRIC) <= 0:
+        return result
+    return result.model_copy(update={"status": OutputStatus.PARTIAL_SUCCESS})
 
 
 def _merge_outputs_into_result(result: Any, collector: OutputCollector) -> Any:

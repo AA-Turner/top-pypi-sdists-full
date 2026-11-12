@@ -1,0 +1,41 @@
+name: Build and Deploy Jupyter Book with Parameter Documentation
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-deploy:
+    if: github.repository == 'PSLmodels/Tax-Calculator'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: taxcalc-dev
+          environment-file: environment.yml
+          python-version: 3.13
+          auto-activate: false
+
+      - name: Build # Build Jupyter Book
+        shell: bash -l {0}
+        run: |
+          pip install -e .
+          python docs/guide/make/make_uguide.py
+          python docs/api/make/make_api.py
+          cd docs
+          jupyter-book build --html --execute
+          python make_redirects.py
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages # The branch the action should deploy to.
+          folder: docs/_build/html # The folder the action should deploy.

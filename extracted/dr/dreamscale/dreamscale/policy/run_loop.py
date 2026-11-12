@@ -140,6 +140,9 @@ async def run_policy_loop(
         action_smoothing=action_smoothing,
         late_bound_rows=late_bound_prefix_rows(getattr(policy, "deployment", None)),
         min_replan_steps=contract.min_replan_steps,
+        chunked=strategy.mode == "sync",
+        max_stale_rows=contract.async_max_stale_rows,
+        model=getattr(policy, "model", None),
     )
     pending: _PendingRequest | None = None
     last_action: tuple[float, ...] | None = None
@@ -460,6 +463,10 @@ async def run_policy_loop(
                     and last_action is not None
                 ):
                     action = last_action
+                elif contract.hold_last_command and last_action is not None:
+                    # The arm keeps its last command (RuntimeContract.hold_last_command): a
+                    # measured hold would step it back by its lag and ease a grasp.
+                    action = last_action
                 elif (
                     read_hold_action is not None
                     and contract.hold_behavior == "current_position"
@@ -567,6 +574,8 @@ async def run_policy_loop(
                 # one in flight returns, so it keeps observing while a request is pending.
                 and (pending is None or history.sparse)
                 and can_replan()
+                # Chunked: the step after a chunk's last row is the next request's own.
+                and not (planner.chunked and not action_queue.actions_remaining(action_index + 1))
             ):
                 await observe_for_history(action_index + 1)
             if not strategy.real_time:
@@ -887,8 +896,20 @@ class _ReplanPlanner:
         action_smoothing: ResolvedActionSmoothing,
         late_bound_rows: int | None = None,
         min_replan_steps: int = 0,
+        chunked: bool = False,
+        max_stale_rows: int | None = None,
+        model: str | None = None,
     ) -> None:
         self._control_hz = control_hz
+        # The chunked schedule (RunStrategy.mode "sync"): ask on the first tick after the plan
+        # ran out, hold while the next chunk is inferred, and play its rows as they are from the
+        # step the robot is at (none of them went by: it held).
+        self.chunked = bool(chunked)
+        # Async's limit (RuntimeContract.async_max_stale_rows): answers arriving with more of
+        # their rows already due, STALE_CHUNKS_BEFORE_RAISE in a row, raise AsyncDelayError.
+        self._max_stale_rows = max_stale_rows
+        self._stale_in_a_row = 0
+        self._model = model
         # The most rows left at a replan: a fresh chunk minus the contract's minimum interval.
         self._max_threshold = chunk_size - min_replan_steps if min_replan_steps else None
         # The deployment's own cap on committed rows (late-bound prefix), if it declares one.
@@ -931,6 +952,8 @@ class _ReplanPlanner:
 
     @property
     def replan_at_remaining(self) -> int:
+        if self.chunked:
+            return 0
         if self._explicit_threshold is not None:
             return int(self._explicit_threshold)
         if self._method_o is not None:
@@ -950,7 +973,8 @@ class _ReplanPlanner:
     @property
     def eager_refill(self) -> bool:
         return (
-            self._explicit_threshold is None
+            not self.chunked
+            and self._explicit_threshold is None
             and isinstance(self._control_config, EagerRefillQueueConfig)
         )
 
@@ -993,6 +1017,11 @@ class _ReplanPlanner:
 
     def should_replan(self, actions_remaining: int) -> bool:
         if self.eager_refill:
+            return False
+        if self.chunked:
+            # Never while executing: the next request goes out on the first tick the plan has
+            # nothing for (an underrun), with that tick's observation, as upstream's chunked
+            # robot observes after its chunk's last row.
             return False
         return int(actions_remaining) <= self.replan_at_remaining
 
@@ -1138,6 +1167,8 @@ class _ReplanPlanner:
                 "action dimensions must match the runtime contract: "
                 f"expected {self._action_dim}, got {actual_dimension}"
             )
+        if self.chunked:
+            return action_queue.place_chunk(actions=actions, action_indices=action_indices)
         if self._rtc_enabled:
             diagnostics = action_queue.replace_aligned_chunk(
                 base_action_step=base_action_index,
@@ -1157,13 +1188,26 @@ class _ReplanPlanner:
                 "first_executable_source_offset": None,
                 "max_abs_position_revision": 0.0,
             }
-        return action_queue.merge_smoothed_chunk(
+        diagnostics = action_queue.merge_smoothed_chunk(
             base_action_step=base_action_index,
             actions=actions,
             action_indices=action_indices,
             smoothing=self._action_smoothing,
             executed_history=executed_history,
         )
+        self._check_delay(int(diagnostics.get("stale_steps") or 0), len(actions))
+        return diagnostics
+
+    def _check_delay(self, stale: int, rows: int) -> None:
+        """Async stops when STALE_CHUNKS_BEFORE_RAISE answers in a row arrive with more of their
+        rows already due than the contract allows (a chunk that came too late to be played)."""
+        limit = self._max_stale_rows
+        if limit is None:
+            return
+        self._stale_in_a_row = self._stale_in_a_row + 1 if stale > limit else 0
+        if self._stale_in_a_row >= STALE_CHUNKS_BEFORE_RAISE:
+            raise AsyncDelayError(stale_rows=stale, limit=limit, rows=rows,
+                                  action_hz=self._control_hz, model=self._model)
 
     def record_result(
         self,
@@ -1229,6 +1273,34 @@ class StaleFirstChunkError(errors.DreamscaleError, ValueError):
 
 # Consecutive fully stale chunks before the first dispatch that raise StaleFirstChunkError.
 STALE_FIRST_CHUNKS_BEFORE_RAISE = 3
+# Consecutive answers past the contract's async_max_stale_rows that raise AsyncDelayError.
+STALE_CHUNKS_BEFORE_RAISE = 3
+
+
+class AsyncDelayError(errors.DreamscaleError, ValueError):
+    """Async replanning can't keep up: answers keep arriving with more of their rows already
+    due than the model's contract allows (``async_max_stale_rows``, Praxis-1's half chunk), so
+    the robot would execute plans made for where it was, not where it is. A
+    ``dreamscale.Error`` (code ``async_too_slow``) whose fix is the chunked mode."""
+
+    def __init__(self, *, stale_rows: int, limit: int, rows: int, action_hz: float,
+                 model: str | None = None) -> None:
+        name = public_model(model) if model else "the model"
+        super().__init__(
+            errors.ErrorInfo(
+                code="async_too_slow",
+                problem=f"{name}'s chunks arrive too late for async replanning",
+                cause=f"the last {STALE_CHUNKS_BEFORE_RAISE} chunks each arrived with more than "
+                f"{limit} of their {rows} rows already due ({stale_rows} on the last: about "
+                f"{stale_rows / float(action_hz):.2f} s), so each adds fewer rows than the next "
+                "round trip takes",
+                fix="run each chunk to its end instead: `--mode sync`, or "
+                "`dreamscale.connect(..., mode=\"sync\")`; or run from a network closer to the "
+                "model's region",
+            )
+        )
+        self.stale_rows = stale_rows
+        self.limit = limit
 
 
 class AsyncActionController:
@@ -1269,6 +1341,9 @@ class AsyncActionController:
             action_smoothing=action_smoothing,
             late_bound_rows=late_bound_prefix_rows(getattr(policy, "deployment", None)),
             min_replan_steps=self._contract.min_replan_steps,
+            chunked=self._strategy.mode == "sync",
+            max_stale_rows=self._contract.async_max_stale_rows,
+            model=getattr(policy, "model", None),
         )
         self._pending: _PendingRequest | None = None
         # Whether this controller has stepped or prepared yet: its first one starts a new
@@ -1311,6 +1386,8 @@ class AsyncActionController:
         self._requests_started = 0
         self._last_stalled = False
         self._hold_latch: tuple[float, ...] | None = None
+        # Whether the last stalled step held the last command (hold_last_command).
+        self._held_last_command = False
         self._calibrated = False
         self._stale_first_chunks = 0
         self._lock = asyncio.Lock()
@@ -1922,14 +1999,24 @@ class AsyncActionController:
             accepted_events=accepted_events,
         )
 
+    @property
+    def holds_last_command(self) -> bool:
+        """The last stalled step held the robot's last command (``hold_last_command``), not its
+        measured pose: there was one to hold."""
+        return self._held_last_command
+
     def _handle_underrun(self) -> tuple[float, ...]:
         _record_stats(self._policy, underruns=1)
+        self._held_last_command = False
         if (
             self._strategy.underrun == "repeat_last_action"
             and self._last_action is not None
         ):
             return self._last_action
         _record_stats(self._policy, hold_position_count=1)
+        if self._contract.hold_last_command and self._last_action is not None:
+            self._held_last_command = True
+            return self._last_action
         if self._hold_latch is None:
             self._hold_latch = _hold_position_action(
                 contract=self._contract,

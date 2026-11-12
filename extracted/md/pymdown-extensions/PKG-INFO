@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pymdown-extensions
-Version: 13.0
+Version: 13.1
 Summary: Extension pack for Python Markdown.
 Project-URL: Homepage, https://github.com/facelessuser/pymdown-extensions
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -23,7 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.11.5
-Requires-Dist: markdown>=3.6
+Requires-Dist: markdown>=3.10.3
 Requires-Dist: pyyaml
 Provides-Extra: extra
 Requires-Dist: pygments>=2.19.1; extra == 'extra'

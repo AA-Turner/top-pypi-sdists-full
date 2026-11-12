@@ -16,6 +16,8 @@ use simulator::SimulatedDevice;
 
 const P110_TPAP_FIXTURE: &str = "tests/fixtures/smart/P110(UK)_1.0_1.4.8_TPAP.json";
 const P110_KLAP_FIXTURE: &str = "tests/fixtures/smart/P110(UK)_1.0_1.4.8_KLAP.json";
+// The same P110 model on an older firmware, with an update available.
+const P110_UPDATE_AVAILABLE_FIXTURE: &str = "tests/fixtures/smart/P110(UK)_1.0_1.4.0_TPAP.json";
 const P110M_TPAP_FIXTURE: &str = "tests/fixtures/smart/P110M(US)_1.0_1.4.4_TPAP.json";
 
 #[rstest]
@@ -54,7 +56,7 @@ async fn discovery_finds_the_device_and_logs_in(
 #[case::p110_klap(P110_KLAP_FIXTURE)]
 #[case::p110m_tpap(P110M_TPAP_FIXTURE)]
 #[tokio::test]
-async fn a_p110_takes_a_login_by_ip_address(#[case] fixture: &str) -> Result<(), Box<dyn Error>> {
+async fn a_p110_reads_its_state(#[case] fixture: &str) -> Result<(), Box<dyn Error>> {
     let device = SimulatedDevice::new(fixture).start().await;
 
     let handler = ApiClient::new(device.username(), device.password())
@@ -62,6 +64,8 @@ async fn a_p110_takes_a_login_by_ip_address(#[case] fixture: &str) -> Result<(),
         .await?;
 
     handler.get_device_info().await?;
+    handler.get_device_usage().await?;
+    handler.get_energy_meter_data().await?;
 
     Ok(())
 }
@@ -70,16 +74,17 @@ async fn a_p110_takes_a_login_by_ip_address(#[case] fixture: &str) -> Result<(),
 #[case::p110_tpap(P110_TPAP_FIXTURE)]
 #[case::p110_klap(P110_KLAP_FIXTURE)]
 #[case::p110m_tpap(P110M_TPAP_FIXTURE)]
+#[case::p110_update_available(P110_UPDATE_AVAILABLE_FIXTURE)]
 #[tokio::test]
-async fn a_p110_reads_its_usage(#[case] fixture: &str) -> Result<(), Box<dyn Error>> {
+async fn a_p110_reads_its_firmware(#[case] fixture: &str) -> Result<(), Box<dyn Error>> {
     let device = SimulatedDevice::new(fixture).start().await;
 
     let handler = ApiClient::new(device.username(), device.password())
         .p110(device.address())
         .await?;
 
-    handler.get_device_usage().await?;
-    handler.get_energy_meter_data().await?;
+    handler.get_latest_firmware().await?;
+    handler.get_firmware_update_state().await?;
 
     Ok(())
 }

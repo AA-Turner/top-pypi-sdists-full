@@ -312,6 +312,7 @@ class AnonymousModeException(CometException):
                 self.backend_err_msg,
                 self.sdk_error_code,
             )
+        return str(self.backend_err_msg)
 
     def __str__(self):
         return self.__repr__()

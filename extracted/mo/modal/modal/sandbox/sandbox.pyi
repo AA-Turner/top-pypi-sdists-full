@@ -1,4 +1,5 @@
 import collections.abc
+import datetime
 import google.protobuf.message
 import modal._logs_manager
 import modal._outbound_policy
@@ -1770,7 +1771,7 @@ class Sandbox(modal.object.Object):
         """Raise `ClientClosed` if the Sandbox is detached.
 
         Every public operation calls this on entry, except those that remain available after
-        `detach`: `wait`, `returncode`, `logs` and `_experimental_get_exit_snapshot`.
+        `detach`: `wait`, `returncode`, `logs`, `_experimental_stats` and `_experimental_get_exit_snapshot`.
         """
         ...
 
@@ -1960,6 +1961,111 @@ class Sandbox(modal.object.Object):
             ...
 
     from_id: typing.ClassVar[__from_id_spec]
+
+    class ___experimental_stats_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+        ) -> modal.types.SandboxStats:
+            """Return statistics for this Sandbox over a time range, by default its lifetime so far.
+
+            Usage is sampled every few seconds while the Sandbox runs. Statistics may be delayed by a few
+            minutes, both while the Sandbox is running and shortly after it finishes, so values can change
+            between calls.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to when the Sandbox
+                    was created. Values without a timezone are interpreted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to the current time.
+                    Values without a timezone are interpreted as local time.
+
+            Returns:
+                A `SandboxStats` object with the following fields:
+                - `since` and `until`: the time range covered, with the defaults applied.
+                - `duration`: how long the Sandbox ran within the time range.
+                - `percentile_stats`: measured usage as `StatsPercentileDistribution` values keyed by
+                  `"CPU Usage (cores)"` and `"Memory Usage (GiB)"`.
+                  Each has the p50, p90, and p99 across usage samples. A key is missing if no usage has been
+                  recorded in the time range.
+                - `cost`: estimated cost in USD at your workspace's current rates, as a `decimal.Decimal`, the sum
+                  of `cost_by_resource`. `None` if no usage has been recorded in the time range.
+                - `cost_by_resource`: cost in USD as `decimal.Decimal`s, by billed resource: `CPU`, `Memory`, and
+                  GPU types such as `H100`. The resource names are subject to change as Modal's billing model evolves.
+                - `billed_cpu_core_seconds`: CPU usage that pricing is based on, in core-seconds: each sample
+                  counts the greater of the measured and requested cores.
+                - `billed_memory_gib_seconds`: memory usage that pricing is based on, in GiB-seconds, counted
+                  the same way as CPU.
+
+            Raises:
+                InvalidError: If `since` is not before `until`.
+
+            Examples:
+                ```python notest
+                sb = modal.Sandbox.from_id("sb-...")
+                stats = sb._experimental_stats()
+                print(stats.duration, stats.percentile_stats["Memory Usage (GiB)"])
+                print(stats.cost, stats.cost_by_resource)
+
+                last_hour = sb._experimental_stats(since=datetime.now(timezone.utc) - timedelta(hours=1))
+                ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            since: typing.Optional[datetime.datetime] = None,
+            until: typing.Optional[datetime.datetime] = None,
+        ) -> modal.types.SandboxStats:
+            """Return statistics for this Sandbox over a time range, by default its lifetime so far.
+
+            Usage is sampled every few seconds while the Sandbox runs. Statistics may be delayed by a few
+            minutes, both while the Sandbox is running and shortly after it finishes, so values can change
+            between calls.
+
+            Args:
+                since: The beginning of the time range, inclusive. If omitted, this defaults to when the Sandbox
+                    was created. Values without a timezone are interpreted as local time.
+                until: The end of the time range, exclusive. If omitted, this defaults to the current time.
+                    Values without a timezone are interpreted as local time.
+
+            Returns:
+                A `SandboxStats` object with the following fields:
+                - `since` and `until`: the time range covered, with the defaults applied.
+                - `duration`: how long the Sandbox ran within the time range.
+                - `percentile_stats`: measured usage as `StatsPercentileDistribution` values keyed by
+                  `"CPU Usage (cores)"` and `"Memory Usage (GiB)"`.
+                  Each has the p50, p90, and p99 across usage samples. A key is missing if no usage has been
+                  recorded in the time range.
+                - `cost`: estimated cost in USD at your workspace's current rates, as a `decimal.Decimal`, the sum
+                  of `cost_by_resource`. `None` if no usage has been recorded in the time range.
+                - `cost_by_resource`: cost in USD as `decimal.Decimal`s, by billed resource: `CPU`, `Memory`, and
+                  GPU types such as `H100`. The resource names are subject to change as Modal's billing model evolves.
+                - `billed_cpu_core_seconds`: CPU usage that pricing is based on, in core-seconds: each sample
+                  counts the greater of the measured and requested cores.
+                - `billed_memory_gib_seconds`: memory usage that pricing is based on, in GiB-seconds, counted
+                  the same way as CPU.
+
+            Raises:
+                InvalidError: If `since` is not before `until`.
+
+            Examples:
+                ```python notest
+                sb = modal.Sandbox.from_id("sb-...")
+                stats = sb._experimental_stats()
+                print(stats.duration, stats.percentile_stats["Memory Usage (GiB)"])
+                print(stats.cost, stats.cost_by_resource)
+
+                last_hour = sb._experimental_stats(since=datetime.now(timezone.utc) - timedelta(hours=1))
+                ```
+            """
+            ...
+
+    _experimental_stats: ___experimental_stats_spec
 
     class __get_tags_spec(typing_extensions.Protocol):
         def __call__(self, /) -> dict[str, str]:

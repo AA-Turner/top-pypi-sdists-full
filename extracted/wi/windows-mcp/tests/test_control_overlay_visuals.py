@@ -17,12 +17,15 @@ def _alpha_at(bgra: bytes, width: int, x: int, y: int) -> int:
 
 def test_notice_uses_clear_english_and_transparent_corners():
     assert control_overlay_art._NOTICE_TITLE == "AI is controlling this computer"
-    assert control_overlay_art._NOTICE_HINT == "Press Ctrl + Alt + Shift + Backspace to take over"
+    assert control_overlay_art._NOTICE_MOUSE_HINT == "Move the mouse a significant distance"
+    assert (
+        control_overlay_art._NOTICE_HINT == "or press Ctrl + Alt + Shift + Backspace to take over"
+    )
     assert control_overlay_art._NOTICE_SHORTCUT == "Ctrl + Alt + Shift + Backspace"
     notice = control_overlay_art._notice_bitmap(1920)
     assert notice is not None
     width, height, bgra = notice
-    assert 540 <= width < 1920 and height < 120  # No third line remains.
+    assert 540 <= width < 1920 and height < 160  # Both takeover methods remain visible.
     assert len(bgra) == width * height * 4
     # A supersampled rounded mask gives each corner several partial-alpha pixels.
     for x_start in (0, width - 22):
@@ -286,3 +289,39 @@ def test_layer_failure_closes_prior_windows(monkeypatch):
     with pytest.raises(OSError, match="window creation failed"):
         control_overlay._build_layers(((0, 0, 800, 600),), pending=False)
     assert closed == [1, 0]
+
+
+def test_build_layers_beats_after_each_layer(monkeypatch):
+    """Issue #465: slow bitmap rendering must keep the indicator heartbeat fresh."""
+    made = []
+    beats = []
+
+    class FakeLayer:
+        def __init__(self, x, y, width, height, bgra, name, *, breathes=True):
+            made.append(name)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(control_overlay, "_Layer", FakeLayer)
+    monkeypatch.setattr(control_overlay._user32, "GetCursorPos", lambda ptr: True, raising=False)
+    # Keep bitmap rendering out of the way; only the beat order matters here.
+    monkeypatch.setattr(control_overlay, "_edge_bitmap", lambda *args: b"")
+    monkeypatch.setattr(control_overlay, "_notice_bitmap", lambda width: (400, 60, b""))
+    monkeypatch.setattr(control_overlay, "_notice_glow_bitmap", lambda *args: b"")
+    monkeypatch.setattr(control_overlay, "_cursor_bitmap", lambda *args: b"")
+    rects = ((-1920, 0, 0, 1080), (0, 0, 2560, 1440))
+    layers, _ring = control_overlay._build_layers(
+        rects, pending=False, beat=lambda: beats.append(len(made))
+    )
+    # One beat per edge strip, plus one after each monitor's notice pair.
+    assert len(beats) == 2 * (4 + 1)
+    assert beats == sorted(beats) and beats[-1] == len(layers)
+
+
+def test_indicator_beat_refreshes_heartbeat(monkeypatch):
+    indicator = control_overlay._Indicator.__new__(control_overlay._Indicator)
+    indicator.heartbeat = 0.0
+    monkeypatch.setattr(control_overlay.time, "monotonic", lambda: 42.0)
+    indicator._beat()
+    assert indicator.heartbeat == 42.0

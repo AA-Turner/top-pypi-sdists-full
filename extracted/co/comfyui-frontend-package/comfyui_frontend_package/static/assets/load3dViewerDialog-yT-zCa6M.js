@@ -1,1 +1,0 @@
-var e={size:`full`,maximizable:!0};export{e as t};

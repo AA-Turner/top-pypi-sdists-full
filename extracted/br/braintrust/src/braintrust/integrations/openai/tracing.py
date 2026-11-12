@@ -13,13 +13,15 @@ from typing import Any
 from braintrust.integrations.question import _question_span_input, _question_span_output
 from braintrust.integrations.utils import (
     _extract_audio_output,
+    _image_attachment_from_base64,
     _infer_audio_mime_type,
     _is_not_given,
     _materialize_attachment,
     _parse_openai_usage_metrics,
     _prettify_response_params,
-    _ResolvedAttachment,
     _serialize_response_format,
+    _ServedServiceTierTracker,
+    _service_tier_metadata,
     _timing_metrics,
     _try_to_dict,
 )
@@ -109,6 +111,8 @@ _RESPONSES_METADATA_PARAMS = (
     "verbosity",
     "moderation",
     "access_programs",
+    "image",
+    "prompt_cache_options",
 )
 
 _RESPONSES_RESULT_METADATA_KEYS = (
@@ -165,6 +169,10 @@ _IMAGE_METADATA_PARAMS = (
     "moderation",
     "output_format",
     "output_compression",
+    "complexity",
+    "frame_count",
+    "frame_duration_ms",
+    "svg",
 )
 
 
@@ -245,6 +253,11 @@ def log_headers(response: Any, span: Span):
                 "cached": 1 if cached_value.lower() in ["true", "hit"] else 0,
             }
         )
+
+
+def _responses_event_served_tier(event: Any) -> Any:
+    # Lifecycle events (created/in_progress/completed/...) carry the response.
+    return _get_attr_or_item(_get_attr_or_item(event, "response"), "service_tier")
 
 
 def _extract_moderation_metadata(response: Any) -> dict[str, Any]:
@@ -632,6 +645,7 @@ class ChatCompletionWrapper:
                     try:
                         first = True
                         all_results = []
+                        served_tier = _ServedServiceTierTracker(span)
                         for item in raw_response:
                             if first:
                                 span.log(
@@ -640,6 +654,7 @@ class ChatCompletionWrapper:
                                     }
                                 )
                                 first = False
+                            served_tier.observe(_get_attr_or_item(item, "service_tier"))
                             all_results.append(item)
                             yield item
 
@@ -657,7 +672,10 @@ class ChatCompletionWrapper:
                 span.log(
                     metrics=metrics,
                     output=_choices_output(raw_response, audio_format=audio_format),
-                    metadata=_extract_moderation_metadata(raw_response),
+                    metadata={
+                        **_extract_moderation_metadata(raw_response),
+                        **_service_tier_metadata(served=getattr(raw_response, "service_tier", None)),
+                    },
                 )
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
@@ -695,6 +713,7 @@ class ChatCompletionWrapper:
                     try:
                         first = True
                         all_results = []
+                        served_tier = _ServedServiceTierTracker(span)
                         async for item in raw_response:
                             if first:
                                 span.log(
@@ -703,6 +722,7 @@ class ChatCompletionWrapper:
                                     }
                                 )
                                 first = False
+                            served_tier.observe(_get_attr_or_item(item, "service_tier"))
                             all_results.append(item)
                             yield item
 
@@ -725,7 +745,10 @@ class ChatCompletionWrapper:
                 span.log(
                     metrics=metrics,
                     output=_choices_output(raw_response, audio_format=audio_format),
-                    metadata=_extract_moderation_metadata(raw_response),
+                    metadata={
+                        **_extract_moderation_metadata(raw_response),
+                        **_service_tier_metadata(served=getattr(raw_response, "service_tier", None)),
+                    },
                 )
                 return create_response if (raw_requested and hasattr(create_response, "parse")) else raw_response
         finally:
@@ -740,7 +763,10 @@ class ChatCompletionWrapper:
             ret,
             {
                 "input": processed_input,
-                "metadata": _filter_metadata(params, _CHAT_COMPLETION_METADATA_PARAMS),
+                "metadata": {
+                    **_filter_metadata(params, _CHAT_COMPLETION_METADATA_PARAMS),
+                    **_service_tier_metadata(requested=params.get("service_tier")),
+                },
             },
         )
 
@@ -1171,6 +1197,7 @@ def _response_tool_span_output(item: dict[str, Any]) -> Any:
         "call_id",
         "server_label",
         "error",
+        "svg_usage",
         *(_RESPONSE_TOOL_ITEM_INPUT_KEYS.get(item.get("type"), ())),
     }
     output = clean_nones(
@@ -1202,6 +1229,7 @@ def _response_tool_span_metadata(item: dict[str, Any]) -> dict[str, Any] | None:
                 "call_id": item.get("call_id"),
                 "status": item.get("status"),
                 "server_label": item.get("server_label"),
+                **_svg_usage_metadata(item),
             }
         )
         or None
@@ -1616,6 +1644,7 @@ class ResponseWrapper:
                     try:
                         first = True
                         all_results = []
+                        served_tier = _ServedServiceTierTracker(span)
                         for item in raw_response:
                             if first:
                                 span.log(
@@ -1624,6 +1653,7 @@ class ResponseWrapper:
                                     }
                                 )
                                 first = False
+                            served_tier.observe(_responses_event_served_tier(item))
                             all_results.append(item)
                             yield item
 
@@ -1675,6 +1705,7 @@ class ResponseWrapper:
                     try:
                         first = True
                         all_results = []
+                        served_tier = _ServedServiceTierTracker(span)
                         async for item in raw_response:
                             if first:
                                 span.log(
@@ -1683,6 +1714,7 @@ class ResponseWrapper:
                                     }
                                 )
                                 first = False
+                            served_tier.observe(_responses_event_served_tier(item))
                             all_results.append(item)
                             yield item
 
@@ -1727,7 +1759,10 @@ class ResponseWrapper:
             ret,
             {
                 "input": processed_input,
-                "metadata": _filter_metadata(params, _RESPONSES_METADATA_PARAMS),
+                "metadata": {
+                    **_filter_metadata(params, _RESPONSES_METADATA_PARAMS),
+                    **_service_tier_metadata(requested=params.get("service_tier")),
+                },
             },
         )
 
@@ -1747,6 +1782,7 @@ class ResponseWrapper:
             value = getattr(result, key, None)
             if value is not None:
                 metadata[key] = value
+        metadata.update(_service_tier_metadata(served=getattr(result, "service_tier", None)))
         if metadata:
             data["metadata"] = metadata
 
@@ -1854,27 +1890,6 @@ class ResponseWrapper:
             "metadata": metadata,
             "output": output,
         }
-
-
-def _image_attachment_from_base64(
-    data: Any,
-    *,
-    output_format: Any,
-    index: int,
-) -> tuple[_ResolvedAttachment | None, int | None]:
-    if not isinstance(data, str):
-        return None, None
-
-    extension = output_format if isinstance(output_format, str) and output_format else "png"
-    mime_type = extension if "/" in extension else f"image/{extension}"
-    resolved_attachment = _materialize_attachment(
-        data,
-        mime_type=mime_type,
-        prefix=f"generated_image_{index}",
-    )
-    if resolved_attachment is None:
-        return None, None
-    return resolved_attachment, len(resolved_attachment.attachment.data)
 
 
 def _extract_images_output(response: dict[str, Any]) -> dict[str, Any]:
@@ -1989,7 +2004,7 @@ class _ImageBaseWrapper(BaseWrapper):
         if isinstance(log_response, dict):
             metrics.update(_parse_metrics_from_usage(log_response.get("usage")))
         output = _extract_images_output(log_response) if isinstance(log_response, dict) else log_response
-        span.log(metrics=metrics, output=output)
+        span.log(metrics=metrics, output=output, metadata=_svg_usage_metadata(log_response))
 
     def create(self, *args: Any, **kwargs: Any) -> Any:
         params = self._parse_params(kwargs)
@@ -2559,6 +2574,17 @@ def _parse_metrics_from_usage(usage: Any) -> dict[str, Any]:
     if cache_write_tokens is not None:
         metrics.setdefault("prompt_cache_creation_tokens", cache_write_tokens)
     return metrics
+
+
+def _svg_usage_metadata(response: Any) -> dict[str, Any]:
+    """Return `svg_usage` (usage of the model that authors SVG image output) as metadata.
+
+    It is reported separately from the image model's `usage` and may come from a
+    different model. It has no standard metric keys and must not be folded into
+    the image model's token totals, so it is kept verbatim as metadata.
+    """
+    svg_usage = _try_to_dict(response.get("svg_usage")) if isinstance(response, Mapping) else None
+    return {"svg_usage": svg_usage} if svg_usage else {}
 
 
 def prettify_params(params: dict[str, Any]) -> dict[str, Any]:

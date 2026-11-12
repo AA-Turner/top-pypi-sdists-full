@@ -1,6 +1,6 @@
 """Sale Collection - Pre-configured AssetCollection for Sales"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.company.assets.sale import Sale
 from ....models.base_models import ChattyAssetPreview
 from ....models.data_base.mongo_connection import MongoConnection

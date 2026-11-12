@@ -335,6 +335,19 @@ class IsUrlTest(unittest.TestCase):
 
 
 class UserIsAuthenticatedTest(unittest.TestCase):
+    def test_user_is_anonymous(self) -> None:
+        class User:
+            is_authenticated = False
+
+        self.assertFalse(user_is_authenticated(cast("UserProtocol", User())))
+
+    def test_user_is_anonymous_callable(self) -> None:
+        class User:
+            def is_authenticated(self) -> bool:
+                return False
+
+        self.assertFalse(user_is_authenticated(cast("UserProtocol", User())))
+
     def test_user_is_none(self) -> None:
         self.assertEqual(user_is_authenticated(None), False)
 
@@ -792,15 +805,6 @@ class PartialPipelineData(unittest.TestCase):
         self.assertEqual(partial.kwargs[key], val)
         self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
 
-    def test_update_user(self) -> None:
-        user = cast("UserProtocol", object())
-        backend = self._backend(session_kwargs={"user": None})
-        partial = cast("PartialMixin", partial_pipeline_data(backend, user))
-        self.assertIsNotNone(partial)
-        self.assertIn("user", partial.kwargs)
-        self.assertEqual(partial.kwargs["user"], user)
-        self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
-
     def test_configurable_id_key(self) -> None:
         """Test that ID_KEY can be configured via settings"""
         email = "foo@example.com"
@@ -829,6 +833,7 @@ class PartialPipelineData(unittest.TestCase):
     ):
         backend = Mock()
         backend.ID_KEY = "email"
+        backend.ASSOCIATION_ONLY = False
         backend.name = "mock-backend"
         backend.id_key.return_value = "email"
         settings = settings or {}

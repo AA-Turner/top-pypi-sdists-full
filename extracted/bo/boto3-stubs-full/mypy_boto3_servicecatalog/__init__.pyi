@@ -24,6 +24,7 @@ Usage::
         ListResourcesForTagOptionPaginator,
         ListServiceActionsForProvisioningArtifactPaginator,
         ListServiceActionsPaginator,
+        ListStackInstancesForProvisionedProductPaginator,
         ListTagOptionsPaginator,
         ScanProvisionedProductsPaginator,
         SearchProductsAsAdminPaginator,
@@ -46,6 +47,7 @@ Usage::
     list_resources_for_tag_option_paginator: ListResourcesForTagOptionPaginator = client.get_paginator("list_resources_for_tag_option")
     list_service_actions_for_provisioning_artifact_paginator: ListServiceActionsForProvisioningArtifactPaginator = client.get_paginator("list_service_actions_for_provisioning_artifact")
     list_service_actions_paginator: ListServiceActionsPaginator = client.get_paginator("list_service_actions")
+    list_stack_instances_for_provisioned_product_paginator: ListStackInstancesForProvisionedProductPaginator = client.get_paginator("list_stack_instances_for_provisioned_product")
     list_tag_options_paginator: ListTagOptionsPaginator = client.get_paginator("list_tag_options")
     scan_provisioned_products_paginator: ScanProvisionedProductsPaginator = client.get_paginator("scan_provisioned_products")
     search_products_as_admin_paginator: SearchProductsAsAdminPaginator = client.get_paginator("search_products_as_admin")
@@ -67,6 +69,7 @@ from .paginator import (
     ListResourcesForTagOptionPaginator,
     ListServiceActionsForProvisioningArtifactPaginator,
     ListServiceActionsPaginator,
+    ListStackInstancesForProvisionedProductPaginator,
     ListTagOptionsPaginator,
     ScanProvisionedProductsPaginator,
     SearchProductsAsAdminPaginator,
@@ -89,6 +92,7 @@ __all__ = (
     "ListResourcesForTagOptionPaginator",
     "ListServiceActionsForProvisioningArtifactPaginator",
     "ListServiceActionsPaginator",
+    "ListStackInstancesForProvisionedProductPaginator",
     "ListTagOptionsPaginator",
     "ScanProvisionedProductsPaginator",
     "SearchProductsAsAdminPaginator",

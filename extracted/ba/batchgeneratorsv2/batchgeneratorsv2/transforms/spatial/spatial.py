@@ -93,13 +93,17 @@ class SpatialTransform(BasicTransform):
         self.align_corners = align_corners
         self._grid_cache = {}  # key: (patch_size, dtype) -> base grid tensor
 
-    def _get_base_grid_clone(self) -> torch.Tensor:
+    def _get_base_grid(self) -> torch.Tensor:
+        # cached and shared: callers must not modify it in place (use _get_base_grid_clone for that)
         key = tuple(self.patch_size)
         g = self._grid_cache.get(key)
         if g is None:
             g = _create_centered_identity_grid2(self.patch_size).float().contiguous()
             self._grid_cache[key] = g
-        return g.clone()
+        return g
+
+    def _get_base_grid_clone(self) -> torch.Tensor:
+        return self._get_base_grid().clone()
 
     @staticmethod
     def _get_crop_pad_settings(padding_mode: str, padding_value: float):
@@ -236,11 +240,13 @@ class SpatialTransform(BasicTransform):
                     center_location_in_pixels.append(np.random.uniform(mn, mx))
         # Precompute the deformed grid once (shared by image, segmentation, regression target)
         if affine is not None or offsets is not None:
-            grid = self._get_base_grid_clone()
-
-            # we deform first, then rotate
+            # we deform first, then rotate. Without offsets the matmul below is the first op and does not write
+            # its input, so the cached base grid needs no copy
             if offsets is not None:
+                grid = self._get_base_grid_clone()
                 grid += offsets
+            else:
+                grid = self._get_base_grid()
             if affine is not None:
                 # grid stores spatial vectors as row vectors (shape [..., dim]), whereas affine is built to act on
                 # column vectors (x' = affine @ x). We therefore multiply by affine.T so that each grid point is
@@ -325,15 +331,8 @@ class SpatialTransform(BasicTransform):
         pad_label = self.padding_value_seg if self.border_mode_seg == 'constant' else 0
 
         if self.mode_seg == 'nearest':
-            # grid_sample only pads with zeros; shifting by the padding label makes that padding the label
-            shift = float(pad_label) if pads else 0.
-            result_seg = (grid_sample(
-                segmentation[None].float() - shift,
-                grid[None],
-                mode=self.mode_seg,
-                padding_mode=grid_sample_padding_mode,
-                align_corners=self.align_corners
-            )[0] + shift).to(segmentation.dtype)
+            result_seg = _grid_sample_nearest_label(segmentation, grid, float(pad_label) if pads else 0.,
+                                                    grid_sample_padding_mode, self.align_corners)
         else:
             # Both branches compute the same thing: the per-voxel argmax over the interpolated one-hot label
             # channels, with self.seg_tiebreak settling voxels where the top score is shared. They are
@@ -369,14 +368,8 @@ class SpatialTransform(BasicTransform):
                 # is not one of the tied labels it is not used (see use_nn), so it can never invent a label.
                 nonlocal nn_seg
                 if nn_seg is None:
-                    shift = float(pad_label) if pads else 0.
-                    nn_seg = (grid_sample(
-                        segmentation[None].float() - shift,
-                        grid[None],
-                        mode='nearest',
-                        padding_mode=grid_sample_padding_mode,
-                        align_corners=self.align_corners
-                    )[0] + shift).to(segmentation.dtype)
+                    nn_seg = _grid_sample_nearest_label(segmentation, grid, float(pad_label) if pads else 0.,
+                                                        grid_sample_padding_mode, self.align_corners)
                 return nn_seg
 
             # The padding label enters the argmax only for patches whose kernel reaches outside the image, which
@@ -564,6 +557,23 @@ def create_affine_matrix_2d(rotation_angle, scaling_factors):
     # Combine rotation and scaling
     RS = R @ S
     return RS
+
+
+def _grid_sample_nearest_label(segmentation: torch.Tensor, grid: torch.Tensor, shift: float, padding_mode: str,
+                               align_corners: bool) -> torch.Tensor:
+    """
+    Nearest neighbour sample of a (c, *spatial) label map. grid_sample only pads with zeros; sampling
+    (segmentation - shift) and adding shift back pads with the label shift. The shift is applied in place on the one
+    float copy grid_sample needs anyway: `segmentation.float() - shift` would allocate a second input-sized copy.
+    """
+    seg = segmentation[None].to(torch.float32, copy=True)
+    if shift != 0:
+        seg.sub_(shift)
+    result = grid_sample(seg, grid[None], mode='nearest', padding_mode=padding_mode, align_corners=align_corners)[0]
+    del seg
+    if shift != 0:
+        result.add_(shift)
+    return result.to(segmentation.dtype)
 
 
 def _create_centered_identity_grid2(size: Union[Tuple[int, ...], List[int]]) -> torch.Tensor:

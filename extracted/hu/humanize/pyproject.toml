@@ -16,19 +16,19 @@ license = "MIT"
 license-files = [ "LICENCE" ]
 maintainers = [ { name = "Hugo van Kemenade" } ]
 authors = [ { name = "Jason Moiron", email = "jmoiron@jmoiron.net" } ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: 3.16",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Text Processing",
@@ -57,7 +57,7 @@ build.hooks.vcs.version-file = "src/humanize/_version.py"
 
 [tool.ruff]
 fix = true
-lint.select = [
+lint.extend-select = [
   "C4",     # flake8-comprehensions
   "D",      # pydocstyle
   "E",      # pycodestyle errors
@@ -73,7 +73,9 @@ lint.select = [
   "PT",     # flake8-pytest-style
   "PYI",    # flake8-pyi
   "RUF022", # unsorted-dunder-all
+  "RUF046", # unnecessary-cast-to-int
   "RUF100", # unused noqa (yesqa)
+  "TID251", # flake8-tidy-imports: banned-api
   "UP",     # pyupgrade
   "W",      # pycodestyle warnings
   "YTT",    # flake8-2020
@@ -87,30 +89,40 @@ lint.ignore = [
 ]
 lint.per-file-ignores."tests/*" = [
   "D",
+  "DTZ", # naive local datetimes are intentional
 ]
 lint.flake8-import-conventions.aliases.datetime = "dt"
 lint.flake8-import-conventions.banned-from = [ "datetime" ]
 lint.flake8-pytest-style.parametrize-names-type = "csv"
+lint.flake8-tidy-imports.banned-api."re.match".msg = "use re.fullmatch() or re.search() instead"
+lint.flake8-tidy-imports.banned-api."typing.TYPE_CHECKING".msg = "use TYPE_CHECKING = False instead"
 lint.isort.known-first-party = [ "humanize" ]
 lint.isort.required-imports = [ "from __future__ import annotations" ]
 lint.pydocstyle.convention = "google"
 lint.future-annotations = true
 
 [tool.pyproject-fmt]
-max_supported_python = "3.15"
+max_supported_python = "3.16"
 
 [tool.mypy]
-pretty = true
 strict = true
+pretty = true
+num_workers = 4
 show_error_codes = true
 
 [tool.pytest]
+addopts = [ "--doctest-modules" ]
+filterwarnings = [
+  "error",
+  # pytest-codspeed 5.0.4 supports up to 3.15
+  "ignore:Python 3.16 is not officially supported by pytest-codspeed:RuntimeWarning",
+]
 minversion = "9.0"
-addopts = [ "--color=yes" ]
-testpaths = [ "tests" ]
-filterwarnings = [ "error" ]
+testpaths = [ "src", "tests" ]
 
 [tool.coverage]
+run.disable_warnings = [ "no-sysmon" ]  # 3.11
+run.core = "sysmon"  # default for 3.14+, available for 3.12+
 # Regexes for lines to exclude from consideration
 report.exclude_also = [
   # Don't complain if non-runnable code isn't run:

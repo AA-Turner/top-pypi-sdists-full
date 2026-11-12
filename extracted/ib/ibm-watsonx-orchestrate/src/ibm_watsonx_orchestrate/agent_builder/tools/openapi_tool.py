@@ -359,6 +359,21 @@ def create_openapi_json_tool(
     if inject_ctx.get('response_body_path') is not None:
         openapi_binding.context_response_body_path = inject_ctx['response_body_path']
 
+    # x-ibm-orchestrate-meta / x-ibm-orchestrate-audience: opt-ins for TRM to
+    # read the orchestrate _meta (nextTool, widgets, extensions) and, separately,
+    # the response audience ("user" / "assistant") from a response header or a
+    # response body key, and return them to the agent runtime.
+    meta_ext = route_spec.get('x-ibm-orchestrate-meta') or {}
+    if meta_ext.get('response_header') is not None:
+        openapi_binding.meta_response_header = bool(meta_ext['response_header'])
+    if meta_ext.get('response_body_path') is not None:
+        openapi_binding.meta_response_body_path = meta_ext['response_body_path']
+    audience_ext = route_spec.get('x-ibm-orchestrate-audience') or {}
+    if audience_ext.get('response_header') is not None:
+        openapi_binding.audience_response_header = bool(audience_ext['response_header'])
+    if audience_ext.get('response_body_path') is not None:
+        openapi_binding.audience_response_body_path = audience_ext['response_body_path']
+
     if callback_binding is not None:
         openapi_binding.callback = callback_binding
 

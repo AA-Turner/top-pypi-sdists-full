@@ -92,6 +92,7 @@ from ultralytics.nn.autobackend import AutoBackend, check_class_names, default_c
 from ultralytics.nn.modules import (
     OBB,
     OBB26,
+    SPPF,
     Attention,
     C2f,
     Classify,
@@ -241,7 +242,15 @@ def export_formats():
             ["batch", "name", "quantize", "opset", "simplify", "data", "fraction"],
             "isolated-rknn",
         ],
-        ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"], "executorch"],
+        [
+            "ExecuTorch",
+            "executorch",
+            "_executorch_model",
+            True,
+            False,
+            ["batch", "quantize", "data", "fraction"],
+            "executorch",
+        ],
         [
             "Axelera AI",
             "axelera",
@@ -484,6 +493,7 @@ INT8_FORMATS = frozenset(
         "deepx",
         "hailo",
         "xilinx",
+        "executorch",
     }
 )
 W8A16_FORMATS = frozenset({"coreml", "litert", "qnn"})  # INT8 weights + 16-bit activations (FP16; INT16 on LiteRT)
@@ -971,6 +981,8 @@ class Exporter:
 
             model = executorch_wrapper(model)
         for m in model.modules():
+            if isinstance(m, SPPF):
+                m.export = True
             if isinstance(m, Attention) and fmt == "coreml" and self.args.format != "mlmodel":
                 m.format = fmt
             if isinstance(m, (Classify, SemanticSegment, Depth)):
@@ -1572,7 +1584,7 @@ class Exporter:
 
     @try_export
     def export_executorch(self, prefix=colorstr("ExecuTorch:")):  # noqa: B008
-        """Export YOLO model to ExecuTorch *.pte format."""
+        """Export YOLO model to ExecuTorch *.pte format, with optional static INT8 (requires calibration ``data``)."""
         assert TORCH_2_9, f"ExecuTorch requires torch>=2.9.0 but torch=={TORCH_VERSION} is installed"
         from ultralytics.utils.export.executorch import torch2executorch
 
@@ -1582,6 +1594,7 @@ class Exporter:
             output_dir=str(self.file).replace(self.file.suffix, "_executorch_model/"),
             metadata=self.metadata,
             prefix=prefix,
+            calibration_dataset=self.get_int8_calibration_dataloader(prefix) if self.args.quantize == 8 else None,
         )
 
     @try_export

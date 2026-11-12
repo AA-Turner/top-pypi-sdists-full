@@ -39,14 +39,13 @@ def _snapshot_profile_enabled() -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _as_bool(value: bool | str) -> bool:
-    return value is True or (isinstance(value, str) and value.lower() == "true")
-
-
 def _as_region(value: list | str | None) -> list | None:
     if value is None or isinstance(value, list):
         return value
     return json.loads(value)
+
+
+WINDOWS_NOT_LISTED = "Not listed: Screenshot skips window enumeration. Call Snapshot for windows."
 
 
 def capture_desktop_state(
@@ -97,8 +96,13 @@ def capture_desktop_state(
     interactive_elements = desktop_state.tree_state.interactive_elements_to_string()
     scrollable_elements = desktop_state.tree_state.scrollable_elements_to_string()
     semantic_tree = desktop_state.tree_state.semantic_tree_to_string()
-    windows = desktop_state.windows_to_string()
-    active_window = desktop_state.active_window_to_string()
+    if use_ui_tree:
+        windows = desktop_state.windows_to_string()
+        active_window = desktop_state.active_window_to_string()
+    else:
+        # The fast path never enumerates windows (see Desktop.get_state), so an empty
+        # list here means "not looked at", not "there are none".
+        windows = active_window = WINDOWS_NOT_LISTED
     active_desktop = desktop_state.active_desktop_to_string()
     all_desktops = desktop_state.desktops_to_string()
     if profile_enabled:
@@ -137,6 +141,7 @@ def capture_desktop_state(
         "active_desktop": active_desktop,
         "all_desktops": all_desktops,
         "screenshot_bytes": screenshot_bytes,
+        "use_ui_tree": use_ui_tree,
     }
 
 
@@ -145,6 +150,7 @@ def build_snapshot_response(
     *,
     include_ui_details: bool,
     ui_detail_note: str | None = None,
+    saved_path: str | None = None,
 ):
     desktop_state = capture_result["desktop_state"]
     interactive_elements = capture_result["interactive_elements"]
@@ -208,8 +214,15 @@ def build_snapshot_response(
     if desktop_state.screenshot_region:
         metadata_text += f"Screenshot Region: {desktop_state.screenshot_region.xyxy_to_string()}\n"
         metadata_text += "Coordinate Space: Virtual desktop coordinates\n"
+        if include_ui_details and capture_result["use_ui_tree"]:
+            metadata_text += (
+                "UI Tree Scope: Region-filtered. Windows and UI elements outside this region "
+                "are omitted. Omit region and display to inspect the full desktop.\n"
+            )
     if desktop_state.screenshot_backend:
         metadata_text += f"Screenshot Backend: {desktop_state.screenshot_backend}\n"
+    if saved_path:
+        metadata_text += f"Screenshot Saved To: {saved_path}\n"
     if ui_detail_note:
         metadata_text += f"{ui_detail_note}\n"
 

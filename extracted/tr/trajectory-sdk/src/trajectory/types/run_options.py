@@ -8,7 +8,7 @@ from trajectory._models import BaseModel
 from trajectory.types.priority_aggregation import PriorityAggregation
 from trajectory.types.priority_trait import PriorityTrait
 
-TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "stable_reinforce"]
+TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "importance_sampling", "stable_reinforce"]
 
 
 class RunOptions(BaseModel):
@@ -157,6 +157,13 @@ class RunOptions(BaseModel):
   group_size: int | None = None
   """Trajectories generated for each training instance; GSPO and GRPO require at least 2."""
 
+  shuffle_tasks: bool | None = None
+  """
+    Shuffle training tasks each epoch. Defaults to true; false starts tasks in upload order,
+    with appended tasks after earlier ones, while each batch still takes groups as they
+    finish. Benchmarks uploaded before upload order was recorded must be re-uploaded.
+    """
+
   priority_trait: PriorityTrait | None = None
   """Trait used to prioritize completed training groups."""
 
@@ -219,3 +226,13 @@ class RunOptions(BaseModel):
 
   max_turns_per_trajectory: int | None = None
   """Maximum agent and environment turns allowed in each trajectory."""
+
+  image_max_pixels: int | None = None
+  """
+    Downscale input images above this many pixels, keeping their aspect ratio, before the
+    model reads them. Fewer pixels cost fewer image tokens. null uses the model's default; a
+    checkpoint evaluation keeps the cap its training run used unless this is set.
+    """
+
+  shuffle: bool | None = None
+  """Shuffle training tasks each epoch; false follows benchmark upload order."""

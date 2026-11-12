@@ -2,6 +2,32 @@ from typing import Optional, Union
 
 from arch._typing import Float64Array, Float64Array1D, Float64Array2D, Int32Array
 
+__all__ = [
+    "ARCHInMeanRecursion",
+    "EGARCHUpdater",
+    "EWMAUpdater",
+    "FIAPARCHUpdater",
+    "FIGARCHUpdater",
+    "GARCHUpdater",
+    "HARCHUpdater",
+    "MIDASUpdater",
+    "NGARCHUpdater",
+    "RiskMetrics2006Updater",
+    "VolatilityUpdater",
+    "aparch_recursion",
+    "arch_recursion",
+    "egarch_recursion",
+    "fiaparch_recursion",
+    "figarch_recursion",
+    "figarch_weights",
+    "garch_core",
+    "garch_recursion",
+    "harch_core",
+    "harch_recursion",
+    "midas_recursion",
+    "ngarch_recursion",
+]
+
 def harch_recursion(
     parameters: Float64Array1D,
     resids: Float64Array1D,
@@ -46,6 +72,17 @@ def egarch_recursion(
     std_resids: Float64Array1D,
     abs_std_resids: Float64Array1D,
 ) -> Float64Array: ...
+def ngarch_recursion(
+    parameters: Float64Array1D,
+    resids: Float64Array1D,
+    sigma2: Float64Array1D,
+    p: int,
+    o: int,
+    q: int,
+    nobs: int,
+    backcast: float,
+    var_bounds: Float64Array2D,
+) -> Float64Array: ...
 def midas_recursion(
     parameters: Float64Array1D,
     weights: Float64Array1D,
@@ -68,6 +105,21 @@ def figarch_recursion(
     trunc_lag: int,
     backcast: float,
     var_bounds: Float64Array2D,
+) -> Float64Array: ...
+def fiaparch_recursion(
+    parameters: Float64Array1D,
+    resids: Float64Array1D,
+    abs_resids: Float64Array1D,
+    sigma2: Float64Array1D,
+    sigma_delta: Float64Array1D,
+    p: int,
+    q: int,
+    nobs: int,
+    trunc_lag: int,
+    backcast: float,
+    var_bounds: Float64Array2D,
+    gamma: float,
+    delta: float,
 ) -> Float64Array: ...
 def aparch_recursion(
     parameters: Float64Array1D,
@@ -123,17 +175,34 @@ class VolatilityUpdater:
 class GARCHUpdater(VolatilityUpdater):
     def __init__(self, p: int, o: int, q: int, power: float) -> None: ...
 
+class EGARCHUpdater(VolatilityUpdater):
+    def __init__(self, p: int, o: int, q: int) -> None: ...
+
 class EWMAUpdater(VolatilityUpdater):
     def __init__(self, lam: Optional[float]) -> None: ...
 
 class FIGARCHUpdater(VolatilityUpdater):
     def __init__(self, p: int, q: int, power: float, truncation: int) -> None: ...
 
+class FIAPARCHUpdater(VolatilityUpdater):
+    def __init__(
+        self,
+        p: int,
+        q: int,
+        o: int,
+        truncation: int,
+        est_delta: bool,
+        delta: float,
+    ) -> None: ...
+
 class HARCHUpdater(VolatilityUpdater):
     def __init__(self, lags: Int32Array) -> None: ...
 
 class MIDASUpdater(VolatilityUpdater):
     def __init__(self, m: int, asym: bool) -> None: ...
+
+class NGARCHUpdater(VolatilityUpdater):
+    def __init__(self, p: int, o: int, q: int) -> None: ...
 
 class RiskMetrics2006Updater(VolatilityUpdater):
     def __init__(

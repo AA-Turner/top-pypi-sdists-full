@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,8 +42,13 @@ class ToolsConfig:
 @dataclass
 class ControlConfig:
     # Raw relative device units and hook screen pixels are intentionally separate.
-    mouse_takeover_units: int = 120
-    mouse_takeover_pixels: int = 120
+    mouse_takeover_units: int = 500
+    mouse_takeover_pixels: int = 500  # Accepted for compatibility; pixel fallback is disabled.
+    enabled: bool = True
+    idle_timeout_seconds: float = 10.0
+    policy: str = "relaxed"
+    # Countdown before AI starts a new control period; 0 disables the prompt.
+    consent_countdown_seconds: int = 10
 
 
 @dataclass
@@ -98,6 +104,19 @@ def _strict_int(raw: object, key: str) -> int:
     raise ValueError(f"{key} must be a TOML integer, not {type(raw).__name__}")
 
 
+def validate_idle_timeout(raw: object) -> float:
+    """Share finite, positive timeout validation between TOML and CLI inputs."""
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError("control.idle_timeout_seconds must be a finite positive number")
+    try:
+        value = float(raw)
+    except OverflowError:
+        raise ValueError("control.idle_timeout_seconds must be a finite positive number") from None
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("control.idle_timeout_seconds must be a finite positive number")
+    return value
+
+
 def load_config(path: Path | None) -> WindowsMCPConfig:
     """Load and validate TOML config file. Returns defaults when path is None."""
     cfg = WindowsMCPConfig()
@@ -107,7 +126,8 @@ def load_config(path: Path | None) -> WindowsMCPConfig:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    # Accept a UTF-8 BOM, which Windows PowerShell 5.1 writes (Set-Content -Encoding UTF8).
+    data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
 
     server = data.get("server", {})
     security = data.get("security", {})
@@ -163,6 +183,24 @@ def load_config(path: Path | None) -> WindowsMCPConfig:
     if "exclude" in tools:
         cfg.tools.exclude = _list_of_strings(tools["exclude"], "tools.exclude")
 
+    if "policy" in control:
+        if control["policy"] not in ("relaxed", "balanced", "strict"):
+            raise ValueError("control.policy must be relaxed, balanced, or strict")
+        cfg.control.policy = control["policy"]
+
+    if "enabled" in control:
+        cfg.control.enabled = _strict_bool(control["enabled"], "control.enabled")
+    if "idle_timeout_seconds" in control:
+        cfg.control.idle_timeout_seconds = validate_idle_timeout(control["idle_timeout_seconds"])
+
+    if "consent_countdown_seconds" in control:
+        value = _strict_int(
+            control["consent_countdown_seconds"], "control.consent_countdown_seconds"
+        )
+        if not 0 <= value <= 60:
+            raise ValueError("control.consent_countdown_seconds must be between 0 and 60")
+        cfg.control.consent_countdown_seconds = value
+
     for key in ("mouse_takeover_units", "mouse_takeover_pixels"):
         if key in control:
             value = _strict_int(control[key], f"control.{key}")
@@ -174,6 +212,20 @@ def load_config(path: Path | None) -> WindowsMCPConfig:
     return cfg
 
 
+# TOML basic strings must escape the quote, the backslash and every control
+# character except tab; unescaped Windows paths would make the file unparsable.
+_TOML_ESCAPES = {
+    ord('"'): '\\"',
+    ord("\\"): "\\\\",
+    **{code: f"\\u{code:04X}" for code in (*range(0x20), 0x7F) if code != 0x09},
+}
+
+
+def _toml_string(value: str) -> str:
+    """Return *value* as a quoted TOML basic string."""
+    return f'"{value.translate(_TOML_ESCAPES)}"'
+
+
 def write_config(cfg: WindowsMCPConfig, path: Path) -> None:
     """Serialize *cfg* to TOML at *path*, writing only non-default values."""
     lines: list[str] = []
@@ -181,19 +233,19 @@ def write_config(cfg: WindowsMCPConfig, path: Path) -> None:
     sd, dd = cfg.server, ServerConfig()
     server_lines: list[str] = []
     if sd.transport != dd.transport:
-        server_lines.append(f'transport = "{sd.transport}"')
+        server_lines.append(f"transport = {_toml_string(sd.transport)}")
     if sd.host != dd.host:
-        server_lines.append(f'host = "{sd.host}"')
+        server_lines.append(f"host = {_toml_string(sd.host)}")
     if sd.port != dd.port:
         server_lines.append(f"port = {sd.port}")
     if sd.allow_insecure_remote:
         server_lines.append("allow_insecure_remote = true")
     if sd.auth_key:
-        server_lines.append(f'auth_key = "{sd.auth_key}"')
+        server_lines.append(f"auth_key = {_toml_string(sd.auth_key)}")
     if sd.ssl_certfile:
-        server_lines.append(f'ssl_certfile = "{sd.ssl_certfile}"')
+        server_lines.append(f"ssl_certfile = {_toml_string(sd.ssl_certfile)}")
     if sd.ssl_keyfile:
-        server_lines.append(f'ssl_keyfile = "{sd.ssl_keyfile}"')
+        server_lines.append(f"ssl_keyfile = {_toml_string(sd.ssl_keyfile)}")
     if sd.stateless_http:
         server_lines.append("stateless_http = true")
     if server_lines:
@@ -202,28 +254,34 @@ def write_config(cfg: WindowsMCPConfig, path: Path) -> None:
     sec = cfg.security
     sec_lines: list[str] = []
     if sec.ip_allowlist:
-        items = ", ".join(f'"{ip}"' for ip in sec.ip_allowlist)
+        items = ", ".join(_toml_string(ip) for ip in sec.ip_allowlist)
         sec_lines.append(f"ip_allowlist = [{items}]")
     if sec.cors_origins:
-        items = ", ".join(f'"{o}"' for o in sec.cors_origins)
+        items = ", ".join(_toml_string(o) for o in sec.cors_origins)
         sec_lines.append(f"cors_origins = [{items}]")
     if sec.oauth_client_id:
-        sec_lines.append(f'oauth_client_id = "{sec.oauth_client_id}"')
+        sec_lines.append(f"oauth_client_id = {_toml_string(sec.oauth_client_id)}")
     if sec.oauth_client_secret:
-        sec_lines.append(f'oauth_client_secret = "{sec.oauth_client_secret}"')
+        sec_lines.append(f"oauth_client_secret = {_toml_string(sec.oauth_client_secret)}")
     if sec_lines:
         lines += ["[security]"] + sec_lines + [""]
 
     if cfg.tools.exclude:
-        items = ", ".join(f'"{t}"' for t in cfg.tools.exclude)
+        items = ", ".join(_toml_string(t) for t in cfg.tools.exclude)
         lines += ["[tools]", f"exclude = [{items}]", ""]
 
     ctrl, default_ctrl = cfg.control, ControlConfig()
     control_lines = [
         f"{key} = {getattr(ctrl, key)}"
-        for key in ("mouse_takeover_units", "mouse_takeover_pixels")
+        for key in ("mouse_takeover_units", "mouse_takeover_pixels", "consent_countdown_seconds")
         if getattr(ctrl, key) != getattr(default_ctrl, key)
     ]
+    if ctrl.policy != default_ctrl.policy:
+        control_lines.append(f"policy = {_toml_string(ctrl.policy)}")
+    if ctrl.enabled != default_ctrl.enabled:
+        control_lines.append(f"enabled = {str(ctrl.enabled).lower()}")
+    if ctrl.idle_timeout_seconds != default_ctrl.idle_timeout_seconds:
+        control_lines.append(f"idle_timeout_seconds = {ctrl.idle_timeout_seconds}")
     if control_lines:
         lines += ["[control]", *control_lines, ""]
 

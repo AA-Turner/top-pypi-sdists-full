@@ -131,7 +131,7 @@ class Molecule(Base):
         zero_point_energy: zero-point energy, in Hartree
         thermal_energy_corr: ZPE + non-zero-temperature effects, in Hartree
         thermal_enthalpy_corr: thermal_energy_corr + pV, in Hartree
-        thermal_free_energy_corr: thermal_enthalpy_corr - 298.15 x S, in Hartree
+        thermal_free_energy_corr: thermal_enthalpy_corr - TS at the thermochemistry temperature, in Hartree
         excited_state_energies: absolute energies per root [root 0 (typically ground state), root 1, ...], in Hartree; meaningful only in multistate regime
         oscillator_strengths: transition strengths from ground state per root [root 0 (typically ground state), root 1, ...]; ground-to-ground defined as 0
         rotatory_strengths: signed velocity-gauge ECD rotatory strengths per root [root 0, root 1, ...], in 10⁻⁴⁰ esu²·cm²; ground-to-ground defined as 0

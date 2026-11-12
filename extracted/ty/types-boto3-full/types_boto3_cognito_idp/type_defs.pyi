@@ -63,9 +63,11 @@ from .literals import (
     RecoveryOptionNameTypeType,
     ReplicaRoleTypeType,
     ReplicaStatusTypeType,
+    RevokeAssociatedSessionsTypeType,
     RiskDecisionTypeType,
     RiskLevelTypeType,
     SecurityPolicyTypeType,
+    SessionTypeTypeType,
     StatusTypeType,
     TimeUnitsTypeType,
     UpdateReplicaStatusTypeType,
@@ -73,6 +75,7 @@ from .literals import (
     UsernameAttributeTypeType,
     UserPoolMfaTypeType,
     UserPoolTierTypeType,
+    UserSessionTrackingTypeType,
     UserStatusTypeType,
     UserVerificationTypeType,
     VerifiedAttributeTypeType,
@@ -125,10 +128,13 @@ __all__ = (
     "AdminListUserAuthEventsRequestPaginateTypeDef",
     "AdminListUserAuthEventsRequestTypeDef",
     "AdminListUserAuthEventsResponseTypeDef",
+    "AdminListUserSessionsRequestTypeDef",
+    "AdminListUserSessionsResponseTypeDef",
     "AdminRemoveUserFromGroupRequestTypeDef",
     "AdminResetUserPasswordRequestTypeDef",
     "AdminRespondToAuthChallengeRequestTypeDef",
     "AdminRespondToAuthChallengeResponseTypeDef",
+    "AdminRevokeUserSessionRequestTypeDef",
     "AdminSetUserMFAPreferenceRequestTypeDef",
     "AdminSetUserPasswordRequestTypeDef",
     "AdminSetUserSettingsRequestTypeDef",
@@ -151,6 +157,7 @@ __all__ = (
     "ChallengeResponseTypeTypeDef",
     "ChangePasswordRequestTypeDef",
     "ClientAuthenticationResultTypeTypeDef",
+    "ClientSSOSessionConfigTypeTypeDef",
     "ClientSecretDescriptorTypeTypeDef",
     "CloudWatchLogsConfigurationTypeTypeDef",
     "CodeDeliveryDetailsTypeTypeDef",
@@ -265,8 +272,12 @@ __all__ = (
     "GetUserAttributeVerificationCodeResponseTypeDef",
     "GetUserAuthFactorsRequestTypeDef",
     "GetUserAuthFactorsResponseTypeDef",
+    "GetUserPoolClientSessionConfigurationRequestTypeDef",
+    "GetUserPoolClientSessionConfigurationResponseTypeDef",
     "GetUserPoolMfaConfigRequestTypeDef",
     "GetUserPoolMfaConfigResponseTypeDef",
+    "GetUserPoolSessionConfigurationRequestTypeDef",
+    "GetUserPoolSessionConfigurationResponseTypeDef",
     "GetUserRequestTypeDef",
     "GetUserResponseTypeDef",
     "GlobalSignOutRequestTypeDef",
@@ -310,6 +321,8 @@ __all__ = (
     "ListUserPoolsRequestPaginateTypeDef",
     "ListUserPoolsRequestTypeDef",
     "ListUserPoolsResponseTypeDef",
+    "ListUserSessionsRequestTypeDef",
+    "ListUserSessionsResponseTypeDef",
     "ListUsersInGroupRequestPaginateTypeDef",
     "ListUsersInGroupRequestTypeDef",
     "ListUsersInGroupResponseTypeDef",
@@ -342,6 +355,7 @@ __all__ = (
     "RespondToAuthChallengeResponseTypeDef",
     "ResponseMetadataTypeDef",
     "RevokeTokenRequestTypeDef",
+    "RevokeUserSessionRequestTypeDef",
     "RiskConfigurationTypeTypeDef",
     "RiskExceptionConfigurationTypeOutputTypeDef",
     "RiskExceptionConfigurationTypeTypeDef",
@@ -350,6 +364,8 @@ __all__ = (
     "S3ConfigurationTypeTypeDef",
     "SMSMfaSettingsTypeTypeDef",
     "SchemaAttributeTypeTypeDef",
+    "SessionDescriptionTypeTypeDef",
+    "SessionLocationTypeTypeDef",
     "SetLogDeliveryConfigurationRequestTypeDef",
     "SetLogDeliveryConfigurationResponseTypeDef",
     "SetRiskConfigurationRequestTypeDef",
@@ -357,8 +373,12 @@ __all__ = (
     "SetUICustomizationRequestTypeDef",
     "SetUICustomizationResponseTypeDef",
     "SetUserMFAPreferenceRequestTypeDef",
+    "SetUserPoolClientSessionConfigurationRequestTypeDef",
+    "SetUserPoolClientSessionConfigurationResponseTypeDef",
     "SetUserPoolMfaConfigRequestTypeDef",
     "SetUserPoolMfaConfigResponseTypeDef",
+    "SetUserPoolSessionConfigurationRequestTypeDef",
+    "SetUserPoolSessionConfigurationResponseTypeDef",
     "SetUserSettingsRequestTypeDef",
     "SignInPolicyTypeOutputTypeDef",
     "SignInPolicyTypeTypeDef",
@@ -417,6 +437,7 @@ __all__ = (
     "UserPoolPolicyTypeTypeDef",
     "UserPoolPolicyTypeUnionTypeDef",
     "UserPoolReplicaTypeTypeDef",
+    "UserPoolTokenSessionConfigTypeTypeDef",
     "UserPoolTypeTypeDef",
     "UserTypeTypeDef",
     "UsernameConfigurationTypeTypeDef",
@@ -559,6 +580,11 @@ class AdminListUserAuthEventsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class AdminListUserSessionsRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
+    NextToken: NotRequired[str]
+
 class AdminRemoveUserFromGroupRequestTypeDef(TypedDict):
     UserPoolId: str
     Username: str
@@ -568,6 +594,12 @@ class AdminResetUserPasswordRequestTypeDef(TypedDict):
     UserPoolId: str
     Username: str
     ClientMetadata: NotRequired[Mapping[str, str]]
+
+class AdminRevokeUserSessionRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
+    SessionId: str
+    RevokeAssociatedSessions: NotRequired[RevokeAssociatedSessionsTypeType]
 
 class EmailMfaSettingsTypeTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -663,6 +695,9 @@ class ClientAuthenticationResultTypeTypeDef(TypedDict):
     AccessToken: NotRequired[str]
     ExpiresIn: NotRequired[int]
     TokenType: NotRequired[str]
+
+class ClientSSOSessionConfigTypeTypeDef(TypedDict):
+    MaxValidityMinutes: int
 
 class CloudWatchLogsConfigurationTypeTypeDef(TypedDict):
     LogGroupArn: NotRequired[str]
@@ -1014,6 +1049,10 @@ class GetUserAttributeVerificationCodeRequestTypeDef(TypedDict):
 class GetUserAuthFactorsRequestTypeDef(TypedDict):
     AccessToken: str
 
+class GetUserPoolClientSessionConfigurationRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+
 class GetUserPoolMfaConfigRequestTypeDef(TypedDict):
     UserPoolId: str
 
@@ -1024,6 +1063,12 @@ class WebAuthnConfigurationTypeTypeDef(TypedDict):
     RelyingPartyId: NotRequired[str]
     UserVerification: NotRequired[UserVerificationTypeType]
     FactorConfiguration: NotRequired[WebAuthnFactorConfigurationTypeType]
+
+class GetUserPoolSessionConfigurationRequestTypeDef(TypedDict):
+    UserPoolId: str
+
+class UserPoolTokenSessionConfigTypeTypeDef(TypedDict):
+    MaxPerUser: int
 
 class GetUserRequestTypeDef(TypedDict):
     AccessToken: str
@@ -1116,6 +1161,10 @@ class ListUserPoolsRequestTypeDef(TypedDict):
     MaxResults: int
     NextToken: NotRequired[str]
 
+class ListUserSessionsRequestTypeDef(TypedDict):
+    AccessToken: str
+    NextToken: NotRequired[str]
+
 class ListUsersInGroupRequestTypeDef(TypedDict):
     UserPoolId: str
     GroupName: str
@@ -1167,6 +1216,12 @@ class RevokeTokenRequestTypeDef(TypedDict):
     Token: str
     ClientId: str
     ClientSecret: NotRequired[str]
+    RevokeAssociatedSessions: NotRequired[RevokeAssociatedSessionsTypeType]
+
+class RevokeUserSessionRequestTypeDef(TypedDict):
+    AccessToken: str
+    SessionId: str
+    RevokeAssociatedSessions: NotRequired[RevokeAssociatedSessionsTypeType]
 
 class RiskExceptionConfigurationTypeOutputTypeDef(TypedDict):
     BlockedIPRangeList: NotRequired[list[str]]
@@ -1179,6 +1234,10 @@ class RiskExceptionConfigurationTypeTypeDef(TypedDict):
 class StringAttributeConstraintsTypeTypeDef(TypedDict):
     MinLength: NotRequired[str]
     MaxLength: NotRequired[str]
+
+class SessionLocationTypeTypeDef(TypedDict):
+    City: NotRequired[str]
+    Country: NotRequired[str]
 
 class SignInPolicyTypeOutputTypeDef(TypedDict):
     AllowedFirstAuthFactors: NotRequired[list[AuthFactorTypeType]]
@@ -1544,6 +1603,23 @@ class GetClientTokenResponseTypeDef(TypedDict):
     ClientAuthenticationResult: ClientAuthenticationResultTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetUserPoolClientSessionConfigurationResponseTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    SSOSession: ClientSSOSessionConfigTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SetUserPoolClientSessionConfigurationRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    SSOSession: ClientSSOSessionConfigTypeTypeDef
+
+class SetUserPoolClientSessionConfigurationResponseTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    SSOSession: ClientSSOSessionConfigTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ForgotPasswordResponseTypeDef(TypedDict):
     CodeDeliveryDetails: CodeDeliveryDetailsTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1838,6 +1914,23 @@ class SetUICustomizationResponseTypeDef(TypedDict):
     UICustomization: UICustomizationTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetUserPoolSessionConfigurationResponseTypeDef(TypedDict):
+    UserPoolId: str
+    UserSessionTracking: UserSessionTrackingTypeType
+    TokenSession: UserPoolTokenSessionConfigTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SetUserPoolSessionConfigurationRequestTypeDef(TypedDict):
+    UserPoolId: str
+    UserSessionTracking: UserSessionTrackingTypeType
+    TokenSession: UserPoolTokenSessionConfigTypeTypeDef
+
+class SetUserPoolSessionConfigurationResponseTypeDef(TypedDict):
+    UserPoolId: str
+    UserSessionTracking: UserSessionTrackingTypeType
+    TokenSession: UserPoolTokenSessionConfigTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class LambdaConfigTypeTypeDef(TypedDict):
     PreSignUp: NotRequired[str]
     CustomMessage: NotRequired[str]
@@ -1914,6 +2007,18 @@ SchemaAttributeTypeTypeDef = TypedDict(
         "StringAttributeConstraints": NotRequired[StringAttributeConstraintsTypeTypeDef],
     },
 )
+
+class SessionDescriptionTypeTypeDef(TypedDict):
+    SessionId: NotRequired[str]
+    SessionType: NotRequired[SessionTypeTypeType]
+    ClientId: NotRequired[str]
+    CreateDate: NotRequired[datetime]
+    LastActiveDate: NotRequired[datetime]
+    DeviceType: NotRequired[str]
+    LastIPAddress: NotRequired[str]
+    LastLocation: NotRequired[SessionLocationTypeTypeDef]
+    OriginSessionId: NotRequired[str]
+    IsCurrentSession: NotRequired[bool]
 
 class UserPoolPolicyTypeOutputTypeDef(TypedDict):
     PasswordPolicy: NotRequired[PasswordPolicyTypeTypeDef]
@@ -2156,6 +2261,16 @@ class AccountTakeoverRiskConfigurationTypeTypeDef(TypedDict):
 class AddCustomAttributesRequestTypeDef(TypedDict):
     UserPoolId: str
     CustomAttributes: Sequence[SchemaAttributeTypeTypeDef]
+
+class AdminListUserSessionsResponseTypeDef(TypedDict):
+    Sessions: list[SessionDescriptionTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListUserSessionsResponseTypeDef(TypedDict):
+    Sessions: list[SessionDescriptionTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class UserPoolTypeTypeDef(TypedDict):
     Id: NotRequired[str]

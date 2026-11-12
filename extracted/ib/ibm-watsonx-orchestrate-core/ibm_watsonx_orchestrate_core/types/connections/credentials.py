@@ -94,7 +94,8 @@ class OAuth2AuthCodeCredentials(BaseOAuthCredentials):
     client_secret: str
     token_url: str
     authorization_url: str
-    scope : Optional[str] = None
+    scope: Optional[str] = None
+    pkce: Optional[bool] = None
 
 # class OAuth2ImplicitCredentials(BaseModel):
 #     client_id: str

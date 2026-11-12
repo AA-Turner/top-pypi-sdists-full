@@ -85,6 +85,7 @@ pub mod raster;
 pub mod render;
 mod script_position;
 mod std14;
+mod symbol_fonts;
 #[cfg(feature = "ml")]
 mod table_tokens;
 #[cfg(feature = "ml")]
@@ -2142,7 +2143,7 @@ impl Worker {
         if env::flag("DOCLING_RS_DEBUG_REGIONS") {
             for r in &regions {
                 eprintln!(
-                    "DBG raw {} {:.2} [{:.0},{:.0},{:.0},{:.0}]",
+                    "DBG raw {} {:.2} [{:.2},{:.2},{:.2},{:.2}]",
                     r.label, r.score, r.l, r.t, r.r, r.b
                 );
             }

@@ -10,7 +10,7 @@ import shutil
 import tarfile
 import tempfile
 import threading
-from typing import List, Optional, Union
+from typing import IO, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import docker as docker_library
 
@@ -20,10 +20,10 @@ from docker_squash.errors import SquashError, SquashUnnecessaryError
 class Chdir(object):
     """Context manager for changing the current working directory"""
 
-    def __init__(self, new_path):
+    def __init__(self, new_path: str) -> None:
         self.newPath = os.path.expanduser(new_path)
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.savedPath = os.getcwd()
         os.chdir(self.newPath)
 
@@ -39,7 +39,7 @@ class Image(object):
     This class should not be used directly.
     """
 
-    FORMAT = None
+    FORMAT: Optional[str] = None
     """ Image format version """
 
     def __init__(
@@ -56,12 +56,12 @@ class Image(object):
         self.debug = self.log.isEnabledFor(logging.DEBUG)
         self.docker = docker
         self.image: str = image
-        self.from_layer: str = from_layer
-        self.tag: str = tag
-        self.comment: str = comment
+        self.from_layer: Optional[str] = from_layer
+        self.tag: Optional[str] = tag
+        self.comment: Optional[str] = comment
         self.image_name = None
         self.image_tag = None
-        self.squash_id = None
+        self.squash_id: Optional[str] = None
         self.oci_format = False
 
         # Workaround for https://play.golang.org/p/sCsWMXYxqy
@@ -76,24 +76,26 @@ class Image(object):
         )
         """ Date used in metadata, already formatted using the `%Y-%m-%dT%H:%M:%S.%fZ` format """
 
-        self.tmp_dir: str = tmp_dir
+        self.tmp_dir: Optional[str] = tmp_dir
         """ Main temporary directory to save all working files. This is the root directory for all other temporary files. """
 
-    def squash(self):
+    def squash(self) -> str:
         self._before_squashing()
         ret = self._squash()
         self._after_squashing()
 
         return ret
 
-    def _squash(self):
-        pass
+    def _squash(self) -> str:
+        """Squashes the image and returns the new image ID"""
+        raise NotImplementedError
 
     def cleanup(self):
         """Cleanup the temporary directory"""
 
         self.log.debug("Cleaning up %s temporary directory" % self.tmp_dir)
-        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        if self.tmp_dir:
+            shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def _initialize_directories(self):
         # Prepare temporary directory where all the work will be executed
@@ -171,7 +173,7 @@ class Image(object):
                 f"Could not get the image ID to squash, please check provided 'image' argument: {self.image}"
             )
 
-        self.old_image_layers = []
+        self.old_image_layers: List[str] = []
 
         # Read all layers in the image
         self._read_layers(self.old_image_layers, self.old_image_id)
@@ -181,7 +183,7 @@ class Image(object):
 
         # By default - squash all layers.
         if self.from_layer is None:
-            self.from_layer = len(self.old_image_layers)
+            self.from_layer = str(len(self.old_image_layers))
 
         try:
             number_of_layers = int(self.from_layer)
@@ -255,7 +257,7 @@ class Image(object):
                 % float(((size_before_mb - size_after_mb) / size_before_mb) * 100)
             )
 
-    def _dir_size(self, directory):
+    def _dir_size(self, directory: str) -> int:
         size = 0
 
         for path, dirs, files in os.walk(directory):
@@ -274,8 +276,13 @@ class Image(object):
         self._tar_image(target_tar_file, self.new_image_dir)
         self.log.info("Image available at '%s'" % target_tar_file)
 
-    def load_squashed_image(self):
-        self._load_image(self.new_image_dir)
+    def load_squashed_image(self) -> Optional[str]:
+        """
+        Loads the squashed image into the daemon and returns the image ID
+        assigned by the daemon (without the 'sha256:' prefix), or None if it
+        could not be determined.
+        """
+        image_id = self._load_image(self.new_image_dir)
 
         if self.tag:
             self.log.info(
@@ -283,22 +290,24 @@ class Image(object):
                 % (self.image_name, self.image_tag)
             )
 
-    def _files_in_layers(self, layers):
+        return image_id
+
+    def _files_in_layers(self, layers: List[str]) -> Dict[str, Set[str]]:
         """
-        Prepare a list of files in all layers
+        Prepare a set of files for each of the layers
         """
-        files = {}
+        files: Dict[str, Set[str]] = {}
 
         for layer in layers:
             self.log.debug("Generating list of files in layer '%s'..." % layer)
             tar_file = self._extract_tar_name(layer)
             with tarfile.open(tar_file, "r", format=tarfile.PAX_FORMAT) as tar:
-                files[layer] = [self._normalize_path(x) for x in tar.getnames()]
+                files[layer] = {self._normalize_path(x) for x in tar.getnames()}
             self.log.debug("Done, found %s files" % len(files[layer]))
 
         return files
 
-    def _prepare_tmp_directory(self, tmp_dir: str) -> str:
+    def _prepare_tmp_directory(self, tmp_dir: Optional[str]) -> str:
         """Creates temporary directory that is used to work on layers"""
 
         if tmp_dir:
@@ -314,19 +323,59 @@ class Image(object):
 
         return tmp_dir
 
-    def _load_image(self, directory):
+    def _load_image(self, directory) -> Optional[str]:
+        # Set by _initialize_directories() before squashing starts
+        assert self.tmp_dir is not None
         tar_file = os.path.join(self.tmp_dir, "image.tar")
 
         self._tar_image(tar_file, directory)
 
+        loaded_id = None
+        loaded_ref = None
+
         with open(tar_file, "rb") as f:
             self.log.debug("Loading squashed image...")
-            self.docker.load_image(f)
+            for message in self.docker.load_image(f) or []:
+                self.log.debug("Load reply: %s" % message)
+
+                if not isinstance(message, dict):
+                    continue
+
+                if message.get("error") or message.get("errorDetail"):
+                    raise SquashError(
+                        "Docker daemon failed to load the squashed image: %s"
+                        % (message.get("error") or message.get("errorDetail"))
+                    )
+
+                stream = message.get("stream", "")
+
+                match = re.search(r"Loaded image ID: (\S+)", stream)
+                if match:
+                    loaded_id = match.group(1)
+                    continue
+
+                match = re.search(r"Loaded image: (\S+)", stream)
+                if match:
+                    loaded_ref = match.group(1)
+
             self.log.debug("Image loaded!")
 
         os.remove(tar_file)
 
-    def _tar_image(self, target_tar_file, directory):
+        if loaded_id is None and loaded_ref is not None:
+            try:
+                loaded_id = self.docker.inspect_image(loaded_ref)["Id"]
+            except Exception as ex:
+                self.log.warning(
+                    "Could not inspect loaded image %s: %s" % (loaded_ref, ex)
+                )
+
+        if loaded_id is None:
+            return None
+
+        return loaded_id.replace("sha256:", "")
+
+    def _tar_image(self, target_tar_file: str, directory: str) -> None:
         with tarfile.open(target_tar_file, "w", format=tarfile.PAX_FORMAT) as tar:
             self.log.debug("Generating tar archive for the squashed image...")
             with Chdir(directory):
@@ -341,10 +390,12 @@ class Image(object):
                     tar.add(f)
             self.log.debug("Archive generated")
 
-    def _layers_to_squash(self, layers, from_layer):
+    def _layers_to_squash(
+        self, layers: List[str], from_layer: Optional[str]
+    ) -> Tuple[List[str], List[str]]:
         """Prepares a list of layer IDs that should be squashed"""
-        to_squash = []
-        to_leave = []
+        to_squash: List[str] = []
+        to_leave: List[str] = []
         should_squash = True
 
         for reversed_layer in reversed(layers):
@@ -414,7 +465,7 @@ class Image(object):
 
         raise SquashError(f"Couldn't save {image_id} image!")
 
-    def _unpack(self, tar_file, directory):
+    def _unpack(self, tar_file: str, directory: str) -> None:
         """Unpacks tar archive to selected directory"""
 
         self.log.info("Unpacking %s tar file to %s directory" % (tar_file, directory))
@@ -445,7 +496,7 @@ class Image(object):
 
         return (image_name, image_tag)
 
-    def _dump_json(self, data, new_line=False):
+    def _dump_json(self, data: object, new_line: bool = False) -> Tuple[str, str]:
         """
         Helper function to marshal object into JSON string.
         Additionally a sha256sum of the created JSON string is generated.
@@ -462,7 +513,13 @@ class Image(object):
 
         return json_data, sha
 
-    def _generate_repositories_json(self, repositories_file, image_id, name, tag):
+    def _generate_repositories_json(
+        self,
+        repositories_file: str,
+        image_id: str,
+        name: Optional[str],
+        tag: Optional[str],
+    ) -> None:
         if not image_id:
             raise SquashError("Provided image id cannot be null")
 
@@ -472,7 +529,7 @@ class Image(object):
             )
             return
 
-        repos = {}
+        repos: Dict[Optional[str], Dict[Optional[str], str]] = {}
         repos[name] = {}
         repos[name][tag] = image_id
 
@@ -482,13 +539,13 @@ class Image(object):
             f.write(data)
             f.write("\n")
 
-    def _write_version_file(self, squashed_dir):
+    def _write_version_file(self, squashed_dir: str) -> None:
         version_file = os.path.join(squashed_dir, "VERSION")
 
         with open(version_file, "w") as f:
             f.write("1.0")
 
-    def _write_json_metadata(self, metadata, metadata_file):
+    def _write_json_metadata(self, metadata: str, metadata_file: str) -> None:
         with open(metadata_file, "w") as f:
             f.write(metadata)
 
@@ -511,9 +568,15 @@ class Image(object):
             layer_id = layer.replace("sha256:", "")
 
             self.log.debug("Moving unmodified layer '%s'..." % layer_id)
-            shutil.move(os.path.join(src, layer_id), dest)
+            # Keep the layer's relative path (for example blobs/sha256/<id>
+            # in the OCI archive layout), because manifest.json refers to it.
+            target = os.path.join(dest, layer_id)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.move(os.path.join(src, layer_id), target)
 
-    def _file_should_be_skipped(self, file_name, file_paths):
+    def _file_should_be_skipped(
+        self, file_name: str, file_paths: Iterable[Iterable[str]]
+    ) -> int:
         # file_paths is now array of array with files to be skipped.
         # First level are layers, second are files in these layers.
         layer_nb = 1
@@ -565,7 +628,7 @@ class Image(object):
         # Some tar archives do have the filenames prefixed with './'
         # which does not have any effect when we unpack the tar achive,
         # but when processing tar content - we see this.
-        tar_files = [self._normalize_path(x) for x in tar.getnames()]
+        tar_files = {self._normalize_path(x) for x in tar.getnames()}
 
         for marker, marker_file in markers.items():
             actual_file = marker.name.replace(".wh.", "")
@@ -606,13 +669,11 @@ class Image(object):
                 tar.addfile(tarfile.TarInfo(name=marker.name), marker_file)
                 # Add the file name to the list too to avoid re-reading all files
                 # in tar archive
-                tar_files.append(normalized_file)
+                tar_files.add(normalized_file)
             else:
                 self.log.debug("Skipping '%s' marker file..." % marker.name)
 
-    def _normalize_path(
-        self, path: Union[str, pathlib.Path]
-    ) -> Union[str, pathlib.Path]:
+    def _normalize_path(self, path: Union[str, pathlib.Path]) -> str:
         return os.path.normpath(os.path.join("/", path))
 
     def _add_hardlinks(self, squashed_tar, squashed_files, to_skip, skipped_hard_links):
@@ -656,10 +717,17 @@ class Image(object):
                             % (normalized_name, normalized_linkname)
                         )
 
-                    squashed_files.append(normalized_name)
+                    squashed_files.add(normalized_name)
                     squashed_tar.addfile(member)
 
-    def _add_file(self, member, content, squashed_tar, squashed_files, to_skip):
+    def _add_file(
+        self,
+        member: tarfile.TarInfo,
+        content: Optional[IO[bytes]],
+        squashed_tar: tarfile.TarFile,
+        squashed_files: Set[str],
+        to_skip,
+    ) -> None:
         normalized_name = self._normalize_path(member.name)
 
         if normalized_name in squashed_files:
@@ -683,10 +751,10 @@ class Image(object):
             squashed_tar.addfile(member)
 
         # We added a file to the squashed tar, so let's note it
-        squashed_files.append(normalized_name)
+        squashed_files.add(normalized_name)
 
     def _add_symlinks(self, squashed_tar, squashed_files, to_skip, skipped_sym_links):
-        added_symlinks = []
+        added_symlinks: List[List[str]] = []
         for layer, symlinks_in_layer in enumerate(skipped_sym_links):
             # We need to start from 1, that's why we bump it here
             current_layer = layer + 1
@@ -741,12 +809,14 @@ class Image(object):
 
                     added_symlinks.append([normalized_name])
 
-                    squashed_files.append(normalized_name)
+                    squashed_files.add(normalized_name)
                     squashed_tar.addfile(member)
 
         return added_symlinks
 
-    def _squash_layers(self, layers_to_squash: List[str], layers_to_move: List[str]):
+    def _squash_layers(
+        self, layers_to_squash: List[str], layers_to_move: List[str]
+    ) -> None:
         self.log.info(f"Starting squashing for {self.squashed_tar}...")
 
         # Reverse the layers to squash - we begin with the newest one
@@ -765,9 +835,14 @@ class Image(object):
             skipped_sym_links = []
             skipped_files = []
             # List of filenames in the squashed archive
-            squashed_files = []
+            squashed_files: Set[str] = set()
+            # Paths added to the squashed archive that are not directories.
+            # Anything below such a path in an older layer is stale, because
+            # the path was replaced by a non-directory in a newer layer.
+            # https://github.com/goldmann/docker-squash/issues/253
+            non_directories: Set[str] = set()
             # List of opaque directories in the image
-            opaque_dirs = []
+            opaque_dirs: List[str] = []
             reading_layers: List[tarfile.TarFile] = []
 
             for layer_id in layers_to_squash:
@@ -785,13 +860,13 @@ class Image(object):
                 members = layer_tar.getmembers()
                 markers = self._marker_files(layer_tar, members)
 
-                skipped_sym_link_files = {}
-                skipped_hard_link_files = {}
+                skipped_sym_link_files: Dict[str, tarfile.TarInfo] = {}
+                skipped_hard_link_files: Dict[str, tarfile.TarInfo] = {}
                 skipped_files_in_layer = {}
 
-                files_to_skip = []
+                files_to_skip: List[str] = []
                 # List of opaque directories found in this layer
-                layer_opaque_dirs = []
+                layer_opaque_dirs: List[str] = []
 
                 # Add it as early as possible, we will be populating
                 # 'skipped_sym_link_files' array later
@@ -876,6 +951,16 @@ class Image(object):
                         )
                         continue
 
+                    if non_directories and any(
+                        parent in non_directories
+                        for parent in self._path_hierarchy(normalized_name)
+                    ):
+                        self.log.debug(
+                            "Skipping '%s' file because its parent was replaced by a non-directory"
+                            % normalized_name
+                        )
+                        continue
+
                     # Hard links are processed after everything else
                     if member.islnk():
                         skipped_hard_link_files[normalized_name] = member
@@ -889,6 +974,8 @@ class Image(object):
                     self._add_file(
                         member, content, squashed_tar, squashed_files, to_skip
                     )
+                    if not member.isdir() and normalized_name in squashed_files:
+                        non_directories.add(normalized_name)
 
                 skipped_hard_links.append(skipped_hard_link_files)
                 skipped_files.append(skipped_files_in_layer)
@@ -907,6 +994,13 @@ class Image(object):
                         member, content, squashed_tar, squashed_files, added_symlinks
                     )
 
+            # Drop markers located below a path replaced by a non-directory
+            if non_directories:
+                for marker in list(skipped_markers):
+                    marked = self._normalize_path(marker.name.replace(".wh.", ""))
+                    if any(p in non_directories for p in self._path_hierarchy(marked)):
+                        skipped_markers.pop(marker)
+
             if files_in_layers_to_move:
                 self._reduce(skipped_markers)
 
@@ -922,7 +1016,7 @@ class Image(object):
                 tar.close()
         self.log.info("Squashing finished!")
 
-    def _is_in_opaque_dir(self, member, dirs):
+    def _is_in_opaque_dir(self, member: tarfile.TarInfo, dirs: List[str]) -> bool:
         """
         If the member we investigate is an opaque directory
         or if the member is located inside of the opaque directory,

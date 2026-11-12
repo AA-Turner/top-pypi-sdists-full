@@ -157,19 +157,14 @@ class OpenAPIApps:
     def success_and_basic(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.success_and_basic())
 
+    def schema_unavailable(self, *, failures: int = 1) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.schema_unavailable(failures))
+
     def rails_planted_bug(self, *, envelope: openapi_envelopes.RailsEnvelope) -> OpenAPIServer:
         return _start(self.parent, openapi_envelopes.planted_bug(openapi_envelopes.RAILS[envelope]))
 
     def stateful_users(self, *modifiers: Modifier[openapi_stateful.UserStore]) -> OpenAPIServer:
         return _start(self.parent, openapi_stateful.stateful_users(*modifiers))
-
-    def replay_inferred_list_link(
-        self, *, item_ids: list[int], failing: bool, consumer: Literal["path", "body"] = "path"
-    ) -> OpenAPIServer:
-        return _start(
-            self.parent,
-            openapi_stateful.replay_inferred_list_link(item_ids=item_ids, failing=failing, consumer=consumer),
-        )
 
     def flaky_branch_blocks(self) -> OpenAPIServer:
         return _start(self.parent, openapi_stateful.flaky_branch_blocks())
@@ -228,10 +223,8 @@ class GraphQLApps:
     def federated_subgraph(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.federated_subgraph())
 
-    def from_schema(
-        self, schema, *, endpoint: str = "/graphql", framework: Literal["flask", "fastapi"] = "flask"
-    ) -> GraphQLServer:
-        return _start(self.parent, graphql_bookstore.from_schema(schema, endpoint=endpoint, framework=framework))
+    def from_schema(self, schema, *, framework: Literal["flask", "fastapi"] = "flask") -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.from_schema(schema, framework=framework))
 
     def canned_response(self, payload: object, *, status_code: int = 200) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.canned_response(payload, status_code=status_code))
@@ -241,9 +234,6 @@ class GraphQLApps:
 
     def generic_id_pool(self, *, fixed: bool = False) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.generic_id_pool(fixed=fixed))
-
-    def non_id_pool(self) -> GraphQLServer:
-        return _start(self.parent, graphql_bookstore.non_id_pool())
 
 
 @dataclass

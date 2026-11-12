@@ -1,4 +1,6 @@
 import json
+import os
+import re
 import sys
 import contextvars
 
@@ -28,6 +30,28 @@ from ibm_watsonx_orchestrate.agent_builder.tools.types import JsonSchemaObject
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_max_collaborators() -> Optional[int]:
+    """Get the maximum number of direct collaborators allowed for an agent.
+
+    Can be configured via WO_MAX_COLLABORATORS or WXO_MAX_COLLABORATORS environment variable.
+    Setting to 0, negative, or 'unlimited'/'none' disables the limit check.
+    Default is 10.
+    """
+    raw_val = os.getenv("WO_MAX_COLLABORATORS") or os.getenv("WXO_MAX_COLLABORATORS")
+    if raw_val is not None:
+        raw_val = raw_val.strip().lower()
+        if raw_val in ("none", "unlimited", "disable", "disabled", "false"):
+            return None
+        try:
+            val = int(raw_val)
+            return None if val <= 0 else val
+        except ValueError:
+            logger.warning(
+                f"Invalid value '{raw_val}' for WO_MAX_COLLABORATORS/WXO_MAX_COLLABORATORS. Using default limit of 10."
+            )
+    return 10
 
 
 def get_default_llm():
@@ -91,6 +115,7 @@ class AgentProvider(str, Enum):
     WATSONX = "watsonx" #provider type returned from an assistant agent
     A2A = 'external_chat/A2A/0.2.1'
     A2A_030 = 'external_chat/A2A/0.3.0'
+    A2A_100 = 'external_chat/A2A/1.0.0'
     VERTEX_AGENT = "vertex_agent"
     AZURE_AI_FOUNDRY = "azure_ai_foundry"
     BEDROCK_AGENT = "bedrock_agent"
@@ -179,6 +204,57 @@ class ToolShortlistingConfig(BaseModel):
     max_tools: Optional[int] = Field(default=None, gt=0)
     """Maximum number of tools to shortlist. Unset defers to the agent style's default."""
 
+class EscalationCondition(BaseModel):
+    name: str
+    """Human-readable label for this condition."""
+    escalation_condition: str
+    """Natural-language description of when to trigger the escalation workflow."""
+    condition_id: str
+    """Stable tag passed to the workflow as input, e.g. 'human_request'."""
+
+    @field_validator("condition_id")
+    @classmethod
+    def validate_condition_id_charset(cls, v: str) -> str:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", v):
+            raise ValueError(
+                f"condition_id may contain only letters, digits, '_' and '-' (e.g. 'human_request'), got '{v}'"
+            )
+        return v
+
+class EscalationStatus(str, Enum):
+    """Read-only; derived by the server on read."""
+    DISABLED = "disabled"
+    READY = "ready"
+    TOOL_MISSING = "tool_missing"
+    NOT_CONFIGURED = "not_configured"
+
+class EscalationConfig(BaseModel):
+    """Hands the conversation to a live agent by calling an escalation workflow when a condition is met."""
+    enabled: bool = False
+    conditions: List[EscalationCondition] = Field(default_factory=list)
+    escalation_tool: Optional[str] = None
+    """Name of the escalation workflow. Resolved to `escalation_tool_id` on import; never sent to the server."""
+    escalation_tool_id: Optional[str] = None
+    """Server-side id of the escalation workflow. Populated from `escalation_tool` on import."""
+    escalation_prompt_override: Optional[str] = None
+    """When set, replaces the escalation prompt composed from `conditions` verbatim."""
+    status: Optional[EscalationStatus] = None
+    """Read-only, reported by the server. Never sent on write."""
+
+    @field_validator("escalation_tool", mode="before")
+    @classmethod
+    def coerce_tool_to_name(cls, v):
+        return v.__tool_spec__.name if isinstance(v, BaseTool) else v
+
+    @model_validator(mode="after")
+    def validate_no_duplicate_condition_ids(self):
+        seen = set()
+        for cond in self.conditions:
+            if cond.condition_id in seen:
+                raise ValueError(f"duplicate condition_id: '{cond.condition_id}' — each condition_id must be unique")
+            seen.add(cond.condition_id)
+        return self
+
 class AgentStyle(str, Enum):
     DEFAULT = "default"
     REACT = "react"
@@ -208,6 +284,9 @@ class CoordinationMode(str, Enum):
 
     def __repr__(self):
         return repr(self.value)
+
+# Styles whose runtime injects the escalation prompt; the server ignores escalation on all others
+ESCALATION_SUPPORTED_STYLES = (AgentStyle.DEFAULT, AgentStyle.REACT, AgentStyle.REACT_INTRINSIC, AgentStyle.REACT_CORE)
 
 class AgentGuideline(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -255,6 +334,7 @@ class AgentSpec(BaseAgentSpec):
     is_schedulable: Optional[bool] = None
     compaction_settings: Optional[CompactionSettings] = None
     tool_shortlisting: Optional[ToolShortlistingConfig] = None
+    escalation: Optional[EscalationConfig] = None
 
 
     def __init__(self, *args, **kwargs):
@@ -274,6 +354,42 @@ class AgentSpec(BaseAgentSpec):
     def validate_kind(self):
         if self.kind != AgentKind.NATIVE:
             raise BadRequest(f"The specified kind '{self.kind}' cannot be used to create a native agent.")
+        return self
+
+    @model_validator(mode="after")
+    def validate_escalation(self):
+        escalation = self.escalation
+        if not escalation or not escalation.enabled:
+            return self
+
+        # Agents read back from the server are validated leniently so they can still be listed and exported
+        lenient = validation_context.get() in ("list", "get", "get_by_id", "prefetch")
+
+        def fail(message: str):
+            if lenient:
+                logger.warning(message)
+            else:
+                raise BadRequest(message)
+
+        if self.style not in ESCALATION_SUPPORTED_STYLES:
+            fail(
+                f"Agent '{self.name}': escalation is only supported for "
+                f"{', '.join(s.value for s in ESCALATION_SUPPORTED_STYLES)} style agents, got '{self.style.value}'"
+            )
+            return self
+
+        if not escalation.escalation_tool and not escalation.escalation_tool_id:
+            fail(f"Agent '{self.name}': 'escalation.escalation_tool' is required when escalation is enabled")
+            return self
+
+        # The server requires the escalation workflow to be one of the agent's tools
+        if escalation.escalation_tool:
+            tools = list(self.tools or [])
+            if escalation.escalation_tool not in tools:
+                logger.info(f"Adding escalation tool '{escalation.escalation_tool}' to the tools of agent '{self.name}'")
+                tools.append(escalation.escalation_tool)
+                self.tools = tools
+
         return self
     
     @field_serializer("style")
@@ -309,15 +425,18 @@ def validate_agent_fields(values: dict) -> dict:
         if collaborator == name:
             raise BadRequest(f"Circular reference detected. The agent '{name}' cannot contain itself as a collaborator")
 
-    if len(collaborators) > 10:
+    max_collaborators = _get_max_collaborators()
+    if max_collaborators is not None and len(collaborators) > max_collaborators:
         context = validation_context.get()
-        if context in ("list", "get", "get_by_id", "prefetch"):
+        if context in ("list", "get", "get_by_id", "prefetch", "import"):
             logger.warning(
                 f"Agent '{values.get('name')}' has {len(collaborators)} collaborators, "
-                f"which exceeds the maximum of 10. It may not function correctly via the ADK CLI."
+                f"which exceeds the maximum of {max_collaborators}. It may not function correctly via the ADK CLI."
             )
         else:
-            raise BadRequest(f"An agent can have a maximum of 10 direct collaborators. Found {len(collaborators)}.")
+            raise BadRequest(
+                f"An agent can have a maximum of {max_collaborators} direct collaborators. Found {len(collaborators)}."
+            )
 
     coordination = values.get("coordination")
     if coordination is not None:
@@ -415,6 +534,7 @@ def validate_customer_care_fields(values: dict):
 class ExternalAgentConfig(BaseModel):
     hidden: Optional[bool] = False
     enable_cot: Optional[bool] = False
+    control_plane_only: Optional[bool] = False
 
 class ExternalAgentSpec(BaseAgentSpec):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -439,6 +559,9 @@ class ExternalAgentSpec(BaseAgentSpec):
             values["config"] = {}
             values["config"]["enable_cot"] = values.get("enable_cot", False)
             values["config"]["hidden"] = values.get("hidden", False)
+            values["config"]["control_plane_only"] = values.get("control_plane_only", False)
+        elif isinstance(values.get("config"), dict) and "control_plane_only" not in values["config"] and "control_plane_only" in values:
+            values["config"]["control_plane_only"] = values.get("control_plane_only", False)
         return validate_external_agent_fields(values)
 
     @model_validator(mode="after")

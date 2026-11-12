@@ -2,6 +2,7 @@
 binding's assertion and branch evaluation, with color normalization backed by the static
 NAMED_COLORS map instead of webcolors. Stdlib-only — safe to import without playwright/aiohttp."""
 import json
+import math
 import re as _re_mod
 
 from ._colors import NAMED_COLORS
@@ -71,13 +72,27 @@ def apply_transforms(value: str, transforms: list[str], json_path: str | None) -
     return value
 
 
+# Binary floats cannot hold most decimal fractions exactly, so a computed operand
+# (condition_compute / derive run the recorded JS via page.evaluate) can land one
+# float away from the authored value: 1.0+0.07+11.0+0.0+47.7+3.34+19.95+1.4 is
+# 84.46000000000001, not 84.46. That noise is ~1e-15 relative; UI values never
+# legitimately differ by less than 1e-9, so anything inside it counts as equal.
+# The absolute part covers values near 0, where a relative tolerance shrinks to
+# nothing (0.1+0.2-0.3 is 5.55e-17). Same formula as playwright-ts floatsClose.
+_FLOAT_REL_TOL = 1e-9
+_FLOAT_ABS_TOL = 1e-9
+
+
+def _floats_close(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=_FLOAT_REL_TOL, abs_tol=_FLOAT_ABS_TOL)
+
+
 def _values_equal(a: str, b: str) -> bool:
     """Smart equality: numeric, then JSON structural, then string."""
     if a == b:
         return True
     try:
-        fa, fb = float(a), float(b)
-        if fa == fb:
+        if _floats_close(float(a), float(b)):
             return True
     except (ValueError, TypeError):
         pass
@@ -165,22 +180,26 @@ def _compare(actual: str, expected: str, operator: str) -> bool:
         return not _values_equal(actual, expected)
     elif operator == "gt":
         try:
-            return float(actual) > float(expected)
+            fa, fb = float(actual), float(expected)
+            return fa > fb and not _floats_close(fa, fb)
         except (ValueError, TypeError):
             return False
     elif operator == "gte":
         try:
-            return float(actual) >= float(expected)
+            fa, fb = float(actual), float(expected)
+            return fa >= fb or _floats_close(fa, fb)
         except (ValueError, TypeError):
             return False
     elif operator == "lt":
         try:
-            return float(actual) < float(expected)
+            fa, fb = float(actual), float(expected)
+            return fa < fb and not _floats_close(fa, fb)
         except (ValueError, TypeError):
             return False
     elif operator == "lte":
         try:
-            return float(actual) <= float(expected)
+            fa, fb = float(actual), float(expected)
+            return fa <= fb or _floats_close(fa, fb)
         except (ValueError, TypeError):
             return False
     elif operator == "matches":

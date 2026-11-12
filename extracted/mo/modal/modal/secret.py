@@ -2,7 +2,7 @@
 import builtins
 import os
 from collections.abc import Collection
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -233,7 +233,7 @@ async def _load_from_env_dict(instance: "_Secret", load_context: LoadContext, en
     instance._hydrate(resp.secret_id, load_context.client, resp.metadata)
 
 
-class _Secret(_Object, type_prefix="st"):
+class _Secret(_Object, type_prefixes=("st",)):
     """Secrets provide a dictionary of environment variables for images.
 
     Secrets are a secure way to add credentials and other sensitive information
@@ -316,13 +316,15 @@ class _Secret(_Object, type_prefix="st"):
             ```
         """
         if not isinstance(env_dict, dict):
-            raise InvalidError(ENV_DICT_WRONG_TYPE_ERR)
+            raise InvalidError(f"{ENV_DICT_WRONG_TYPE_ERR}, got {type(env_dict).__name__}")
 
         env_dict_filtered: dict[str, str] = {k: v for k, v in env_dict.items() if v is not None}
-        if not all(isinstance(k, str) for k in env_dict_filtered.keys()):
-            raise InvalidError(ENV_DICT_WRONG_TYPE_ERR)
-        if not all(isinstance(v, str) for v in env_dict_filtered.values()):
-            raise InvalidError(ENV_DICT_WRONG_TYPE_ERR)
+        for key in env_dict_filtered.keys():
+            if not isinstance(key, str):
+                raise InvalidError(f"{ENV_DICT_WRONG_TYPE_ERR}, key has type {type(key).__name__}")
+        for key, value in env_dict_filtered.items():
+            if not isinstance(value, str):
+                raise InvalidError(f"{ENV_DICT_WRONG_TYPE_ERR}, value for key {key!r} has type {type(value).__name__}")
 
         def _load_env_dict() -> dict[str, str]:
             return env_dict_filtered
@@ -551,15 +553,21 @@ class _Secret(_Object, type_prefix="st"):
         return resp.secret_id
 
     @live_method
-    async def info(self) -> SecretInfo:
+    async def info(self, *, refresh: bool = False) -> SecretInfo:
         """Return information about the Secret object."""
+        if refresh:
+            await self._refresh_metadata()
+
         metadata = self._get_metadata()
         creation_info = metadata.creation_info
+        last_used = datetime.fromtimestamp(metadata.last_used_at, tz=timezone.utc)
+
         return SecretInfo(
             name=metadata.name or None,
             created_at=timestamp_to_localized_dt(creation_info.created_at),
             created_by=creation_info.created_by or None,
             environment_name=metadata.environment_name,
+            last_used=last_used if last_used.timestamp() > 0 else None,
         )
 
     @live_method

@@ -60,9 +60,20 @@ WAIT_MODE_MESSAGE = (
 )
 
 
+def default_mode(model):
+    """The mode a run takes when none is asked for: the model's own (its contract's
+    ``default_mode``: Praxis-1 runs each chunk to its end, as upstream does), else async."""
+    try:
+        return model_contract(model).default_mode
+    except ValueError:  # a model only its server describes: replanning, as before
+        return "async"
+
+
 def task_mode(model, mode, strategy):
     """The mode a task runs in, checked: sync for a base whose robot waits for each chunk,
-    as its sessions require; otherwise the requested one."""
+    as its sessions require; otherwise the requested one ("auto": the model's own)."""
+    if mode == "auto":
+        mode = "sync" if waits_for_each_chunk(model) else default_mode(model)
     validate_mode(mode, RunStrategy())
     if not waits_for_each_chunk(model):
         validate_mode(mode, strategy)
@@ -99,12 +110,12 @@ def model_contract(model):
 
 def _session_strategy(model, contract, **options):
     """The run strategy: the model's own rate and chunk, or, for a robot deployment, none,
-    so the run follows the session's (the rate the deployment was trained at)."""
+    so the run follows the session's (the rate the deployment was trained at). The chunk is the
+    rows an answer may hold, not the rows a robot executes of it (``execution_horizon``): a
+    loop runs the executed rows and never queues the rest (DSL-424)."""
     if follows_session_contract(model):
         return RunStrategy(**options)
-    return RunStrategy(
-        action_hz=contract.action_hz, chunk_size=contract.execution_chunk_size, **options,
-    )
+    return RunStrategy(action_hz=contract.action_hz, chunk_size=contract.chunk_size, **options)
 
 
 def task_instructions(instruction):
@@ -173,7 +184,7 @@ class AttendedTaskRunner:
         embodiment,
         model,
         connect=aconnect,
-        mode="async",
+        mode="auto",
         keep_warm=300,
         region="available",
         provider=None,
@@ -671,7 +682,10 @@ class AttendedTaskRunner:
                 "model": self.model,
                 "instruction": instruction,
                 "dispatched": False,
-                "observation": {"hold_action": list(observation.hold_action)},
+                # A deployment's own observation (dreamscale.robot) names its pose ``state``.
+                "observation": {"hold_action": list(
+                    getattr(observation, "hold_action", None) or observation.state
+                )},
                 "actions": [[float(v) for v in action] for action in chunk.actions],
                 "limits": self.rig.action_limits(),
             }

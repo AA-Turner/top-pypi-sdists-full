@@ -15,6 +15,7 @@ import hyperi_ci
 from hyperi_ci.config import load_config
 from hyperi_ci.languages.python import licenses
 from hyperi_ci.languages.python.licenses import (
+    declared_licence,
     findings_for,
     notice_entries,
     repository,
@@ -37,6 +38,7 @@ from hyperi_ci.quality.dep_licenses import (
     find_override,
     finish,
     judge,
+    judge_override,
     load_policy,
     parse_overrides,
     render_notices,
@@ -474,6 +476,11 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 """
+_ISC = _ZERO_BSD.replace(
+    "hereby granted.",
+    "hereby granted, provided that the above copyright notice and this "
+    "permission notice appear in all copies.",
+)
 
 
 @pytest.mark.parametrize(
@@ -549,15 +556,12 @@ PERFORMANCE OF THIS SOFTWARE.
             "BSD Zero Clause Licence\n\nCopyright 2022, Adam Turner\n\n" + _ZERO_BSD,
             "0BSD",
         ),
-        # ISC asks for the notice to be kept, so it is not 0BSD.
-        (
-            _ZERO_BSD.replace(
-                "hereby granted.",
-                "hereby granted, provided that the above copyright notice and this "
-                "permission notice appear in all copies.",
-            ),
-            None,
-        ),
+        # ISC asks for the notice to be kept, so it is ISC, not 0BSD.
+        (_ISC, "ISC"),
+        # requests-oauthlib 2.0.0 ships this under a `BSD License` classifier.
+        ("ISC License\n\nCopyright (c) 2014 Kenneth Reitz.\n\n" + _ISC, "ISC"),
+        (_ISC.replace("and/or distribute", "and distribute"), "ISC"),
+        (_ISC + "\nThis software may not be used for military purposes.\n", None),
         ("", None),
         (None, None),
     ],
@@ -571,6 +575,7 @@ def test_bsd_licence_needs_the_whole_text_to_be_one_bsd(text, expected):
     [
         ("BSD License", _BSD3, "BSD-3-Clause", Verdict.OBLIGATIONS),
         ("BSD", _BSD2, "BSD-2-Clause", Verdict.OBLIGATIONS),
+        ("BSD License", _ISC, "ISC", Verdict.OBLIGATIONS),
         ("BSD License", _BSD3 + "\nNo military use.\n", "BSD License", Verdict.ASK),
         ("BSD License", "UNKNOWN", "BSD License", Verdict.ASK),
         # Only a bare BSD is read from the file. A declared licence is never second-guessed.
@@ -592,6 +597,30 @@ def test_bare_bsd_classifier_is_judged_from_the_licence_file(
     if verdict is Verdict.OBLIGATIONS:
         assert finding.source == "license-file"
         assert finding.evidence == f"{package['LicenseFile']}: {spdx} text"
+
+
+@pytest.mark.parametrize(
+    ("expression", "metadata", "classifier", "expected"),
+    [
+        ("MIT", "BSD-3-Clause", "BSD License", "MIT"),
+        # cloudpickle 3.1.2: an SPDX License field beats the bare classifier.
+        ("UNKNOWN", "BSD-3-Clause", "BSD License", "BSD-3-Clause"),
+        # scipy 1.18.1 puts its licence text in the License field.
+        ("UNKNOWN", "Copyright (c) 2001-2002 Enthought", "BSD License", "BSD License"),
+        ("UNKNOWN", "MIT License", "UNKNOWN", "MIT License"),
+        ("UNKNOWN", "UNKNOWN", "UNKNOWN", "UNKNOWN"),
+        ("", "", "", "UNKNOWN"),
+    ],
+)
+def test_declared_licence_takes_the_most_specific_field(
+    expression, metadata, classifier, expected
+):
+    record = {
+        "License-Expression": expression,
+        "License-Metadata": metadata,
+        "License-Classifier": classifier,
+    }
+    assert declared_licence(record) == expected
 
 
 @pytest.mark.parametrize(
@@ -645,6 +674,95 @@ def test_override_only_groups_count_in_the_policy_digest(tmp_path, policy):
     assert loose.override_only == frozenset()
     assert policy.override_only == frozenset({"first-party"})
     assert loose.digest != policy.digest
+
+
+@pytest.mark.parametrize(
+    ("licence", "mode", "spdx", "verdict", "rule", "override_only"),
+    [
+        ("MIT", "import", "MIT", "allow-with-obligations", "permissive", False),
+        (
+            "Apache Software License",
+            "static",
+            "Apache-2.0",
+            "allow-with-obligations",
+            "apache",
+            False,
+        ),
+        (
+            "LicenseRef-HyperI",
+            "import",
+            "LicenseRef-HyperI",
+            "allow",
+            "first-party",
+            True,
+        ),
+        (
+            "MIT OR GPL-3.0-only",
+            "import",
+            "MIT OR GPL-3.0-only",
+            "allow-with-obligations",
+            "permissive",
+            False,
+        ),
+        ("GPL-3.0-only", "import", "GPL-3.0-only", "deny", "gpl", False),
+        ("MPL-2.0", "modified", "MPL-2.0", "ask", "mpl", False),
+        ("Not-A-Licence", "import", "Not-A-Licence", "ask", "unrecognised", False),
+        ("", "import", None, "ask", "undeclared", False),
+    ],
+)
+def test_judge_override_answers_with_the_report_digest(
+    policy, licence, mode, spdx, verdict, rule, override_only
+):
+    answer = judge_override(licence, Mode(mode), policy)
+    assert (
+        answer["spdx"],
+        answer["verdict"],
+        answer["rule"],
+        answer["override_only"],
+    ) == (spdx, verdict, rule, override_only)
+    assert answer["policy"] == policy.digest
+
+
+@pytest.mark.parametrize(
+    ("args", "policy_yaml", "code", "verdict"),
+    [
+        (["LGPL-3.0-only", "--mode", "static"], "", 0, "ask"),
+        (
+            ["LGPL-3.0-only", "--mode", "static"],
+            "      lgpl:\n        static: {verdict: deny, reason: no LGPL in binaries}\n",
+            0,
+            "deny",
+        ),
+        (["MIT", "--mode", "linked"], "", 2, None),
+        (
+            ["MIT"],
+            "      lgpl:\n        static: {verdict: deny}\n",
+            2,
+            None,
+        ),
+    ],
+    ids=["shipped-policy", "repo-cascade", "bad-mode", "policy-without-reason"],
+)
+def test_licenses_judge_command_applies_the_repo_policy(
+    tmp_path, args, policy_yaml, code, verdict
+):
+    from typer.testing import CliRunner
+
+    from hyperi_ci.cli import app
+
+    config = "quality:\n  dep_licenses:\n    mode: blocking\n"
+    if policy_yaml:
+        config += "    policy:\n" + policy_yaml
+    (tmp_path / ".hyperi-ci.yaml").write_text(config, encoding="utf-8")
+    result = CliRunner().invoke(
+        app, ["licenses", "judge", *args, "--json", "-C", str(tmp_path)]
+    )
+    assert result.exit_code == code, result.output
+    if verdict is not None:
+        answer = json.loads(result.stdout)
+        settings = load_config(project_dir=tmp_path).setting("quality.dep_licenses")
+        expected = load_policy(repo_policy=settings.get("policy")).digest
+        assert (answer["verdict"], answer["policy"]) == (verdict, expected)
 
 
 def test_runtime_package_not_installed_is_ask(policy):

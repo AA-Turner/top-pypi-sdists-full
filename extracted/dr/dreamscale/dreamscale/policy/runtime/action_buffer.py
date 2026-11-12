@@ -11,6 +11,7 @@ from dreamscale.policy.runtime.action_smoothing import (
     validate_normalized_grippers,
 )
 from dreamscale.policy.runtime.adaptive_smoothing import resolve_adaptive_smoothing
+from dreamscale.policy.runtime.continuation import continue_motion
 
 Action = tuple[float, ...]
 
@@ -210,6 +211,40 @@ class ActionBuffer:
             for step, item in self._actions.items()
             if step >= self._next_action_step
         }
+        if smoothing.mode == "continuation":
+            joined = continue_motion(
+                next_action_step=self._next_action_step,
+                action_steps=action_steps,
+                new_actions=actions,
+                existing_actions=existing_actions,
+                executed_history=executed_history,
+                gripper_indices=smoothing.gripper_indices,
+                normalized_gripper_indices=smoothing.normalized_gripper_indices,
+            )
+            next_actions = {
+                step: item
+                for step, item in self._actions.items()
+                if self._next_action_step <= step < base
+            }
+            sources = dict(zip(action_steps, map(_as_action, actions), strict=True))
+            next_actions.update({
+                step: _BufferedAction(action=action, source_action=sources[step])
+                for step, action in joined.actions.items()
+            })
+            self._actions = next_actions
+            return {
+                "requested_mode": smoothing.requested_mode,
+                "resolved_mode": smoothing.mode,
+                "new_action_weight": None,
+                "correction_steps": None,
+                "stale_steps": stale_steps,
+                "overlap_steps": joined.overlap_steps,
+                "resolved_steps": len(joined.actions),
+                "rebase_offset_steps": 0,
+                "first_executable_source_offset": joined.first_executable_source_offset,
+                "max_abs_position_revision": joined.max_abs_position_revision,
+                "junction_offset": joined.junction_offset,
+            }
         if smoothing.correction_steps is None:
             raise AssertionError("motion smoothing requires correction steps")
         inputs = dict(
@@ -310,6 +345,36 @@ class ActionBuffer:
             "arm_speed_rad_s": resolution.arm_speed_rad_s,
             "correction_gain": resolution.correction_gain,
             "correction_rate_ratio": resolution.correction_rate_ratio,
+        }
+
+    def place_chunk(
+        self,
+        *,
+        actions: Sequence[Sequence[float]],
+        action_indices: Sequence[int] | None = None,
+    ) -> dict[str, int | float | str | None]:
+        """The chunked schedule: the robot held while this chunk was inferred, so its first row
+        is the next step's, whatever time went by. Its rows replace the plan as they are."""
+        base = self._next_action_step
+        steps = _resolve_action_steps(
+            base_action_step=base, action_count=len(actions), action_indices=action_indices,
+        )
+        overlap = sum(1 for step in steps if step in self._actions)
+        self._actions = {
+            step: _BufferedAction(action=_as_action(row), source_action=_as_action(row))
+            for step, row in zip(steps, actions, strict=True)
+        }
+        return {
+            "requested_mode": "sync",
+            "resolved_mode": "sync",
+            "new_action_weight": None,
+            "correction_steps": None,
+            "stale_steps": 0,
+            "overlap_steps": overlap,
+            "resolved_steps": len(steps),
+            "rebase_offset_steps": 0,
+            "first_executable_source_offset": 0 if steps else None,
+            "max_abs_position_revision": 0.0,
         }
 
     def replace_aligned_chunk(

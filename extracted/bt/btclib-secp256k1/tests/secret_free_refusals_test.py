@@ -4,8 +4,8 @@
 
 """A refusal carries no secret: each key, tweak and nonce parameter is fed one.
 
-This file tests the rule of section 7 of the btclib-org standard, *A
-refusal carries no secret*, for the refusals of secret inputs.
+This file tests the rule of section 7's *A refusal carries no secret*,
+in the organization's standard, for the refusals of secret inputs.
 
 `SCALARS` and `ENTROPIES` feed a secret, in each wrong way, to each
 parameter that takes a private key, a keypair, a tweak, the label tweaks
@@ -34,8 +34,8 @@ read. The refusals of `SCALARS`, `ENTROPIES` and `PUBLIC_POSITIONS` also
 have to say which argument they refuse, in the wording the source gives it
 (`ORDER` for a key at the order). Where `ORDER` holds this package's
 message for a call libsecp256k1 failed, the refusal names no argument. The
-two lists of `silentpayments.create_outputs` share one message, and so do
-the two lists of zkp's `pedersen_blind_generator_blind_sum` at the order.
+two lists of zkp's `pedersen_blind_generator_blind_sum` share one message
+at the order.
 `keys.prvkey_tweak_add` and `keys.prvkey_tweak_mul` refuse a key or a
 tweak at the order with one message that names both. `VALID_SECRETS`
 checks no wording.
@@ -558,7 +558,7 @@ SCALARS: dict[str, tuple[str, Callable[[Any], object]]] = {
         lambda v: keys.pubkey_tweak_mul(PUB, v),
     ),
     "keys.pubkey_tweak_mul_sum": (
-        "the tweak must",
+        "the tweak at index 0 must",
         lambda v: keys.pubkey_tweak_mul_sum([PUB], [v]),
     ),
     "keys.PubkeyTweakChain.tweak_add": (
@@ -612,11 +612,11 @@ SCALARS: dict[str, tuple[str, Callable[[Any], object]]] = {
         lambda v: musig.KeyAggCache([PUB]).pubkey_xonly_tweak_add(v),
     ),
     "silentpayments.create_outputs prvkeys": (
-        "the private key must",
+        "the private key at index 0 must",
         lambda v: silentpayments.create_outputs([(PUB, PUB)], bytes(36), prvkeys=[v]),
     ),
     "silentpayments.create_outputs taproot_prvkeys": (
-        "the private key must",
+        "the taproot private key at index 0 must",
         lambda v: silentpayments.create_outputs(
             [(PUB, PUB)], bytes(36), taproot_prvkeys=[v]
         ),
@@ -647,8 +647,8 @@ SCALARS: dict[str, tuple[str, Callable[[Any], object]]] = {
 }
 
 #: The pairs that are no refusal: `prvkey_verify` answers a verdict for a
-#: value of the wrong size or range, `tweak_add_check` for a tweak at the
-#: order, and a scan with a label tweak at the order finds nothing.
+#: value of the wrong size or range, and `tweak_add_check` for a tweak at
+#: the order.
 VERDICTS = {
     ("keys.prvkey_verify", wrong)
     for wrong in (
@@ -662,7 +662,6 @@ VERDICTS = {
     )
 } | {
     ("xonly.tweak_add_check", "at the order"),
-    ("silentpayments.scan_outputs labels", "at the order"),
 }
 
 #: What the refusal of a key or a tweak at the order says, by entry point. A
@@ -679,7 +678,7 @@ ORDER = {
     "keys.pubkey_from_prvkey": KEY,
     "keys.pubkey_tweak_add": TWEAKED,
     "keys.pubkey_tweak_mul": "invalid tweak",
-    "keys.pubkey_tweak_mul_sum": "invalid tweak",
+    "keys.pubkey_tweak_mul_sum": "invalid tweak at index 0",
     "keys.PubkeyTweakChain.tweak_add": TWEAKED,
     "xonly.from_prvkey": KEY,
     "xonly.from_keypair": "struct secp256k1_keypair",
@@ -702,8 +701,13 @@ ORDER = {
     "musig.SecretNonce.partial_sign": KEY,
     "musig.KeyAggCache.pubkey_ec_tweak_add": TWEAKED,
     "musig.KeyAggCache.pubkey_xonly_tweak_add": TWEAKED,
-    "silentpayments.create_outputs prvkeys": "silent payment output creation failed",
-    "silentpayments.create_outputs taproot_prvkeys": KEY,
+    "silentpayments.create_outputs prvkeys": (
+        "invalid private key at index 0: not in [1, n-1]"
+    ),
+    "silentpayments.create_outputs taproot_prvkeys": (
+        "invalid taproot private key at index 0: not in [1, n-1]"
+    ),
+    "silentpayments.scan_outputs labels": "the label tweak must be in [1, n-1]",
     "silentpayments.label": "invalid scan private key",
     "silentpayments.scan_outputs scan_prvkey": "silent payment scanning failed",
 }
@@ -841,7 +845,7 @@ PUBLIC_POSITIONS: dict[str, tuple[Callable[[bytes], object], tuple[str, ...]]] =
     "keys.pubkey_negate": (keys.pubkey_negate, ("invalid public key",)),
     "keys.pubkey_combine": (
         lambda v: keys.pubkey_combine([PUB, v]),
-        ("invalid public key",),
+        ("invalid public key at index 1",),
     ),
     "keys.reserialize": (keys.reserialize, ("invalid public key",)),
     "xonly.parse": (xonly.parse, ("invalid public key",)),

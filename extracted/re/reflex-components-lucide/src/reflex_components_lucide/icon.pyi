@@ -10,7 +10,8 @@ from typing import Any
 from reflex_base.components.component import Component
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.utils.imports import ImportVar
-from reflex_base.vars.base import Var
+from reflex_base.vars.base import Var, var_operation
+from reflex_base.vars.sequence import StringVar
 from reflex_components_core.core.breakpoints import Breakpoints
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,9 @@ class LucideIconComponent(Component):
         Returns:
             The component.
         """
+
+@var_operation
+def dynamic_icon_name_operation(tag: StringVar): ...
 
 class Icon(LucideIconComponent):
     @classmethod

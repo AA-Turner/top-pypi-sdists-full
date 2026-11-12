@@ -242,7 +242,7 @@ OrganizationRuleStatusType = Literal[
     "UPDATE_SUCCESSFUL",
 ]
 OwnerType = Literal["AWS", "CUSTOM_LAMBDA", "CUSTOM_POLICY"]
-ProviderType = Literal["AZURE"]
+ProviderType = Literal["AZURE", "GCP"]
 RecorderStatusType = Literal["Failure", "NotApplicable", "Pending", "Success"]
 RecordingFrequencyType = Literal["CONTINUOUS", "DAILY"]
 RecordingScopeType = Literal["INTERNAL", "PAID"]

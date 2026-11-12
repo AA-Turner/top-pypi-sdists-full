@@ -62,8 +62,9 @@ BufferHealth = TypeAliasType(
 )
 ActionSmoothingMode = TypeAliasType(
     "ActionSmoothingMode",
-    Literal["auto", "output", "motion", "motion_handover", "motion_speed"],
+    Literal["auto", "output", "motion", "motion_handover", "motion_speed", "continuation"],
 )
+RunMode = TypeAliasType("RunMode", Literal["async", "sync"])
 SamplingMode = TypeAliasType(
     "SamplingMode",
     Literal["upstream_eval", "async_8", "async_latest"],
@@ -168,8 +169,14 @@ class RunStrategy:
     smoothing_reference_speed: float | None = None
     dreamzero_sampling: SamplingMode | None = None
     dreamzero_commit_prefix_steps: Literal[1, 2] = 2
+    # "async" asks for the next chunk while rows remain and joins it to the plan; "sync" runs
+    # each chunk to its end, holding while the next is inferred, and plays its rows as they are
+    # (the chunked schedule of upstream's reference, Praxis-1's default).
+    mode: RunMode = "async"
 
     def __post_init__(self) -> None:
+        if self.mode not in ("async", "sync"):
+            raise ValueError(f"unknown run mode: {self.mode!r}")
         if self.dreamzero_sampling is not None and (
             not isinstance(self.dreamzero_sampling, str)
             or self.dreamzero_sampling
@@ -184,6 +191,7 @@ class RunStrategy:
             "motion",
             "motion_handover",
             "motion_speed",
+            "continuation",
         }:
             raise ValueError(
                 f"unknown action smoothing mode: {self.action_smoothing!r}"
@@ -471,3 +479,12 @@ class RuntimeStats:
     # Ticks next_action() held with no session serving (its link was lost and a new
     # session was opening): also counted in underruns and hold_position_count.
     reconnect_holds: int = 0
+    # What a server reported of its answers (policy.runtime.server_report; Praxis-1): answers
+    # that said whether they continued the episode's context, those that lost it (a restart
+    # other than the episode's start), executed steps whose frames never arrived, and target rows
+    # its joint solver retried or missed.
+    context_reports: int = 0
+    context_restarts: int = 0
+    history_frames_missing: int = 0
+    ik_retries: int = 0
+    ik_misses: int = 0

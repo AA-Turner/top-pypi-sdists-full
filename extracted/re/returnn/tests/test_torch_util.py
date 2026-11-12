@@ -717,6 +717,85 @@ def test_depthwise_conv1d_triton_kernel_grad():
             torch.testing.assert_close(g.float(), t.grad.float(), **t_tol)
 
 
+def test_depthwise_conv1d_triton_row_bounds():
+    """
+    with row bounds the sequences of a packed buffer are padded each on its own,
+    bit-exact to the same sequences with zero frames between them, also traced
+    """
+    if not torch.cuda.is_available():
+        raise unittest.SkipTest("needs CUDA")
+    try:
+        from returnn.torch.util import depthwise_conv_triton as m
+    except ImportError as exc:
+        raise unittest.SkipTest(f"triton not available ({exc})")
+    from functorch.compile import aot_function, nop
+
+    gen = torch.Generator(device="cpu").manual_seed(13)
+    f32, bf16 = torch.float32, torch.bfloat16
+    # the frames after every sequence: 3 frames between two slack runs, 20 and 1 without a frame between them
+    lens, slack, n_chan, tail = [45, 0, 3, 20, 1, 33], [0, 2, 2, 0, 3, 0], 70, 37
+    nan = float("nan")
+    for width, dtype, blocks in [(32, bf16, None), (5, f32, (16, 32, 4, 32))]:
+        pad_l, gap = (width - 1) // 2, width // 2
+        gaps = [gap] * len(lens)
+        opts = {"blocks": blocks} if blocks else {}
+
+        def _buffer(seqs, gaps_, junk):
+            parts = [part for seq, n in zip(seqs, gaps_) for part in (seq, seq.new_full((n, n_chan), junk))]
+            return torch.cat(parts + [seqs[0].new_full((tail, n_chan), junk)]).to("cuda", dtype)[None]
+
+        def _starts(gaps_):
+            return [sum(lens[:i]) + sum(gaps_[:i]) for i in range(len(lens))]
+
+        def _rows(gaps_):
+            return torch.cat([torch.arange(s, s + n) for s, n in zip(_starts(gaps_), lens)]).cuda()
+
+        x_seqs = [torch.randn(n, n_chan, generator=gen) for n in lens]
+        d_seqs = [torch.randn(n, n_chan, generator=gen) for n in lens]
+        w = (torch.randn(n_chan, width, generator=gen) * 0.3).to("cuda", dtype).requires_grad_(True)
+        bias = torch.randn(n_chan, generator=gen).cuda().requires_grad_(True)
+        # the reference: zero frames between the sequences and after them, as many as the filter reaches
+        x_gap = _buffer(x_seqs, gaps, 0.0).requires_grad_(True)
+        out_gap = m.depthwise_conv1d(x_gap, w, bias, pad_l=pad_l, n_time_out=x_gap.shape[1], **opts)
+        grads_gap = torch.autograd.grad(out_gap, (x_gap, w, bias), _buffer(d_seqs, gaps, 0.0))
+        # packed, with NaN in the frames outside the sequences, in the input and in the output gradient
+        x = _buffer(x_seqs, slack, nan).requires_grad_(True)
+        d_out = _buffer(d_seqs, slack, nan)
+        n_time, rows, rows_gap, starts = x.shape[1], _rows(slack), _rows(gaps), _starts(slack)
+        row_lo, row_hi = (torch.zeros(n_time, dtype=torch.int32, device="cuda") for _ in range(2))
+        row_lo[rows] = torch.tensor([s for s, n in zip(starts, lens) for _ in range(n)]).int().cuda()
+        row_hi[rows] = torch.tensor([s + n for s, n in zip(starts, lens) for _ in range(n)]).int().cuda()
+        junk = torch.ones(n_time, dtype=torch.bool, device="cuda")
+        junk[rows] = False
+
+        def _conv(x_, w_, bias_, lo, hi):
+            return m.depthwise_conv1d(x_, w_, bias_, pad_l=pad_l, n_time_out=n_time, row_lo=lo, row_hi=hi, **opts)
+
+        def _loss(x_, w_, bias_, lo, hi, d_out_):
+            return (_conv(x_, w_, bias_, lo, hi).float() * d_out_.float()).sum()
+
+        out = _conv(x, w, bias, row_lo, row_hi)
+        assert out.dtype == dtype and torch.equal(out[0, rows], out_gap[0, rows_gap]), (width, dtype)
+        assert not out[0, junk].any(), (width, dtype)
+        # the second reference: torch conv1d on every sequence alone
+        seq_slices = [slice(s, s + n) for s, n in zip(starts, lens) if n]
+        seqs_padded = [torch.nn.functional.pad(x[0, s].float().T[None], (pad_l, width - 1 - pad_l)) for s in seq_slices]
+        w_torch = w.float()[:, None, :]
+        ref = torch.cat([torch.nn.functional.conv1d(seq, w_torch, bias, groups=n_chan)[0].T for seq in seqs_padded])
+        tight = {"rtol": 1e-4, "atol": 1e-4}
+        tol = tight if dtype == f32 else {"rtol": 2e-2, "atol": 2e-2}
+        torch.testing.assert_close(out[0, rows].float(), ref, **tol)
+        grads_ref = torch.autograd.grad((ref * d_out[0, rows].float()).sum(), (x, w, bias))
+        for loss in (_loss, aot_function(_loss, fw_compiler=nop, bw_compiler=nop)):
+            gx, gw, gb = torch.autograd.grad(loss(x, w, bias, row_lo, row_hi, d_out), (x, w, bias))
+            assert torch.equal(gx[0, rows], grads_gap[0][0, rows_gap]) and not gx[0, junk].any(), (width, dtype)
+            for g, g_ref, g_tol in zip((gx, gw, gb), grads_ref, (tol, tol, tight)):
+                torch.testing.assert_close(g.float(), g_ref.float(), **g_tol)
+            # the row reduction is split by the buffer length, so the summation order differs
+            torch.testing.assert_close(gw.float(), grads_gap[1].float(), rtol=1e-4, atol=1e-4)
+            torch.testing.assert_close(gb, grads_gap[2], rtol=1e-4, atol=1e-4)
+
+
 def test_depthwise_conv1d_triton_guards():
     """a frozen filter skips the weight gradient kernel, second derivatives and invalid blocks or dtypes raise"""
     if not torch.cuda.is_available():
@@ -766,76 +845,6 @@ def test_depthwise_conv1d_triton_short_window_row_kernels():
         m.depthwise_conv1d(x, w, None, pad_l=0, n_time_out=9).sum().backward()
     assert not fwd.mock_calls and not dx.mock_calls, (fwd.mock_calls, dx.mock_calls)
     assert x.grad is not None
-
-
-def test_depthwise_conv1d_triton_window_kernels_same_as_tap_kernels():
-    """the window kernels add the terms in the order of the tap kernels: fwd and all grads are the same bit for bit"""
-    if not torch.cuda.is_available():
-        raise unittest.SkipTest("needs CUDA")
-    try:
-        from returnn.torch.util import depthwise_conv_triton as m
-    except ImportError as exc:
-        raise unittest.SkipTest(f"triton not available ({exc})")
-
-    k = m.kernels
-    gen = torch.Generator(device="cpu").manual_seed(13)
-    f32, bf16 = torch.float32, torch.bfloat16
-    blocks = (8, 32, 8, 32)
-    cases = [
-        ((1, 1021, 70), 32, 15, 16, bf16),
-        ((7, 45, 70), 32, 15, 16, bf16),
-        ((3, 37, 70), 5, 2, 2, f32),
-        ((3, 100, 64), 8, 0, 7, bf16),
-    ]
-    for shape, width, pad_l, pad_r, dtype in cases:
-        n_batch, n_time, n_chan = shape
-        n_time_out = n_time + pad_l + pad_r - width + 1
-        x = torch.randn(shape, generator=gen).to("cuda", dtype).requires_grad_(True)
-        w = (torch.randn(n_chan, width, generator=gen) * 0.3).to("cuda", dtype).requires_grad_(True)
-        bias = torch.randn(n_chan, generator=gen).to("cuda", dtype).requires_grad_(True)
-        d_out = torch.randn(n_batch, n_time_out, n_chan, generator=gen).to("cuda", dtype)
-        out = m.depthwise_conv1d(x, w, bias, pad_l=pad_l, n_time_out=n_time_out, blocks=blocks)
-        out.backward(d_out)
-
-        x_, w_ = x.detach(), w.detach()
-        out_taps, dx_taps = torch.empty_like(x_[:, :n_time_out]), torch.empty_like(x_)
-        conv_args = (n_time, n_time_out, n_chan, pad_l, w.stride(0), w.stride(1))
-        conv_opts = dict(BLOCK_R=k.BLOCK_R_CONV, BLOCK_C=k.BLOCK_C_CONV, KW=width)
-        grid = (k.cdiv(n_batch * n_time_out, k.BLOCK_R_CONV), k.cdiv(n_chan, k.BLOCK_C_CONV))
-        k.dw_fwd[grid](x_, w_, bias.detach(), n_batch * n_time_out, *conv_args, out_taps, HAS_BIAS=True, **conv_opts)
-        grid = (k.cdiv(n_batch * n_time, k.BLOCK_R_CONV), k.cdiv(n_chan, k.BLOCK_C_CONV))
-        k.dw_bwd_dx[grid](d_out, w_, n_batch * n_time, *conv_args, dx_taps, **conv_opts)
-        rows_per_prog, n_splits, width_p, width_p2, num_warps = k.dw_launch(
-            n_batch * n_time_out, width, has_bias=True, block_r=k.BLOCK_R_DW, block_c=k.BLOCK_C_DW
-        )
-        partial = torch.empty((n_splits, width_p, n_chan), dtype=f32, device="cuda")
-        # noinspection PyArgumentList
-        k.dw_bwd_dw[(n_splits, k.cdiv(n_chan, k.BLOCK_C_DW))](
-            x_,
-            d_out,
-            n_batch * n_time_out,
-            n_time,
-            n_time_out,
-            n_chan,
-            pad_l,
-            rows_per_prog,
-            partial,
-            HAS_BIAS=True,
-            BLOCK_R=k.BLOCK_R_DW,
-            BLOCK_C=k.BLOCK_C_DW,
-            KW=width,
-            KW_P2=width_p2,
-            KW_P=width_p,
-            num_warps=num_warps,
-        )
-        summed = partial.sum(dim=0)
-        for name, res, ref in [
-            ("out", out, out_taps),
-            ("dx", x.grad, dx_taps),
-            ("dw", w.grad, summed[:width].t().to(dtype)),
-            ("db", bias.grad, summed[width].to(dtype)),
-        ]:
-            assert torch.equal(res, ref), (shape, width, pad_l, name, (res.float() - ref.float()).abs().max())
 
 
 def test_depthwise_conv1d_triton_weight_grad_scratch_independent_of_rows():

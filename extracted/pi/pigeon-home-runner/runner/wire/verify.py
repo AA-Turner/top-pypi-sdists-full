@@ -50,8 +50,8 @@ except ImportError:
     from guard import confval as _confval  # type: ignore
 
 # Fields build_key_policies understands. Anything else in a policy
-# object is a typo: it used to vanish, and the key ran with a
-# smaller policy than the file appeared to set.
+# object is a typo and refuses the build (Q129): a dropped fence
+# leaves the key with less policy than the file appeared to set.
 _POLICY_FIELDS = frozenset({
     "allowed_kinds", "allowed_interpreters", "max_timeout_sec",
     "allowed_recipes", "allowed_script_sha384", "allowed_env",
@@ -295,6 +295,24 @@ def _read_secret_file(path, label):
     if not isinstance(path, str) or not path:
         raise RuntimeError(
             f"config error: {label} must be a path string")
+    if os.name != "nt":
+        # The written rule (standing orders, M8): a missing or
+        # world-readable secret file refuses startup -- anyone on
+        # the box who can read the secret can sign as the owner.
+        # POSIX mode bits only: on Windows stat reports 0o666
+        # whatever the file's real ACLs, so the bits say nothing
+        # there and this check does not fire. The rule names
+        # world-readable; group readability is the owner's own
+        # arrangement and does not refuse.
+        try:
+            mode = os.stat(path).st_mode
+        except OSError as e:
+            raise RuntimeError(
+                f"config error: cannot read {label} {path!r}: {e}")
+        if mode & 0o004:
+            raise RuntimeError(
+                f"config error: {label} {path!r} is world-readable; "
+                f"a secret file must not be readable by everyone")
     try:
         with open(path, encoding="utf-8") as fh:
             value = fh.read().strip()
@@ -640,10 +658,10 @@ def _build_key_policies(cfg) -> dict:
                     "may backtrack catastrophically on hostile input")
             clean["args_pattern"] = pattern
         unknown = [field for field in pol if field not in _POLICY_FIELDS]
-        for field in sorted(unknown):
-            _policy_warn(
-                "config: key_policies[%r] field %r is not a policy "
-                "field and is not in the built policy" % (kid, field))
+        if unknown:
+            raise RuntimeError(
+                f"config error: key_policies[{kid!r}] field "
+                f"{sorted(unknown)[0]!r} is not a policy field")
         policies[kid] = clean
     # One key, one entry (Q94): a key's names -- the default key's
     # empty id and fingerprint, an additional name over the same
@@ -668,12 +686,12 @@ class _KeyPolicyBuilder:
     """The public build_key_policies, as a callable object.
 
     It carries last_warnings, the warnings its most recent call
-    collected: an unrecognised policy field is named in the log and
-    recorded there (the P4 contract), so a caller can read the list
-    back after building. The list lives on an object with the field
-    declared, not on a plain function, so its existence is part of
-    the stated shape; calling the builder runs _build_key_policies,
-    which resets the list at the same point it always has.
+    collected. An unrecognised policy field is not a warning but
+    a refusal (Q129) -- a fence dropped quietly is a fence the
+    key no longer has. The list lives on an object with the field
+    declared, so its existence is part of the stated shape;
+    calling the builder runs _build_key_policies, which resets
+    the list at the same point it always has.
     """
 
     last_warnings: list[str]
@@ -1150,8 +1168,23 @@ def check_policy_constraints(pol, key_id, cfg, job):
         except (re.error, TypeError, ValueError):
             rx = None  # validated at startup; stay defensive
         if rx is not None:
+            # PROTOCOL 14: args_pattern means every arg must fully
+            # match the regex, and a non-string cannot match one.
+            # For kinds whose args reach a process (execute_job
+            # rewrites recipe and change to exec before it reads
+            # args), a non-string arg is a finding, not a skip: the
+            # executor coerces with str(), so skipping here let the
+            # integer 12345 run under a pattern that denied the
+            # string "12345" (Lane D, D-2-2). Kinds whose args never
+            # reach a process (ping, sensor_alert) keep the skip.
+            reaches_process = kind in ("exec", "recipe", "change")
             for a in args:
                 if not isinstance(a, str):
+                    if reaches_process:
+                        findings.append(
+                            ("policy_args", "arg_not_a_string",
+                             "arg is not a string (%s)"
+                             % type(a).__name__))
                     continue
                 if len(a) > 1024:
                     findings.append(("policy_args", "arg_too_long",

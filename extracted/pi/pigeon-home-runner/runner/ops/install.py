@@ -145,7 +145,7 @@ def do_rearm(cfg_path: str) -> int:
 # Frozen binaries cannot import the package the same way a live run can.
 # The constant is the source of truth for --version; runner/tests/test_version.py
 # fails the build if it drifts from pyproject.toml.
-__version__ = "3.15.148"
+__version__ = "3.16.21.14"
 
 SERVICE_NAME = "homing-pigeon"
 FILES = ["runner.py", "wire/__init__.py", "wire/oauth.py",
@@ -1335,6 +1335,11 @@ def _setup_fresh_config(args, cfg_path):
                                                 args.no_inference)
     if profile:
         apply_profile(cfg_path, profile)
+    # State the platform gates in the seeded config (phase 2 of
+    # the default-posture work): a mechanism that cannot engage
+    # on this platform is written at audit, in the file, instead
+    # of being left at the seed's enforce to refuse first start.
+    apply_platform_modes(cfg_path)
     collectors = chosen_collectors(args, profile)
     if collectors:
         install_collectors(collectors, args)
@@ -1711,8 +1716,9 @@ BUILTIN_PROFILES = {
         "max_result_view": "attested",
         "judge": "advisory",
     },
-    # A box somebody else provisions for a tenant (docs/project/
-    # hosting.md): password-only's redaction and ceiling, plus the
+    # A box somebody else provisions for a tenant (docs/steady/
+    # project/hosting.md): password-only's redaction and ceiling,
+    # plus the
     # sandbox enforced, the audience check auditing, and no local
     # signal listener (nothing else runs on a hosted box). The
     # workspace root and runner_id come from the one-blob config
@@ -2356,9 +2362,97 @@ def apply_profile(cfg_path: str, profile: str) -> None:
     print(f"profile: applied {name}")
 
 
+def platform_modes(platform=None):
+    """The security modes a first install states outright on this
+    platform.
+
+    Confinement's full form is a Linux sandbox (bwrap), and the
+    job_user demote is a POSIX setuid. Windows has backends for
+    both (confinement: Job Object + restricted token + low
+    integrity; job_user: the Job Object ceiling), and FreeBSD
+    has a confinement backend (jail + no network + spawn
+    resource limits), and macOS has a confinement backend
+    (Seatbelt profile + no network + spawn resource limits),
+    but the
+    installer writes the seed without running the backend probe
+    on the target machine, and stating enforce sight-unseen
+    risks a first-start refusal on a machine where a control
+    cannot engage -- so a fresh Windows install states both at
+    audit, a fresh FreeBSD install states confinement at audit,
+    a fresh macOS install states confinement at audit,
+    in the file, in the open, and the operator steps a
+    mode up to enforce deliberately, with the startup gate then
+    verifying the probe on that machine. On other non-Linux
+    platforms confinement has no backend and states audit for
+    the original reason: without the statement the first start
+    is a refusal the owner must edit their way out of. An empty
+    map on Linux, where both mechanisms can engage and the
+    startup gates decide.
+    """
+    if platform is None:
+        platform = sys.platform
+    if platform == "win32":
+        return {"confinement": "audit", "job_user": "audit"}
+    if platform == "darwin":
+        return {"confinement": "audit"}
+    if not platform.startswith("linux"):
+        return {"confinement": "audit"}
+    return {}
+
+
+def apply_platform_modes(cfg_path: str, platform=None) -> dict:
+    """State platform_modes() in a fresh install's config.json.
+
+    Only a mode the config currently states at enforce moves --
+    that is the seed's value (or a profile's); a mode already
+    stated at audit or off is the owner's word and stays. Returns
+    the modes actually written. Fresh installs only: the caller
+    is _setup_fresh_config, so an upgrade's config is never
+    rewritten by this.
+
+    A config that does not exist yet is seeded from empty: the
+    earlier seed steps normally write config.json first, but a
+    fresh install whose seed wrote none still gets its platform
+    statement, in the file the write below creates, instead of
+    dying on the missing file. Any other read failure -- a
+    symlink, unreadable JSON -- raises exactly as before.
+    """
+    modes = platform_modes(platform)
+    if not modes:
+        return {}
+    try:
+        cfg = _read_config(cfg_path)
+    except FileNotFoundError:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        return {}
+    sec = cfg.get("security") if isinstance(cfg.get("security"), dict) \
+        else {}
+    cur = sec.get("modes") if isinstance(sec.get("modes"), dict) else {}
+    applied = {}
+    new_modes = dict(cur)
+    for feature, mode in modes.items():
+        if cur.get(feature, "enforce") == "enforce":
+            new_modes[feature] = mode
+            applied[feature] = mode
+    if not applied:
+        return {}
+    sec = dict(sec)
+    sec["modes"] = new_modes
+    cfg["security"] = sec
+    _write_json(cfg_path, cfg)
+    plat = platform if platform is not None else sys.platform
+    for feature, mode in applied.items():
+        print(f"platform: security.modes.{feature} stated as "
+              f"{mode} in {cfg_path} (the platform seed for "
+              f"{plat}; the mode is stated in the file rather "
+              f"than left to refuse the first start)")
+    return applied
+
+
 # --- sense collectors -------------------------------------------------
 #
-# The collectors docs/extend/senses.md names as sense suppliers: the
+# The collectors docs/steady/oracle/senses.md names as sense suppliers: the
 # installer can set them up next to the runner, and the matching
 # runner/extensions/<name>-feed producer turns each one's
 # output into signed alerts. The measured comparison behind
@@ -2540,7 +2634,7 @@ def install_collectors(names, args) -> list:
                 line = _install_collector_windows(name, args)
             else:
                 line = (f"collector {name}: no install channel "
-                        f"on this platform; see docs/extend/senses.md")
+                        f"on this platform; see docs/steady/oracle/senses.md")
         except Exception as e:
             line = f"collector {name}: install failed: {e}"
         lines.append(line)
@@ -2796,7 +2890,7 @@ def _install_collector_linux(name, args) -> str:
                 f"enroll against manager {args.wazuh_manager}. "
                 f"Its alerts live on that manager, not on this "
                 f"box; wazuh-feed reads an alerts.json the "
-                f"owner lands here (see docs/extend/senses.md).")
+                f"owner lands here (see docs/steady/oracle/senses.md).")
     return f"collector {name}: unknown collector"
 
 
@@ -2839,7 +2933,7 @@ def _install_collector_darwin(name, args) -> str:
                 "installer does not fetch. sysmon-feed reads "
                 "its events once it is in place.")
     return (f"collector {name}: no first-class macOS install "
-            f"channel in this installer; see docs/extend/senses.md "
+            f"channel in this installer; see docs/steady/oracle/senses.md "
             f"for what upstream offers.")
 
 
@@ -2893,7 +2987,7 @@ def _install_collector_windows(name, args) -> str:
                 f"live on that manager; wazuh-feed reads an "
                 f"alerts.json the owner lands on this box.")
     return (f"collector {name}: Linux/BSD-only upstream; no "
-            f"Windows install channel. See docs/extend/senses.md.")
+            f"Windows install channel. See docs/steady/oracle/senses.md.")
 
 
 # --- collector health (the --check rows) ------------------------------
@@ -3170,7 +3264,7 @@ def collector_health_rows(facts) -> list:
     if not inst.get("wazuh"):
         rows.append(("wazuh", "ABSENT",
                      "not installed (it needs a manager; see "
-                     "docs/extend/senses.md)"))
+                     "docs/steady/oracle/senses.md)"))
     elif not facts.get("wazuh_manager"):
         rows.append(("wazuh", "INSTALLED-BUT-CANNOT-RUN",
                      "agent installed with no manager configured: "
@@ -3497,7 +3591,7 @@ def main() -> int:
                         "--inference-model still wins.")
     g = ap.add_argument_group(
         "collectors",
-        "Sense collectors (docs/extend/senses.md) set up next to\n"
+        "Sense collectors (docs/steady/oracle/senses.md) set up next to\n"
         "the runner on a fresh install. On an existing\n"
         "install, naming collectors performs just that\n"
         "setup and exits, like --inference-only.")

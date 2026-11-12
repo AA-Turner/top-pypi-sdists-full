@@ -20,7 +20,7 @@ class RunOptionsParam(TypedDict, total=False):
   training state. batch_size sets the total number of task groups per batch; each budget counts
   as a separate group. Learn more: https://www.trajectory.ai/field-notes/intelligence-density
   """
-  algorithm: Literal["gspo", "grpo", "stable_reinforce"] | None
+  algorithm: Literal["gspo", "grpo", "importance_sampling", "stable_reinforce"] | None
   """
   Training algorithm; omit to preserve the model default.
   """
@@ -150,6 +150,12 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Trajectories generated for each training instance; GSPO and GRPO require at least 2.
   """
+  shuffle_tasks: bool | None
+  """
+  Shuffle training tasks each epoch. Defaults to true; false starts tasks in upload order, with
+  appended tasks after earlier ones, while each batch still takes groups as they finish.
+  Benchmarks uploaded before upload order was recorded must be re-uploaded.
+  """
   priority_trait: (
     Literal["iid", "least_stale", "most_stale", "longest_tokens", "longest_turns", "reward"] | None
   )
@@ -213,4 +219,14 @@ class RunOptionsParam(TypedDict, total=False):
   max_turns_per_trajectory: int | None
   """
   Maximum agent and environment turns allowed in each trajectory.
+  """
+  image_max_pixels: int | None
+  """
+  Downscale input images above this many pixels, keeping their aspect ratio, before the model
+  reads them. Fewer pixels cost fewer image tokens. null uses the model's default; a checkpoint
+  evaluation keeps the cap its training run used unless this is set.
+  """
+  shuffle: bool | None
+  """
+  Shuffle training tasks each epoch; false follows benchmark upload order.
   """

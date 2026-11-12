@@ -39,6 +39,8 @@ def adabelief(
     b2: jax.typing.ArrayLike = 0.999,
     eps: jax.typing.ArrayLike = 1e-16,
     eps_root: jax.typing.ArrayLike = 1e-16,
+    weight_decay: Optional[base.ScalarOrSchedule] = None,
+    weight_decay_mask: MaskOrFn = None,
     *,
     nesterov: bool = False,
 ) -> base.GradientTransformationExtraArgs:
@@ -95,6 +97,16 @@ def adabelief(
     eps_root: Term added to the second moment of the prediction error to
       improve numerical stability. If backpropagating gradients through the
       gradient transformation (e.g. for meta-learning), this must be non-zero.
+    weight_decay: Optional strength of the weight decay regularization. Note
+      that this weight decay is multiplied with the learning rate. This is
+      consistent with other frameworks such as PyTorch, but different from
+      (Loshchilov et al, 2019) where the weight decay is only multiplied with
+      the "schedule multiplier", but not the base learning rate.
+    weight_decay_mask: A tree with same structure as (or a prefix of) the
+      params PyTree, or a Callable that returns such a pytree given the
+      params/updates. The leaves should be booleans, ``True`` for
+      leaves/subtrees you want to apply the weight decay to, and ``False``
+      for those you want to skip.
     nesterov: Whether to use Nesterov momentum.
 
   Returns:
@@ -128,7 +140,7 @@ def adabelief(
   .. note::
     The default epsilon values in the paper are ``eps=1e-8``, ``eps_root=0.``.
   """
-  return combine.chain(
+  chain_args = [
       transform.scale_by_belief(
           b1=b1,
           b2=b2,
@@ -136,8 +148,13 @@ def adabelief(
           eps_root=eps_root,
           nesterov=nesterov,
       ),
-      transform.scale_by_learning_rate(learning_rate),
-  )
+  ]
+  if weight_decay is not None:
+    chain_args.append(
+        transform.add_decayed_weights(weight_decay, mask=weight_decay_mask)
+    )
+  chain_args.append(transform.scale_by_learning_rate(learning_rate))
+  return combine.chain(*chain_args)
 
 
 def adadelta(
@@ -215,6 +232,7 @@ def adadelta(
     <https://arxiv.org/pdf/1212.5701.pdf>`_, 2012
   """  # noqa: E501
   return combine.chain(
+      # pyrefly: ignore[bad-argument-type]
       transform.add_decayed_weights(weight_decay, mask=weight_decay_mask),
       transform.scale_by_adadelta(rho=rho, eps=eps),
       transform.scale_by_learning_rate(learning_rate),
@@ -711,7 +729,7 @@ def adamw(
 
   .. seealso::
     See the related functions :func:`optax.adam`, :func:`optax.nadamw`, as well
-    as the example :doc:`../_collections/examples/nanolm` for a use case.
+    as the example :doc:`/_collections/examples/nanolm` for a use case.
   """
   return combine.chain(
       transform.scale_by_adam(
@@ -1369,6 +1387,7 @@ def noisy_sgd(
     Networks <https://arxiv.org/abs/1511.06807>`_, 2015
   """
   return combine.chain(
+      # pyrefly: ignore[bad-argument-type]
       transform.add_noise(eta, gamma, key, seed=seed),
       transform.scale_by_learning_rate(learning_rate),
   )
@@ -1542,7 +1561,12 @@ def novograd(
   """
   return combine.chain(
       transform.scale_by_novograd(
-          b1=b1, b2=b2, eps=eps, eps_root=eps_root, weight_decay=weight_decay
+          b1=b1,
+          b2=b2,
+          eps=eps,
+          eps_root=eps_root,
+          # pyrefly: ignore[bad-argument-type]
+          weight_decay=weight_decay,
       ),
       transform.scale_by_learning_rate(learning_rate),
   )
@@ -1607,9 +1631,10 @@ def optimistic_gradient_descent(
     Point Approach <https://arxiv.org/abs/1901.08511>`_, 2019
 
   .. seealso::
-    :doc:`../_collections/examples/ogda_example`
+    :doc:`/_collections/examples/ogda_example`
   """
   return combine.chain(
+      # pyrefly: ignore[bad-argument-type]
       transform.scale_by_optimistic_gradient(alpha=alpha, beta=beta),
       transform.scale_by_learning_rate(learning_rate),
   )
@@ -1715,7 +1740,7 @@ def optimistic_adam(
     <https://arxiv.org/abs/1711.00141>`_, 2017
 
   .. seealso::
-    :doc:`../_collections/examples/ogda_example`
+    :doc:`/_collections/examples/ogda_example`
   """
   warnings.warn('`optimistic_adam` is deprecated, please use'
                 ' `optimistic_adam_v2` instead.', category=DeprecationWarning)
@@ -1845,7 +1870,7 @@ def optimistic_adam_v2(
     <https://arxiv.org/abs/1711.00141>`_, 2017
 
   .. seealso::
-    :doc:`../_collections/examples/ogda_example`
+    :doc:`/_collections/examples/ogda_example`
   """
   return combine.chain(
       transform.scale_by_adam(
@@ -1994,7 +2019,7 @@ def rmsprop(
     Objective function: 1.36E+01
 
   References:
-    Hinton, `Overview of mini-batch gradient descent`
+    Hinton, `Overview of mini-batch gradient descent
     <www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf>`_, 2012
 
     Graves, `Generating Sequences With Recurrent Neural Networks
@@ -2137,7 +2162,9 @@ def sgd(
 
 
 def sm3(
-    learning_rate: jax.typing.ArrayLike, momentum: jax.typing.ArrayLike = 0.9
+    learning_rate: jax.typing.ArrayLike,
+    momentum: jax.typing.ArrayLike = 0.9,
+    eps: jax.typing.ArrayLike = 1e-8,
 ) -> base.GradientTransformationExtraArgs:
   r"""The SM3 optimizer.
 
@@ -2211,6 +2238,7 @@ def sm3(
       iterations with a scheduler, see :func:`optax.scale_by_learning_rate`.
     momentum: Decay rate used by the momentum term (when it is not set to
       `None`, then momentum is not used at all).
+    eps: Term added to the denominator to improve numerical stability.
 
   Returns:
     The corresponding :class:`optax.GradientTransformationExtraArgs`.
@@ -2241,8 +2269,8 @@ def sm3(
     <https://arxiv.org/abs/1901.11150>`_, 2019
   """
   return combine.chain(
-      transform.scale_by_sm3(momentum),
-      transform.scale(-learning_rate),
+      transform.scale_by_sm3(momentum, eps=eps),
+      transform.scale(-learning_rate),  # pyrefly: ignore[unsupported-operation]
   )
 
 

@@ -1,12 +1,14 @@
 //! A model composed by reference on another's header (`cozy model upload <source> <org/name>
 //! --base <model>[:<component>,…]`): which of the source's components go where, the header
 //! metadata that records it, and the header itself (`format::compose`). Only the base's header
-//! is read: the components it keeps stay its objects, wherever they are held.
+//! is read: the components it keeps stay its objects, wherever they are held. A Hub checkpoint on a
+//! base is made complete instead: it takes only what it lacks ([`inherit`]).
 use std::collections::BTreeMap;
 
 use crate::err::{refuse, Code, Result};
 use crate::family::{self, Record, Stored};
 use super::compose::{compose, Supply};
+pub use super::compose::{inherit, with_assets, Inherited, ADDED, INHERITED};
 use crate::format::{Header, ObjectRef, Provenance, Value};
 use crate::store::Store;
 
@@ -21,7 +23,7 @@ pub struct Base {
     pub model: String,
     pub release: String,
     pub lane: String,
-    pub commit: String,
+    pub checkpoint: String,
     pub header: String,
 }
 
@@ -120,7 +122,7 @@ pub fn on_base(store: &Store, base: &ObjectRef, source: &ObjectRef, names: &[Str
     }
     let text = |s: &str| Value::Str(s.to_owned());
     let fields = [("model", &record.model), ("release", &record.release), ("lane", &record.lane),
-        ("commit", &record.commit), ("header", &record.header)];
+        ("commit", &record.checkpoint), ("header", &record.header)];
     metadata.insert(COMPOSED.into(), Value::Map(BTreeMap::from([
         ("base".to_owned(), Value::Map(fields.iter().filter(|(_, v)| !v.is_empty()).map(|(k, v)| (k.to_string(), text(v))).collect())),
         ("components".to_owned(), Value::Map(components.iter().map(|(k, v)| (k.clone(), text(v))).collect())),

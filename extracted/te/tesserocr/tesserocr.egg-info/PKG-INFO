@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tesserocr
-Version: 2.12.0
+Version: 2.13.0
 Summary: A simple, Pillow-friendly, Python wrapper around tesseract-ocr API using Cython
 Home-page: https://github.com/sirfz/tesserocr
 Author: Fayez Zouheiry
@@ -15,7 +15,6 @@ Classifier: Topic :: Scientific/Engineering :: Image Recognition
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Cython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: author
@@ -73,7 +72,7 @@ with image files instead.
 Requirements
 ============
 
-**Python 3.9+** is required. tesserocr no longer supports Python 2.
+**Python 3.10+** is required. tesserocr no longer supports Python 2.
 
 Building from source requires libtesseract (>=3.04) and libleptonica (>=1.71).
 
@@ -135,6 +134,21 @@ or
     $ python setup.py build_ext -I/usr/local/include
 
 For Windows source builds, see `Windows.build.md`_.
+
+The build renders ``tesserocr/tesserocr.templ.pyx`` and ``tesserocr/tesseract.templ.pxd``
+using Cython's bundled Tempita engine before running Cython. Edit these templates,
+not the generated ``.pyx`` and ``.pxd`` files. Templates keep their Cython extensions
+for editor support and put Tempita directives on ``### {{...}}`` comment lines.
+No separate Tempita installation is needed. Rendering uses the detected Tesseract
+version and updates generated files only when their contents change. Use separate
+source trees for concurrent builds against different Tesseract versions.
+
+To run the build-time template and version-branch checks from a checkout:
+
+::
+
+    $ pip install -r requirements-dev.txt
+    $ python -m unittest tests.test_build -v
 
 .. |pkg-config| replace:: **pkg-config**
 .. _pkg-config: https://pkgconfig.freedesktop.org/

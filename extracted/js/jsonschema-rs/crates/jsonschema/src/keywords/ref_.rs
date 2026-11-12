@@ -2,8 +2,9 @@ use crate::{evaluation::InstancePosition, LazyInstance};
 use std::borrow::Cow;
 
 use crate::{
-    compiler::{self, TargetNode},
+    compiler::{self, CachedTarget, TargetNode},
     keywords::{BoxedValidator, CompilationResult},
+    node::{PendingSchemaNode, SchemaNode},
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
@@ -30,6 +31,10 @@ struct RefValidator<F: Json> {
 }
 
 impl<F: Json> Validate<F> for RefValidator<F> {
+    fn collect_object_part<'a>(&'a self, part: &mut super::all_of::ObjectPart<'a, F>) -> bool {
+        self.inner.collect_object_part(part)
+    }
+
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         self.inner.is_valid(instance, ctx)
     }
@@ -115,6 +120,10 @@ struct DirectRefValidator<T> {
 impl<F: Json, T: Validate<F>> Validate<F> for DirectRefValidator<T> {
     fn owned_ref_target(&self) -> Option<&crate::node::SchemaNode<F>> {
         self.inner.as_owned_node()
+    }
+
+    fn collect_object_part<'a>(&'a self, part: &mut super::all_of::ObjectPart<'a, F>) -> bool {
+        self.inner.collect_object_part(part)
     }
 
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
@@ -276,6 +285,36 @@ fn embedded_resource_start<F: Json>(
     Ok(start)
 }
 
+/// What a `$ref` holds: a node it owns, or one the tree owns elsewhere.
+enum RefTarget<F: Json> {
+    Node(SchemaNode<F>),
+    Pending(PendingSchemaNode<F>),
+}
+
+impl<F: Json> RefTarget<F> {
+    fn into_validator(
+        self,
+        ref_suffix: Location,
+        ref_target_base: Location,
+        target_location: Option<Arc<Uri<String>>>,
+    ) -> BoxedValidator<F> {
+        match self {
+            RefTarget::Node(inner) => Box::new(DirectRefValidator {
+                inner,
+                ref_suffix,
+                ref_target_base,
+                target_location,
+            }),
+            RefTarget::Pending(inner) => Box::new(DirectRefValidator {
+                inner,
+                ref_suffix,
+                ref_target_base,
+                target_location,
+            }),
+        }
+    }
+}
+
 fn compile_reference_validator<'a, F: Json>(
     ctx: &compiler::Context<F>,
     parent: &Map<String, Value>,
@@ -330,13 +369,19 @@ fn compile_reference_validator<'a, F: Json>(
         return None;
     }
 
-    if let Some(validator) = ctx.lookup_maybe_recursive(&alias, resolved.resolver()) {
-        return Some(Ok(Box::new(RefValidator {
-            inner: validator,
+    if let Some(target) = ctx.lookup_cached_target(&alias, resolved.resolver()) {
+        let target = match target {
+            CachedTarget::Node(TargetNode::Owned(node)) => RefTarget::Node(node),
+            CachedTarget::Node(TargetNode::Shared(node)) => {
+                RefTarget::Pending(PendingSchemaNode::pointing_at(&node))
+            }
+            CachedTarget::Placeholder(placeholder) => RefTarget::Pending(placeholder),
+        };
+        return Some(Ok(target.into_validator(
             ref_suffix,
             ref_target_base,
             target_location,
-        })));
+        )));
     }
 
     ctx.mark_seen(&alias);
@@ -365,19 +410,14 @@ fn compile_reference_validator<'a, F: Json>(
     };
     Some(
         ctx.compile_ref_target(|| compiler::compile_with_alias(&inner_ctx, resource_ref, alias))
-            .map(|target| match target {
-                TargetNode::Owned(node) => Box::new(DirectRefValidator {
-                    inner: node,
-                    ref_suffix,
-                    ref_target_base,
-                    target_location,
-                }) as Box<dyn Validate<F>>,
-                TargetNode::Shared(_) => Box::new(RefValidator {
-                    inner: target.into_validator(),
-                    ref_suffix,
-                    ref_target_base,
-                    target_location,
-                }),
+            .map(|target| {
+                let target = match target {
+                    TargetNode::Owned(node) => RefTarget::Node(node),
+                    TargetNode::Shared(node) => {
+                        RefTarget::Pending(PendingSchemaNode::pointing_at(&node))
+                    }
+                };
+                target.into_validator(ref_suffix, ref_target_base, target_location)
             })
             .map_err(ValidationError::to_owned),
     )
@@ -684,9 +724,38 @@ mod tests {
         &json!({"foo": 42}),
         "/properties/foo/$ref/type"
     )]
+    #[test_case(&repeated_reference(), &json!({"a": "x", "b": 42}), "/properties/b/$ref/type"; "repeated reference")]
+    #[test_case(&recursive_reference(), &json!({"child": {"child": 1}}), "/$ref/properties/child/$ref/properties/child/$ref/type"; "recursive reference")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         // For $ref tests, check tracker (includes $ref traversals)
         tests_util::assert_evaluation_path(schema, instance, expected);
+    }
+
+    // The second `$ref` to a definition reuses the node compiled for the first.
+    fn repeated_reference() -> Value {
+        json!({
+            "properties": {"a": {"$ref": "#/definitions/foo"}, "b": {"$ref": "#/definitions/foo"}},
+            "definitions": {"foo": {"type": "string"}}
+        })
+    }
+
+    fn recursive_reference() -> Value {
+        json!({
+            "$ref": "#/definitions/node",
+            "definitions": {"node": {"type": "object", "properties": {"child": {"$ref": "#/definitions/node"}}}}
+        })
+    }
+
+    #[test_case(&repeated_reference(), &json!({"a": "x", "b": 42}), "/definitions/foo/type"; "repeated reference")]
+    #[test_case(&recursive_reference(), &json!({"child": {"child": 1}}), "/definitions/node/type"; "recursive reference")]
+    #[test_case(&repeated_reference(), &json!({"a": "x", "b": "y"}), ""; "repeated reference accepted")]
+    fn reused_target_schema_location(schema: &Value, instance: &Value, expected: &str) {
+        if expected.is_empty() {
+            tests_util::is_valid(schema, instance);
+        } else {
+            tests_util::is_not_valid(schema, instance);
+            tests_util::assert_schema_location(schema, instance, expected);
+        }
     }
 
     #[test]
@@ -1939,6 +2008,30 @@ mod tests {
             }
             None => assert!(result.is_ok()),
         }
+    }
+
+    // A registered resource's `$id` is the base for its references, however the resource is reached
+    #[test_case("child.json", json!({"$id": "nested/child.json", "$ref": "../leaf.json"}); "relative id")]
+    #[test_case("child.json", json!({"$id": "file:///schemas/nested/child.json", "$ref": "../leaf.json"}); "absolute id")]
+    #[test_case("child.json#/$defs/name", json!({"$id": "nested/child.json", "$defs": {"name": {"$ref": "../leaf.json"}}}); "pointer")]
+    #[test_case("child.json#name", json!({"$id": "nested/child.json", "$defs": {"name": {"$anchor": "name", "$ref": "../leaf.json"}}}); "anchor")]
+    #[test_case("nested/child.json", json!({"$id": "nested/child.json", "$ref": "../leaf.json"}); "reached by id")]
+    fn registered_resource_id_is_reference_base(reference: &str, child: Value) {
+        let registry = crate::Registry::new()
+            .add("file:///schemas/child.json", child)
+            .expect("Invalid resource")
+            .add("file:///schemas/leaf.json", json!({"type": "string"}))
+            .expect("Invalid resource")
+            .prepare()
+            .expect("Invalid registry");
+        let validator = crate::options()
+            .with_base_uri("file:///schemas/root.json")
+            .with_registry(&registry)
+            .build(&json!({"properties": {"name": {"$ref": reference}}}))
+            .expect("Invalid schema");
+
+        assert!(validator.is_valid(&json!({"name": "hello"})));
+        assert!(!validator.is_valid(&json!({"name": 1})));
     }
 
     #[test]

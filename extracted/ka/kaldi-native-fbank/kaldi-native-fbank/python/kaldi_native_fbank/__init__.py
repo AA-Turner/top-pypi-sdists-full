@@ -105,4 +105,4 @@ __all__ = [
     "transform_features",
     "splice_frames",
 ]
-__version__ = '1.23.0'
+__version__ = '1.23.1'

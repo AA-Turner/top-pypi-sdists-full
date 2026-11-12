@@ -2250,7 +2250,8 @@ def _ddb_update(physical_id, old_props, new_props, stack_name, logical_id=None):
             if new_stream.get("StreamViewType") and "StreamEnabled" not in new_stream:
                 new_stream = {**new_stream, "StreamEnabled": True}
             data["StreamSpecification"] = new_stream
-        else:
+        elif (table.get("StreamSpecification") or {}).get("StreamEnabled"):
+            # AWS refuses to disable a stream the table doesn't have.
             data["StreamSpecification"] = {"StreamEnabled": False}
     if old_props.get("SSESpecification") != new_props.get("SSESpecification"):
         data["SSESpecification"] = new_props.get("SSESpecification") or {"Enabled": False}
@@ -11765,7 +11766,7 @@ def _ses_configuration_set_event_destination_create(logical_id, props, stack_nam
     destination = props.get("EventDestination", {}) or {}
     dest_name = destination.get("Name") or _physical_name(
         stack_name, logical_id, max_len=64)
-    # Recorded through the SES v2 API; the emulator does not deliver SES events.
+    # Recorded through the SES v2 API, so sends publish to an EventBridge destination like one made there.
     _ses_event_destination_put(config_set, dest_name, props, create=True)
     # The physical id encodes both names so delete can locate the destination.
     return f"{config_set}|{dest_name}", {"Id": dest_name}

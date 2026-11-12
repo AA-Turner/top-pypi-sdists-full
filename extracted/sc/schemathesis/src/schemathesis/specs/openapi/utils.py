@@ -5,11 +5,15 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 
 from packaging import version
 
 from schemathesis.core import string_to_boolean
-from schemathesis.core.jsonschema.types import JsonSchema, get_type, to_json_type_name
+from schemathesis.core.errors import InvalidSchema
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, resolve_bundled_ref
+from schemathesis.core.jsonschema.types import ALL_TYPES, JsonSchema, get_type, to_json_type_name
+from schemathesis.core.transport import HTTP_METHODS_SCHEMA
 
 if TYPE_CHECKING:
     from schemathesis.core.parameters import ParameterLocation
@@ -30,15 +34,35 @@ def parse_spec_version(value: str) -> version.Version:
 
 
 def parameter_types(schema: JsonSchema) -> list[str]:
-    """Types a parameter schema admits, reading `nullable` and `allowEmptyValue` wrappers through."""
+    """Types a parameter schema admits, reading wrappers like `nullable` and references into its bundle through."""
+    if isinstance(schema, dict) and "type" not in schema:
+        return _admitted_types(schema, schema.get(BUNDLE_STORAGE_KEY), frozenset())
+    return get_type(schema)
+
+
+def _admitted_types(schema: JsonSchema, bundled: object, references: frozenset[str]) -> list[str]:
     if isinstance(schema, dict) and "type" not in schema:
         if "enum" in schema:
             return [to_json_type_name(value) for value in schema["enum"]]
         if "const" in schema:
             return [to_json_type_name(schema["const"])]
+        reference = schema.get("$ref")
+        # A reference seen before is a cycle, which admits whatever the schema says beside it.
+        if isinstance(reference, str) and reference not in references:
+            target = resolve_bundled_ref(schema, bundled)
+            if target is not schema:
+                return _admitted_types(target, bundled, references | {reference})
         branches = [*schema.get("anyOf", []), *schema.get("oneOf", [])]
         if branches:
-            return [name for branch in branches for name in parameter_types(branch)]
+            return [name for branch in branches for name in _admitted_types(branch, bundled, references)]
+        all_of = schema.get("allOf", [])
+        if all_of:
+            # A value matches every branch, so only the types all of them admit remain; numbers include integers.
+            remaining = ALL_TYPES
+            for branch in all_of:
+                types = _admitted_types(branch, bundled, references)
+                remaining = [name for name in remaining if name in types or (name == "integer" and "number" in types)]
+            return remaining
     return get_type(schema)
 
 
@@ -117,3 +141,41 @@ def compile_path_template(path: str) -> PathTemplate:
     parts = _PATH_PARAMETER.split(path)
     pattern = "".join(re.escape(part) if index % 2 == 0 else "([^/]+)" for index, part in enumerate(parts))
     return PathTemplate(path=path, pattern=re.compile(pattern), names=tuple(parts[1::2]))
+
+
+def declared_methods(operation: APIOperation, sent_path: str) -> set[str]:
+    """Methods the schema routes to the sent URL, including through templated sibling paths."""
+    schema = operation.schema
+    methods = set(schema[operation.path])
+    for template in schema.path_templates:
+        if template.path == operation.path:
+            continue
+        match = template.pattern.fullmatch(sent_path)
+        if match is None:
+            continue
+        # Routers decode path segments before handing them to the handler.
+        values = {name: unquote(value) for name, value in zip(template.names, match.groups(), strict=True)}
+        path_item = schema[template.path]
+        for method in path_item:
+            if method in methods or method not in HTTP_METHODS_SCHEMA:
+                continue
+            try:
+                sibling = path_item[method]
+            except InvalidSchema:
+                continue
+            if _segments_fit_parameters(sibling, values):
+                methods.add(method)
+    return methods
+
+
+def _segments_fit_parameters(operation: APIOperation, values: dict[str, str]) -> bool:
+    # A segment the parameter schema rejects may still be routed elsewhere, so the method stays undeclared.
+    for parameter in operation.path_parameters:
+        value = values.get(parameter.name)
+        if value is None:
+            continue
+        schema = parameter.validation_schema
+        validator = make_validator(schema, parameter.adapter.jsonschema_validator_cls)
+        if not sent_text_is_valid(value, validator.is_valid, parameter_types(schema)):
+            return False
+    return True

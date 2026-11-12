@@ -531,11 +531,10 @@ def _pi05_runner_model(embodiment: Any, checkpoint_id: str, row: dict,
     if robot is None and cmd._recorded_on(embodiment, cameras, state_dim, action_dim):
         return "pi05"
     if embodiment.name in cmd.RECORDED_RUNNERS:
-        width = len(embodiment.arms) * embodiment.arm_size
         raise cmd._invalid(
             f"{checkpoint_id} wasn't fine-tuned on a {embodiment.label} recording",
-            f"`dreamscale run {embodiment.name}` runs deployments with cameras "
-            f"{', '.join(embodiment.recording_keys)} (in that order) and {width} joint values",
+            f"`dreamscale run {embodiment.name}` runs deployments with "
+            f"{embodiment.recording_words}",
             cause=f"`dreamscale run {embodiment.name}` drives {embodiment.label} only",
         )
     layout = PRESET_LAYOUTS.get(robot or "")
@@ -699,5 +698,5 @@ BASE = DeployBase(
     unavailable="pi05_deployments_unavailable", robot_presets=PRESET_LAYOUTS,
     # Fine-tunes on a LeRobot recording of these rigs (their cameras keep the recording's
     # names).
-    robots=("ur", "xarm7"),
+    robots=("ur", "xarm7", "openarm"),
 )

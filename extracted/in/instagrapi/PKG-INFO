@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 3.2.9
+Version: 3.2.10
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -439,7 +439,6 @@ Maintainer release commands:
 ```bash
 git tag -a X.Y.Z -m "Release X.Y.Z"
 git push origin X.Y.Z
-git push codeberg X.Y.Z
 ```
 
 The tag-based `publish.yml` workflow publishes to PyPI via trusted publishing and creates the GitHub release.

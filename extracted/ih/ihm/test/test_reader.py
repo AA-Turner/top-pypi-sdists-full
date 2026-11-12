@@ -622,7 +622,8 @@ _%(cat)s.smiles
 _%(cat)s.smiles_canonical
 _%(cat)s.inchi
 _%(cat)s.inchi_key
-1 EDC "test-chem-EDC" . "CCN=C=NCCCN(C)C" . test-inchi test-inchi-key
+_%(cat)s.details
+1 EDC "test-chem-EDC" . "CCN=C=NCCCN(C)C" . test-inchi test-inchi-key foo
 """ % {'cat': cat}
             for fh in cif_file_handles(cif):
                 s, = ihm.reader.read(fh)
@@ -634,6 +635,7 @@ _%(cat)s.inchi_key
                 self.assertIsNone(d1.smiles_canonical)
                 self.assertEqual(d1.inchi, 'test-inchi')
                 self.assertEqual(d1.inchi_key, 'test-inchi-key')
+                self.assertEqual(d1.details, 'foo')
 
     def test_entity_handler(self):
         """Test EntityHandler"""
@@ -816,17 +818,18 @@ _struct_ref.entity_id
 _struct_ref.db_name
 _struct_ref.db_code
 _struct_ref.pdbx_db_accession
+_struct_ref.pdbx_db_isoform
 _struct_ref.pdbx_align_begin
 _struct_ref.pdbx_seq_one_letter_code
 _struct_ref.details
-1 1 UNP NUP84_YEAST P52891 3
+1 1 UNP NUP84_YEAST P52891 P52891-2 3
 ;LSP
 TYQT
 ;
 'test sequence'
-2 1 MyDatabase testcode testacc 1 MEL 'other sequence'
-3 1 MyDatabase testcode2 testacc2 1 . 'other sequence'
-4 1 MyDatabase testcode3 testacc3 1 ? 'other sequence'
+2 1 MyDatabase testcode testacc . 1 MEL 'other sequence'
+3 1 MyDatabase testcode2 testacc2 . 1 . 'other sequence'
+4 1 MyDatabase testcode3 testacc3 . 1 ? 'other sequence'
 #
 #
 loop_
@@ -870,6 +873,8 @@ _struct_ref_seq_dif.details
                 self.assertEqual(r1.db_name, 'UNP')
                 self.assertEqual(r1.db_code, 'NUP84_YEAST')
                 self.assertEqual(r1.accession, 'P52891')
+                self.assertEqual(r1.isoform, 'P52891-2')
+                self.assertIsNone(r2.isoform)
                 self.assertEqual(r1.sequence, '--LSPTYQT')
                 self.assertEqual(r1.details, 'test sequence')
                 self.assertIsNone(r3.sequence)
@@ -1394,8 +1399,10 @@ _ihm_model_representation_details.model_object_count
 _ihm_model_representation_details.description
 1 1 1 Nup84 A 1 sphere . flexible by-feature 1 'test segment'
 2 1 1 Nup84 A 2 sphere 1 rigid by-residue . .
-3 2 1 Nup84 A . atomistic . flexible by-atom . .
-4 3 2 Nup85 B . sphere . . multi-residue . .
+3 2 1 Nup84 A . atomistic . . by-atom . .
+4 3 2 Nup85 B . sphere . ? multi-residue . .
+5 3 2 Nup85 B . sphere . ? ? 42 "unknown granularity"
+6 3 2 Nup85 B . sphere . ? . 42 "omitted granularity"
 """
         # Order of categories should not matter
         for cif in (range_cif + repr_cif, repr_cif + range_cif):
@@ -1426,11 +1433,15 @@ _ihm_model_representation_details.description
                 s1, = r2
                 self.assertEqual(s1.__class__,
                                  ihm.representation.AtomicSegment)
+                self.assertIsNone(s1.rigid)
 
-                self.assertEqual(len(r3), 1)
-                s1, = r3
+                self.assertEqual(len(r3), 3)
+                s1, s2, s3 = r3
                 self.assertEqual(s1.__class__,
                                  ihm.representation.MultiResidueSegment)
+                self.assertIs(s1.rigid, ihm.unknown)
+                self.assertIs(s2.granularity, ihm.unknown)
+                self.assertIsNone(s3.granularity, 'x')
 
     def test_starting_model_details_handler(self):
         """Test StartingModelDetailsHandler"""
@@ -1456,12 +1467,13 @@ _ihm_starting_model_details.dataset_list_id
 _ihm_starting_model_details.description
 1 1 Nup84 A 1 'comparative model' Q 8 4 .
 2 1 Nup84 A . 'comparative model' X . . 'test desc'
+3 1 Nup84 A . 'comparative model' X ? . .
 """
         # Order of the two categories shouldn't matter
         for cif in ps_cif + sm_cif, sm_cif + ps_cif:
             for fh in cif_file_handles(cif):
                 s, = ihm.reader.read(fh)
-                m1, m2 = s.orphan_starting_models
+                m1, m2, m3 = s.orphan_starting_models
                 self.assertEqual(m1.asym_unit._id, 'A')
                 self.assertEqual(m1.asym_unit.seq_id_range, (7, 483))
                 self.assertEqual(m1.asym_id, 'Q')
@@ -1474,6 +1486,8 @@ _ihm_starting_model_details.description
                 self.assertEqual(m2.offset, 0)
                 self.assertIsNone(m2.dataset)
                 self.assertEqual(m2.description, 'test desc')
+
+                self.assertEqual(m3.offset, 0)
 
     def test_starting_computational_models_handler(self):
         """Test StartingComputationModelsHandler"""
@@ -1520,12 +1534,13 @@ _ihm_starting_comparative_models.template_sequence_identity
 _ihm_starting_comparative_models.template_sequence_identity_denominator
 _ihm_starting_comparative_models.template_dataset_list_id
 _ihm_starting_comparative_models.alignment_file_id
-1 1 A 7 436 C 9 438 90.000 1 3 2
-2 1 A 33 424 C 33 424 100.000 1 1 .
-3 1 A 33 424 C . ? 100.000 1 1 .
-4 1 A . . C . . . . 1 .
-5 2 A 33 424 C . ? 100.000 1 1 .
-6 2 A . . C . ? 100.000 1 1 .
+_ihm_starting_comparative_models.details
+1 1 A 7 436 C 9 438 90.000 1 3 2 foo
+2 1 A 33 424 C 33 424 100.000 1 1 . .
+3 1 A 33 424 C . ? 100.000 1 1 . .
+4 1 A . . C . . . . 1 . .
+5 2 A 33 424 C . ? 100.000 1 1 . .
+6 2 A . . C . ? 100.000 1 1 . .
 """
         for fh in cif_file_handles(cif):
             s, = ihm.reader.read(fh)
@@ -1539,7 +1554,9 @@ _ihm_starting_comparative_models.alignment_file_id
                                    delta=0.1)
             self.assertEqual(t1.sequence_identity.denominator, 1)
             self.assertEqual(t1.alignment_file._id, '2')
+            self.assertEqual(t1.details, 'foo')
             self.assertIsNone(t2.alignment_file)
+            self.assertIsNone(t2.details)
             self.assertEqual(t3.template_seq_id_range, (None, ihm.unknown))
             self.assertEqual(t4.seq_id_range, (None, None))
             self.assertEqual(t4.template_seq_id_range, (None, None))
@@ -1636,8 +1653,8 @@ _ihm_modeling_post_process.script_file_id
 _ihm_modeling_post_process.details
 1  1   1   1   'filter'  'energy/score'  15000   6520 . . 401 501 .
 2  1   1   2   'cluster' 'invalid'       6520    6520 . . . . .
-3  1   2   1   'filter'  'energy/score'  16000   7520 . . . . .
-4  1   2   2   'filter'  'composition'   7520    5520 . . . . .
+3  1   2   1   .         'energy/score'  16000   7520 . . . . .
+4  1   2   2   ?         'composition'   7520    5520 . . . . .
 5  1   2   3   'cluster' 'dRMSD'         5520    6520 . . . . .
 6  2   1   1   'filter'  'energy/score'  17000   6520 . . 401 501 .
 7  3   1   1   'none' .         .    . . . . . 'empty step'
@@ -1668,6 +1685,9 @@ _ihm_modeling_post_process.details
             self.assertIsNone(a1.steps[1].script_file)
             self.assertIsNone(a1.steps[1].details)
             self.assertEqual(len(a2.steps), 3)
+            # . or ? types should map to 'other'
+            self.assertEqual(a2.steps[0].type, 'other')
+            self.assertEqual(a2.steps[1].type, 'other')
             self.assertEqual([step.num_models_begin for step in a2.steps],
                              [16000, 7520, 5520])
 
@@ -1816,13 +1836,15 @@ loop_
 _ihm_multi_state_modeling.state_id
 _ihm_multi_state_modeling.state_group_id
 _ihm_multi_state_modeling.population_fraction
+_ihm_multi_state_modeling.population_fraction_sd
 _ihm_multi_state_modeling.state_type
 _ihm_multi_state_modeling.state_name
 _ihm_multi_state_modeling.experiment_type
 _ihm_multi_state_modeling.details
-1 1 0.4 'complex formation' 'unbound' 'Fraction of bulk'  'unbound molecule 1'
-2 1 .  'complex formation' 'unbound' 'Fraction of bulk'  'unbound molecule 2'
-3 1 .  'complex formation' 'bound' 'Fraction of bulk'
+1 1 0.4 0.1 'complex formation' 'unbound' 'Fraction of bulk'
+'unbound molecule 1'
+2 1 . . 'complex formation' 'unbound' 'Fraction of bulk'  'unbound molecule 2'
+3 1 . . 'complex formation' 'bound' 'Invalid experiment type'
 'bound molecules 1 and 2'
 #
 loop_
@@ -1838,6 +1860,7 @@ _ihm_multi_state_model_group_link.model_group_id
             sg, = s.state_groups
             s1, s2, s3, = sg
             self.assertAlmostEqual(s1.population_fraction, 0.4, delta=0.1)
+            self.assertAlmostEqual(s1.population_fraction_sd, 0.1, delta=0.1)
             self.assertEqual(s1.type, 'complex formation')
             self.assertEqual(s1.name, 'unbound')
             self.assertEqual(len(s1), 1)
@@ -1847,8 +1870,10 @@ _ihm_multi_state_model_group_link.model_group_id
             self.assertEqual(s1.details, 'unbound molecule 1')
 
             self.assertIsNone(s2.population_fraction)
+            self.assertIsNone(s2.population_fraction_sd)
             self.assertEqual(len(s2), 1)
             self.assertEqual(len(s3), 2)
+            self.assertEqual(s3.experiment_type, 'Invalid experiment type')
 
     def test_not_modeled_residue_range_handler(self):
         """Test NotModeledResidueRangeHandler"""
@@ -1864,9 +1889,10 @@ _ihm_residues_not_modeled.seq_id_end
 _ihm_residues_not_modeled.comp_id_begin
 _ihm_residues_not_modeled.comp_id_end
 _ihm_residues_not_modeled.reason
-1 1 Nup84 9 X 1 2 ALA CYS .
-2 1 Nup84 9 X 3 4 GLY THR 'Highly variable models with poor precision'
-3 1 Nup84 9 X 5 6 ALA CYS INVALID
+_ihm_residues_not_modeled.details
+1 1 Nup84 9 X 1 2 ALA CYS . .
+2 1 Nup84 9 X 3 4 GLY THR 'Highly variable models with poor precision' foo
+3 1 Nup84 9 X 5 6 ALA CYS INVALID .
 #
 """
         for fh in cif_file_handles(cif):
@@ -1877,11 +1903,13 @@ _ihm_residues_not_modeled.reason
             self.assertEqual(rr1.seq_id_begin, 1)
             self.assertEqual(rr1.seq_id_end, 2)
             self.assertIsNone(rr1.reason)
+            self.assertIsNone(rr1.details)
             self.assertEqual(rr2.asym_unit._id, 'X')
             self.assertEqual(rr2.seq_id_begin, 3)
             self.assertEqual(rr2.seq_id_end, 4)
             self.assertEqual(rr2.reason,
                              "Highly variable models with poor precision")
+            self.assertEqual(rr2.details, 'foo')
             self.assertEqual(rr3.reason, "Other")
 
     def test_ensemble_handler(self):
@@ -2670,6 +2698,35 @@ HETATM 2 C C . BGC . 53 ? A 10.000 10.000 10.000 . 1 A . 1 1
                          {1: 501, 2: 502, 3: 503})
         self.assertEqual(a1.asym_unit.num_map, {1: 2, 2: 3})
 
+    def test_derived_distance_restraint_handler_harmonic(self):
+        """Test DerivedDistanceRestraintHandler with threshold mean/esd"""
+        rsr = """
+loop_
+_ihm_derived_distance_restraint.id
+_ihm_derived_distance_restraint.feature_id_1
+_ihm_derived_distance_restraint.feature_id_2
+_ihm_derived_distance_restraint.restraint_type
+_ihm_derived_distance_restraint.distance_lower_limit
+_ihm_derived_distance_restraint.distance_upper_limit
+_ihm_derived_distance_restraint.distance_threshold_mean
+_ihm_derived_distance_restraint.distance_threshold_esd
+1 1 2 harmonic . . 6.400 0.500
+2 1 2 harmonic 35.000 35.000 30.000 .
+3 1 2 harmonic . 35.000 . .
+"""
+        s, = ihm.reader.read(StringIO(rsr))
+        r1, r2, r3 = s.restraints
+        for r in r1, r2, r3:
+            self.assertIsInstance(r.distance,
+                                  ihm.restraint.HarmonicDistanceRestraint)
+        # Distance should be taken from the threshold mean if present,
+        # otherwise from the lower or upper limit
+        self.assertAlmostEqual(r1.distance.distance, 6.400, delta=0.1)
+        self.assertAlmostEqual(r1.distance.esd, 0.500, delta=0.1)
+        self.assertAlmostEqual(r2.distance.distance, 30.000, delta=0.1)
+        self.assertIsNone(r2.distance.esd)
+        self.assertAlmostEqual(r3.distance.distance, 35.000, delta=0.1)
+
     def test_derived_distance_restraint_handler(self):
         """Test DerivedDistanceRestraintHandler"""
         feats = """
@@ -2759,15 +2816,18 @@ _ihm_derived_distance_restraint.feature_id_2
 _ihm_derived_distance_restraint.restraint_type
 _ihm_derived_distance_restraint.distance_lower_limit
 _ihm_derived_distance_restraint.distance_upper_limit
+_ihm_derived_distance_restraint.distance_lower_limit_esd
+_ihm_derived_distance_restraint.distance_upper_limit_esd
 _ihm_derived_distance_restraint.probability
 _ihm_derived_distance_restraint.mic_value
+_ihm_derived_distance_restraint.random_exclusion_fraction
 _ihm_derived_distance_restraint.group_conditionality
 _ihm_derived_distance_restraint.dataset_list_id
-1 . 1 2 'lower bound' 25.000 . 0.800 0.400 . 97
-2 . 1 4 'upper bound' . 45.000 0.800 . ALL 98
-3 1 1 2 'lower and upper bound' 22.000 45.000 0.800 . ANY 99
-4 1 5 3 'harmonic' 35.000 35.000 0.800 . ALL .
-5 . 6 3 . ? ? ? . ALL .
+1 . 1 2 'lower bound' 25.000 . 1.500 . 0.800 0.400 0.500 . 97
+2 . 1 4 'upper bound' . 45.000 . 2.500 0.800 . . ALL 98
+3 1 1 2 'lower and upper bound' 22.000 45.000 1.000 2.000 0.800 . . ANY 99
+4 1 5 3 'harmonic' 35.000 35.000 . . 0.800 . . ALL .
+5 . 6 3 . ? ? ? ? ? . ? ? .
 """
         # Test both ways to make sure features still work if they are
         # referenced by ID before their type is known, or if ResidueFeature
@@ -2805,11 +2865,15 @@ _ihm_derived_distance_restraint.dataset_list_id
             self.assertIsInstance(r1.distance,
                                   ihm.restraint.LowerBoundDistanceRestraint)
             self.assertAlmostEqual(r1.distance.distance, 25.000, delta=0.1)
+            self.assertAlmostEqual(r1.distance.esd, 1.500, delta=0.1)
             self.assertAlmostEqual(r1.probability, 0.8000, delta=0.1)
             self.assertAlmostEqual(r1.mic_value, 0.4000, delta=0.1)
+            self.assertAlmostEqual(r1.random_exclusion_fraction, 0.5000,
+                                   delta=0.1)
             self.assertIsNone(r1.restrain_all)
             self.assertEqual(r2.restrain_all, True)
             self.assertEqual(r3.restrain_all, False)
+            self.assertIs(r5.restrain_all, ihm.unknown)
             self.assertIsInstance(r2.feature2,
                                   ihm.restraint.NonPolyFeature)
             self.assertEqual(len(r2.feature2.objs), 2)
@@ -2818,11 +2882,19 @@ _ihm_derived_distance_restraint.dataset_list_id
             self.assertIsInstance(r2.feature2.objs[1], ihm.Entity)
             self.assertIsInstance(r2.distance,
                                   ihm.restraint.UpperBoundDistanceRestraint)
+            self.assertAlmostEqual(r2.distance.esd, 2.500, delta=0.1)
             self.assertIsNone(r2.mic_value)
+            self.assertIsNone(r2.random_exclusion_fraction)
             self.assertIsInstance(
                 r3.distance, ihm.restraint.LowerUpperBoundDistanceRestraint)
+            self.assertAlmostEqual(r3.distance.distance_lower_limit_esd,
+                                   1.000, delta=0.1)
+            self.assertAlmostEqual(r3.distance.distance_upper_limit_esd,
+                                   2.000, delta=0.1)
             self.assertIsInstance(r4.distance,
                                   ihm.restraint.HarmonicDistanceRestraint)
+            self.assertAlmostEqual(r4.distance.distance, 35.000, delta=0.1)
+            self.assertIsNone(r4.distance.esd)
             self.assertIsInstance(r4.feature2,
                                   ihm.restraint.AtomFeature)
             self.assertIsNone(r4.feature2.atoms[0].residue.entity)
@@ -3071,13 +3143,15 @@ _ihm_geometric_object_distance_restraint.object_characteristic
 _ihm_geometric_object_distance_restraint.restraint_type
 _ihm_geometric_object_distance_restraint.harmonic_force_constant
 _ihm_geometric_object_distance_restraint.distance_lower_limit
+_ihm_geometric_object_distance_restraint.distance_lower_limit_esd
 _ihm_geometric_object_distance_restraint.distance_upper_limit
+_ihm_geometric_object_distance_restraint.distance_upper_limit_esd
 _ihm_geometric_object_distance_restraint.group_conditionality
 _ihm_geometric_object_distance_restraint.dataset_list_id
-1 23 44 other 'upper bound' 2.000 . 25.000 ANY 97
-2 23 44 center 'lower bound' 2.000 15.000 . ALL .
-3 23 44 'inner surface' 'lower and upper bound' 2.000 10.000 25.000 . 97
-4 23 44 'outer surface' 'harmonic' 2.000 . 25.000 . 97
+1 23 44 other 'upper bound' 2.000 . . 25.000 1.000 ANY 97
+2 23 44 center 'lower bound' 2.000 15.000 2.000 . . ALL .
+3 23 44 'inner surface' 'lower and upper bound' 2.000 10.000 . 25.000 . . 97
+4 23 44 'outer surface' 'harmonic' 2.000 . . 25.000 . ? 97
 #
 """)
         s, = ihm.reader.read(fh)
@@ -3089,10 +3163,14 @@ _ihm_geometric_object_distance_restraint.dataset_list_id
         self.assertIsInstance(r1.distance,
                               ihm.restraint.UpperBoundDistanceRestraint)
         self.assertAlmostEqual(r1.distance.distance, 25.000, delta=0.1)
+        self.assertAlmostEqual(r1.distance.esd, 1.000, delta=0.1)
         self.assertAlmostEqual(r1.harmonic_force_constant, 2.000, delta=0.1)
         self.assertEqual(r1.restrain_all, False)
         self.assertEqual(r2.restrain_all, True)
         self.assertIsNone(r3.restrain_all)
+        self.assertIs(r4.restrain_all, ihm.unknown)
+        self.assertAlmostEqual(r2.distance.distance, 15.000, delta=0.1)
+        self.assertAlmostEqual(r2.distance.esd, 2.000, delta=0.1)
 
         self.assertIsInstance(r2, ihm.restraint.CenterGeometricRestraint)
         self.assertIsInstance(r3, ihm.restraint.InnerSurfaceGeometricRestraint)
@@ -3604,6 +3682,9 @@ _ihm_cross_link_restraint.sigma_1
 _ihm_cross_link_restraint.sigma_2
 1 1 1 A 2 THR 1 B 3 CYS . . 'upper bound' ALL by-residue 25.000 0.500 1.000
 2.000
+2 1 1 A 2 THR 1 B 3 CYS . . 'upper bound' ANY by-residue 25.0 0.5 1.0 2.0
+3 1 1 A 2 THR 1 B 3 CYS . . 'upper bound' . by-residue 25.0 0.5 1.0 2.0
+4 1 1 A 2 THR 1 B 3 CYS . . 'upper bound' ? by-residue 25.0 0.5 1.0 2.0
 """
         xl_fit = """
 loop_
@@ -3633,7 +3714,7 @@ _ihm_cross_link_result.details
             fh = StringIO(text)
             s, = ihm.reader.read(fh)
             r, = s.restraints
-            xl, = r.cross_links
+            xl, xl2, xl3, xl4, = r.cross_links
             # Sort fits by ID
             fits = sorted(xl.fits.items(), key=lambda x: x[0]._id)
             self.assertEqual(len(fits), 4)
@@ -3642,6 +3723,11 @@ _ihm_cross_link_result.details
             self.assertAlmostEqual(fits[0][1].psi, 0.100, delta=0.1)
             self.assertAlmostEqual(fits[0][1].sigma1, 4.200, delta=0.1)
             self.assertAlmostEqual(fits[0][1].sigma2, 2.100, delta=0.1)
+
+            self.assertEqual(xl.restrain_all, True)
+            self.assertEqual(xl2.restrain_all, False)
+            self.assertIsNone(xl3.restrain_all)
+            self.assertIs(xl4.restrain_all, ihm.unknown)
 
             self.assertEqual(fits[1][0]._id, '301')
             self.assertIsInstance(fits[1][0], ihm.model.Model)
@@ -4175,12 +4261,9 @@ _ihm_kinetic_rate.scheme_connectivity_id
 _ihm_kinetic_rate.dataset_group_id
 _ihm_kinetic_rate.external_file_id
 1 3.0 . . . 'rate1' 1 4 5
-2 . 6.5 'equilibrium constant is determined from population' . 'rate2' 2  . .
-3 7.0 . . . 'rate3' 3 8 9
-4 . 8.5 'equilibrium constant is determined from kinetic rates, kAB/kBA'
- 'unit' 'rate4' 4 . .
-5 . 9.5 'equilibrium constant is determined from another method not listed' .
- 'rate5' 5 . .
+2 . 6.5 'from population' . 'rate2' 2  . . 3 7.0 . . . 'rate3' 3 8 9
+4 . 8.5 'from kinetic rates' 'unit' 'rate4' 4 . .
+5 . 9.5 other . 'rate5' 5 . .
 """
         # Order of categories should not matter
         for cif in (mss_cif + rate_cif, rate_cif + mss_cif):
@@ -4210,8 +4293,7 @@ _ihm_kinetic_rate.external_file_id
                     ihm.multi_state_scheme.PopulationEquilibriumConstant)
                 self.assertEqual(k2.equilibrium_constant.value, '6.5')
                 self.assertEqual(
-                    k2.equilibrium_constant.method,
-                    'equilibrium constant is determined from population')
+                    k2.equilibrium_constant.method, 'from population')
                 self.assertIsNone(k2.equilibrium_constant.unit)
                 self.assertEqual(k2.details, 'rate2')
                 self.assertIsNone(k2.dataset_group)
@@ -4237,9 +4319,7 @@ _ihm_kinetic_rate.external_file_id
                     ihm.multi_state_scheme.KineticRateEquilibriumConstant)
                 self.assertEqual(k4.equilibrium_constant.value, '8.5')
                 self.assertEqual(
-                    k4.equilibrium_constant.method,
-                    'equilibrium constant is determined from kinetic '
-                    'rates, kAB/kBA')
+                    k4.equilibrium_constant.method, 'from kinetic rates')
                 self.assertEqual(k4.equilibrium_constant.unit, 'unit')
                 self.assertEqual(k4.details, 'rate4')
                 self.assertIsNone(k4.dataset_group)
@@ -4253,9 +4333,7 @@ _ihm_kinetic_rate.external_file_id
                     ihm.multi_state_scheme.EquilibriumConstant)
                 self.assertEqual(k5.equilibrium_constant.value, '9.5')
                 self.assertEqual(
-                    k5.equilibrium_constant.method,
-                    'equilibrium constant is determined from another '
-                    'method not listed')
+                    k5.equilibrium_constant.method, 'other')
                 self.assertIsNone(k5.equilibrium_constant.unit)
                 self.assertEqual(k5.details, 'rate5')
                 self.assertIsNone(k5.dataset_group)

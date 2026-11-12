@@ -78,6 +78,8 @@ class RecordedRunOptions(BaseModel):
 
   group_size: int | None = None
 
+  shuffle_tasks: bool | None = None
+
   priority_trait: PriorityTrait | None = None
 
   priority_aggregation: PriorityAggregation | None = None
@@ -103,3 +105,5 @@ class RecordedRunOptions(BaseModel):
   max_output_tokens_per_trajectory: int | None = None
 
   max_turns_per_trajectory: int | None = None
+
+  image_max_pixels: int | None = None

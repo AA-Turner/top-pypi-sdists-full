@@ -210,6 +210,28 @@ def safe_read_file(filepath, timeout_seconds=FIFO_READ_TIMEOUT_SECONDS):
 
 # Functions used by main method only
 
+def _find_connector_instances(module):
+    connector_instances = {}
+    for obj, obj_attr in vars(module).items():
+        if not obj.startswith('__'):  # Exclude built-in attributes
+            obj_type = type(obj_attr)
+            if obj_type.__name__ == 'Connector' and obj_type.__module__ == CONNECTOR_MODULE:
+                connector_instances[obj] = obj_attr
+    return connector_instances
+
+
+def _log_connector_load_error(e):
+    tb = traceback.extract_tb(e.__traceback__)
+    last_frame = tb[-1] if tb else None
+    location = f"at {last_frame.filename}, line {last_frame.lineno}\n" if last_frame else ""
+    # Only a TypeError comes from how the Connector is declared, which the reference covers
+    reference = ("\nreference: https://fivetran.com/docs/connector-sdk/technical-reference/"
+                 "connector-sdk-required-declarations#requiredobjectconnector") if isinstance(e, TypeError) else ""
+    print_library_log(
+        f"error in connector.py {location}{e if isinstance(e, TypeError) else f'{type(e).__name__}: {e}'}{reference}",
+        Logging.Level.SEVERE)
+
+
 def find_connector_object(project_path):
     """Finds the connector object in the given project path.
     Args:
@@ -226,12 +248,7 @@ def find_connector_object(project_path):
         spec.loader.exec_module(module)
         # Use type name + module check instead of isinstance to avoid circular import
         # (Connector is defined in __init__.py which imports this file).
-        connector_instances = {}
-        for obj, obj_attr in vars(module).items():
-            if not obj.startswith('__'):  # Exclude built-in attributes
-                obj_type = type(obj_attr)
-                if obj_type.__name__ == 'Connector' and obj_type.__module__ == CONNECTOR_MODULE:
-                    connector_instances[obj] = obj_attr
+        connector_instances = _find_connector_instances(module)
         # The variable must be named 'connector' because production runs: from connector import connector
         if 'connector' in connector_instances:
             return connector_instances['connector']
@@ -251,15 +268,7 @@ def find_connector_object(project_path):
             Logging.Level.SEVERE)
         return None
     except Exception as e:  # connector.py itself fails to load: a TypeError in Connector(...), a SyntaxError, a bad import
-        tb = traceback.extract_tb(e.__traceback__)
-        last_frame = tb[-1] if tb else None
-        location = f"at {last_frame.filename}, line {last_frame.lineno}\n" if last_frame else ""
-        # Only a TypeError comes from how the Connector is declared, which the reference covers
-        reference = ("\nreference: https://fivetran.com/docs/connector-sdk/technical-reference/"
-                     "connector-sdk-required-declarations#requiredobjectconnector") if isinstance(e, TypeError) else ""
-        print_library_log(
-            f"error in connector.py {location}{e if isinstance(e, TypeError) else f'{type(e).__name__}: {e}'}{reference}",
-            Logging.Level.SEVERE)
+        _log_connector_load_error(e)
         return None
 
     print_library_log(
@@ -427,6 +436,20 @@ def validate_and_load_configuration(project_path, configuration):
     return decrypt_configuration_values(configuration)
 
 
+def _read_state_file(json_filepath):
+    try:
+        content = safe_read_file(json_filepath)
+        state = json.loads(content)
+        if not isinstance(state, dict):
+            raise ValueError(f"State file {json_filepath} must hold a JSON object")
+        return state
+    except TimeoutError as e:
+        raise ValueError(str(e)) from e
+    except OSError as e:
+        raise ValueError(
+            f"Cannot read state file at {json_filepath}: {e}") from e
+
+
 def validate_and_load_state(args, state):
     if state:
         json_filepath = os.path.abspath(os.path.join(args.project_path, state))
@@ -436,16 +459,7 @@ def validate_and_load_state(args, state):
     if os.path.exists(json_filepath):
         # Support both regular files and pipes/FIFOs (os.path.isfile returns False for pipes)
         if is_regular_file_or_fifo(json_filepath):
-            try:
-                content = safe_read_file(json_filepath)
-                state = json.loads(content)
-                if not isinstance(state, dict):
-                    raise ValueError(f"State file {json_filepath} must hold a JSON object")
-            except TimeoutError as e:
-                raise ValueError(str(e)) from e
-            except OSError as e:
-                raise ValueError(
-                    f"Cannot read state file at {json_filepath}: {e}") from e
+            state = _read_state_file(json_filepath)
         else:
             raise ValueError(
                 f"State path is incorrect, cannot find file at the location {json_filepath}")

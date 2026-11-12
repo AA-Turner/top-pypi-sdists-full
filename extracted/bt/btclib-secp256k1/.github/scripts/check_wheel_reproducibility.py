@@ -33,7 +33,7 @@ the checkout is not part of what either build sees, since it is not
 part of the commit the question is about.
 
 Two directories are still one environment, and `#514` is the other
-half: section 12 of the organization standard says the wheels do not
+half: section 12 of the organization's standard says the wheels do not
 reproduce because the compiler, its version and the toolchain the
 runner happened to have are unpinned inputs, and `RELEASING.md` says
 the same of a rebuild on a second image -- which is a claim about two
@@ -670,8 +670,7 @@ def compare_one_platform(platform: Path, *, across_toolchains: bool) -> list[str
     complaints: list[str] = []
     wheels: dict[str, list[Path]] = {}
     for image in sorted(path for path in platform.iterdir() if path.is_dir()):
-        found = sorted(image.glob("*.whl"))
-        if found:
+        if found := sorted(image.glob("*.whl")):
             wheels[image.name] = found
         else:
             complaints.append(f"{image.name} left no wheel")
@@ -730,8 +729,9 @@ def compare_across_images(root: Path, *, across_toolchains: bool = False) -> int
     )
     failed = False
     for platform in platforms:
-        complaints = compare_one_platform(platform, across_toolchains=across_toolchains)
-        if complaints:
+        if complaints := compare_one_platform(
+            platform, across_toolchains=across_toolchains
+        ):
             failed = True
             for complaint in complaints:
                 print(f"::error::{platform.name}: {complaint}", file=sys.stderr)

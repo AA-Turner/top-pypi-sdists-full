@@ -4,7 +4,7 @@ import tempfile
 from typing import Optional, Tuple
 
 from fivetran_connector_sdk_common import constants
-from fivetran_connector_sdk_cli.connector_helper import validate_connection_name, validate_naming, validate_proxy_id
+from fivetran_connector_sdk_cli.connector_helper import flag_name, reject_empty, validate_connection_name, validate_naming, validate_proxy_id
 from fivetran_connector_sdk_common.helpers import config_root_dir, print_library_log
 from fivetran_connector_sdk_common.logger import Logging
 
@@ -12,6 +12,10 @@ from fivetran_connector_sdk_common.logger import Logging
 def _exit_options_file_error(message: str) -> None:
     print_library_log(message, Logging.Level.SEVERE)
     sys.exit(1)
+
+
+def is_blank_string(value) -> bool:
+    return isinstance(value, str) and not value.strip()
 
 
 def default_options_file_path() -> str:
@@ -44,10 +48,11 @@ def find_options_file(args) -> Optional[str]:
     explicit_path = getattr(args, "options_file", None)
     if explicit_path:
         explicit_path = os.path.expanduser(explicit_path)
-        _require_existing_path(explicit_path, "--options-file")
+        _require_existing_path(explicit_path, flag_name("options_file"))
         return explicit_path
 
-    env_path = os.getenv(constants.FIVETRAN_OPTIONS_FILE_ENV, None)
+    env_path = reject_empty(os.getenv(constants.FIVETRAN_OPTIONS_FILE_ENV, None),
+                            f"{constants.FIVETRAN_OPTIONS_FILE_ENV} environment variable")
     if env_path:
         env_path = os.path.expanduser(env_path)
         _require_existing_path(env_path, constants.FIVETRAN_OPTIONS_FILE_ENV)
@@ -121,12 +126,23 @@ def load_options_file(path: str) -> dict:
     return _flatten_profiles(_read_toml(path, f"options file '{path}'"))
 
 
+class _Profiles(dict):
+    """Flat profiles keyed by name, plus `nested_parents`: the names that had nested tables in the
+    parsed TOML. Name prefixes can't tell these from independent quoted names (`["a"]`, `["a.b"]`),
+    and a parent with no scalar keys gets no entry of its own.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.nested_parents = set()
+
+
 def _flatten_profiles(data: dict) -> dict:
     """Flattens nested TOML tables into flat profile keys -- a hand-written dotted header
     (e.g. `[warehouse_a.connection_a]`) parses as nested tables unless quoted, so this
     normalizes both forms to the same flat-key shape `select_profile` expects.
     """
-    flattened = {}
+    flattened = _Profiles()
     seen_prefixes = set()
     for key, value in data.items():
         if not isinstance(value, dict):
@@ -137,7 +153,7 @@ def _flatten_profiles(data: dict) -> dict:
     return flattened
 
 
-def _flatten_profile_entry(prefix: str, value: dict, flattened: dict, seen_prefixes: set) -> None:
+def _flatten_profile_entry(prefix: str, value: dict, flattened: _Profiles, seen_prefixes: set) -> None:
     """Recurses into nested tables (dotted headers like `[a.b]`) into flat profile keys.
     A dict-valued key is only promoted to a sub-profile if it isn't a managed field name --
     managed fields are always strings, so e.g. `destination = {foo = "x"}` is left as the
@@ -149,6 +165,8 @@ def _flatten_profile_entry(prefix: str, value: dict, flattened: dict, seen_prefi
     seen_prefixes.add(prefix)
 
     nested_keys = {key for key, v in value.items() if isinstance(v, dict)}
+    if nested_keys:
+        flattened.nested_parents.add(prefix)
     if nested_keys and not (nested_keys & constants.MANAGED_OPTIONS_FIELDS):
         for key, sub_value in value.items():
             if isinstance(sub_value, dict):
@@ -159,8 +177,26 @@ def _flatten_profile_entry(prefix: str, value: dict, flattened: dict, seen_prefi
         flattened[prefix] = value
 
 
-def _validate_profile_fields(profile_name: str, options: dict, options_path: Optional[str] = None) -> None:
-    # Rejects a stored `api_key` and any key outside the managed fields.
+def _validate_locally_validated_fields(options: dict) -> None:
+    # connection, naming, and proxy_id get the same shared local validation a CLI-provided value
+    # would (see connector_helper.py's validate_connection_name/validate_naming/validate_proxy_id,
+    # also used by get_connection_name/get_proxy_id); the remaining fields are validated by the
+    # API server, so the generic type check in _validate_profile_fields is enough for them. The validated value is
+    # written back -- these validators coerce a non-string TOML value (e.g. proxy_id = 123) to
+    # str and strip/normalize it, and callers must see that normalized value, not the raw one.
+    # A blank string is left as-is: whether it is an error depends on whether the field is used
+    # (a CLI/env value may shadow it), so resolution.py's `_resolve` decides when it is consumed.
+    for key, validator in (("connection", validate_connection_name), ("naming", validate_naming),
+                           ("proxy_id", validate_proxy_id)):
+        if key in options and not is_blank_string(options[key]):
+            options[key] = validator(options[key])
+
+
+def _validate_profile_fields(profile_name: str, options_data: dict) -> None:
+    # Rejects nested fields, a stored `api_key` and any key outside the managed fields. Runs for the selected
+    # profile even when it has no entry of its own (e.g. a profile holding only dotted keys), validating {}.
+    _reject_nested_fields(options_data, profile_name)
+    options = options_data.get(profile_name, {})
     if constants.API_KEY_FIELD in options:
         _exit_options_file_error(
             f"profile '{profile_name}' in the options file contains 'api_key'; api_key must "
@@ -180,23 +216,7 @@ def _validate_profile_fields(profile_name: str, options: dict, options_path: Opt
             f"profile '{profile_name}' in the options file has multi-line value(s) for "
             f"{multiline}; options file values must be single-line strings")
 
-    # connection, naming, and proxy_id get the same shared local validation a CLI-provided value
-    # would (see connector_helper.py's validate_connection_name/validate_naming/validate_proxy_id,
-    # also used by get_connection_name/get_proxy_id); the remaining fields are validated by the
-    # API server, so the generic type check below is enough for them. The validated value is
-    # written back -- these validators coerce a non-string TOML value (e.g. proxy_id = 123) to
-    # str and strip/normalize it, and callers must see that normalized value, not the raw one.
-    if "connection" in options:
-        options["connection"] = validate_connection_name(options["connection"])
-    if "naming" in options:
-        options["naming"] = validate_naming(options["naming"])
-    if "proxy_id" in options:
-        if options["proxy_id"] is not None and not str(options["proxy_id"]).strip():
-            location = f"options file {options_path}" if options_path else "the options file"
-            _exit_options_file_error(
-                f"proxy_id is empty in {location}, profile [{profile_name}]; provide a valid "
-                "Proxy Agent ID or remove it")
-        options["proxy_id"] = validate_proxy_id(options["proxy_id"])
+    _validate_locally_validated_fields(options)
 
     locally_validated = {"connection", "naming", "proxy_id"}
     non_string = sorted(
@@ -208,6 +228,28 @@ def _validate_profile_fields(profile_name: str, options: dict, options_path: Opt
             f"{non_string}; options file values must be strings")
 
 
+def _reject_nested_fields(options_data: dict, profile_name: str) -> None:
+    """Profile fields are flat keys directly under the profile. A dotted key (`proxy.host_config_key = "x"`)
+    or sub-table parses as nested tables, which `_flatten_profile_entry` splits into sibling entries
+    `<profile>.<...>` -- so it never reaches the profile's own dict and would be silently ignored.
+    """
+    if profile_name in getattr(options_data, "nested_parents", ()):
+        _exit_options_file_error(
+            f"profile '{profile_name}' in the options file contains nested fields; set all fields "
+            "directly under the profile as flat keys")
+
+
+def _exit_profile_not_found(options_data: dict, profile_name: str, hint_profile: Optional[str],
+                            options_path: Optional[str]) -> None:
+    location = f" {options_path}" if options_path else ""
+    message = f"profile '{profile_name}' not found in options file{location}"
+    case_match = next((n for n in options_data if n.lower() == profile_name.lower()), None)
+    suggestion = hint_profile if hint_profile and hint_profile in options_data else case_match
+    if suggestion and suggestion != profile_name:
+        message += f"; did you mean '--profile {suggestion}'?"
+    _exit_options_file_error(message)
+
+
 def select_profile(options_data: dict, profile_name: Optional[str],
                    hint_profile: Optional[str] = None, options_path: Optional[str] = None) -> Tuple[dict, bool]:
     """Selects a profile by name, falling back to [default] when none is requested (or named
@@ -215,27 +257,17 @@ def select_profile(options_data: dict, profile_name: Optional[str],
     `hint_profile` (or a differently-cased match) if any.
     Returns (profile fields, whether a profile actually applied).
     """
-    if profile_name and profile_name != constants.DEFAULT_PROFILE_NAME:
-        if profile_name not in options_data:
-            location = f" {options_path}" if options_path else ""
-            message = f"profile '{profile_name}' not found in options file{location}"
-            case_match = next((n for n in options_data if n.lower() == profile_name.lower()), None)
-            suggestion = hint_profile if hint_profile and hint_profile in options_data else case_match
-            if suggestion and suggestion != profile_name:
-                message += f"; did you mean '--profile {suggestion}'?"
-            _exit_options_file_error(message)
-        _validate_profile_fields(profile_name, options_data[profile_name], options_path)
-        return options_data[profile_name], True
-
-    default_profile = options_data.get(constants.DEFAULT_PROFILE_NAME)
-    if default_profile is None:
-        print_library_log(
-            f"profile '{constants.DEFAULT_PROFILE_NAME}' not found in options file; continuing "
-            "without options-file values for unresolved fields",
-            Logging.Level.INFO)
-        return {}, False
-    _validate_profile_fields(constants.DEFAULT_PROFILE_NAME, default_profile, options_path)
-    return default_profile, True
+    name = profile_name or constants.DEFAULT_PROFILE_NAME
+    _validate_profile_fields(name, options_data)
+    if name in options_data:
+        return options_data[name], True
+    if name != constants.DEFAULT_PROFILE_NAME:
+        _exit_profile_not_found(options_data, name, hint_profile, options_path)
+    print_library_log(
+        f"profile '{constants.DEFAULT_PROFILE_NAME}' not found in options file; continuing "
+        "without options-file values for unresolved fields",
+        Logging.Level.INFO)
+    return {}, False
 
 
 _SENSITIVE_FIELDS = frozenset({constants.API_KEY_FIELD})

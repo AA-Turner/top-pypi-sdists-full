@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.76
+Version: 0.0.77
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -326,6 +326,17 @@ def analyze_sentiment(text: str):
     interaction.set_property("sentiment", "positive")
     return {"sentiment": "positive"}
 ```
+
+Continue an event begun in another process (a queue worker, a later request) by its id. Nothing is sent by the call itself. Pass `user_id`, `convo_id` and `event_name` if you have them: every later update and the finish for that event carry them.
+
+```python
+interaction = raindrop.resume_interaction(
+    event_id, user_id="user-123", convo_id="convo-456", event_name="chat"
+)
+interaction.finish(output="Here is the summary.")
+```
+
+Without a `user_id` the updates are still sent and Raindrop keeps the user it already has for the event; the SDK logs a warning saying so. A blank `user_id` (or `"null"` / `"undefined"`) counts as no user id.
 
 ## Decorators
 

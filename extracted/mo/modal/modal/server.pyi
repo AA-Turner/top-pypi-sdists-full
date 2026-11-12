@@ -363,7 +363,9 @@ class Server:
 
     @staticmethod
     def _validate_wrapped_user_cls_decorators(
-        wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction], enable_memory_snapshot: bool
+        wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction],
+        enable_memory_snapshot: bool,
+        direct: bool = False,
     ): ...
     @staticmethod
     def _validate_construction_mechanism(wrapped_user_cls: typing.Union[type, modal.partial_function.PartialFunction]):

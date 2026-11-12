@@ -23,6 +23,8 @@ from . import (
     command_cli,
     doc_cli,
     file_cli,
+    mentions_cli,
+    notifications_wait_cli,
     pr_cli,
     repo_cli,
     reviews_cli,
@@ -93,7 +95,17 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
 
     parser = _Parser(allow_abbrev=False)
     sub = parser.add_subparsers(dest="kind", required=True)
-    for module in (doc_cli, file_cli, command_cli, pr_cli, repo_cli, reviews_cli, briefs_cli):
+    for module in (
+        doc_cli,
+        file_cli,
+        command_cli,
+        pr_cli,
+        repo_cli,
+        reviews_cli,
+        mentions_cli,
+        notifications_wait_cli,
+        briefs_cli,
+    ):
         module.add_parser(sub)
     args = parser.parse_args(words[2:])
     if args.status or not getattr(args, "wait", True):
@@ -108,7 +120,7 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
         target = (repo, str(number))
     elif kind == "repo":
         target = (args.wait,)
-    elif kind == "reviews":
+    elif kind in ("reviews", "mentions", "notifications"):
         target = reviews_cli.target(args.scope)
     elif kind == "briefs":
         target = (parent if args.use_self else args.lemon,)
@@ -141,7 +153,9 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
     if kind == "repo":
         values["labels"], values["exclude_authors"] = tuple(args.label), tuple(args.exclude_author)
     values["to"] = (
-        frozenset(args.to or briefs_cli.CHILD_TO) if kind == "briefs" else Subscription.to
+        frozenset(args.to or (briefs_cli.orphan_to() if args.orphans else briefs_cli.CHILD_TO))
+        if kind == "briefs"
+        else Subscription.to
     )
     return Subscription(kind, target, args.me or me, tuple(getattr(args, "legacy", ())), **values)
 

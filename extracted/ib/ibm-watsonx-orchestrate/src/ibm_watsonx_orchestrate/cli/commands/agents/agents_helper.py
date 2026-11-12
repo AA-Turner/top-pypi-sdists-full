@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from ibm_watsonx_orchestrate.cli.commands.channels.channels_common import is_control_plane_only
 from ibm_watsonx_orchestrate.client.agents.agent_client import AgentClient
 from ibm_watsonx_orchestrate.client.agents.external_agent_client import ExternalAgentClient
 from ibm_watsonx_orchestrate.client.agents.assistant_agent_client import AssistantAgentClient
@@ -56,8 +57,13 @@ def get_agent_id_by_name(agent_name: str) -> str:
             logger.info(f"  - {agent.get('name')} (ID: {agent.get('id')}, Style: {agent.get('style')})")
         sys.exit(1)
     
+    agent = all_agents[0]
+    if is_control_plane_only(agent):
+        logger.error(f"Cannot start chat session with agent '{agent_name}': agent is registered for control plane only.")
+        sys.exit(1)
+
     # Get agent ID with type safety
-    agent_id = all_agents[0].get('id')
+    agent_id = agent.get('id')
     if not agent_id:
         logger.error(f"Agent '{agent_name}' found but has no ID")
         sys.exit(1)

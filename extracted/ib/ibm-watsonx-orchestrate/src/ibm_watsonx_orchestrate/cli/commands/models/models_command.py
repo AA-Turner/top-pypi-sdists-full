@@ -10,6 +10,7 @@ from ibm_watsonx_orchestrate.agent_builder.models.types import ModelType
 from ibm_watsonx_orchestrate.agent_builder.model_policies.types import  ModelPolicyStrategyMode
 from ibm_watsonx_orchestrate.cli.commands.models.models_controller import ModelsController, \
     PREMIER_MODEL_WARNING_MSG_PREFIX
+from ibm_watsonx_orchestrate_core.types.models.types import CapabilityType
 
 logger = logging.getLogger(__name__)
 models_app = typer.Typer(no_args_is_help=True)
@@ -223,6 +224,13 @@ def models_add(
             help='The app id of a key_value connection containing authentications details for the model provider.'
         )
     ] = False,
+    capabilities: Annotated[
+        List[CapabilityType],
+        typer.Option(
+            '--capabilities', '-c',
+            help='The capabilities supported by the model (repeatable flag)'
+        )
+    ] = None,
 ):
     provider_config_dict = {}
     if provider_config:
@@ -240,6 +248,7 @@ def models_add(
         provider_config_dict = provider_config_dict,
         model_type=type,
         app_id=app_id,
+        capabilities=capabilities,
     )
     models_controller.publish_or_update_models(model=model, skip_validation=skip_validation)
 

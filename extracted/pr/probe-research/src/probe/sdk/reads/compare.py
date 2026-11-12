@@ -155,16 +155,8 @@ def compare(
 ) -> Comparison:
     """Fetch several runs and their series together. See :meth:`Client.compare`."""
     if run_ids is None:
-        # Follow the cursor: GET /v1/runs defaults to limit=50 (max 200) and Page does
-        # NOT auto-paginate, so .items alone would compare only the first page.
-        runs = []
-        cursor = None
-        while True:
-            page = client.list_runs(**filters, limit=200, cursor=cursor)
-            runs.extend(page.items)
-            cursor = page.next_cursor
-            if not cursor:
-                break
+        # Every page: GET /v1/runs answers 50 a page by default, so one page would compare a part.
+        runs = list(client.iter_runs(**filters))
     else:
         runs = [client.get_run(run_id) for run_id in run_ids]
     if not runs:

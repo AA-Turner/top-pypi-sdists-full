@@ -133,6 +133,9 @@ def import_files_then_export_from_registry(
     Import customer files and export them with value-free global types.
     Set include_captured_global_values to explicitly capture current values instead.
     """
+    from chalk.utils.paths import get_directory_root
+
+    source_root = Path(directory).absolute() if directory is not None else get_directory_root()
     if directory is not None:
         os.chdir(directory)
     failed_imports_gql = import_all_files(
@@ -141,6 +144,7 @@ def import_files_then_export_from_registry(
     )
     export = export_from_registry(
         include_captured_global_values=include_captured_global_values,
+        source_root=source_root,
     )
     export.failed.extend([convert_failed_import_to_proto(f) for f in failed_imports_gql])
 
@@ -183,7 +187,9 @@ def get_lsp_proto(
     return lsp
 
 
-def export_from_registry(*, include_captured_global_values: bool = False) -> export_pb.Export:
+def export_from_registry(
+    *, source_root: Path | None = None, include_captured_global_values: bool = False
+) -> export_pb.Export:
     """
     This is separate from trying to `import_all_files` so that
     we can use this function in places where import is already
@@ -203,11 +209,13 @@ def export_from_registry(*, include_captured_global_values: bool = False) -> exp
         materialized_feature_view_registry=MATERIALIZED_FEATURE_VIEW_REGISTRY,
         chart_registry=_Chart.registry,
         include_captured_global_values=include_captured_global_values,
+        source_root=source_root,
     )
 
 
 def export_from_registries(
     *,
+    source_root: Path | None = None,
     features_registry: "dict[str, type[Features]]",
     resolver_registry: "ResolverRegistry",
     sql_source_registry: Sequence[BaseSQLSource],
@@ -292,6 +300,7 @@ def export_from_registries(
         model_reference_registry=model_reference_registry,
         online_store_config_registry=online_store_config_registry,
         materialized_feature_view_registry=valid_mfv_registry,
+        source_root=source_root,
     )
 
     crons: List[CronQuery] = []

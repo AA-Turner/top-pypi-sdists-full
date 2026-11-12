@@ -1,0 +1,1136 @@
+"""
+Tests of Calculator class.
+"""
+# CODING-STYLE CHECKS:
+# pycodestyle test_calculator.py
+# pylint --disable=locally-disabled test_calculator.py
+#
+# pylint: disable=too-many-lines,invalid-name
+
+import os
+from io import StringIO
+import copy
+import pytest
+import numpy as np
+import pandas as pd
+import taxcalc as tc
+
+
+def test_make_calculator(cps_subsample):
+    """
+    Test Calculator class ctor.
+    """
+    start_year = tc.Policy.JSON_START_YEAR
+    sim_year = 2018
+    pol = tc.Policy()
+    assert pol.current_year == start_year
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    consump = tc.Consumption()
+    consump.update_consumption({'MPC_e20400': {sim_year: 0.05}})
+    assert consump.current_year == start_year
+    calc = tc.Calculator(policy=pol, records=rec,
+                         consumption=consump, verbose=True)
+    assert calc.data_year == tc.Records.CPSCSV_YEAR
+    assert calc.current_year == tc.Records.CPSCSV_YEAR
+    # test incorrect Calculator instantiation:
+    with pytest.raises(ValueError):
+        tc.Calculator(policy=None, records=rec)
+    with pytest.raises(ValueError):
+        tc.Calculator(policy=pol, records=None)
+    with pytest.raises(ValueError):
+        tc.Calculator(policy=pol, records=rec, consumption=[])
+
+
+def test_make_calculator_deepcopy(cps_subsample):
+    """
+    Test deepcopy of Calculator object.
+    """
+    pol = tc.Policy()
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    calc1 = tc.Calculator(policy=pol, records=rec)
+    calc2 = copy.deepcopy(calc1)
+    assert isinstance(calc2, tc.Calculator)
+
+
+def test_make_calculator_with_policy_reform(cps_subsample):
+    """
+    Test Calculator class ctor with policy reform.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    year = rec.current_year
+    # create a Policy object and apply a policy reform
+    pol = tc.Policy()
+    reform = {
+        'II_em': {2013: 4000},
+        'II_em-indexed': {2013: False},
+        'STD_Aged': {2013: [1600, 1300, 1300, 1600, 1600]},
+        'STD_Aged-indexed': {2013: False}
+    }
+    pol.implement_reform(reform)
+    # create a Calculator object using this policy reform
+    calc = tc.Calculator(policy=pol, records=rec)
+    assert calc.reform_errors == {}
+    # check that Policy object embedded in Calculator object is correct
+    assert calc.current_year == year
+    assert calc.policy_param('II_em') == 4000
+    assert np.allclose(calc.policy_param('_II_em'),
+                       np.array([4000] * pol.num_years))
+    exp_STD_Aged = [[1600, 1300, 1300,
+                     1600, 1600]] * pol.num_years
+    assert np.allclose(calc.policy_param('_STD_Aged'),
+                       np.array(exp_STD_Aged))
+    assert np.allclose(calc.policy_param('STD_Aged'),
+                       np.array([1600, 1300, 1300, 1600, 1600]))
+
+
+def test_make_calculator_with_multiyear_reform(cps_subsample):
+    """
+    Test Calculator class ctor with multi-year policy reform.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    year = rec.current_year
+    # create a Policy object and apply a policy reform
+    pol = tc.Policy()
+    reform = {
+        'II_em': {2015: 5000, 2016: 6000},
+        'II_em-indexed': {2015: False},
+        'STD_Aged': {2016: [1600, 1300, 1600, 1300, 1600]}
+    }
+    pol.implement_reform(reform)
+    # create a Calculator object using this policy-reform
+    calc = tc.Calculator(policy=pol, records=rec)
+    # check that Policy object embedded in Calculator object is correct
+    assert calc.current_year == year
+    assert calc.policy_param('II_em') == 3950
+    exp_II_em = [3900, 3950, 5000] + [6000] * (pol.num_years - 3)
+    assert np.allclose(calc.policy_param('_II_em'),
+                       np.array(exp_II_em))
+    calc.increment_year()
+    calc.increment_year()
+    assert calc.current_year == 2016
+    assert np.allclose(calc.policy_param('STD_Aged'),
+                       np.array([1600, 1300, 1600, 1300, 1600]))
+
+
+def test_calculator_advance_to_year(cps_subsample):
+    """
+    Test Calculator advance_to_year method.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    pol = tc.Policy()
+    pol.set_year(2015)
+    calc = tc.Calculator(policy=pol, records=rec)
+    calc.advance_to_year(2016)
+    assert calc.current_year == 2016
+    with pytest.raises(ValueError):
+        calc.advance_to_year(2015)
+
+
+def test_make_calculator_raises_on_no_policy(cps_subsample):
+    """
+    Test Calculator ctor error with no policy argument.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    with pytest.raises(ValueError):
+        tc.Calculator(records=rec)
+
+
+def test_calculator_mtr(cps_subsample, full_claiming_assumption):
+    """
+    Test Calculator mtr method using CPS subsample.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    pol = tc.Policy()
+    pol.implement_reform(full_claiming_assumption)
+    calcx = tc.Calculator(policy=pol, records=rec)
+    calcx.calc_all()
+    combinedx = calcx.array('combined')
+    c00100x = calcx.array('c00100')
+    calc = tc.Calculator(policy=pol, records=rec)
+    recs_pre_e00200p = copy.deepcopy(calc.array('e00200p'))
+    (mtr_ptx, mtr_itx, mtr_cmb) = calc.mtr(variable_str='e00200p',
+                                           zero_out_calculated_vars=True)
+    recs_post_e00200p = calc.array('e00200p')
+    assert np.allclose(recs_post_e00200p, recs_pre_e00200p)
+    assert np.allclose(calc.array('combined'), combinedx)
+    assert np.allclose(calc.array('c00100'), c00100x)
+    assert np.array_equal(mtr_cmb, mtr_ptx) is False
+    assert np.array_equal(mtr_ptx, mtr_itx) is False
+    with pytest.raises(ValueError):
+        calc.mtr(variable_str='bad_income_type')
+    (_, _, mtr_combined) = calc.mtr(variable_str='e00200s',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='e00650',
+                                    finite_diff=-0.01,
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='e00900p',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='e01700',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='e26270',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='k1bx14p',
+                                    calc_all_already_called=True)
+    assert isinstance(mtr_combined, np.ndarray)
+    (_, _, mtr_combined) = calc.mtr(variable_str='e00200p',
+                                    calc_all_already_called=True)
+    assert np.allclose(mtr_combined, mtr_cmb)
+    assert np.allclose(calc.array('combined'), combinedx)
+    assert np.allclose(calc.array('c00100'), c00100x)
+
+
+def test_make_calculator_increment_years_first(cps_subsample):
+    """
+    Test Calculator inflation indexing of policy parameters.
+    """
+    # pylint: disable=too-many-locals
+    # create Policy object with policy reform
+    pol = tc.Policy()
+    std5 = 2000
+    reform = {
+        'STD_Aged': {2015: [std5, std5, std5, std5, std5]},
+        'II_em': {2015: 5000,
+                  2016: 6000},
+        'II_em-indexed': {2016: False}
+    }
+    pol.implement_reform(reform)
+    # create Calculator object with Policy object as modified by reform
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=pol, records=rec)
+    # compare expected policy parameter values with those embedded in calc
+    irates = pol.inflation_rates()
+    syr = tc.Policy.JSON_START_YEAR
+    irate2015 = irates[2015 - syr]
+    irate2016 = irates[2016 - syr]
+    std6 = std5 * (1.0 + irate2015)
+    std7 = std6 * (1.0 + irate2016)
+    exp_STD_Aged = np.array([[1500, 1200, 1200, 1500, 1200],
+                             [1550, 1200, 1200, 1550, 1200],
+                             [std5, std5, std5, std5, std5],
+                             [std6, std6, std6, std6, std6],
+                             [std7, std7, std7, std7, std7]])
+    act_STD_Aged = calc.policy_param('_STD_Aged')
+    assert np.allclose(act_STD_Aged[:5], exp_STD_Aged)
+    exp_II_em = np.array([3900, 3950, 5000, 6000, 6000])
+    act_II_em = calc.policy_param('_II_em')
+    assert np.allclose(act_II_em[:5], exp_II_em)
+
+
+def test_ID_StateLocal_HC_vs_CRT(cps_subsample):
+    """
+    Test that a cap on state/local income and sales tax deductions at 0 percent
+    of AGI is equivalent to a complete haircut on the same state/local tax
+    deductions.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    # specify state/local complete haircut reform policy and Calculator object
+    hc_policy = tc.Policy()
+    hc_reform = {'ID_StateLocalTax_hc': {2013: 1.0}}
+    hc_policy.implement_reform(hc_reform)
+    hc_calc = tc.Calculator(policy=hc_policy, records=rec)
+    hc_calc.calc_all()
+    # specify AGI cap reform policy and Calculator object
+    crt_policy = tc.Policy()
+    crt_reform = {'ID_StateLocalTax_crt': {2013: 0.0}}
+    crt_policy.implement_reform(crt_reform)
+    crt_calc = tc.Calculator(policy=crt_policy, records=rec)
+    crt_calc.calc_all()
+    # compare calculated tax results generated by the two reforms
+    assert np.allclose(hc_calc.array('payrolltax'),
+                       crt_calc.array('payrolltax'))
+    assert np.allclose(hc_calc.array('iitax'),
+                       crt_calc.array('iitax'))
+
+
+def test_ID_RealEstate_HC_vs_CRT(cps_subsample):
+    """
+    Test that a cap on all state, local, and foreign real estate tax deductions
+    at 0 percent of AGI is equivalent to a complete haircut on the same real
+    estate tax deductions.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    # specify real estate complete haircut reform policy and Calculator object
+    hc_policy = tc.Policy()
+    hc_reform = {'ID_RealEstate_hc': {2013: 1.0}}
+    hc_policy.implement_reform(hc_reform)
+    hc_calc = tc.Calculator(policy=hc_policy, records=rec)
+    hc_calc.calc_all()
+    # specify AGI cap reform policy and Calculator object
+    crt_policy = tc.Policy()
+    crt_reform = {'ID_RealEstate_crt': {2013: 0.0}}
+    crt_policy.implement_reform(crt_reform)
+    crt_calc = tc.Calculator(policy=crt_policy, records=rec)
+    crt_calc.calc_all()
+    # compare calculated tax results generated by the two reforms
+    assert np.allclose(hc_calc.array('payrolltax'),
+                       crt_calc.array('payrolltax'))
+    assert np.allclose(hc_calc.array('iitax'),
+                       crt_calc.array('iitax'))
+
+
+RAWINPUT_FUNITS = 4
+RAWINPUT_YEAR = 2015
+RAWINPUT_CONTENTS = (
+    'RECID,MARS,unknown,e00300\n'
+    '    1,   2,      9,     0\n'
+    '    2,   1,      9,     0\n'
+    '    3,   4,      9,     0\n'
+    '    4,   3,      9,     0\n'
+)
+
+
+def test_calculator_using_nonstd_input():
+    """
+    Test Calculator using non-standard input records.
+    """
+    # check Calculator handling of raw, non-standard input data with no aging
+    pol = tc.Policy()
+    pol.set_year(RAWINPUT_YEAR)  # set policy params to input data year
+    nonstd = tc.Records(data=pd.read_csv(StringIO(RAWINPUT_CONTENTS)),
+                        start_year=RAWINPUT_YEAR,  # set raw input data year
+                        gfactors=None,  # keeps raw data unchanged
+                        weights=None)
+    assert nonstd.array_length == RAWINPUT_FUNITS
+    calc = tc.Calculator(policy=pol, records=nonstd,
+                         sync_years=False)  # keeps raw data unchanged
+    assert calc.current_year == RAWINPUT_YEAR
+    calc.calc_all()
+    assert calc.weighted_total('e00200') == 0
+    assert calc.total_weight() == 0
+    varlist = ['RECID', 'MARS']
+    dframe = calc.dataframe(varlist)
+    assert isinstance(dframe, pd.DataFrame)
+    assert dframe.shape == (RAWINPUT_FUNITS, len(varlist))
+    mars = calc.array('MARS')
+    assert isinstance(mars, np.ndarray)
+    assert mars.shape == (RAWINPUT_FUNITS,)
+    exp_iitax = np.zeros((nonstd.array_length,))
+    assert np.allclose(calc.array('iitax'), exp_iitax)
+    mtr_ptax, _, _ = calc.mtr(wrt_full_compensation=False)
+    exp_mtr_ptax = np.zeros((nonstd.array_length,))
+    exp_mtr_ptax.fill(0.153)
+    assert np.allclose(mtr_ptax, exp_mtr_ptax)
+    # misc calls for code coverage
+    calc.incarray('e00300', np.ones_like(calc.array('e00300')))
+    calc.policy_param('ID_c', param_value=50e3)
+
+
+def test_bad_json_names(tests_path):
+    """
+    Test that ValueError raised with assump or reform do not end in ".json"
+    """
+    test_url = (
+        'https://raw.githubusercontent.com/PSLmodels/'
+        'Tax-Calculator/master/taxcalc/reforms/'
+        '2017_law.out.csv'
+    )
+    csvname = os.path.join(tests_path, '..', 'growfactors.csv')
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(csvname, None)
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(test_url, None)
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(None, csvname)
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(None, test_url)
+
+
+@pytest.mark.local
+def test_json_assump_url():
+    """
+    Test reading JSON assumption file using URL.
+    """
+    assump_str = """
+    {
+        "consumption": {
+            // all BEN_*_value parameters have a default value of one
+            "BEN_housing_value": {"2017": 1.0},
+            "BEN_snap_value": {"2017": 1.0},
+            "BEN_tanf_value": {"2017": 1.0},
+            "BEN_vet_value": {"2017": 1.0},
+            "BEN_wic_value": {"2017": 1.0},
+            "BEN_mcare_value": {"2017": 1.0},
+            "BEN_mcaid_value": {"2017": 1.0},
+            "BEN_other_value": {"2017": 1.0},
+            // all MPC_* parameters have a default value of zero
+            "MPC_e17500": {"2017": 0.0},
+            "MPC_e18400": {"2017": 0.0},
+            "MPC_e19800": {"2017": 0.0},
+            "MPC_e20400": {"2017": 0.0}
+        },
+        "growdiff_baseline": {
+            // all growdiff_baseline parameters have a default value of zero
+            "ABOOK": {"2017": 0.0},
+            "ACGNS": {"2017": 0.0},
+            "ACPIM": {"2017": 0.0},
+            "ACPIU": {"2017": 0.0},
+            "ADIVS": {"2017": 0.0},
+            "AINTS": {"2017": 0.0},
+            "AIPD": {"2017": 0.0},
+            "ASCHCI": {"2017": 0.0},
+            "ASCHCL": {"2017": 0.0},
+            "ASCHEI": {"2017": 0.0},
+            "ASCHEL": {"2017": 0.0},
+            "ASCHF": {"2017": 0.0},
+            "ASOCSEC": {"2017": 0.0},
+            "ATXPY": {"2017": 0.0},
+            "AUCOMP": {"2017": 0.0},
+            "AWAGE": {"2017": 0.0},
+            "ABENOTHER": {"2017": 0.0},
+            "ABENMCARE": {"2017": 0.0},
+            "ABENMCAID": {"2017": 0.0},
+            "ABENSSI": {"2017": 0.0},
+            "ABENSNAP": {"2017": 0.0},
+            "ABENWIC": {"2017": 0.0},
+            "ABENHOUSING": {"2017": 0.0},
+            "ABENTANF": {"2017": 0.0},
+            "ABENVET": {"2017": 0.0}
+        },
+        "growdiff_response": {
+            // all growdiff_response parameters have a default value of zero
+            "ABOOK": {"2017": 0.0},
+            "ACGNS": {"2017": 0.0},
+            "ACPIM": {"2017": 0.0},
+            "ACPIU": {"2017": 0.0},
+            "ADIVS": {"2017": 0.0},
+            "AINTS": {"2017": 0.0},
+            "AIPD": {"2017": 0.0},
+            "ASCHCI": {"2017": 0.0},
+            "ASCHCL": {"2017": 0.0},
+            "ASCHEI": {"2017": 0.0},
+            "ASCHEL": {"2017": 0.0},
+            "ASCHF": {"2017": 0.0},
+            "ASOCSEC": {"2017": 0.0},
+            "ATXPY": {"2017": 0.0},
+            "AUCOMP": {"2017": 0.0},
+            "AWAGE": {"2017": 0.0},
+            "ABENOTHER": {"2017": 0.0},
+            "ABENMCARE": {"2017": 0.0},
+            "ABENMCAID": {"2017": 0.0},
+            "ABENSSI": {"2017": 0.0},
+            "ABENSNAP": {"2017": 0.0},
+            "ABENWIC": {"2017": 0.0},
+            "ABENHOUSING": {"2017": 0.0},
+            "ABENTANF": {"2017": 0.0},
+            "ABENVET": {"2017": 0.0}
+        }
+    }
+    """
+    assump_url = (
+        'https://raw.githubusercontent.com/PSLmodels/'
+        'Tax-Calculator/master/taxcalc/assumptions/'
+        'economic_assumptions_template.json'
+    )
+    params_str = tc.Calculator.read_json_param_objects(None, assump_str)
+    assert params_str
+    params_url = tc.Calculator.read_json_param_objects(None, assump_url)
+    assert params_url
+    assert params_url == params_str
+
+    assump_gh_url = (
+        'github://PSLmodels:Tax-Calculator@master/taxcalc/assumptions/'
+        'economic_assumptions_template.json'
+    )
+    params_gh_url = tc.Calculator.read_json_param_objects(None, assump_gh_url)
+    assert params_gh_url
+    assert params_gh_url == params_str
+
+
+def test_read_bad_json_assump_file():
+    """
+    Test invalid JSON assumption files.
+    """
+    badassump1 = """
+    {
+      "consumption": { // example of incorrect JSON because 'x' must be "x"
+        'x': {"2014": 0.25}
+      },
+      "growdiff_baseline": {},
+      "growdiff_response": {}
+    }
+    """
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(None, badassump1)
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(None, 'unknown_file_name')
+    with pytest.raises(TypeError):
+        tc.Calculator.read_json_param_objects(None, [])
+
+
+def test_json_doesnt_exist():
+    """
+    Test JSON file which doesn't exist
+    """
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(
+            None, './reforms/doesnt_exist.json'
+        )
+    with pytest.raises(ValueError):
+        tc.Calculator.read_json_param_objects(
+            './reforms/doesnt_exist.json', None
+        )
+
+
+def test_calc_all():
+    """
+    Test calc_all method.
+    """
+    cyr = 2016
+    pol = tc.Policy()
+    pol.set_year(cyr)
+    nonstd = tc.Records(data=pd.read_csv(StringIO(RAWINPUT_CONTENTS)),
+                        start_year=cyr, gfactors=None, weights=None)
+    assert nonstd.array_length == RAWINPUT_FUNITS
+    calc = tc.Calculator(policy=pol, records=nonstd,
+                         sync_years=False)  # keeps raw data unchanged
+    assert calc.current_year == cyr
+
+
+def test_noreform_documentation():
+    """
+    Test automatic documentation creation.
+    """
+    reform_json = """
+    {
+    }
+    """
+    assump_json = """
+    {
+    "consumption": {},
+    "growdiff_baseline": {},
+    "growdiff_response": {}
+    }
+    """
+    params = tc.Calculator.read_json_param_objects(reform_json, assump_json)
+    assert isinstance(params, dict)
+    gfs = tc.GrowFactors()
+    actual_doc = tc.Calculator.reform_documentation(params, gfs)
+    expected_doc = (
+        'REFORM DOCUMENTATION\n'
+        'Baseline Growth-Difference Assumption Values by Year:\n'
+        'none: no baseline GrowDiff assumptions specified\n'
+        'Response Growth-Difference Assumption Values by Year:\n'
+        'none: no response GrowDiff assumptions specified\n'
+        'Policy Reform Parameter Values by Year:\n'
+        'none: using current-law policy parameters\n'
+    )
+    assert actual_doc == expected_doc
+
+
+def test_reform_documentation():
+    """
+    Test automatic documentation creation.
+    """
+    reform_json = """
+{
+    "II_em-indexed": {
+        "2016": false,
+        "2018": true
+    },
+    "II_em": {
+        "2016": 5000,
+        "2018": 6000,
+        "2020": 7000
+    },
+    "EITC_indiv": {
+        "2017": true
+    },
+    "STD_Aged-indexed": {
+        "2016": false
+    },
+    "STD_Aged": {
+        "2016": [1600, 1300, 1300, 1600, 1600],
+        "2020": [2000, 2000, 2000, 2000, 2000]
+    }
+}
+"""
+    assump_json = """
+{
+"consumption": {},
+// increase baseline inflation rate by one percentage point in 2014+
+// (has no effect on known policy parameter values)
+"growdiff_baseline": {"ACPIU": {"2014": 0.010}},
+"growdiff_response": {"ACPIU": {"2014": 0.015}}
+}
+"""
+    params = tc.Calculator.read_json_param_objects(reform_json, assump_json)
+    assert isinstance(params, dict)
+    second_reform = {'II_em': {2019: 6500}}
+    gfs = tc.GrowFactors()
+    doc = tc.Calculator.reform_documentation(params, gfs, [second_reform])
+    assert isinstance(doc, str)
+    dump = False  # set to True to print documentation and force test failure
+    if dump:
+        print(doc)
+        assert False, 'DUMP: reform_documentation below'
+
+
+def test_distribution_tables(cps_subsample):
+    """
+    Test distribution_tables method.
+    """
+    pol = tc.Policy()
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc1 = tc.Calculator(policy=pol, records=recs)
+    assert calc1.current_year == 2014
+    calc1.calc_all()
+    dt1, dt2 = calc1.distribution_tables(None, 'weighted_deciles')
+    assert isinstance(dt1, pd.DataFrame)
+    assert dt2 is None
+    dt1, dt2 = calc1.distribution_tables(calc1, 'weighted_deciles')
+    assert isinstance(dt1, pd.DataFrame)
+    assert isinstance(dt2, pd.DataFrame)
+    reform = {
+        'UBI_u18': {2014: 1000},
+        'UBI_1820': {2014: 1000},
+        'UBI_21': {2014: 1000}
+    }
+    pol.implement_reform(reform)
+    assert not pol.parameter_errors
+    calc2 = tc.Calculator(policy=pol, records=recs)
+    calc2.calc_all()
+    dt1, dt2 = calc1.distribution_tables(calc2, 'weighted_deciles')
+    assert isinstance(dt1, pd.DataFrame)
+    assert isinstance(dt2, pd.DataFrame)
+
+
+def test_difference_table(cps_subsample):
+    """
+    Test difference_table method.
+    """
+    cyr = 2014
+    pol = tc.Policy()
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc1 = tc.Calculator(policy=pol, records=recs)
+    assert calc1.current_year == cyr
+    reform = {'SS_Earnings_c': {cyr: 9e99}}
+    pol.implement_reform(reform)
+    calc2 = tc.Calculator(policy=pol, records=recs)
+    assert calc2.current_year == cyr
+    calc1.calc_all()
+    calc2.calc_all()
+    diff = calc1.difference_table(calc2, 'weighted_deciles', 'iitax')
+    assert isinstance(diff, pd.DataFrame)
+
+
+def test_diagnostic_table(cps_subsample):
+    """
+    Test diagnostic_table method.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    adt = calc.diagnostic_table(3)
+    assert isinstance(adt, pd.DataFrame)
+
+
+def test_mtr_graph(cps_subsample):
+    """
+    Test mtr_graph method.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    fig = calc.mtr_graph(calc,
+                         mars=2,
+                         income_measure='wages',
+                         mtr_measure='ptax',
+                         pop_quantiles=False)
+    assert fig
+    fig = calc.mtr_graph(calc,
+                         income_measure='agi',
+                         mtr_measure='itax',
+                         pop_quantiles=True)
+    assert fig
+
+
+def test_mtr_graph_with_specified_mtrs(cps_subsample):
+    """
+    Test mtr_graph method when marginal tax rates are specified.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc1 = tc.Calculator(policy=tc.Policy(), records=recs)
+    calc1.calc_all()
+    reform = {'II_rt7': {calc1.current_year: 0.45}}
+    pol = tc.Policy()
+    pol.implement_reform(reform)
+    calc2 = tc.Calculator(policy=pol, records=recs)
+    calc2.calc_all()
+    # graph using mtr_graph-computed marginal tax rates
+    fig1 = calc1.mtr_graph(calc2)
+    # graph using earlier-computed marginal tax rates
+    mtr1 = calc1.mtr(wrt_full_compensation=False,
+                     calc_all_already_called=True)
+    mtr2 = calc2.mtr(wrt_full_compensation=False,
+                     calc_all_already_called=True)
+    fig2 = calc1.mtr_graph(calc2, mtr_self=mtr1, mtr_calc=mtr2)
+    # check that the two graphs contain the same data
+    assert len(fig1.renderers) == len(fig2.renderers)
+    for rend1, rend2 in zip(fig1.renderers, fig2.renderers):
+        data1 = rend1.data_source.data
+        data2 = rend2.data_source.data
+        assert data1.keys() == data2.keys()
+        for key in data1:
+            assert np.array_equal(data1[key], data2[key])
+    # check that specifying only one set of marginal tax rates is an error
+    with pytest.raises(AssertionError):
+        calc1.mtr_graph(calc2, mtr_self=mtr1)
+    with pytest.raises(AssertionError):
+        calc1.mtr_graph(calc2, mtr_calc=mtr2)
+
+
+def test_atr_graph(cps_subsample):
+    """
+    Test atr_graph method.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    fig = calc.atr_graph(calc, mars=2, atr_measure='itax')
+    assert fig
+    fig = calc.atr_graph(calc, atr_measure='ptax')
+    assert fig
+
+
+def test_privacy_of_embedded_objects(cps_subsample):
+    """
+    Test privacy of objects embedded in Calculator object.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    var1 = var2 = var3 = 0
+    # pylint: disable=protected-access
+    with pytest.raises(AttributeError):
+        var1 = calc.__policy.current_year
+    with pytest.raises(AttributeError):
+        var2 = calc.__records.s006
+    with pytest.raises(AttributeError):
+        var3 = calc.__consumption.current_year
+    assert var1 == var2 == var3
+
+
+def test_n65(cps_subsample):
+    """
+    Test n65 method.
+    """
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    assert calc.n65().sum() > 600
+
+
+def test_ce_aftertax_income(cps_subsample):
+    """
+    Test ce_aftertax_income method.
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    pol = tc.Policy()
+    calc1 = tc.Calculator(policy=pol, records=rec)
+    pol.implement_reform({'SS_Earnings_c': {2013: 9e99}})
+    calc2 = tc.Calculator(policy=pol, records=rec)
+    res = calc1.ce_aftertax_income(calc2)
+    assert isinstance(res, dict)
+
+
+@pytest.mark.itmded_vars
+@pytest.mark.parametrize('year', [2017, 2018])
+def test_itemded_component_amounts(year, cps_subsample):
+    """
+    Check that all c04470 components are adjusted to reflect the filing
+    unit's standard-vs-itemized-deduction decision.  Check for 2018
+    (when current law has no Pease phaseout of itemized deductions and
+    already has complete haircuts for Casualty and Miscellaneous deductions)
+    and 2017 (when current law has a Pease phaseout of itemized deductions
+    and has no haircuts).  The calcfunctions.py code makes no attempt to
+    adjust the components for the effects of Pease-like phaseout or any other
+    type of limitation on total itemized deductions, so the pre-2018 tests
+    here use c21060, instead of c04470, as the itemized deductions total.
+    """
+    # pylint: disable=too-many-locals
+    components = [
+        ('c17000', 'ID_Medical_hc'),
+        ('c18300', 'ID_AllTaxes_hc'),
+        ('c19200', 'ID_InterestPaid_hc'),
+        ('c19700', 'ID_Charity_hc'),
+        ('c20500', 'ID_Casualty_hc'),
+        ('c20800', 'ID_Miscellaneous_hc'),
+    ]
+    if year == 2017:
+        # pre-Pease limitation total itemized deductions
+        itmded_var = 'c21060'
+    elif year == 2018:
+        # total itemized deductions (no Pease-like limitation)
+        itmded_var = 'c04470'
+    else:
+        raise ValueError(f'illegal year value = {year}')
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    # policy1 such that everybody itemizes deductions and all are allowed
+    policy1 = tc.Policy()
+    reform1 = {
+        'STD_Aged': {year: [0.0, 0.0, 0.0, 0.0, 0.0]},
+        'STD': {year: [0.0, 0.0, 0.0, 0.0, 0.0]}
+    }
+    policy1.implement_reform(reform1)
+    assert not policy1.parameter_errors
+    # compute tax liability in specified year under policy1
+    calc1 = tc.Calculator(policy=policy1, records=recs, verbose=True)
+    calc1.advance_to_year(year)
+    calc1.calc_all()
+    # confirm that nobody is taking the standard deduction
+    assert np.allclose(calc1.array('standard'), 0.)
+    itmded1 = calc1.weighted_total(itmded_var) * 1e-9
+    # check each itemized deduction component
+    errmsg = ''
+    for cvname, hcname in components:
+        # policy2 such that everybody itemizes deductions but one is disallowed
+        policy2 = copy.deepcopy(policy1)
+        policy2.implement_reform({hcname: {year: 1.0}})
+        assert not policy2.parameter_errors
+        # compute tax liability in specified year under policy2
+        calc2 = tc.Calculator(policy=policy2, records=recs, verbose=True)
+        calc2.advance_to_year(year)
+        calc2.calc_all()
+        # confirm that nobody is taking the standard deduction
+        assert np.allclose(calc2.array('standard'), 0.)
+        # calculate difference in total itemized deductions
+        itmded2 = calc2.weighted_total(itmded_var) * 1e-9
+        difference_in_total_itmded = itmded1 - itmded2
+        # calculate itemized component amount
+        component_amt = calc1.weighted_total(cvname) * 1e-9
+        # confirm component amount is equal to difference in total deductions
+        if not np.allclose(component_amt, difference_in_total_itmded):
+            errmsg += (
+                f'\nyear={year} {cvname}={component_amt:.6f}  !=  '
+                f'{difference_in_total_itmded:.6f}='
+                'difference_in_total_itemized_deductions'
+            )
+    if errmsg:
+        raise ValueError(errmsg)
+
+
+@pytest.mark.parametrize('year, thd, mfs_thd, mfj_salt, mfs_salt', [
+    (2026, 505000, 252500, 35900.0, 19075.0),
+    (2027, 510050, 255025, 37819.0, 19655.75),
+    (2028, 515151, 257575, 39757.3, 20242.25),
+    (2029, 520302, 260151, 41624.0, 20812.0),
+])
+def test_salt_cap_phaseout(year, thd, mfs_thd, mfj_salt, mfs_salt):
+    """
+    Check the OBBBA SALT cap phaseout threshold and the resulting SALT
+    deduction for a MFJ and a MFS filing unit.  IRC section 164(b)(7)(B)
+    sets the threshold at $505,000 for 2026 and at 101 percent of the
+    prior-year threshold for 2027 through 2029 (half that amount for a
+    married individual filing a separate return).  The IRS confirms the
+    2026 threshold of $505,000 ($252,500 MFS) in "Correction to state and
+    local income tax deduction amount in the 2026 Form 1040-ES".
+    """
+    pol = tc.Policy()
+    pol.set_year(year)
+    assert np.allclose(pol.ID_AllTaxes_c_ps[0],
+                       [thd, thd, mfs_thd, thd, thd])
+    # one MFJ and one MFS filing unit with AGI near the threshold and
+    # with state and local income taxes above the SALT cap
+    funits_df = pd.read_csv(StringIO(
+        'RECID,MARS,e00200,e00200p,e00200s,e18400\n'
+        '1,2,520000,520000,0,50000\n'
+        '2,3,260000,260000,0,25000\n'
+    ))
+    recs = tc.Records(data=funits_df, start_year=year,
+                      gfactors=None, weights=None, adjust_ratios=None)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    assert calc.current_year == year
+    calc.calc_all()
+    assert np.allclose(calc.array('c18300'), [mfj_salt, mfs_salt])
+
+
+@pytest.mark.qbid
+def test_qbid_calculation():
+    """
+    Test Calculator's QBID calculations using the six example filing units
+    specified in Table 1 of this TPC publication: "Navigating the New
+    Pass-Through Provisions: A Technical Explanation" by William G. Gale
+    and Aaron Krupkin (January 31, 2018), which is available at this URL:
+      https://www.taxpolicycenter.org/publications/
+      navigating-new-pass-through-provisions-technical-explanation/full
+    """
+    # In constructing the TPC example filing units, assume that the taxpayer
+    # has business income in the form of e26270/e02000 income and no earnings,
+    # and that the spouse has no business income and only earnings.
+    TPC_YEAR = 2018
+    TPC_VARS = (
+        'RECID,MARS,e00200s,e00200,e26270,e02000,PT_SSTB_income,'
+        'PT_binc_w2_wages,PT_ubia_property,pre_qbid_taxinc,qbid\n'
+    )
+    TPC_FUNITS = (
+        '1,2, 99000, 99000,75000,75000,1,20000,90000,150000,15000.00\n'
+        '2,2,349000,349000,75000,75000,1,20000,90000,400000, 1612.50\n'
+        '3,2,524000,524000,75000,75000,1,20000,90000,575000,    0.00\n'
+        '4,2, 99000, 99000,75000,75000,0,20000,90000,150000,15000.00\n'
+        '5,2,349000,349000,75000,75000,0,20000,90000,400000,10750.00\n'
+        '6,2,524000,524000,75000,75000,0,20000,90000,575000,10000.00\n'
+    )
+    # generate actual Calculator pre-qbid taxinc and qbid amounts
+    tpc_df = pd.read_csv(StringIO(TPC_VARS + TPC_FUNITS))
+    recs = tc.Records(data=tpc_df, start_year=TPC_YEAR,
+                      gfactors=None, weights=None)
+    calc = tc.Calculator(policy=tc.Policy(), records=recs)
+    assert calc.current_year == TPC_YEAR
+    calc.calc_all()
+    varlist = ['RECID', 'c00100', 'standard', 'c04470', 'qbided']
+    tc_df = calc.dataframe(varlist, all_vars=True)
+    # compare actual amounts with expected amounts from TPC publication
+    act_taxinc = tc_df.c00100 - np.maximum(tc_df.standard, tc_df.c04470)
+    exp_taxinc = tpc_df.pre_qbid_taxinc
+    assert np.allclose(act_taxinc, exp_taxinc)
+    assert np.allclose(tc_df.qbided, tpc_df.qbid)
+
+
+def test_calc_all_benefits_amounts(cps_subsample):
+    """
+    Testing how benefits are handled in the calc_all method
+    """
+    # set a reform with a positive UBI amount
+    ubi_ref = {'UBI_21': {2020: 1000}}
+
+    # create baseline calculator
+    pol = tc.Policy()
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc_base = tc.Calculator(pol, recs)
+    calc_base.advance_to_year(2020)
+    calc_base.calc_all()
+
+    # create reform calculator
+    pol_ubi = tc.Policy()
+    pol_ubi.implement_reform(ubi_ref)
+    calc_ubi = tc.Calculator(pol_ubi, recs)
+    calc_ubi.advance_to_year(2020)
+    calc_ubi.calc_all()
+
+    # check that differences in benefits totals are equal to diffs in
+    # UBI
+    ubi_diff = (calc_ubi.weighted_total('ubi') -
+                calc_base.weighted_total('ubi')) / 1e9
+    benefit_cost_diff = (
+        calc_ubi.weighted_total('benefit_cost_total') -
+        calc_base.weighted_total('benefit_cost_total')) / 1e9
+    benefit_value_diff = (
+        calc_ubi.weighted_total('benefit_cost_total') -
+        calc_base.weighted_total('benefit_cost_total')) / 1e9
+
+    assert np.allclose(ubi_diff, benefit_cost_diff)
+    assert np.allclose(ubi_diff, benefit_value_diff)
+
+
+def test_cg_top_rate():
+    """
+    Test top CG bracket and rate.
+    """
+    # pylint: disable=too-many-locals
+
+    cy = 2019
+
+    # set NIIT and STD to zero to isolate CG tax rates
+    base = {
+        'NIIT_rt': {2019: 0},
+        'STD': {2019: [0, 0, 0, 0, 0]}
+    }
+
+    # create additional top CG bracket and rate
+    ref = {
+        'CG_brk3': {2019: [1000000, 1000000, 1000000, 1000000, 1000000]},
+        'CG_rt4': {2019: 0.4},
+        'NIIT_rt': {2019: 0},
+        'STD': {2019: [0, 0, 0, 0, 0]}
+    }
+
+    # create one record just below the top CG bracket and one just above
+    VARS = 'RECID,MARS,p23250\n'
+    FUNITS = '1,2,999999\n2,2,1000001\n'
+
+    pol_base = tc.Policy()
+    pol_base.implement_reform(base)
+
+    pol_ref = tc.Policy()
+    pol_ref.implement_reform(ref)
+
+    funit_df = pd.read_csv(StringIO(VARS + FUNITS))
+    recs = tc.Records(data=funit_df, start_year=cy,
+                      gfactors=None, weights=None)
+
+    calc_base = tc.Calculator(policy=pol_base, records=recs)
+    calc_base.calc_all()
+
+    calc_ref = tc.Calculator(policy=pol_ref, records=recs)
+    calc_ref.calc_all()
+
+    # calculate MTRs wrt long term gains
+    mtr_base = calc_base.mtr(variable_str='p23250',
+                             calc_all_already_called=True,
+                             wrt_full_compensation=False)
+    mtr_itax_base = mtr_base[1]
+
+    cg_rt3 = pol_base.to_array('CG_rt3', year=2019)
+    # check that MTR for both records is equal to CG_rt3
+    assert np.allclose(mtr_itax_base, cg_rt3)
+
+    # calculate MTRs under reform
+    mtr_ref = calc_ref.mtr(variable_str='p23250',
+                           calc_all_already_called=True,
+                           wrt_full_compensation=False)
+    mtr_itax_ref = mtr_ref[1]
+
+    cg_rt3_ref = pol_ref.to_array('CG_rt3', year=2019)
+    cg_rt4_ref = pol_ref.to_array(param='CG_rt4', year=2019)
+
+    # check that MTR of houshold below top threshold is equal to
+    # CG_rt3
+    assert np.allclose(mtr_itax_ref[0], cg_rt3_ref)
+    # check that MTR of household above top threshold is equal to
+    # CG_rt4
+    assert np.allclose(mtr_itax_ref[1], cg_rt4_ref)
+
+
+def test_credit_reforms(cps_subsample):
+    """
+    Test personal credit reforms using cps.csv subsample
+    """
+    rec = tc.Records.cps_constructor(data=cps_subsample)
+    reform_year = 2017
+    # create current-law Calculator object, calc1
+    pol = tc.Policy()
+    calc1 = tc.Calculator(policy=pol, records=rec)
+    calc1.advance_to_year(reform_year)
+    calc1.calc_all()
+    itax1 = calc1.weighted_total('iitax')
+    # create personal-refundable-credit-reform Calculator object, calc2
+    reform = {'II_credit': {reform_year: [1000, 1000, 1000, 1000, 1000]}}
+    pol.implement_reform(reform)
+    calc2 = tc.Calculator(policy=pol, records=rec)
+    calc2.advance_to_year(reform_year)
+    calc2.calc_all()
+    itax2 = calc2.weighted_total('iitax')
+    # create personal-nonrefundable-credit-reform Calculator object, calc3
+    reform = {'II_credit_nr': {reform_year: [1000, 1000, 1000, 1000, 1000]}}
+    pol = tc.Policy()
+    pol.implement_reform(reform)
+    calc3 = tc.Calculator(policy=pol, records=rec)
+    calc3.advance_to_year(reform_year)
+    calc3.calc_all()
+    itax3 = calc3.weighted_total('iitax')
+    # check income tax revenues generated by the three Calculator objects
+    assert itax2 < itax1  # because refundable credits lower revenues
+    assert itax3 > itax2  # because nonrefundable credits lower revenues less
+    assert itax3 < itax1  # because nonrefundable credits lower revenues some
+
+
+# ExpandIncome calcfunction used by test_custom_calculator_market_income
+# below to override the standard definition of expanded_income; this
+# must be defined at module level (not nested in the test function)
+# because the iterate_jit decorator parses the function's source text,
+# which must be unindented top-level code.
+@tc.iterate_jit(nopython=True)
+def ExpandIncome(e00200, pencon_p, pencon_s, e00300, e00400, e00600,
+                 e00700, e00800, e00900, e01100, e01200, e01400, e01500,
+                 e02000, e02100, p22250, p23250, cmbtp, ptax_was,
+                 expanded_income):
+    """
+    Calculates expanded_income as "market income" from component income types.
+    """
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-locals
+    expanded_income = (
+        e00200 +
+        pencon_p +
+        pencon_s +
+        e00300 +
+        e00400 +
+        e00600 +
+        e00700 +
+        e00800 +
+        e00900 +
+        e01100 +
+        e01200 +
+        e01400 +
+        e01500 +
+        e02000 +
+        e02100 +
+        p22250 +
+        p23250 +
+        cmbtp +
+        0.5 * ptax_was
+    )
+    return expanded_income
+
+
+def test_custom_calculator_market_income(cps_subsample):
+    """
+    Test the customized-Calculator-class technique (illustrated by
+    recipe05.py in the repository root) that overrides ExpandIncome
+    so that expanded_income is redefined as "market income", and then
+    checks that this customized Calculator class continues to work
+    seamlessly with the weighted_total and difference_table methods.
+    """
+    # pylint: disable=too-many-locals
+
+    class Calculator(tc.Calculator):  # pylint: disable=redefined-outer-name
+        """
+        Customized Calculator class that inherits all tc.Calculator data
+        and methods, overriding one method to get the desired
+        customization.  The class name must match the parent tc.Calculator
+        class name so that the name-mangled __policy and __records
+        attributes set by the parent's __init__ remain accessible here.
+        """
+        def calc_all(self, zero_out_calc_vars=False):
+            """
+            Call all tax-calculation functions for the current_year.
+            """
+            tc.BenefitPrograms(self)
+            self._calc_one_year(zero_out_calc_vars)
+            # pylint: disable=no-value-for-parameter
+            tc.LumpSumTax(self.__policy, self.__records)
+            ExpandIncome(self.__policy, self.__records)  # customized above
+            tc.AfterTaxIncome(self.__policy, self.__records)
+            # pylint: enable=no-value-for-parameter
+
+    # specify Policy object for current-law policy
+    cyr = 2026
+    bpolicy = tc.Policy()
+
+    # specify Policy object for reform that raises the standard deduction
+    # amount by $1000 for each MARS type in cyr
+    std_amounts = bpolicy.to_array('STD', year=cyr)[0] + 1000.
+    reform = {'STD': {cyr: std_amounts.tolist()}}
+    rpolicy = tc.Policy()
+    rpolicy.implement_reform(reform, print_warnings=False,
+                             raise_errors=False)
+    assert not rpolicy.parameter_errors
+
+    # specify customized Calculator objects using bpolicy and rpolicy
+    recs = tc.Records.cps_constructor(data=cps_subsample)
+    calc1 = Calculator(policy=bpolicy, records=recs)
+    calc2 = Calculator(policy=rpolicy, records=recs)
+
+    calc1.advance_to_year(cyr)
+    calc1.calc_all()
+    calc2.advance_to_year(cyr)
+    calc2.calc_all()
+
+    # compare aggregate individual income tax revenue in cyr
+    iitax_rev1 = calc1.weighted_total('iitax')
+    iitax_rev2 = calc2.weighted_total('iitax')
+    assert isinstance(iitax_rev1, float)
+    assert isinstance(iitax_rev2, float)
+
+    # construct reform-vs-baseline difference table with results
+    # for income deciles, which exercises the customized (market)
+    # expanded_income used to construct the decile bins
+    diff_table = calc1.difference_table(calc2, 'weighted_deciles', 'iitax')
+    assert isinstance(diff_table, pd.DataFrame)
+    dif_colnames = ['count', 'tax_cut', 'tax_inc',
+                    'tot_change', 'mean', 'pc_aftertaxinc']
+    assert all(cname in diff_table.columns for cname in dif_colnames)
+    dump = False  # set to True to print diff_table and force test failure
+    if dump:
+        print(diff_table)
+        assert False, 'DUMP: generated diff_table below'

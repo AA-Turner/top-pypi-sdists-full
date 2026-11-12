@@ -9,9 +9,11 @@ The group is `hidden=True` for now: it runs when typed, but is left out of `anys
 matching one on the Metrics module in `_private/docgen/__main__.py`) publishes it.
 """
 
-from datetime import datetime
+import csv
+from datetime import datetime, timezone
 import math
-from typing import Any, Dict, List, Optional, Tuple
+import os
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 import click
 
@@ -21,7 +23,7 @@ from anyscale.commands.doc_metadata import (
     CommandExample,
     ReleaseStatus,
 )
-from anyscale.commands.output_format import OutputFormat, print_output
+from anyscale.commands.output_format import OutputFormat, print_output, render_output
 from anyscale.commands.time_flags import (
     format_timestamp,
     parse_duration,
@@ -35,6 +37,8 @@ from anyscale.metrics.models import MetricSeries, MetricsResource
 _OUTPUT_FORMATS = [OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML, OutputFormat.TABLE]
 _NAME_COLUMNS = ["name"]
 _SERIES_COLUMNS = ["timestamp", "metric", "value"]
+# A downloaded CSV starts with these two columns, then one column per label.
+_CSV_FIXED_COLUMNS = ["timestamp", "value"]
 
 _RESOURCE_FLAGS = "--cluster-id, --workspace-id, --job-id or --service-id"
 
@@ -94,6 +98,20 @@ option_output = click.option(
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
+)
+option_download = click.option(
+    "-d",
+    "--download",
+    is_flag=True,
+    default=False,
+    help="Write the result to a file instead of printing it, and print the file's path. "
+    "Text and table output write CSV with one row per sample: timestamp, value, then one "
+    "column per label. -o json and -o yaml write that format.",
+)
+option_download_dir = click.option(
+    "--download-dir",
+    default=None,
+    help="Directory to write the file into. Default: the current directory. Requires --download.",
 )
 
 
@@ -212,6 +230,13 @@ def names(  # noqa: PLR0913
         description="Structured output for scripts.",
         command="anyscale metrics query 'ray_node_mem_used' --workspace-id <workspace-id> -o json",
     ),
+    CommandExample(
+        description="Write every series to a CSV file instead of the terminal.",
+        command=(
+            "anyscale metrics query 'ray_node_cpu_utilization' --cluster-id <cluster-id> "
+            "--download"
+        ),
+    ),
 )
 @metrics_cli.command(
     name="query", cls=AnyscaleCommand, short_help="Evaluate a PromQL query at one moment."
@@ -228,6 +253,8 @@ def names(  # noqa: PLR0913
     "Defaults to now.",
 )
 @option_output
+@option_download
+@option_download_dir
 def query(  # noqa: PLR0913
     query: str,  # noqa: A002
     cluster_id: Optional[str],
@@ -236,16 +263,29 @@ def query(  # noqa: PLR0913
     service_id: Optional[str],
     time: Optional[str],
     output_format: str,
+    download: bool,
+    download_dir: Optional[str],
 ) -> None:
     """Evaluate a PromQL expression at one moment for a cluster, workspace, job or service.
 
     QUERY is the PromQL expression, e.g. 'sum(ray_node_cpu_utilization)'. Quote it so the
     shell leaves it alone. The backend restricts it to the named resource, so a selector
     that names another resource is rejected.
+
+    With --download the result goes to a file in --download-dir (default: the current
+    directory) and only the file's path is printed. Text and table output write CSV, one
+    row per sample: timestamp, value, then one column per label. -o json and -o yaml
+    write that format instead.
     """
     resource = _resource(cluster_id, workspace_id, job_id, service_id)
-    series = anyscale.metrics.query(query, resource, time=parse_timestamp(time, "--time"))
-    _print_series(series, output_format)
+    eval_time = parse_timestamp(time, "--time")
+    _check_download_flags(download, download_dir)
+    series = anyscale.metrics.query(query, resource, time=eval_time)
+    if download:
+        stem = _file_stem(resource, _evaluation_time(series, eval_time))
+        _download_series(series, output_format, download_dir, stem)
+    else:
+        _print_series(series, output_format)
 
 
 # --- query-range -----------------------------------------------------------------------------
@@ -273,6 +313,13 @@ def query(  # noqa: PLR0913
             "--since 1h -o json"
         ),
     ),
+    CommandExample(
+        description="Write every point to a CSV file in ./metrics instead of the terminal.",
+        command=(
+            "anyscale metrics query-range 'ray_node_mem_used' --cluster-id <cluster-id> "
+            "--since 1d --download --download-dir ./metrics"
+        ),
+    ),
 )
 @metrics_cli.command(
     name="query-range",
@@ -295,6 +342,8 @@ def query(  # noqa: PLR0913
     "more than 1000 points per series.",
 )
 @option_output
+@option_download
+@option_download_dir
 def query_range(  # noqa: PLR0913
     query: str,  # noqa: A002
     cluster_id: Optional[str],
@@ -306,6 +355,8 @@ def query_range(  # noqa: PLR0913
     end_time: Optional[str],
     step: Optional[str],
     output_format: str,
+    download: bool,
+    download_dir: Optional[str],
 ) -> None:
     """Evaluate a PromQL expression at every step across a time window.
 
@@ -316,14 +367,23 @@ def query_range(  # noqa: PLR0913
     Without --step the distance between points grows with the window (the larger of 15s
     and the window divided by 1000), so a long window never hits the server's limit on
     points per series.
+
+    With --download the result goes to a file in --download-dir (default: the current
+    directory) and only the file's path is printed. Text and table output write CSV, one
+    row per point: timestamp, value, then one column per label. -o json and -o yaml write
+    that format instead.
     """
     resource = _resource(cluster_id, workspace_id, job_id, service_id)
     start, end = _required_window(since, start_time, end_time)
     if step is not None:
         # Validate the grammar here; the value itself is sent as typed, Prometheus reads it.
         parse_duration(step, "--step")
+    _check_download_flags(download, download_dir)
     series = anyscale.metrics.query_range(query, resource, start=start, end=end, step=step)
-    _print_series(series, output_format, is_range=True)
+    if download:
+        _download_series(series, output_format, download_dir, _file_stem(resource, start, end))
+    else:
+        _print_series(series, output_format, is_range=True)
 
 
 # --- shared implementation ---------------------------------------------------------------
@@ -378,11 +438,103 @@ def _print_series(
         print_output(rows, output_format, _SERIES_COLUMNS)
         return
 
+    print_output(_plain_series(series), output_format)
+
+
+def _plain_series(series: List[MetricSeries]) -> List[Dict[str, Any]]:
+    """``to_dict()`` of every series, with NaN and Inf as the strings Prometheus uses."""
     plain = [item.to_dict() for item in series]
     for item in plain:
         for sample in item["samples"]:
             sample["value"] = _prometheus_value(sample["value"])
-    print_output(plain, output_format)
+    return plain
+
+
+# --- download --------------------------------------------------------------------------------
+
+
+def _check_download_flags(download: bool, download_dir: Optional[str]) -> None:
+    if download_dir is not None and not download:
+        raise click.UsageError("--download-dir requires --download.")
+
+
+def _evaluation_time(series: List[MetricSeries], requested: Optional[datetime]) -> datetime:
+    """The moment an instant query was evaluated at, for the file name.
+
+    --time when given; otherwise the backend evaluated "now", which the samples carry.
+    """
+    if requested is not None:
+        return requested
+    for item in series:
+        if item.samples:
+            return item.samples[0].timestamp
+    return datetime.now(timezone.utc)
+
+
+def _file_stem(resource: MetricsResource, *times: datetime) -> str:
+    """``metrics_<resource id>_<time>`` or ``..._<start>_<end>``, times as 20260901T140000Z."""
+    stamps = "_".join(format_timestamp(value).replace("-", "").replace(":", "") for value in times)
+    return f"metrics_{resource.resource_id}_{stamps}"
+
+
+def _download_series(
+    series: List[MetricSeries], output_format: str, download_dir: Optional[str], stem: str
+) -> None:
+    """Write the series to ``<download_dir>/<stem>.<ext>`` and print that path.
+
+    json and yaml write the same payload the terminal would show in that format; text and
+    table write CSV. An existing file is overwritten. stdout carries only the path; the
+    series and point counts go to stderr.
+    """
+    structured = output_format in (OutputFormat.JSON.value, OutputFormat.YAML.value)
+    extension = output_format if structured else "csv"
+    directory = os.path.abspath(download_dir or os.getcwd())
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, f"{stem}.{extension}")
+    # Write beside the target and rename over it, so a failed or concurrent download never
+    # leaves a truncated or mixed file at the path.
+    partial = f"{path}.{os.getpid()}.tmp"
+    try:
+        with open(partial, "w", newline="") as handle:
+            if structured:
+                handle.write(render_output(_plain_series(series), output_format) + "\n")
+            else:
+                _write_csv(series, handle)
+        os.replace(partial, path)
+    finally:
+        if os.path.exists(partial):
+            os.remove(partial)
+    points = sum(len(item.samples) for item in series)
+    # Only the path goes to stdout, so ``file=$(anyscale metrics ... --download)`` works.
+    click.echo(f"Wrote {len(series)} series, {points} points.", err=True)
+    click.echo(path)
+
+
+def _write_csv(series: List[MetricSeries], handle: TextIO) -> None:
+    """One row per sample: timestamp, value, then every label key seen in any series.
+
+    Label columns are sorted; a series without a given label leaves that cell empty.
+    """
+    label_keys = sorted({key for item in series for key in item.labels} - set(_CSV_FIXED_COLUMNS))
+    writer = csv.DictWriter(
+        handle, fieldnames=_CSV_FIXED_COLUMNS + label_keys, lineterminator="\n"
+    )
+    writer.writeheader()
+    for item in series:
+        for sample in item.samples:
+            writer.writerow(
+                {
+                    **item.labels,
+                    "timestamp": format_timestamp(sample.timestamp),
+                    "value": _csv_value(sample.value),
+                }
+            )
+
+
+def _csv_value(value: float) -> str:
+    # NaN and Inf as Prometheus writes them; any other number as the text layout prints it.
+    prometheus = _prometheus_value(value)
+    return prometheus if isinstance(prometheus, str) else _format_value(value)
 
 
 def _prometheus_value(value: float) -> Any:

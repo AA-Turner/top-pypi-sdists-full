@@ -336,9 +336,6 @@ def search(
     """
     return_type = package_utils.resolve_dataframe_return_type(return_type)
 
-    search_results: List[List[Dict[str, Any]]] = []
-    columns: Optional[List[str]] = None
-
     # adjust distance metric
     if search_method == "ann":
         # ann does cosine for l2 normalized vectors, euclidean for non-l2 normalized vectors
@@ -363,6 +360,56 @@ def search(
         connection_details=connection_details,
         connection=connection,
     )
+
+    try:
+        return __search(
+            db_client=db_client,
+            img=img,
+            model_name=model_name,
+            detector_backend=detector_backend,
+            distance_metric=distance_metric,
+            enforce_detection=enforce_detection,
+            align=align,
+            l2_normalize=l2_normalize,
+            expand_percentage=expand_percentage,
+            normalization=normalization,
+            anti_spoofing=anti_spoofing,
+            similarity_search=similarity_search,
+            k=k,
+            database_type=database_type,
+            search_method=search_method,
+            return_type=return_type,
+            threshold=threshold,
+        )
+    finally:
+        # Graph clients may still be writing relationships in the background.
+        # Caller-supplied connections remain owned by the caller.
+        if connection is None and database_inventory[database_type]["is_graph_db"] is False:
+            db_client.close()
+
+
+def __search(
+    db_client: Database,
+    img: Union[str, NDArray[Any], IO[bytes], List[str], List[NDArray[Any]], List[IO[bytes]]],
+    model_name: str,
+    detector_backend: str,
+    distance_metric: str,
+    enforce_detection: bool,
+    align: bool,
+    l2_normalize: bool,
+    expand_percentage: int,
+    normalization: str,
+    anti_spoofing: bool,
+    similarity_search: bool,
+    k: Optional[int],
+    database_type: str,
+    search_method: str,
+    return_type: str,
+    threshold: float,
+) -> Union[List["pd.DataFrame"], List[List[Dict[str, Any]]]]:
+    """Search using a database client whose lifetime is managed by the caller."""
+    search_results: List[List[Dict[str, Any]]] = []
+    columns: Optional[List[str]] = None
 
     results = __get_embeddings(
         img=img,
@@ -436,6 +483,7 @@ def search(
                     instances.append(instance)
 
             if len(instances) == 0:
+                search_results.append([])
                 continue
 
             instances = __sort_by_distance(instances=instances, k=k)
@@ -497,6 +545,8 @@ def search(
 
             if len(instances) > 0:
                 search_results.append(__sort_by_distance(instances=instances, k=k))
+            else:
+                search_results.append([])
 
         __link_verified_identities(
             db_client=db_client,
@@ -898,7 +948,7 @@ def build_index(
         return
 
     try:
-        import faiss
+        import faiss  # pylint: disable=unused-import
     except ImportError as e:
         raise ValueError("faiss is not installed. Please install faiss to use build_index.") from e
 
@@ -907,6 +957,33 @@ def build_index(
         connection_details=connection_details,
         connection=connection,
     )
+
+    try:
+        __build_index(
+            db_client=db_client,
+            model_name=model_name,
+            detector_backend=detector_backend,
+            align=align,
+            l2_normalize=l2_normalize,
+            batch_size=batch_size,
+            max_neighbors_per_node=max_neighbors_per_node,
+        )
+    finally:
+        if connection is None:
+            db_client.close()
+
+
+def __build_index(
+    db_client: Database,
+    model_name: str,
+    detector_backend: str,
+    align: bool,
+    l2_normalize: bool,
+    batch_size: int,
+    max_neighbors_per_node: int,
+) -> None:
+    """Build the index using an already acquired database client."""
+    import faiss
 
     index = __get_index(
         db_client=db_client,

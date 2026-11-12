@@ -23,6 +23,7 @@ import jax
 import jax.numpy as jnp
 import optax
 from optax._src import test_utils
+from optax._src import utils
 
 
 os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'
@@ -68,7 +69,7 @@ class ShardingTest(parameterized.TestCase):
 
   @parameterized.named_parameters(OPTIMIZERS.items())
   def test_state_sharding_type_init_match_update(self, optimizer):
-    if jax.__version__ < '0.7.2':
+    if utils.parse_version(jax.__version__) < utils.parse_version('0.7.2'):
       self.skipTest('Skipping sharding-in-types test')
     mesh = jax.make_mesh(
         (8,), ('x',), axis_types=(jax.sharding.AxisType.Explicit,)
@@ -76,7 +77,7 @@ class ShardingTest(parameterized.TestCase):
     sharding = jax.sharding.NamedSharding(mesh, jax.P(None, 'x'))
 
     with jax.set_mesh(mesh):
-      params = jnp.zeros((2, 8, 4), dtype=jnp.float16, out_sharding=sharding)
+      params = jnp.zeros((2, 8, 4), dtype=jnp.bfloat16, out_sharding=sharding)
 
       state0 = optimizer.init(params)
       _, state1 = optimizer.update(params, state0, params)
@@ -87,7 +88,7 @@ class ShardingTest(parameterized.TestCase):
 
   @parameterized.named_parameters(OPTIMIZERS.items())
   def test_state_sharding_type_preserved_with_jit(self, optimizer):
-    if jax.__version__ < '0.7.2':
+    if utils.parse_version(jax.__version__) < utils.parse_version('0.7.2'):
       self.skipTest('Skipping sharding-in-types test')
     mesh = jax.make_mesh(
         (8,), ('x',), axis_types=(jax.sharding.AxisType.Explicit,)
@@ -95,7 +96,7 @@ class ShardingTest(parameterized.TestCase):
     sharding = jax.sharding.NamedSharding(mesh, jax.P(None, 'x'))
 
     with jax.set_mesh(mesh):
-      params = jnp.zeros((2, 8, 4), dtype=jnp.float16, out_sharding=sharding)
+      params = jnp.zeros((2, 8, 4), dtype=jnp.bfloat16, out_sharding=sharding)
 
       state0 = optimizer.init(params)
       state1 = jax.jit(optimizer.init)(params)
@@ -114,7 +115,7 @@ class ShardingTest(parameterized.TestCase):
       ('sharded', jax.sharding.PartitionSpec('x'))
   )
   def test_microbatch_with_explicit_sharding(self, spec):
-    if jax.__version__ < '0.8.1':
+    if utils.parse_version(jax.__version__) < utils.parse_version('0.8.1'):
       self.skipTest('Skipping sharding-in-types test.')
     mesh = jax.make_mesh(
         (8,), ('x',), axis_types=(jax.sharding.AxisType.Explicit,)

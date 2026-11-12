@@ -18,7 +18,14 @@ from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, AuthScenario, Failure, IgnoredAuth
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator, resolve_bundled_ref
+from schemathesis.core.jsonschema import (
+    BUNDLE_STORAGE_KEY,
+    get_type,
+    make_validator,
+    maybe_resolve_bundled,
+    resolve_bundled_ref,
+    schema_with_bundle,
+)
 from schemathesis.core.jsonschema.types import JsonSchema, as_object_schema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import (
@@ -68,6 +75,7 @@ from schemathesis.specs.openapi._auth_retry import (
 from schemathesis.specs.openapi.serialization import COLLECTION_FORMAT_DELIMITERS
 from schemathesis.specs.openapi.utils import (
     coerce_wire_string,
+    declared_methods,
     numeric_wire_value_is_valid,
     parameter_types,
     reads_as_null,
@@ -328,11 +336,11 @@ def _declared_parameters_are_valid(case: Case, location: ParameterLocation) -> b
     assert isinstance(value, Mapping)
     container = case.operation.get_parameter_set(location)
     schema = container.schema
-    if _has_serialization_sensitive_types(schema, container):
+    properties = _parameter_schemas(schema)
+    if _has_serialization_sensitive_types(properties, container):
         # Arrays and objects are rewritten on the wire, so post-serialization validity is unknowable.
         return False
     validator_cls = case.operation.schema.adapter.jsonschema_validator_cls
-    properties = schema.get("properties", {})
     try:
         declared = {
             name: _boolean_from_wire_spelling(item, properties.get(name, {}), validator_cls)
@@ -405,6 +413,7 @@ def _form_body_is_valid_as_sent(response: Response, case: Case, media_type: str)
     try:
         validator_cls = _get_openapi_schema(case).adapter.jsonschema_validator_cls
         validator = make_validator(alternative.optimized_schema, validator_cls)
+        properties = maybe_resolve_bundled(alternative.optimized_schema).get("properties", {})
         # A field missing from the wire was never received; empty lists and objects send nothing at all.
         sent: dict[str, object] = {
             name: value
@@ -417,14 +426,17 @@ def _form_body_is_valid_as_sent(response: Response, case: Case, media_type: str)
                 if name in body:
                     sent[name] = body[name]
                 continue
+            if _deep_object_member(name, properties) is not None:
+                # Object members are read as in a query: the text sent, or the repeated value that fits the member.
+                sent[name] = texts[0] if len(texts) == 1 else list(texts)
+                continue
             readings = [reading for text in texts for reading in _form_text_readings(cast(str, text))]
             # Servers read one of the repeated values and may parse it into the declared type.
             sent[name] = next(
                 (reading for reading in readings if not _has_errors_at(validator, {**sent, name: reading}, name)),
                 readings[0],
             )
-        properties = alternative.optimized_schema.get("properties", {})
-        return validator.is_valid(_fold_bracketed_names(sent, properties, validator_cls))
+        return validator.is_valid(_fold_bracketed_names(sent, properties, validator_cls, alternative.optimized_schema))
     except Exception:
         # Schemas the validator cannot read - can't tell whether the sent body is valid
         return False
@@ -724,7 +736,7 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
 
 
 def _declares_type(schema: JsonSchema, name: str) -> bool:
-    declared = schema.get("type") if isinstance(schema, dict) else None
+    declared = maybe_resolve_bundled(schema).get("type") if isinstance(schema, dict) else None
     return declared == name or isinstance(declared, list) and name in declared
 
 
@@ -753,13 +765,14 @@ def _query_as_sent(
     response: Response,
     case: Case,
     query: Mapping[str, object],
-    properties: dict[str, JsonSchema],
-    required: list[str],
+    container_schema: dict[str, Any],
 ) -> dict[str, object] | None:
     """Replace generated query values with the text actually sent wherever the server reads that text as is."""
     sent_values = _sent_query_values(response, case)
     if sent_values is None:
         return None
+    properties: dict[str, JsonSchema] = container_schema.get("properties", {})
+    required: list[str] = container_schema.get("required", [])
     sent: dict[str, object] = {}
     # Iterating the generated query skips keys added outside of generation, e.g. query-based auth.
     for name, value in query.items():
@@ -772,8 +785,8 @@ def _query_as_sent(
             sent[name] = texts[0] if len(texts) == 1 else texts
             continue
         # Other types keep their generated value, as the server parses the text back into it.
-        schema = properties[name]
-        is_string = _declares_type(schema, "string")
+        schema = schema_with_bundle(properties[name], container_schema)
+        is_string = _declares_type(schema, "string") or parameter_types(schema) == ["string"]
         # Frameworks read a blank non-string value as an absent one, which an optional parameter allows.
         if texts == [""] and not is_string and name not in required:
             continue
@@ -790,30 +803,46 @@ def _query_as_sent(
     if querystring is not None:
         # The whole query is the one `querystring` parameter, read as a form.
         form = properties.get(querystring)
-        inner = form.get("properties", {}) if isinstance(form, dict) else {}
-        return {querystring: _fold_bracketed_names(sent, inner, validator_cls)}
-    return _fold_bracketed_names(sent, properties, validator_cls)
+        bundle = container_schema.get(BUNDLE_STORAGE_KEY)
+        inner = resolve_bundled_ref(form, bundle).get("properties", {}) if isinstance(form, dict) else {}
+        return {querystring: _fold_bracketed_names(sent, inner, validator_cls, container_schema)}
+    return _fold_bracketed_names(sent, properties, validator_cls, container_schema)
 
 
 def _fold_bracketed_names(
-    values: dict[str, object], properties: Mapping[str, JsonSchema], validator_cls: type[jsonschema_rs.Validator]
+    values: dict[str, object],
+    properties: Mapping[str, JsonSchema],
+    validator_cls: type[jsonschema_rs.Validator],
+    root_schema: JsonSchema,
 ) -> dict[str, object]:
     """Read `name[key]` back into the object property `name`, as `deepObject` sends each member under such a name."""
     folded: dict[str, object] = {}
     for wire_name, value in values.items():
-        name, bracket, rest = wire_name.partition("[")
-        if bracket and rest.endswith("]") and wire_name not in properties and name in properties:
+        member = _deep_object_member(wire_name, properties)
+        if member is not None:
+            name, key = member
             members = folded.setdefault(name, {})
             if isinstance(members, dict):
-                key = rest[:-1]
                 if isinstance(value, list):
                     # Servers read one of the repeated values.
-                    validator = make_validator(properties[name], validator_cls)
-                    value = next((item for item in value if not _has_errors_at(validator, {key: item}, key)), value)
+                    validator = make_validator(schema_with_bundle(properties[name], root_schema), validator_cls)
+                    # A value valid alone goes first: `anyOf` reports a bad member at the object, not at the member.
+                    fitting = [item for item in value if validator.is_valid({key: item})] or [
+                        item for item in value if not _has_errors_at(validator, {key: item}, key)
+                    ]
+                    value = fitting[0] if fitting else value
                 members[key] = value
                 continue
         folded[wire_name] = value
     return folded
+
+
+def _deep_object_member(wire_name: str, properties: Mapping[str, JsonSchema]) -> tuple[str, str] | None:
+    """The declared object property and member key that a `deepObject` name like `name[key]` is sent under."""
+    name, bracket, rest = wire_name.partition("[")
+    if bracket and rest.endswith("]") and wire_name not in properties and name in properties:
+        return name, rest[:-1]
+    return None
 
 
 def _headers_as_read(headers: Mapping[str, object]) -> dict[str, object]:
@@ -848,9 +877,7 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
         if not container:
             continue
         if location == ParameterLocation.QUERY:
-            sent = _query_as_sent(
-                response, case, value, container.schema.get("properties", {}), container.schema.get("required", [])
-            )
+            sent = _query_as_sent(response, case, value, container.schema)
             if sent is not None:
                 value = sent
         v = dict(value) if location == ParameterLocation.HEADER else value
@@ -1239,8 +1266,10 @@ def allow_header_conformance(ctx: CheckContext, response: Response, case: Case) 
         return None
     declared = {method.lower() for method in case.operation.schema[case.operation.path]}
     declared &= HTTP_METHODS_SCHEMA
+    # Templated paths matching the same URL may add methods, but a router that prefers the exact path need not list them.
+    routed = declared | (declared_methods(case.operation, case.formatted_path) & HTTP_METHODS_SCHEMA)
     missing = sorted(declared - advertised - IMPLICIT_METHODS)
-    undocumented = sorted(advertised - declared - IMPLICIT_METHODS)
+    undocumented = sorted(advertised - routed - IMPLICIT_METHODS)
     if not missing and not undocumented:
         return None
     parts = []
@@ -1290,24 +1319,25 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
         if isinstance(value, Mapping) and meta_for_location is not None and meta_for_location.mode.is_negative:
             container = case.operation.get_parameter_set(location)
             schema = container.schema
+            properties = _parameter_schemas(schema)
 
-            if _has_serialization_sensitive_types(schema, container):
+            if _has_serialization_sensitive_types(properties, container):
                 # Wire-serialized arrays and objects can't be re-validated, so only mutation metadata can tell.
                 if isinstance(phase_data, (FuzzingPhaseData, StatefulPhaseData)) and any(
-                    _negates_declared_parameter(mutation, location, schema) for mutation in phase_data.mutations
+                    _negates_declared_parameter(mutation, location, properties) for mutation in phase_data.mutations
                 ):
                     return False
                 # Coverage negates one parameter at a time; a scalar one reaches the wire as generated.
                 if (
                     isinstance(phase_data, CoveragePhaseData)
                     and phase_data.parameter_location == location
+                    and phase_data.parameter is not None
                     and phase_data.parameter in container
-                    and not _allows_container_type(schema.get("properties", {}).get(phase_data.parameter, {}))
+                    and not _allows_container_type(properties.get(phase_data.parameter, {}))
                 ):
                     return False
                 continue
 
-            properties = schema.get("properties", {})
             try:
                 value_without_additional_properties = {
                     k: _boolean_from_wire_spelling(v, properties.get(k, {}), validator_cls)
@@ -1340,11 +1370,13 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
     return True
 
 
-def _negates_declared_parameter(mutation: Mutation, location: ParameterLocation, schema: dict) -> bool:
+def _negates_declared_parameter(
+    mutation: Mutation, location: ParameterLocation, properties: Mapping[str, JsonSchema]
+) -> bool:
     """Whether `mutation` invalidates a declared parameter in a way that survives wire serialization."""
     if mutation.parameter_location != location or mutation.parameter is None:
         return False
-    if not _allows_container_type(schema.get("properties", {}).get(mutation.parameter, {})):
+    if not _allows_container_type(properties.get(mutation.parameter, {})):
         return True
     # Other types arrive as a string that reads as a one-element array, and an empty value is sent as no value.
     return mutation.operator != OperatorKind.CHANGE_TYPE and "required" not in mutation.keywords
@@ -1364,7 +1396,7 @@ def _boolean_from_wire_spelling(
     return value
 
 
-def _has_serialization_sensitive_types(schema: dict, container: OpenApiParameterSet) -> bool:
+def _has_serialization_sensitive_types(properties: Mapping[str, JsonSchema], container: OpenApiParameterSet) -> bool:
     """Check if schema contains array or object types in defined parameters.
 
     In query/header/cookie parameters, arrays and objects are serialized to strings.
@@ -1376,7 +1408,6 @@ def _has_serialization_sensitive_types(schema: dict, container: OpenApiParameter
     Validation of string against array schema fails incorrectly.
     A better approach would be to apply serialization later on in the process.
     """
-    properties = schema.get("properties", {})
     return any(
         _allows_container_type(prop_schema) for prop_name, prop_schema in properties.items() if prop_name in container
     )
@@ -1386,6 +1417,14 @@ def _allows_container_type(schema: JsonSchema) -> bool:
     """Whether a parameter schema admits arrays or objects."""
     types = parameter_types(schema)
     return "array" in types or "object" in types
+
+
+def _parameter_schemas(container_schema: dict[str, Any]) -> dict[str, JsonSchema]:
+    """Parameter schemas by name, each keeping the bundle its references point into."""
+    properties = container_schema.get("properties", {})
+    if BUNDLE_STORAGE_KEY not in container_schema:
+        return properties
+    return {name: schema_with_bundle(subschema, container_schema) for name, subschema in properties.items()}
 
 
 # Methods that cannot re-create a resource — reading, modifying-in-place, or removing.

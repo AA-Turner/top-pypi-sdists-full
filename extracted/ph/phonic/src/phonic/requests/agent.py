@@ -31,7 +31,7 @@ class AgentParams(typing_extensions.TypedDict):
 
     name: str
     """
-    The name of the agent.
+    The name of the agent. Always equal to `slug`; agents have no separate display name.
     """
 
     phone_number: typing.Optional[str]
@@ -232,6 +232,11 @@ class AgentParams(typing_extensions.TypedDict):
     max_conversation_duration_sec: int
     """
     Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+    """
+
+    detect_voicemail_tone: bool
+    """
+    Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
     """
 
     configuration_endpoint: typing.Optional[AgentConfigurationEndpointParams]

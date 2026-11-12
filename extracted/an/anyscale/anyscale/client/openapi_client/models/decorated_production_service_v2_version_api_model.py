@@ -50,7 +50,8 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'current_state': 'ServiceVersionState',
         'global_target_capacity': 'float',
         'placements': 'list[ServiceVersionPlacement]',
-        'traffic_policy': 'TrafficPolicy'
+        'traffic_policy': 'TrafficPolicy',
+        'last_updated_in_place_at': 'datetime'
     }
 
     attribute_map = {
@@ -71,10 +72,11 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'current_state': 'current_state',
         'global_target_capacity': 'global_target_capacity',
         'placements': 'placements',
-        'traffic_policy': 'traffic_policy'
+        'traffic_policy': 'traffic_policy',
+        'last_updated_in_place_at': 'last_updated_in_place_at'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, connection_config_ids=None, current_state=None, global_target_capacity=None, placements=None, traffic_policy=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, connection_config_ids=None, current_state=None, global_target_capacity=None, placements=None, traffic_policy=None, last_updated_in_place_at=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionServiceV2VersionAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -98,6 +100,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         self._global_target_capacity = None
         self._placements = None
         self._traffic_policy = None
+        self._last_updated_in_place_at = None
         self.discriminator = None
 
         self.id = id
@@ -126,6 +129,8 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         if placements is not None:
             self.placements = placements
         self.traffic_policy = traffic_policy
+        if last_updated_in_place_at is not None:
+            self.last_updated_in_place_at = last_updated_in_place_at
 
     @property
     def id(self):
@@ -556,6 +561,29 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         """
 
         self._traffic_policy = traffic_policy
+
+    @property
+    def last_updated_in_place_at(self):
+        """Gets the last_updated_in_place_at of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+
+        Time the version's config was last updated in place. Null if never.  # noqa: E501
+
+        :return: The last_updated_in_place_at of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._last_updated_in_place_at
+
+    @last_updated_in_place_at.setter
+    def last_updated_in_place_at(self, last_updated_in_place_at):
+        """Sets the last_updated_in_place_at of this DecoratedProductionServiceV2VersionAPIModel.
+
+        Time the version's config was last updated in place. Null if never.  # noqa: E501
+
+        :param last_updated_in_place_at: The last_updated_in_place_at of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :type: datetime
+        """
+
+        self._last_updated_in_place_at = last_updated_in_place_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

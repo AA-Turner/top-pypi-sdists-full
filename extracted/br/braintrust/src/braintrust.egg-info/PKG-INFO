@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.49.3
+Version: 0.50.0
 Summary: SDK for integrating Braintrust
 Author-email: Braintrust <sdk@braintrustdata.com>
 License-Expression: MIT
@@ -28,6 +28,8 @@ Requires-Dist: sseclient-py
 Requires-Dist: python-slugify
 Requires-Dist: typing_extensions>=4.1.0
 Requires-Dist: wrapt
+Provides-Extra: audio
+Requires-Dist: av==19.0.2; python_version >= "3.12" and extra == "audio"
 Provides-Extra: cli
 Requires-Dist: boto3; extra == "cli"
 Requires-Dist: python-dotenv; extra == "cli"
@@ -46,6 +48,7 @@ Requires-Dist: orjson; platform_python_implementation != "PyPy" and extra == "pe
 Provides-Extra: temporal
 Requires-Dist: temporalio>=1.19.0; python_version >= "3.10" and extra == "temporal"
 Provides-Extra: all
+Requires-Dist: av==19.0.2; python_version >= "3.12" and extra == "all"
 Requires-Dist: boto3; extra == "all"
 Requires-Dist: openai-agents; extra == "all"
 Requires-Dist: opentelemetry-api; extra == "all"
@@ -106,6 +109,7 @@ BRAINTRUST_API_KEY=<YOUR_API_KEY> braintrust eval tutorial_eval.py
 Install extras as needed for specific workflows:
 
 ```bash
+pip install "braintrust[audio]"
 pip install "braintrust[cli]"
 pip install "braintrust[openai-agents]"
 pip install "braintrust[otel]"
@@ -115,12 +119,26 @@ pip install "braintrust[all]"
 
 Available extras:
 
+- `audio`: installs PyAV for Opus/Ogg session recording on Python 3.12+
 - `performance`: installs `orjson` for faster JSON serialization
 - `cli`: installs optional dependencies used by the Braintrust CLI
 - `openai-agents`: installs OpenAI Agents integration support
 - `otel`: installs OpenTelemetry integration dependencies
 - `temporal`: installs Temporal integration dependencies
 - `all`: installs all optional extras
+
+### Audio encoding
+
+`braintrust[audio]` requires Python 3.12+ and uses PyAV's bundled FFmpeg codecs.
+On Python 3.10–3.11, the extra does not install PyAV; use PCM/WAV recording.
+Each Opus/Ogg segment is an independent file with exact playable duration. Installing the extra does not
+enable capture; framework adapters still require their audio opt-ins and privacy
+permission. Without PyAV, default recording warns once and uses raw PCM. Explicit
+Opus configuration requires the extra. PCM/WAV need no native codecs.
+
+Audio uploads use `Attachment.upload()` directly. Span customizers and masking
+apply to trace records published afterward; removing an attachment reference does
+not prevent or undo its upload.
 
 ## Documentation
 

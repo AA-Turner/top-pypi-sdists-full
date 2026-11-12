@@ -17,6 +17,7 @@ class ModelEndpointConfigParam(TypedDict, total=False):
   tokenizer_path: str | None
   top_p_override: float | None
   top_k_override: int | None
+  image_max_pixels: int | None
 
 
 class DeploymentsCreateParams(TypedDict, total=False):

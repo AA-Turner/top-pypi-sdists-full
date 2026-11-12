@@ -9,10 +9,15 @@ fn mixed_widths_match_rustymath() {
     let kernel = Kernel { inputs: vec![Input::Array(Ty::F32, Read::Forward), Input::Scalar(Ty::F64), Input::Scalar(Ty::F64)], steps: vec![
         Step { op: Op::Convert, ty: Ty::F64, x: Value::Input(0), y: None }, Step { op: Op::Multiply, ty: Ty::F64, x: Value::Step(0), y: Some(Value::Input(1)) },
         Step { op: Op::Minimum, ty: Ty::F64, x: Value::Step(1), y: Some(Value::Input(2)) },
-    ], stores: vec![2], folds: vec![] }.compiled().unwrap().0;
+    ], stores: vec![2], folds: vec![] };
+    assert!(!kernel.seen(2, 5));
+    assert!(!kernel.seen(2, 5));
+    assert!(kernel.seen(1, 5));
+    let compiled = kernel.compiled().unwrap().0;
+    assert!(kernel.seen(0, usize::MAX));
     for x in [vec![f32::NAN, -0.0, 3.0, -3.0, 5.0, 1.5, -7.25, 0.0, 2.0, -0.0, 9.0], vec![-0.0; 3]] {
         let mut out = vec![0.0_f64; x.len()];
-        unsafe { kernel.run(x.len(), x.len(), &[x.as_ptr().cast()], &[0.5, 0.0].map(f64::to_bits), &[out.as_mut_ptr().cast()], &mut []) };
+        unsafe { compiled.run(x.len(), x.len(), &[x.as_ptr().cast()], &[0.5, 0.0].map(f64::to_bits), &[out.as_mut_ptr().cast()], &mut []) };
         let expected = x.iter().map(|&v| minimum(f64::from(v) * 0.5, 0.0));
         assert!(out.iter().zip(&x).zip(expected).all(|((&a, &v), b)| a == b || a.is_nan() && v.is_nan()), "{out:?}");
     }
@@ -322,7 +327,7 @@ static SETTINGS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn compiled_stages_match_interpreted(more: usize) {
     use basedpl::settings::{self, Compiles};
     let _settings = SETTINGS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    const SETUP: &str = "u←iuₓ₁ ⋄ v←juₓ₁ ⋄ h←ihₓ₂ ⋄ k←jhₓ₂ ⋄ w←iwₓ₄ ⋄ z←jwₓ₄ ⋄ l←ilₓ₈ ⋄ m←jlₓ₈";
+    const SETUP: &str = "u←iuₓ₁ ◇ v←juₓ₁ ◇ h←ihₓ₂ ◇ k←jhₓ₂ ◇ w←iwₓ₄ ◇ z←jwₓ₄ ◇ l←ilₓ₈ ◇ m←jlₓ₈";
     let (mut dynamic, mut fixed): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
     dynamic.extend(["+", "-", "×", "÷", "π", "⌈", "⌊"].map(|g| format!("--x{g}y")));
     fixed.extend(["+", "-", "×", "÷", "⌈", "⌊"].map(|g| format!("--xf{g}yf")));
@@ -333,13 +338,13 @@ fn compiled_stages_match_interpreted(more: usize) {
     }
     dynamic.extend([
         "-|x", "~p∧q", "~p∨q", "--xf+x", "+/b-1", "⌈/b-1", "--x÷0", "--÷x", "--πx", "--x*¯1", "+/(x<y)×x", "+/x≤x", "+/(x<y)∧b<y", "--y|x",
-        "--0.75|x", "--x|0.75", "yi←¯32768ₓ↦32767ₓ ⋄ forced←yi≡yi ⋄ +/yi-16ₓ×yi÷16ₓ",
+        "--0.75|x", "--x|0.75", "yi←¯32768ₓ↦32767ₓ ◇ forced←yi≡yi ◇ +/yi-16ₓ×yi÷16ₓ",
     ].map(String::from));
     fixed.extend([
         "--x÷y", "+/x=x", "+/(x<y)∧b<y", "+/h≤k", "+/w≠z", "+/l≤m", "(0.75≤)⍚[- ⊢]xf", "+/yf>0.75", "0ₓ₄+/xf<yf", "+/(xf<yf)×x", "-|xf",
         "√|xf", "√|x", "--u+v", "--h×k", "--w-z", "--l⌈m", "~u<v", "~l≥m", "-|h", "--u+h", "+/h×k", "⌈/u+v", "+/u>v", "+/bf-1", "⌈/bf-1", "--×x",
         "--×xf", "--⌊x", "--⌈xf", "--⌊(x÷3)×3", "--⌈(xf÷3)×3", "--÷xf", "--πxf", "--xfπyf", "--x*¯1", "--xf*0.5", "--x*1.5", "--xf*¯0.5",
-        "--1ₓ|l", "--2ₓ|l", "--4ₓ|w", "--256ₓ|h", "--2ₓ|u",
+        "--1ₓ|l", "--2ₓ|l", "--4ₓ|w", "--256ₓ|h", "--2ₓ|u", "--(33↑xf)+⊗2049↑yf",
     ].map(String::from));
     let options = || basedpl::EvalOptions { echo: false, ..Default::default() };
     let n = 16 * settings::Sizes::DEFAULT.block + more;
@@ -372,7 +377,9 @@ fn compiled_stages_match_interpreted(more: usize) {
             let (compiled, runs) = run(Compiles::Always);
             assert!(runs > 0, "{code} on {n} items ran no compiled part");
             let interpreted = run(Compiles::Never).0;
-            if matches!(code.as_str(), "+/b-1" | "0ₓ₄+/xf<yf") { assert!(compiled.is_atom() && interpreted.is_atom(), "{code} returned an array instead of an atom"); }
+            if matches!(code.as_str(), "+/b-1" | "0ₓ₄+/xf<yf") {
+                assert!(compiled.is_atom() && interpreted.is_atom(), "{code} returned an array instead of an atom");
+            }
             assert_eq!(
                 basedpl_testkit::reference::difference(&compiled, &interpreted, None, 0.0, true), None,
                 "{code} on {n} items; scalar compiled {:?}, interpreted {:?}", compiled.as_number(), interpreted.as_number()

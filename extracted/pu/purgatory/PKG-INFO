@@ -1,30 +1,39 @@
 Metadata-Version: 2.1
 Name: purgatory
-Version: 3.0.1
+Version: 3.0.2
 Summary: A circuit breaker implementation for asyncio
 Author-Email: Guillaume Gauvrit <guillaume@gauvr.it>
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: System :: Monitoring
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: Topic :: System :: Networking
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Framework :: AsyncIO
-Classifier: Operating System :: OS Independent
-Classifier: Environment :: Console
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Networking
 Classifier: Typing :: Typed
-Classifier: Development Status :: 5 - Production/Stable
 Project-URL: Homepage, https://github.com/mardiros/purgatory
 Project-URL: Documentation, https://mardiros.github.io/purgatory
 Project-URL: Repository, https://github.com/mardiros/purgatory.git
 Project-URL: Issues, https://github.com/mardiros/purgatory/issues
 Project-URL: Changelog, https://mardiros.github.io/purgatory/user/changelog.html
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Provides-Extra: redis
-Requires-Dist: redis<6,>=5.2.0; extra == "redis"
+Requires-Dist: redis<9,>=5.2.0; extra == "redis"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.0.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints<2,>=1.12.0; extra == "docs"
+Requires-Dist: furo>=2024.8.6; extra == "docs"
 Description-Content-Type: text/x-rst
 
 Purgatory
@@ -115,8 +124,8 @@ Example with a decorator
 
 
 
-Example with a context manager for an synchronous API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Example with a context manager for a synchronous API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 

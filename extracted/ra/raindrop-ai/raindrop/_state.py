@@ -63,6 +63,15 @@ STATE_FIELDS = (
     "_partial_app_git_snapshots",
     "_partial_app_git_inference_disabled",
     "_partial_app_git_lock",
+    "_partial_starts",
+    "_partial_content_seen",
+    "_resumed_event_ids",
+    "_resumed_identity",
+    "_live_interactions",
+    "_inflight_sends",
+    "_inflight_cond",
+    "_background_drops",
+    "flush_timeout",
 )
 
 
@@ -109,6 +118,33 @@ class ClientState:
         self._partial_app_git_snapshots: dict[str, Any] = {}
         self._partial_app_git_inference_disabled: bool = False
         self._partial_app_git_lock = threading.Lock()
+        # Event start time (ISO-8601) per open partial event: every
+        # track_partial request for the event carries it (CONTRACT 9.1).
+        self._partial_starts: dict[str, str] = {}
+        # Partial events that carried input, output or attachments in this
+        # process, so an empty finish can be warned about (CONTRACT 14.2).
+        self._partial_content_seen: set[str] = set()
+        # Events continued by id (resume_interaction); their start and
+        # content may live in another process.
+        self._resumed_event_ids: set[str] = set()
+        # Identity per open event (user, event name, conversation): from
+        # begin(), any update, or resume_interaction(). Sent with every update
+        # of that event in this process until it is finished (CONTRACT 9.3).
+        self._resumed_identity: dict[str, dict[str, str]] = {}
+        # Interaction objects the caller still holds, by event id. Their
+        # start and identity are never evicted, even after an inactivity
+        # timer sent them and cleared their buffers.
+        self._live_interactions: "weakref.WeakValueDictionary[str, Any]" = (
+            weakref.WeakValueDictionary()
+        )
+        # Sends in progress on any thread; explicit flush() waits for them.
+        self._inflight_sends: int = 0
+        self._inflight_cond = threading.Condition()
+        # Payloads the background sender dropped since the last explicit
+        # flush(); that flush's result counts them (CONTRACT 1.2.1).
+        self._background_drops: int = 0
+        # Deadline for an explicit flush() to make data durable (CONTRACT 1.2).
+        self.flush_timeout: float = 10.0
         # Non-reversible identity of this client's write key (first 8 hex
         # chars of its SHA-256). Stamped on spans produced in this client's
         # context so the export guard can drop spans that would otherwise

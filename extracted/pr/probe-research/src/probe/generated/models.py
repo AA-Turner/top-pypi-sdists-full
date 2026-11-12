@@ -148,6 +148,7 @@ from .enums import (  # noqa: F401 - re-exported
     RunCodeState,
     RunCompareState,
     LivenessProtocolEnum,
+    RunListView,
     RunStatus,
     ObservedBy,
     Status3,
@@ -8807,6 +8808,148 @@ class RunDetailOut(BaseModel):
     write_epoch: int | None = Field(1, title='Write Epoch')
 
 
+class FinalMetricOut(BaseModel):
+    """
+    A run's final value of one metric (`GET /v1/runs?latest_metrics=`): its last value, extent and last
+    step. A W&B-backed run's snapshot knows only `last`; the rest are null.
+    """
+
+    last: float | None = Field(None, title='Last')
+    last_step: int | None = Field(None, title='Last Step')
+    max: float | None = Field(None, title='Max')
+    min: float | None = Field(None, title='Min')
+
+class RunCountsOut(BaseModel):
+    """
+    `GET /v1/runs/counts`: how many runs the runs list's filter matches, in all and per stored
+    status. A page is one page; this is the whole listing.
+    """
+
+    by_status: dict[str, int] = Field(..., title='By Status')
+    total: int = Field(..., title='Total')
+
+class RunListLightOut(BaseModel):
+    """
+    A `GET /v1/runs?view=light` row: `RunDetailOut` without its heavy fields (config, metadata,
+    notes, description, foreign keys, summary). Keeps `project_id` and `tags`, which the SDK's
+    list guards read off rows. Field meanings: `RunDetailOut`.
+    """
+
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str | None = Field(None, title='Slug')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+class RunListLightRowOut(BaseModel):
+    """
+    A `GET /v1/runs?view=light&latest_metrics=` row.
+    """
+
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    latest_metrics: dict[str, FinalMetricOut] | None = Field(
+        None, title='Latest Metrics'
+    )
+    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
+    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str | None = Field(None, title='Slug')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+class RunListRowOut(BaseModel):
+    """
+    A full `GET /v1/runs?latest_metrics=` row.
+    """
+
+    attached_at: AwareDatetime | None = Field(None, title='Attached At')
+    config: dict[str, Any] | None = Field(None, title='Config')
+    counts: RunCounts | None = None
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(None, title='Created By')
+    customer_id: str = Field(..., title='Customer Id')
+    description: str | None = Field(None, title='Description')
+    description_customized: bool | None = Field(False, title='Description Customized')
+    ended_at: AwareDatetime | None = Field(None, title='Ended At')
+    env_ref: str | None = Field(None, title='Env Ref')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    external_id: str | None = Field(None, title='External Id')
+    foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
+    group_id: UUID | None = Field(None, title='Group Id')
+    id: UUID = Field(..., title='Id')
+    labeled_point_budget: int | None = Field(None, title='Labeled Point Budget')
+    labeled_point_count: int | None = Field(0, title='Labeled Point Count')
+    last_heartbeat_at: AwareDatetime | None = Field(None, title='Last Heartbeat At')
+    latest_metrics: dict[str, FinalMetricOut] | None = Field(
+        None, title='Latest Metrics'
+    )
+    latest_metrics_locked: bool | None = Field(False, title='Latest Metrics Locked')
+    latest_metrics_partial: bool | None = Field(False, title='Latest Metrics Partial')
+    liveness_mode: str | None = Field(None, title='Liveness Mode')
+    metadata: dict[str, Any] | None = Field(None, title='Metadata')
+    mirror_state: str | None = Field(None, title='Mirror State')
+    name: str = Field(..., title='Name')
+    name_customized: bool | None = Field(False, title='Name Customized')
+    notes: str | None = Field(None, title='Notes')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
+    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
+    notes_version: int | None = Field(None, title='Notes Version')
+    observer_heartbeat_at: AwareDatetime | None = Field(
+        None, title='Observer Heartbeat At'
+    )
+    parent_relation: ParentRelation | None = None
+    parent_run_id: UUID | None = Field(None, title='Parent Run Id')
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str | None = Field(None, title='Slug')
+    source: str = Field(..., title='Source')
+    started_at: AwareDatetime | None = Field(None, title='Started At')
+    status: RunStatus
+    summary: dict[str, Any] = Field(
+        ...,
+        description='Deprecated alias for `summary_metrics`; drops in the release after next.',
+        title='Summary',
+    )
+    summary_metrics: dict[str, Any] | None = Field(None, title='Summary Metrics')
+    tags: list[str] | None = Field(None, title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    write_epoch: int | None = Field(1, title='Write Epoch')
+
+
 class RunInputOut(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     fingerprint: str | None = Field(None, title='Fingerprint')
@@ -10424,6 +10567,7 @@ class RunReopen(BaseModel):
 
 
 class SemanticHit(BaseModel):
+    author_id: str | None = Field(None, title='Author Id')
     chunks: list[SemanticChunk] | None = Field(None, title='Chunks')
     corpus: IndexCorpus | None = None
     doc_id: str = Field(..., title='Doc Id')

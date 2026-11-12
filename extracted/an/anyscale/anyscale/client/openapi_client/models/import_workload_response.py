@@ -48,7 +48,8 @@ class ImportWorkloadResponse(object):
         'customer_storage_bucket_name': 'str',
         'customer_storage_bucket_region': 'str',
         'observability_config': 'ObservabilityConfig',
-        'ssh_public_key': 'str'
+        'ssh_public_key': 'str',
+        'service_id': 'str'
     }
 
     attribute_map = {
@@ -67,10 +68,11 @@ class ImportWorkloadResponse(object):
         'customer_storage_bucket_name': 'customer_storage_bucket_name',
         'customer_storage_bucket_region': 'customer_storage_bucket_region',
         'observability_config': 'observability_config',
-        'ssh_public_key': 'ssh_public_key'
+        'ssh_public_key': 'ssh_public_key',
+        'service_id': 'service_id'
     }
 
-    def __init__(self, workload_id=None, session_id=None, workload_spec_id=None, created=None, state=None, bucket_log_prefix=None, cloud_id=None, organization_id=None, organization_public_identifier=None, project_id=None, project_name=None, cloud_provider=None, customer_storage_bucket_name=None, customer_storage_bucket_region=None, observability_config=None, ssh_public_key=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_id=None, session_id=None, workload_spec_id=None, created=None, state=None, bucket_log_prefix=None, cloud_id=None, organization_id=None, organization_public_identifier=None, project_id=None, project_name=None, cloud_provider=None, customer_storage_bucket_name=None, customer_storage_bucket_region=None, observability_config=None, ssh_public_key=None, service_id=None, local_vars_configuration=None):  # noqa: E501
         """ImportWorkloadResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -92,6 +94,7 @@ class ImportWorkloadResponse(object):
         self._customer_storage_bucket_region = None
         self._observability_config = None
         self._ssh_public_key = None
+        self._service_id = None
         self.discriminator = None
 
         self.workload_id = workload_id
@@ -116,6 +119,8 @@ class ImportWorkloadResponse(object):
             self.observability_config = observability_config
         if ssh_public_key is not None:
             self.ssh_public_key = ssh_public_key
+        if service_id is not None:
+            self.service_id = service_id
 
     @property
     def workload_id(self):
@@ -478,6 +483,27 @@ class ImportWorkloadResponse(object):
         """
 
         self._ssh_public_key = ssh_public_key
+
+    @property
+    def service_id(self):
+        """Gets the service_id of this ImportWorkloadResponse.  # noqa: E501
+
+
+        :return: The service_id of this ImportWorkloadResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._service_id
+
+    @service_id.setter
+    def service_id(self, service_id):
+        """Sets the service_id of this ImportWorkloadResponse.
+
+
+        :param service_id: The service_id of this ImportWorkloadResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._service_id = service_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

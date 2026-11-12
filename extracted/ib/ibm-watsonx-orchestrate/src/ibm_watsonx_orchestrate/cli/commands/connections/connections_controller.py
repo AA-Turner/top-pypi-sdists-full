@@ -216,6 +216,11 @@ def _validate_connection_params(type: ConnectionType, **args) -> None:
         raise typer.BadParameter(
             f"The flag --auth-entries is only supported by type {type}"
         )
+
+    if type != ConnectionType.OAUTH2_AUTH_CODE and args.get('pkce') is not None:
+        raise typer.BadParameter(
+            f"The flag --pkce is only supported by type {ConnectionType.OAUTH2_AUTH_CODE}"
+        )
     
 def _parse_entry(entry: str) -> dict[str,str]:
     split_entry = entry.split('=', 1)
@@ -266,6 +271,7 @@ def _get_credentials(type: ConnectionType, **kwargs):
                 client_secret=kwargs.get("client_secret"),
                 token_url=kwargs.get("token_url"),
                 scope=kwargs.get("scope"),
+                pkce=kwargs.get("pkce"),
                 **custom_fields
             )
         case ConnectionType.OAUTH2_CLIENT_CREDS:

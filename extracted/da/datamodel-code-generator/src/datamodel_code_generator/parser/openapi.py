@@ -885,8 +885,8 @@ class OpenAPIParser(JsonSchemaParser):
 
     def _validated_target(self, raw: object, object_type: type[BaseModelT]) -> BaseModelT:
         """Return the ``object_type`` a value of a loaded document validates to, validated once and shared."""
-        return self._shared_object(
-            raw, object_type, partial(self._validated_object, raw, object_type, [], self._raw_location(raw))
+        return _schema_refs.shared_object(
+            self, raw, object_type, partial(self._validated_object, raw, object_type, [], self._raw_location(raw))
         )
 
     def _validated_object(
@@ -895,8 +895,12 @@ class OpenAPIParser(JsonSchemaParser):
         """Validate ``raw``, an OpenAPI object at ``location`` (``path`` when unknown), as ``object_type``.
 
         One that does not validate is an error at the first schema in it that is no schema object, with the message of
-        such a schema in ``components/schemas``, or else at the object itself.
+        such a schema in ``components/schemas``, or else at the object itself. Under --schema-version-mode strict, the
+        schemas it holds are checked first (``_check_loaded_schema_versions``).
         """
+        if self.config.schema_version_mode == VersionMode.Strict:
+            for holder, key, tokens in _held_schemas(raw, _MODEL_ROLES.get(object_type, "")):
+                self._check_loaded_schema_versions(holder[key], [*path, *tokens])
         try:
             return object_type.model_validate(raw, context=self._schema_validation_context)
         except ValidationError as error:

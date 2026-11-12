@@ -1302,6 +1302,9 @@ FleetStateCodeType = Literal[
 FleetTypeType = Literal["instant", "maintain", "request"]
 FlexibleEnaQueuesSupportType = Literal["supported", "unsupported"]
 FlowLogsResourceTypeType = Literal[
+    "CoreNetwork",
+    "CoreNetworkAttachment",
+    "CoreNetworkEdge",
     "NetworkInterface",
     "RegionalNatGateway",
     "Subnet",

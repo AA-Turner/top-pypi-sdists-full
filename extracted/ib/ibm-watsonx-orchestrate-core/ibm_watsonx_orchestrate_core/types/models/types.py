@@ -202,6 +202,15 @@ class ProviderConfig(BaseModel):
         return ProviderConfig.model_validate(old_config_dict)
 
 
+class CapabilityType(str, Enum):
+    json_output = "json_output"
+    image_input = "image_input"
+    video_input = "video_input"
+    audio_input = "audio_input"
+    document_input = "document_input"
+    log_prob_output = "log_prob_output"
+
+
 class VirtualModel(BaseModel):
     model_config = ConfigDict(extra='allow')
 
@@ -213,6 +222,7 @@ class VirtualModel(BaseModel):
     tags: List[str] = []
     model_type: str = ModelType.CHAT
     connection_id: Optional[str] = None
+    capabilities: Optional[List[CapabilityType]] = None
 
     @model_validator(mode="before")
     def validate_fields(cls, values):
@@ -237,6 +247,7 @@ class ListVirtualModel(BaseModel):
     tags: Optional[List[str]] = None
     model_type: Optional[str] = None
     connection_id: Optional[str] = None
+    capabilities: Optional[List[CapabilityType]] = None
 
 
 class ModelConfig(BaseModel):

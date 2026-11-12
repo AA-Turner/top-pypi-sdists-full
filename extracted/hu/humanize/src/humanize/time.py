@@ -49,7 +49,7 @@ class Unit(Enum):
 def _now() -> dt.datetime:
     import datetime as dt
 
-    return dt.datetime.now()
+    return dt.datetime.now()  # naive local time is intentional
 
 
 def _abs_timedelta(delta: dt.timedelta) -> dt.timedelta:
@@ -61,10 +61,7 @@ def _abs_timedelta(delta: dt.timedelta) -> dt.timedelta:
     Returns:
         datetime.timedelta: Absolute timedelta.
     """
-    if delta.days < 0:
-        now = _now()
-        return now - (now + delta)
-    return delta
+    return abs(delta)
 
 
 def _date_and_delta(
@@ -131,8 +128,9 @@ def naturaldelta(
         >>> now = dt.datetime.now(tz=berlin)
         >>> later = now + dt.timedelta(minutes=30)
 
-        >>> assert naturaldelta(later - now) == "30 minutes"
-        True
+        >>> naturaldelta(later - now)
+        '30 minutes'
+
         ```
 
     """
@@ -153,6 +151,16 @@ def naturaldelta(
             delta = dt.timedelta(seconds=value)
         except (ValueError, TypeError):
             return str(value)
+        except OverflowError:
+            # `int(value)` raises OverflowError for non-finite floats (inf/-inf),
+            # which, like NaN, are returned unchanged. A too-large *finite* value
+            # (whose OverflowError comes from `timedelta`) is still raised, per
+            # the documented `OverflowError` contract.
+            import math
+
+            if not math.isfinite(value):
+                return str(value)
+            raise
 
     use_months = months
 
@@ -245,6 +253,7 @@ def naturaldelta(
 
         return _ngettext("1 year, %d day", "1 year, %d days", days) % days
 
+    years = round(delta.days / 365)
     return _ngettext("%d year", "%d years", years).replace("%d", "%s") % intcomma(years)
 
 

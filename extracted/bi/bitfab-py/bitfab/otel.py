@@ -7,6 +7,7 @@ import random
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any, NamedTuple
 
 from opentelemetry import trace
@@ -33,6 +34,7 @@ from bitfab.transport_types import (
     CarrierMeta,
     CarrierRef,
     DeliveryError,
+    DeliveryReceipt,
     DirectBatchSender,
     TraceOperation,
 )
@@ -42,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 _OPERATION_ATTRIBUTE = "bitfab.operation"
 _PAYLOAD_ATTRIBUTE = "bitfab.payload"
+_ASYNC_OK_HEADER = "X-Bitfab-Async-Ok"
 _MAX_EXPORT_REQUEST_BYTES = 3_000_000
 _MAX_DECOMPRESSED_REQUEST_BYTES = 8_000_000
 _MAX_REQUEST_BYTES_ENV = "BITFAB_OTEL_MAX_REQUEST_BYTES"
@@ -300,7 +303,7 @@ class BitfabSpanExporter(SpanExporter):
         max_request_bytes: int,
         max_request_batch_size: int,
         export_concurrency: int,
-        on_delivered: Callable[[list[CarrierRef]], None] | None = None,
+        on_delivered: Callable[[list[CarrierRef], bool], None] | None = None,
         # The same budget the processor enforces around this export, so a
         # configured timeout and the deadline a wait is judged by cannot drift.
         export_timeout_millis: int = _EXPORT_TIMEOUT_MILLIS,
@@ -401,11 +404,16 @@ class BitfabSpanExporter(SpanExporter):
                         _encode_request(envelope, request_spans)
                     )
                     if prepared.wire_bytes <= self._max_request_bytes:
-                        self._send_with_retries(prepared)
+                        receipt = self._send_with_retries(
+                            replace(prepared, headers={_ASYNC_OK_HEADER: "1"})
+                        )
                         # Refs come from the original spans: trimming rebuilds a
                         # span without one, and a trimmed carrier still reached
                         # the server under its own identity.
-                        self._report_delivered(spans)
+                        self._report_delivered(
+                            spans,
+                            isinstance(receipt, DeliveryReceipt) and receipt.queued,
+                        )
                         return True
 
                 if len(spans) != 1:
@@ -478,15 +486,16 @@ class BitfabSpanExporter(SpanExporter):
             )
         time.sleep(remaining)
 
-    def _send_with_retries(self, request: PreparedRequest) -> None:
+    def _send_with_retries(self, request: PreparedRequest) -> DeliveryReceipt | None:
         # One budget for the whole exchange, waits included: the processor kills
         # the export at this deadline, so a wait past it cannot be served.
         deadline = time.monotonic() + self._export_timeout_millis / 1_000
         for attempt in range(3):
             try:
                 self._await_throttle(deadline)
-                self._direct_sender(request, max(0.0, deadline - time.monotonic()))
-                return
+                return self._direct_sender(
+                    request, max(0.0, deadline - time.monotonic())
+                )
             except Exception as error:
                 self._record_throttle(error)
                 if _is_oversized(error):
@@ -503,7 +512,7 @@ class BitfabSpanExporter(SpanExporter):
                     raise
                 time.sleep(wait)
 
-    def _report_delivered(self, spans: Sequence[_EncodedSpan]) -> None:
+    def _report_delivered(self, spans: Sequence[_EncodedSpan], queued: bool) -> None:
         """Announce the carriers a request delivered. Wrapped because a listener
         that raises must never turn a delivered batch into a failed export."""
         if self._on_delivered is None:
@@ -512,7 +521,7 @@ class BitfabSpanExporter(SpanExporter):
         if not refs:
             return
         try:
-            self._on_delivered(refs)
+            self._on_delivered(refs, queued)
         except Exception:
             logger.exception("Bitfab: a delivery listener raised")
 
@@ -576,7 +585,7 @@ class OtelBatchTransport:
         max_queue_size: int = _MAX_QUEUE_SIZE,
         export_concurrency: int = _DEFAULT_EXPORT_CONCURRENCY,
         max_request_bytes: int | None = None,
-        on_delivered: Callable[[list[CarrierRef]], None] | None = None,
+        on_delivered: Callable[[list[CarrierRef], bool], None] | None = None,
     ):
         self._direct_sender = direct_sender
         self._on_delivered = on_delivered
@@ -783,7 +792,7 @@ class OtelBatchTransport:
 def create_otel_transport(
     *,
     direct_sender: DirectBatchSender,
-    on_delivered: Callable[[list[CarrierRef]], None] | None = None,
+    on_delivered: Callable[[list[CarrierRef], bool], None] | None = None,
 ) -> OtelBatchTransport:
     return OtelBatchTransport(
         direct_sender=direct_sender,

@@ -1,1 +1,0 @@
-import{Gc as e}from"./vendor-other-JtB2jniv.js";export{e as default};

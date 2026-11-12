@@ -113,6 +113,8 @@ class _Operators:
     def __rsub__(self, other): return _binary('-', other, self)
     def __mul__(self, other): return _binary('×', self, other)
     def __rmul__(self, other): return _binary('×', other, self)
+    def __matmul__(self, other): return _matmul(self, other)
+    def __rmatmul__(self, other): return _matmul(other, self)
     def __truediv__(self, other): return _binary('÷', self, other)
     def __rtruediv__(self, other): return _binary('÷', other, self)
     def __floordiv__(self, other): return _unary('⌊', _binary('÷', self, other))
@@ -135,6 +137,11 @@ class _Operators:
     def __pos__(self): return _unary('+', self)
     def __invert__(self): return _bitwise('~', self)
     def __abs__(self): return _unary('|', self)
+
+class _Expression(_Operators):
+    def __init__(self, *parts): self.parts = parts
+    def __repr__(self): return repr(self.parts)
+    def __bool__(self): raise TypeError('build a BPL expression with fn before testing its truth value')
 
 def _text(raw):
     "The string in an unkeyed character vector, else `None`"
@@ -249,8 +256,6 @@ class Array(_Operators):
         self._inner = self._inner.assign(index, _array(value), _array)
         self._classify()
     def __rustymath_array__(self): return self._inner.__rustymath_array__()
-    def __matmul__(self, other): return _matmul(self, other)
-    def __rmatmul__(self, other): return _matmul(other, self)
     def __array__(self, dtype=None, copy=None):
         result = _numpy(self._inner, dtype=dtype, copy=copy)
         if result is not None: return result
@@ -342,10 +347,9 @@ class _Workspace:
 
     def __getattr__(self, name):
         "Look up a builtin function by glyph, registered name/alias or system name, then a workspace name."
-        try: return _builtin(name)
-        except AttributeError:
-            if name.startswith('_') or name not in self.names(name): raise
-        return self(name)
+        if name in _builtins: return _builtin(name)
+        if not name.startswith('_') and name in self.names(name): return self(name)
+        return _builtin(_prefix(name, _builtins))
 
     def __dir__(self): return sorted(set(super().__dir__()) | _builtins.keys() | set(self.names()))
 
@@ -353,10 +357,12 @@ class _Workspace:
         if not isinstance(name, str): raise TypeError('binding name must be a string')
         self(**{name:value})
 
-    def fn(self, source):
-        "A composable late-bound Function: one argument is omega; two are alpha, omega."
-        if not isinstance(source, str): raise TypeError('function expression must be a string')
-        return _result(self._session.late_bound(source)).value
+    def fn(self, *parts):
+        "Build from BPL expression parts, or keep a single source string late-bound."
+        if len(parts) == 1 and isinstance(parts[0], str): return _result(self._session.late_bound(parts[0])).value
+        if not parts: raise TypeError('fn needs an expression')
+        source, values = _expression(parts)
+        return _result(self._session.expression(source, values, timeout=self.timeout, show=_show)).value
 
     def names(self, prefix='', classes=(2,3,4)):
         "Sorted visible names, filtered by prefix and name class."
@@ -377,13 +383,19 @@ class _Workspace:
 bpl = _Workspace()
 fn = bpl.fn
 
-from .functions import Function, Operator, fork, atop, __all__ as _function_names, _binary, _unary, _bitwise, _matmul, _builtin, _builtins, _glyph, _build
+from .functions import (Function, Operator, fork, atop, __all__ as _function_names,
+    _binary, _unary, _bitwise, _matmul, _builtin, _builtins, _glyph, _build, _prefix)
+from .expressions import *
+from .expressions import _expression, __all__ as _expression_names
 from .printing import to_python
 from .syntax import parse
 __all__ += ['to_python', 'parse']
 __all__ += _function_names
+__all__ += _expression_names
 
-def __getattr__(name): return _builtin(name)
+def __getattr__(name):
+    name = _prefix(name, set(__all__) | _builtins.keys())
+    return globals()[name] if name in globals() else _builtin(name)
 def __dir__(): return sorted(set(globals()) | _builtins.keys())
 
 if 'IPython' in sys.modules:

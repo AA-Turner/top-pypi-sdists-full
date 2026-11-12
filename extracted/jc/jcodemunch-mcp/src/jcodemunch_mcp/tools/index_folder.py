@@ -442,8 +442,13 @@ def _record_coverage(
     files_accepted: Optional[int] = None,
     post_discovery_drops: Optional[dict] = None,
     parse_failed=(),
+    withheld_files: Optional[dict] = None,
 ) -> None:
     """Persist the coverage contract after a save (best-effort, never raises).
+
+    ``withheld_files`` is `_withheld_files_for`'s ``{path: (size, limit)}``:
+    the files withheld for size, named so the file tools can answer for them
+    (#1396).
 
     ``parse_failed`` is every file in the index whose last parse failed; a walk
     that re-parsed only some files passes the carried set
@@ -457,11 +462,50 @@ def _record_coverage(
         )
         if parse_failed:
             report = _with_parse_failures(report, parse_failed)
+        if withheld_files:
+            from ..retrieval.verdict import withheld_files_record
+
+            report.update(withheld_files_record(withheld_files))
         store._sqlite.set_coverage(owner, repo_name, report)
     except Exception:
         logger.debug(
             "Failed to record coverage for %s/%s", owner, repo_name, exc_info=True
         )
+
+
+def _withheld_files_for(
+    prior_coverage, found, folder_path: Path, walk_prefix: str, paths_given: bool
+) -> dict:
+    """``{path: (size, limit)}`` for the coverage record after a walk (#1396).
+
+    ``found`` is discovery's ``oversize_out``. Stored paths are relative to the
+    git root (``folder_path``). A ``paths=`` run walked no tree, so the prior
+    record stands as it was; a subdir walk replaces the entries inside its
+    prefix and keeps the rest. A file a later walk indexes leaves the record
+    because that walk did not find it oversize.
+    """
+    from ..retrieval.verdict import WITHHELD_FILES_KEY
+
+    prior = (prior_coverage or {}).get(WITHHELD_FILES_KEY) or {}
+    if not isinstance(prior, dict):
+        prior = {}
+    prior_files = {
+        f: (int(e.get("size") or 0), int(e.get("limit") or 0))
+        for f, e in prior.items() if isinstance(e, dict)
+    }
+    if paths_given:
+        return prior_files
+    files = {
+        f: e for f, e in prior_files.items()
+        if walk_prefix and _file_outside_walk_prefix(f, walk_prefix)
+    }
+    for path, size, max_size in found or ():
+        try:
+            rel = Path(path).resolve().relative_to(folder_path.resolve()).as_posix()
+        except (OSError, ValueError):
+            continue
+        files[rel] = (int(size), int(max_size or 0))
+    return files
 
 
 def _build_skip_dirs_regex(repo: Optional[str] = None) -> re.Pattern:
@@ -764,6 +808,7 @@ def _walk_filter_config(
     extra_ignore_patterns: Optional[list[str]] = None,
     follow_symlinks: bool = False,
     per_file: bool = False,
+    profile_patterns: Optional[list[str]] = None,
 ) -> _IndexFilters:
     """The filter config the full walk applies under ``root``.
 
@@ -777,7 +822,10 @@ def _walk_filter_config(
     """
     root = root.resolve()
     repo = str(root)
-    effective_extra = get_extra_ignore_patterns(extra_ignore_patterns, repo=repo)
+    # A framework profile's defaults rank BELOW the user's own patterns (#1398).
+    effective_extra = get_extra_ignore_patterns(
+        extra_ignore_patterns, repo=repo, profile_patterns=profile_patterns
+    )
     extra_spec = None
     if effective_extra:
         try:
@@ -794,6 +842,67 @@ def _walk_filter_config(
         check_filename=True,
         **_config_skip_flags(repo),
     )
+
+
+def git_tracked_paths(root: Path, timeout: float = 20.0) -> Optional[list]:
+    """Paths git tracks under ``root``, relative and posix, or None (#1395).
+
+    None means the count could not be taken: not a git work tree, git missing,
+    a timeout, or any other failure. A caller must read None as unknown, never
+    as an empty tree.
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.debug("git ls-files failed under %s", root, exc_info=True)
+        return None
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.decode("utf-8", "replace")
+    return [p for p in raw.split(chr(0)) if p]
+
+
+def has_indexable_extension(rel_path: str) -> bool:
+    """The extension half of `_should_index_file`'s step 11, with no IO."""
+    return (
+        Path(rel_path).suffix in LANGUAGE_EXTENSIONS
+        or get_language_for_path(rel_path) is not None
+    )
+
+
+def indexable_paths(root: Path, rel_paths) -> list:
+    """The ``rel_paths`` the indexer would take under ``root`` (#1395).
+
+    Runs `_should_index_file`, the one per-file rule, with the walk's own
+    config for ``root`` (skip directories, the project's ignore patterns,
+    secrets, extensions, the size cap). The binary sniff is off, so no file is
+    read: a tracked binary file has no indexable extension in practice, and a
+    caller counting thousands of files should not open each one. Gitignore is
+    not applied, because a tracked file is not ignored by definition.
+    """
+    from dataclasses import replace
+
+    root = Path(root).resolve()
+    cfg = replace(_walk_filter_config(root, per_file=True), check_binary=False)
+    kept = []
+    for rel in rel_paths:
+        try:
+            ok = _should_index_file(root / rel, cfg)[0]
+        except Exception:
+            # Counted as eligible: dropping it would shrink the denominator and
+            # raise the coverage ratio, the direction this count must not err.
+            logger.debug("eligibility check failed for %s", rel, exc_info=True)
+            ok = True
+        if ok:
+            kept.append(rel)
+    return kept
 
 
 def _directory_prune_reason(
@@ -1621,6 +1730,48 @@ def _explicit_path_is_gitignored(walk_root: Path, file_path: Path, cache: Option
     return bool(specs) and _is_gitignored_fast(str(file_path), specs)
 
 
+def _listed_in_index_terms(requested_rels, walk_prefix: str) -> list:
+    """Listed `paths=` entries as stored (git-root-relative) paths (#1397).
+
+    ``requested_rels`` are relative to the walked folder and the index keys
+    files from the git root, so a subdir walk's entries need its prefix. The
+    walked root (``""`` or ``"."``) maps to the prefix itself, and at the git
+    root to ``""``, which covers every stored file.
+
+    THE one mapping: the #333 deletion rescope and the full save's keep set
+    both read it, because two copies disagreed and a deleted listed file
+    stayed in the index on a subdir walk.
+    """
+    out = []
+    for r in requested_rels or []:
+        r = "" if r in ("", ".") else r
+        out.append(f"{walk_prefix}/{r}" if (walk_prefix and r) else (walk_prefix or r))
+    return out
+
+
+def _covered_by_listed(fp: str, listed: list) -> bool:
+    """True when stored path ``fp`` is a listed file or under a listed directory."""
+    return any(req == "" or fp == req or fp.startswith(req + "/") for req in listed)
+
+
+def _paths_kept_warning(kept: int) -> str:
+    """The warning for a `paths=` run that kept the unlisted files (#1397)."""
+    return (
+        f"This call named paths=, so only the listed files were re-parsed; the "
+        f"other {kept} indexed file(s) were kept as stored. Run index_folder "
+        "without paths= to re-parse the whole repository."
+    )
+
+
+def _paths_kept_due_warning(reason: str) -> str:
+    """The warning for a full re-parse that a `paths=` run cannot do (#1397)."""
+    return (
+        f"A full re-parse is due ({reason}), but this call named paths=, so only "
+        "the listed files were re-parsed and every other indexed file was kept. "
+        "Run index_folder without paths= to re-parse the rest."
+    )
+
+
 def resolve_explicit_paths(
     walk_root: Path,
     paths: list,
@@ -1810,8 +1961,16 @@ def discover_local_files(
     extra_ignore_patterns: Optional[list[str]] = None,
     follow_symlinks: bool = False,
     cap_dropped: Optional[list] = None,
+    oversize_out: Optional[list] = None,
+    profile_ignore_patterns: Optional[list[str]] = None,
 ) -> tuple[list[Path], list[str], dict[str, int]]:
     """Discover source files in a local folder with security filtering.
+
+    ``profile_ignore_patterns`` are a detected framework profile's defaults;
+    they rank below every pattern the user wrote (#1398).
+
+    ``oversize_out``, when given, receives ``(path, size, max_size)`` for each
+    file refused for size, so the coverage record can name them (#1396).
 
     Args:
         folder_path: Root folder to scan (must be resolved).
@@ -1889,6 +2048,7 @@ def discover_local_files(
         max_size=max_size,
         extra_ignore_patterns=extra_ignore_patterns,
         follow_symlinks=follow_symlinks,
+        profile_patterns=profile_ignore_patterns,
     )
     # Pre-scan package.json files; their `main`/`module`/`exports`/`bin`
     # targets get the size-cap exemption. Built once before the walk.
@@ -1943,6 +2103,11 @@ def discover_local_files(
                     # returns no warning here because the watcher fast path
                     # shares it and fires per event.
                     oversize.append(rel_path)
+                    if oversize_out is not None:
+                        try:
+                            oversize_out.append((file_path, file_path.stat().st_size, max_size))
+                        except OSError:
+                            logger.debug("oversize stat failed: %s", file_path, exc_info=True)
                 if warning is not None:
                     warnings.append(warning)
                 logger.debug(
@@ -2110,6 +2275,18 @@ def index_folder(
     # performed, so a caller never has to grep `warnings[]` for a sentence to
     # learn that the operation it requested was substituted for another one.
     _requested_incremental = incremental
+    _caller_force_reparse = force_reparse
+    # #1397 (@dkiaulakis): with `paths=`, discovery returns the listed files
+    # and nothing else, so a FULL re-parse saved them as the whole index and
+    # dropped every unlisted file under `success: true`. #333 settled what a
+    # subset means (refresh a subset, never replace the corpus) and only the
+    # incremental path honoured it. `incremental=False` here asks for the
+    # listed files to be re-read from scratch, which is `force_reparse`; the
+    # run then goes down the incremental path that keeps the rest.
+    _paths_forced = paths is not None and not incremental
+    if _paths_forced:
+        incremental = True
+        force_reparse = True
     rebuild_reason: Optional[str] = None
     # Set by the one rebuild that must stay a rebuild under the cap (see below).
     _rebuild_for_root_marker = False
@@ -2333,7 +2510,7 @@ def index_folder(
         # ── Fast path: watcher-driven incremental reindex ──
         # When the watcher provides the exact change set, skip full directory
         # discovery (~3s on Windows) and only process the affected files.
-        if changed_paths and incremental:
+        if changed_paths and incremental and not _paths_forced:
             # ── Per-phase timings (#557) ──
             # `duration_seconds` alone cannot say WHERE a slow event went, and
             # a maintainer who cannot reproduce it has nothing to work from but
@@ -2818,7 +2995,8 @@ def index_folder(
         _framework_profile = detect_framework(folder_path)
         _profile_ignore = _framework_ignore_patterns(_framework_profile)
 
-        _merged_ignore = list(extra_ignore_patterns or []) + _profile_ignore
+        # Kept SEPARATE from extra_ignore_patterns: appended after them, a
+        # profile default beat the project's own negation (#1398).
 
         # Discover source files (with security filtering).  When v1.96 has
         # retargeted folder_path to the git root and walk_root is a strict
@@ -2831,6 +3009,7 @@ def index_folder(
         # entries. Validation matches the walk path (outside-root, traversal,
         # symlink-escape, oversize, unsupported-extension all warn-and-skip).
         requested_rels: Optional[list[str]] = None
+        _oversize_found: list = []
         _cap_dropped_paths: list[Path] = []
         if paths is not None:
             source_files, discover_warnings, skip_counts, requested_rels = resolve_explicit_paths(
@@ -2847,9 +3026,11 @@ def index_folder(
                 walk_root,
                 max_files=max_files,
                 max_size=max_size,
-                extra_ignore_patterns=_merged_ignore or None,
+                extra_ignore_patterns=extra_ignore_patterns or None,
                 follow_symlinks=follow_symlinks,
                 cap_dropped=_cap_dropped_paths,
+                oversize_out=_oversize_found,
+                profile_ignore_patterns=_profile_ignore or None,
             )
         warnings.extend(discover_warnings)
         logger.info("Discovery skip counts: %s", skip_counts)
@@ -3012,7 +3193,7 @@ def index_folder(
             # path a scheduled freshness check takes.
             if _existing_source_root == _git_root and walk_prefix:
                 _merge_with_existing = _existing_for_collision
-            elif _existing_source_root == _git_root and set(
+            elif paths is None and _existing_source_root == _git_root and set(
                 getattr(_existing_for_collision, "source_roots", []) or []
             ) != {""}:
                 # A full-root walk over an index whose `source_roots` is still a
@@ -3037,7 +3218,25 @@ def index_folder(
             elif _existing_source_root == _git_root:
                 # Full-root re-walk of an index already marked full-root: leave
                 # `_merge_with_existing` unset so the incremental diff runs.
+                # #1397: also a `paths=` run over a PARTIAL marker. The
+                # migration above is a full rebuild and a `paths=` run holds
+                # the listed files only; the incremental save keeps the stored
+                # marker, which claims less coverage than the index has, never
+                # more.
                 pass
+            elif _existing_source_root and paths is not None:
+                # #1397: this rebuild deletes the stored index and saves the
+                # walk, and a `paths=` walk holds the listed files only.
+                result = {
+                    "success": False,
+                    "error": (
+                        "This index was built by v1.95 with subdir-relative paths and must "
+                        "be rebuilt once by a run without paths=; nothing was changed."
+                    ),
+                }
+                if warnings:
+                    result["warnings"] = warnings
+                return result
             elif _existing_source_root:
                 _v195_legacy_rebuild = True
                 # Drop the legacy index so the full-save path below
@@ -3108,7 +3307,26 @@ def index_folder(
                 owner, repo_name, rebuild_reason,
             )
             warnings.append(_rebuild_message)
-        elif _needs_parser_upgrade(existing_index) and not (force_reparse and paths is not None):
+        elif paths is not None and (
+            _due := (
+                "parser_generation_upgrade" if _needs_parser_upgrade(existing_index)
+                else _racket_reparse_reason(existing_index)
+            )
+        ):
+            # #1397: a full re-parse is due (generation bump or Racket change),
+            # but under `paths=` a "full" run re-parses the listed files only
+            # and saves them as the whole index. Re-read the listed files with
+            # the current parser, keep the rest, and leave the generation where
+            # it is (an incremental save does not stamp it), so the next run
+            # without `paths=` does the full re-parse. A slice campaign
+            # (`force_reparse=True`, #395) is this case too and owns the stamp
+            # itself (tools/refresh.py). One branch for both reasons: each
+            # `elif` here is a nesting level to Python's parser
+            # (tests/test_nesting_depth_channels.py).
+            force_reparse = True
+            if not _caller_force_reparse:
+                warnings.append(_paths_kept_due_warning(_due))
+        elif _needs_parser_upgrade(existing_index):
             # One-off full re-parse after an extraction-semantics bump (#414).
             # Reported through the same fields a caller already reads for an
             # unreadable index, so a substituted rebuild always has a reason.
@@ -3122,8 +3340,10 @@ def index_folder(
             # fleet this was written for is worse than doing nothing.
             #
             # The campaign owns coverage and the generation stamp instead; see
-            # tools/refresh.py. Nothing else may skip this escalation, because
-            # any other caller has no mechanism to finish the job.
+            # tools/refresh.py. Since #1397 every `paths=` run skips it (the
+            # branch above), because under `paths=` the escalation saved the
+            # listed files as the whole index; a run without `paths=` still
+            # escalates, so the upgrade is never skipped, only deferred.
             incremental = False
             rebuild_reason = "parser_generation_upgrade"
             logger.warning(
@@ -3133,7 +3353,7 @@ def index_folder(
                 getattr(existing_index, "parser_generation", 0), PARSER_GENERATION,
             )
             warnings.append(PARSER_UPGRADE_WARNING)
-        elif (_racket_reason := _racket_reparse_reason(existing_index)) and not (force_reparse and paths is not None):
+        elif (_racket_reason := _racket_reparse_reason(existing_index)):
             # Two Racket-only escalations, same shape as the generation bump
             # above and the same exemption for a bounded slice campaign, each
             # with its own reason so a caller can tell them apart:
@@ -3284,7 +3504,9 @@ def index_folder(
         _repo_full = f"{owner}/{repo_name}"
         try:
             from .invalidate_cache import _force_full_reindex
-            if _repo_full in _force_full_reindex:
+            # #1397: under `paths=` a full rebuild covers the listed files
+            # only, so leave the request pending for a run without `paths=`.
+            if _repo_full in _force_full_reindex and paths is None:
                 _force_full_reindex.discard(_repo_full)
                 incremental = False
                 logger.info(
@@ -3340,6 +3562,13 @@ def index_folder(
         if incremental and existing_index is not None and (
             _merge_with_existing is None or _subdir_incremental
         ):
+            if _paths_forced:
+                # #1397: said here, where an index exists to keep.
+                warnings.append(
+                    "incremental=False with paths= re-parsed the listed files only and "
+                    "kept every other indexed file. To re-parse the whole repository, "
+                    "call index_folder without paths="
+                )
             changed, new, deleted, computed_hashes, updated_mtimes = (
                 store.detect_changes_with_mtimes(
                     owner, repo_name, file_mtimes, _hash_file
@@ -3395,13 +3624,8 @@ def index_folder(
                     set((existing_index.file_hashes or {}).keys())
                     if existing_index is not None else set()
                 )
-                if any(req in ("", ".") for req in requested_rels):
-                    covered = old_files
-                else:
-                    covered = {
-                        fp for fp in old_files
-                        if any(fp == req or fp.startswith(req + "/") for req in requested_rels)
-                    }
+                _listed_rels = _listed_in_index_terms(requested_rels, walk_prefix)
+                covered = {fp for fp in old_files if _covered_by_listed(fp, _listed_rels)}
                 # Files this call's cap cut are not deleted here either: the
                 # rescope recomputes `deleted`, so the cap exclusion above has
                 # to be applied again.
@@ -3451,6 +3675,10 @@ def index_folder(
                 if _cap_rebuild_warning:
                     # The re-parse that was due did not run: say so even here.
                     _no_change_result["warnings"] = [_cap_rebuild_warning]
+                elif _paths_forced or (paths is not None and warnings):
+                    # #1397: a substituted mode or a deferred re-parse is said
+                    # on a no-change run too.
+                    _no_change_result["warnings"] = list(warnings)
                 # Nothing changed, but this walk may still see files the index
                 # lacks: new files past the cap. Record what it saw, so the
                 # stored cap status and coverage stay true to the index.
@@ -3476,6 +3704,10 @@ def index_folder(
                         parse_failed=_carried_parse_failures(
                             getattr(existing_index, "coverage", None), (), (),
                             present=set(updated_mtimes) | _nc_kept_files,
+                        ),
+                        withheld_files=_withheld_files_for(
+                            getattr(existing_index, "coverage", None), _oversize_found,
+                            folder_path, walk_prefix, paths is not None,
                         ),
                     )
                 # This ran a full discovery walk, so a still-truncated index
@@ -3628,6 +3860,10 @@ def index_folder(
                         getattr(existing_index, "coverage", None),
                         files_to_parse, _incr_parse_failed,
                         present=set(updated_mtimes) | _cov_kept_files,
+                    ),
+                    withheld_files=_withheld_files_for(
+                        getattr(existing_index, "coverage", None), _oversize_found,
+                        folder_path, walk_prefix, paths is not None,
                     ),
                 )
             elif not _is_branch_delta:
@@ -3891,7 +4127,14 @@ def index_folder(
                 current_files_set = set(source_file_list)
 
                 delta_new = sorted(current_files_set - base_files)
-                delta_deleted = sorted(base_files - current_files_set)
+                # #1397: under `paths=` the walk holds the listed files only;
+                # an unlisted base file is not deleted (the save path is
+                # dormant, L-196, but must not wake up with this defect).
+                delta_deleted = sorted(
+                    f for f in base_files - current_files_set
+                    if paths is None
+                    or _covered_by_listed(f, _listed_in_index_terms(requested_rels, walk_prefix))
+                )
                 delta_changed = sorted(
                     f for f in (current_files_set & base_files)
                     if file_hashes.get(f, "") != base_index.file_hashes.get(f, "")
@@ -3964,6 +4207,24 @@ def index_folder(
                 else set()
             )
 
+            # #1397: under `paths=` this walk holds the listed files only, so
+            # whichever route led to a full save (a subdir merge, a forced
+            # rebuild, a caller's `incremental=False` with no prior index to
+            # diff), every stored file the caller did not list is kept. Listed
+            # entries are relative to the walked folder and stored files to the
+            # git root, hence `walk_prefix`. A listed file gone from disk is
+            # not kept. Listing the walked root keeps nothing, which is the
+            # full-walk meaning of that call.
+            _paths_keep: set = set()
+            if paths is not None and _cap_base is not None and not _v195_legacy_rebuild:
+                _listed = _listed_in_index_terms(requested_rels, walk_prefix)
+                _paths_keep = {
+                    fp for fp in (getattr(_cap_base, "source_files", None) or [])
+                    if not _covered_by_listed(fp, _listed)
+                }
+            if _paths_keep:
+                _cap_keep = set(_cap_keep) | _paths_keep
+
             if _merge_with_existing is not None or _cap_keep:
                 merged = _merge_subdir_into_existing(
                     existing=_cap_base,
@@ -3999,7 +4260,15 @@ def index_folder(
                     _save_context_metadata = merged["context_metadata"]
                     _save_pkg_names = merged["package_names"]
                     _save_source_roots = merged["source_roots"]
-                if _cap_keep:
+                if _paths_keep and not (_cap_keep - _paths_keep):
+                    # #1397: same rule as the cap keep below, without its cap
+                    # status and warning, which describe a cap that did not cut.
+                    _save_parser_generation = min(
+                        int(getattr(_cap_base, "parser_generation", 0) or 0),
+                        PARSER_GENERATION,
+                    )
+                    warnings.append(_paths_kept_warning(len(_paths_keep)))
+                elif _cap_keep:
                     # The kept files were parsed by an older run: record the
                     # older generation, so an upgrade still due stays due.
                     _save_parser_generation = min(
@@ -4076,6 +4345,13 @@ def index_folder(
                         "coverage", None,
                     ),
                     source_file_list, _full_parse_failed, present=_pf_saved_files,
+                ),
+                withheld_files=_withheld_files_for(
+                    getattr(
+                        _merge_with_existing if _merge_with_existing is not None else existing_index,
+                        "coverage", None,
+                    ),
+                    _oversize_found, folder_path, walk_prefix, False,
                 ),
             )
         else:

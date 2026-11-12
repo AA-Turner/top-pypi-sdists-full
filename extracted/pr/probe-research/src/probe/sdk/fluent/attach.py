@@ -210,7 +210,8 @@ def _apply_script_name(client: Client, run_id: str, name: str, read_name: str | 
         return row if isinstance(row, dict) and row.get("name") else None
     except errors.ConflictError:
         # Renamed, or its name kept, since it was read: theirs stands, and code finding the run by `name` must know.
-        safe_warn.warn(f"probe: run {run_id} was renamed since it was read; it keeps that name, not {name!r}",
+        safe_warn.warn(f"probe: run {run_id} was renamed since it was read, or its name was chosen and is kept; "
+                       f"it keeps that name, not {name!r}",
                        stacklevel=4)
     except Exception as exc:  # noqa: BLE001 -- naming never costs the job
         safe_warn.warn(f"probe: could not name run {run_id} {name!r} ({type(exc).__name__}); it keeps its name",

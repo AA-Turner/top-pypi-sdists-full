@@ -5,8 +5,10 @@ from . import (  # noqa: F401
     navigation,
     recorded_pane,
     recreate,
+    relocation,
     rename,
     scratch,
+    server,
     session,
 )
 from .command import run  # noqa: F401

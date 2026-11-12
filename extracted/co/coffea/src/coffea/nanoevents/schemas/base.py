@@ -40,7 +40,7 @@ def zip_forms(forms, name, record_name=None, offsets=None, bypass=False):
             raise ValueError
         record = {
             "class": "RecordArray",
-            "fields": [k for k in forms.keys()],
+            "fields": [*forms.keys()],
             "contents": [form["content"] for form in forms.values()],
             "form_key": quote("!invalid," + name),
         }
@@ -58,8 +58,8 @@ def zip_forms(forms, name, record_name=None, offsets=None, bypass=False):
     elif all(form["class"] == "NumpyArray" for form in forms.values()):
         record = {
             "class": "RecordArray",
-            "fields": [key for key in forms.keys()],
-            "contents": [value for value in forms.values()],
+            "fields": [*forms.keys()],
+            "contents": [*forms.values()],
             "form_key": quote("!invalid," + name),
         }
         if record_name is not None:
@@ -69,8 +69,8 @@ def zip_forms(forms, name, record_name=None, offsets=None, bypass=False):
     elif all("class" in form for form in forms.values()) and not bypass:
         record = {
             "class": "RecordArray",
-            "fields": [key for key in forms.keys()],
-            "contents": [value for value in forms.values()],
+            "fields": [*forms.keys()],
+            "contents": [*forms.values()],
             "form_key": quote("!invalid," + name),
         }
         if record_name is not None:
@@ -105,6 +105,7 @@ class BaseSchema:
     """
 
     __dask_capable__ = True
+    __graphed_capable__ = True
 
     def __init__(self, base_form, *args, **kwargs):
         params = dict(base_form.get("parameters", {}))

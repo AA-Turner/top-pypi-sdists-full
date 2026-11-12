@@ -8,6 +8,7 @@ more: one that reads more than the newest keeps them in an @seq.observe method.
 """
 from __future__ import annotations
 
+import time
 from typing import Any, Optional
 
 from ..errors import InvalidRequest, Unavailable
@@ -34,6 +35,7 @@ class _ObservationStream:
         kept for the episode's next act, which waits for that worker as an act does and sends it: never waited for here.
         """
         self._assert_open()
+        at_us = time.time_ns() // 1000
         try:
             self._ensure_connected()
             reachable = True
@@ -79,6 +81,12 @@ class _ObservationStream:
                 stream.put(wid, s, f)
             stream.put(wid, n, _observe.frame(n, packed), blocks=cut.last if cut is not None else None)
             self._say_refusals(stream)
+        if self.teleop is not None:
+
+
+            self.teleop.frames(wid, inputs, n, at_us)
+            self.teleop.observed(wid, n, at_us, marks.encoded if marks is not None else inputs,
+                                 worker.post_teleop if worker is not None else None)
         return n
 
     def _observed(self) -> list:
@@ -87,6 +95,15 @@ class _ObservationStream:
         worker's copy held it from the next robot for up to its 300 s. {dev 11-10: a worker's second robot, "all replicas
         bound to active episodes (1): a replica frees when its episode ends (episode_end) or has had no act for 300 s"}"""
         return [self._worker_episode if e == self._caller_episode and self._worker_episode else e for e in self._numbers]
+
+    def teleop_place(self, episode_id: str) -> tuple:
+        """Where an act answered on the robot is (a person's chunk, teleop): its worker-side episode, the step it acts at
+        - the number of the episode's observations so far, as an act's seq says it - and how its worker is told, for its
+        record (teleop_robot)."""
+        with self._lock:
+            wid = self._worker_episode if episode_id == self._caller_episode and self._worker_episode else episode_id
+            worker = self._worker
+            return wid, self._numbers.get(episode_id, 0), worker.post_teleop if worker is not None else None
 
     def _stream_for(self, worker: "_WorkerTransport") -> "_observe.ObserveStream":
         """The stream posting to `worker` - made the first time it is asked for, and anew for another worker, posting

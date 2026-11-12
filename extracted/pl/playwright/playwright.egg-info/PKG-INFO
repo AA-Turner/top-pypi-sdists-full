@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: playwright
-Version: 1.65.0
+Version: 1.65.1
 Summary: A high-level API to automate web browsers
 Author: Microsoft Corporation
 License-Expression: Apache-2.0

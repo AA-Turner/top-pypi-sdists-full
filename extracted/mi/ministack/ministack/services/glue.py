@@ -13,17 +13,21 @@ scripts or when Docker is unavailable.
 Crawlers transition through RUNNING state with a configurable timer.
 """
 
+import base64
 import contextvars
 import copy
+import datetime
 import fnmatch
 import json
 import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+from decimal import Decimal
 from urllib.parse import unquote
 
 from ministack.core import container_reaper
@@ -327,6 +331,7 @@ def _handle_request_sync(method, path, headers, body, query_params):
         "GetPartition": _get_partition,
         "GetPartitions": _get_partitions,
         "BatchCreatePartition": _batch_create_partition,
+        "BatchDeletePartition": _batch_delete_partition,
         "BatchGetPartition": _batch_get_partition,
         "BatchUpdatePartition": _batch_update_partition,
         # Partition Indexes
@@ -1347,8 +1352,12 @@ def _delete_partition(data):
     table_name = data.get("TableName")
     values = data.get("PartitionValues", [])
     key = f"{db_name}/{table_name}"
-    if key in _partitions:
-        _partitions[key] = [p for p in _partitions[key] if p.get("Values") != values]
+    err = _partition_table_error(db_name, table_name)
+    if err:
+        return err
+    if not any(p.get("Values") == values for p in _partitions.get(key, [])):
+        return error_response_json("EntityNotFoundException", "Partition not found", 400)
+    _partitions[key] = [p for p in _partitions[key] if p.get("Values") != values]
     if key in _partition_column_statistics:
         _partition_column_statistics[key] = [e for e in _partition_column_statistics[key] if e.get("Values") != values]
     return json_response({})
@@ -1365,11 +1374,400 @@ def _get_partition(data):
     return error_response_json("EntityNotFoundException", "Partition not found", 400)
 
 
+class _PartitionFilterError(Exception):
+    def __init__(self, message="Invalid partition expression!"):
+        super().__init__(message)
+
+
+# Any partition key outside these types makes Glue reject every Expression on the table.
+_FILTERABLE_KEY_TYPES = {"string", "char", "varchar", "date", "timestamp", "tinyint", "smallint", "int", "bigint",
+                         "long", "decimal"}
+_INTEGER_KEY_TYPES = {"tinyint", "smallint", "int", "bigint", "long"}
+_STRING_KEY_TYPES = {"string", "char", "varchar"}
+_DEFAULT_PARTITION_PAGE_SIZE = 500
+_FILTER_TOKEN = re.compile(
+    r"\s*(?:(?P<str>'(?:[^']|'')*')|(?P<num>\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)"
+    r"|(?P<op><>|!=|<=|>=|\|\||[=<>(),+\-*/])|(?P<word>[A-Za-z_][A-Za-z0-9_]*|`[^`]+`)|(?P<other>\S))"
+)
+_FILTER_OPS = {
+    "=": lambda a, b: a == b,
+    "<>": lambda a, b: a != b,
+    "!=": lambda a, b: a != b,
+    "<": lambda a, b: a < b,
+    "<=": lambda a, b: a <= b,
+    ">": lambda a, b: a > b,
+    ">=": lambda a, b: a >= b,
+}
+
+
+def _parse_big_integer(raw):
+    """Parse like java.math.BigInteger(String); Glue puts its error text into the response."""
+    def fail(reason):
+        raise _PartitionFilterError(
+            f"com.amazonaws.daylight.core.exceptions.InvalidPartitionValueException: {reason} is not an integer.")
+
+    if not raw:
+        fail("Zero length BigInteger")
+    minus, plus = raw.rfind("-"), raw.rfind("+")
+    if (minus >= 0 and (minus != 0 or plus >= 0)) or plus > 0:
+        fail("Illegal embedded sign character")
+    body = raw[1:] if raw[0] in "+-" else raw
+    if not body:
+        fail("Zero length BigInteger")
+    digits = body.lstrip("0")
+    first = len(digits) % 9 or 9
+    for group in [digits[:first]] + [digits[i:i + 9] for i in range(first, len(digits), 9)] if digits else []:
+        if not (group.isascii() and group.isdigit()):
+            fail(f'For input string: "{group}"')
+    return int(raw)
+
+
+def _parse_partition_value(raw, col_type):
+    """Turn a partition value or literal into a comparable value for its key type, as Glue does."""
+    prefix = "com.amazonaws.daylight.core.exceptions.InvalidPartitionValueException: "
+    if col_type in _INTEGER_KEY_TYPES:
+        return _parse_big_integer(raw)
+    if col_type == "decimal":
+        if not re.fullmatch(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?", raw):
+            raise _PartitionFilterError(f"{prefix}{raw} is not a decimal.")
+        return Decimal(raw)
+    if col_type == "date":
+        m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", raw)
+        if not m or not 1 <= int(m[2]) <= 12 or not 1 <= int(m[3]) <= 31:
+            raise _PartitionFilterError(f"{prefix}{raw} is not a date.")
+        # java.sql.Date is lenient: 2024-02-31 rolls over into March.
+        return datetime.date(int(m[1]), int(m[2]), 1) + datetime.timedelta(days=int(m[3]) - 1)
+    if col_type == "timestamp":
+        try:
+            return _java_timestamp(raw)
+        except _JavaNumberFormatError as e:
+            raise _PartitionFilterError(f"{prefix}{e} {raw} is not a timestamp.")
+        except (ValueError, OverflowError):
+            raise _PartitionFilterError(
+                f"{prefix}Timestamp format must be yyyy-mm-dd hh:mm:ss[.fffffffff] {raw} is not a timestamp.")
+    return raw
+
+
+class _JavaNumberFormatError(Exception):
+    pass
+
+
+def _java_parse_int(s, begin, end):
+    """Integer.parseInt(s, begin, end, 10), raising its NumberFormatException message."""
+    def fail(i):
+        return _JavaNumberFormatError(f'Error at index {i - begin} in: "{s[begin:end]}"')
+    if begin == end:
+        raise _JavaNumberFormatError("")
+    i, negative = begin, False
+    if s[i] < "0":
+        if s[i] not in "+-":
+            raise fail(i)
+        negative = s[i] == "-"
+        i += 1
+        if i == end:
+            raise fail(i)
+    limit, result = 2**31 if negative else 2**31 - 1, 0
+    while i < end:
+        if not "0" <= s[i] <= "9":
+            raise fail(i)
+        result = result * 10 + int(s[i])
+        if result > limit:
+            raise fail(i)
+        i += 1
+    return -result if negative else result
+
+
+def _java_timestamp(raw):
+    """java.sql.Timestamp.valueOf, which Glue applies to timestamp keys; ValueError means its format error."""
+    s = raw.strip("".join(map(chr, range(33))))
+    space = s.find(" ")
+    dash1 = s.find("-")
+    dash2 = s.find("-", dash1 + 1)
+    colon1 = s.find(":", space + 1)
+    colon2 = s.find(":", colon1 + 1)
+    period = s.find(".", colon2 + 1)
+    if space < 0 or not (dash1 == 4 and 1 < dash2 - dash1 <= 3 and 1 < space - dash2 <= 3):
+        raise ValueError
+    year, month, day = _java_parse_int(s, 0, dash1), _java_parse_int(s, dash1 + 1, dash2), _java_parse_int(s, dash2 + 1, space)
+    if not (1 <= month <= 12 and 1 <= day <= 31) or not (colon1 > 0 and colon2 > 0 and colon2 < len(s) - 1):
+        raise ValueError
+    hour, minute, nanos = _java_parse_int(s, space + 1, colon1), _java_parse_int(s, colon1 + 1, colon2), 0
+    if 0 < period < len(s) - 1:
+        second = _java_parse_int(s, colon2 + 1, period)
+        digits = len(s) - period - 1
+        if digits > 9 or not "0" <= s[period + 1] <= "9":
+            raise ValueError
+        nanos = _java_parse_int(s, period + 1, len(s)) * 10 ** (9 - digits)
+    elif period > 0:
+        raise ValueError
+    else:
+        second = _java_parse_int(s, colon2 + 1, len(s))
+    # Lenient like java.sql.Timestamp: 2024-01-14 25:02:03 rolls over into the 15th.
+    start = datetime.datetime(year, month, 1)
+    return start + datetime.timedelta(days=day - 1, hours=hour, minutes=minute, seconds=second), nanos
+
+
+def _tokenize_partition_filter(expr):
+    tokens, pos, expr = [], 0, expr.rstrip()
+    while pos < len(expr):
+        m = _FILTER_TOKEN.match(expr, pos)
+        pos = m.end()
+        kind = m.lastgroup
+        text = m.group(kind)
+        if kind == "str":
+            text = text[1:-1].replace("''", "'")
+        tokens.append((kind, text))
+    # Glue accepts redundant parentheses around a single column or literal: ((k)) = (('1')).
+    i = 0
+    while i + 2 < len(tokens):
+        in_list = i > 0 and tokens[i - 1][0] == "word" and tokens[i - 1][1].upper() == "IN"
+        if (tokens[i] == ("op", "(") and tokens[i + 2] == ("op", ")") and tokens[i + 1][0] in ("word", "str", "num")
+                and not in_list):
+            del tokens[i + 2], tokens[i]
+            i = max(i - 1, 0)
+        else:
+            i += 1
+    return tokens
+
+
+def _compile_partition_filter(expr, partition_keys):
+    """Compile a Glue GetPartitions Expression into a predicate over a partition's Values list."""
+    columns = {}
+    for i, k in enumerate(partition_keys):
+        col_type = (k.get("Type") or "string").lower().split("(")[0].strip()
+        if col_type not in _FILTERABLE_KEY_TYPES:
+            raise _PartitionFilterError()
+        columns[k["Name"].lower()] = (i, col_type)
+    tokens = _tokenize_partition_filter(expr)
+    pos = 0
+
+    def peek(offset=0):
+        return tokens[pos + offset] if pos + offset < len(tokens) else (None, None)
+
+    def take(kind=None, value=None):
+        nonlocal pos
+        k, v = peek()
+        if k is None or (kind and k != kind) or (value and (v.upper() if k == "word" else v) != value):
+            raise _PartitionFilterError()
+        pos += 1
+        return v
+
+    def is_kw(word):
+        k, v = peek()
+        return k == "word" and v.upper() == word
+
+    def disjunction():
+        left = conjunction()
+        while is_kw("OR"):
+            take()
+            left = (lambda l, r: lambda row: l(row) or r(row))(left, conjunction())
+        return left
+
+    def conjunction():
+        left = negation()
+        while is_kw("AND"):
+            take()
+            left = (lambda l, r: lambda row: l(row) and r(row))(left, negation())
+        return left
+
+    def negation():
+        if is_kw("NOT"):
+            take()
+            if is_kw("NOT"):
+                raise _PartitionFilterError()
+            inner = negation()
+            return lambda row: not inner(row)
+        if peek() == ("op", "("):
+            take()
+            inner = disjunction()
+            take("op", ")")
+            return inner
+        return predicate()
+
+    def predicate():
+        name = take("word").strip("`")
+        if name.lower() not in columns:
+            raise _PartitionFilterError()
+        idx, col_type = columns[name.lower()]
+
+        def literal():
+            sign = ""
+            if peek()[0] == "op" and peek()[1] in "+-" and peek(1)[0] == "num":
+                sign = "-" if take() == "-" else ""
+            kind = peek()[0]
+            if kind not in ("str", "num"):
+                raise _PartitionFilterError()
+            raw = take()
+            # A literal followed by an arithmetic or concatenation operator is no longer a plain value.
+            if peek()[0] == "op" and peek()[1] in ("||", "+", "-", "*", "/"):
+                raise _PartitionFilterError()
+            if kind == "num" and raw.isdigit() and int(raw) > 2**63 - 1:
+                raise _PartitionFilterError()
+            return _parse_partition_value(sign + raw, col_type)
+
+        if is_kw("IS"):
+            take()
+            not_null = is_kw("NOT")
+            if not_null:
+                take()
+            take("word", "NULL")
+            # Partition values are never null in Glue: IS NULL matches nothing, IS NOT NULL everything.
+            return lambda row: not_null
+
+        negate = False
+        if is_kw("NOT"):
+            take()
+            negate = True
+        if is_kw("IN"):
+            take()
+            take("op", "(")
+            values = [literal()]
+            while peek() == ("op", ","):
+                take()
+                values.append(literal())
+            take("op", ")")
+            test = values.__contains__
+        elif is_kw("BETWEEN"):
+            take()
+            low = literal()
+            take("word", "AND")
+            high = literal()
+
+            def test(v):
+                return low <= v <= high
+        elif is_kw("LIKE") and not negate and col_type in _STRING_KEY_TYPES:
+            take()
+            if peek()[0] != "str":
+                raise _PartitionFilterError()
+            pattern = "".join(".*" if c == "%" else "." if c == "_" else re.escape(c) for c in take())
+            if peek()[0] == "op" and peek()[1] == "||":
+                raise _PartitionFilterError()
+            regex = re.compile(pattern, re.DOTALL | re.IGNORECASE)
+            return lambda row: idx < len(row) and bool(regex.fullmatch(row[idx]))
+        elif not negate and peek()[0] == "op" and peek()[1] in _FILTER_OPS:
+            op = _FILTER_OPS[take()]
+            value = literal()
+
+            def test(v):
+                return op(v, value)
+        else:
+            raise _PartitionFilterError()
+
+        def evaluate(row):
+            try:
+                value = _parse_partition_value(row[idx], col_type)
+            except (_PartitionFilterError, IndexError):
+                return False
+            return negate != test(value)
+
+        return evaluate
+
+    # Glue ignores whatever follows a complete expression.
+    return disjunction()
+
+
+def _paren_run(expr):
+    """The longest run of "(" separated only by whitespace, outside quoted text."""
+    longest = run = i = 0
+    while i < len(expr):
+        c = expr[i]
+        if c in "'`":
+            j = i + 1
+            while j < len(expr) and not (expr[j] == c and not (c == "'" and expr[j + 1:j + 2] == "'")):
+                j += 2 if c == "'" and expr[j:j + 2] == "''" else 1
+            i, run = j + 1, 0
+            continue
+        if c == "(":
+            run += 1
+            longest = max(longest, run)
+        elif not c.isspace():
+            run = 0
+        i += 1
+    return longest
+
+
+def _partition_table_error(db_name, table_name):
+    if db_name not in _databases:
+        return error_response_json("EntityNotFoundException", f"Database {db_name} not found.", 400)
+    if f"{db_name}/{table_name}" not in _tables:
+        return error_response_json("EntityNotFoundException", f"Table {table_name} not found.", 400)
+    return None
+
+
+def _partition_token(key, offset):
+    return base64.b64encode(json.dumps({"table": key, "offset": offset}).encode()).decode()
+
+
+def _partition_token_offset(token, key):
+    if not token:
+        return 0
+    try:
+        decoded = json.loads(base64.b64decode(token, validate=True))
+        table, offset = decoded["table"], int(decoded["offset"])
+    except (ValueError, KeyError, TypeError):
+        raise _PartitionFilterError("Invalid token value")
+    if table != key:
+        raise _PartitionFilterError("NextToken key is not valid")
+    return offset
+
+
 def _get_partitions(data):
     db_name = data.get("DatabaseName")
     table_name = data.get("TableName")
     key = f"{db_name}/{table_name}"
-    return json_response({"Partitions": _partitions.get(key, [])})
+    max_results = data.get("MaxResults")
+    if max_results and max_results > 1000:
+        return error_response_json(
+            "ValidationException",
+            f"1 validation error detected: Value '{max_results}' at 'maxResults' failed to satisfy constraint: "
+            "Member must have value less than or equal to 1000",
+            400,
+        )
+    if max_results is not None and max_results <= 0:
+        return error_response_json("InvalidInputException", "MaxItems has to be a positive number", 400)
+    segment = data.get("Segment") or {}
+    number, total = segment.get("SegmentNumber", 0), segment.get("TotalSegments", 1)
+    if total > 10:
+        return error_response_json(
+            "ValidationException",
+            f"1 validation error detected: Value '{total}' at 'segment.totalSegments' failed to satisfy constraint: "
+            "Member must have value less than or equal to 10",
+            400,
+        )
+    if number < 0:
+        return error_response_json("InvalidInputException", "Segment number should be a non-negative integer.", 400)
+    if number >= total:
+        return error_response_json("InvalidInputException", "Segment number should be less than total segments.", 400)
+    err = _partition_table_error(db_name, table_name)
+    if err:
+        return err
+
+    expression = data.get("Expression")
+    # Glue's parser times out past 148 directly nested parentheses; NOT ( nesting and flat groups don't count.
+    if expression and _paren_run(expression) > 148:
+        return error_response_json("OperationTimeoutException", "Operation timed out", 400)
+    # The recursive-descent parser needs ~2,100 frames for a 2,048-character expression.
+    if sys.getrecursionlimit() < 10000:
+        sys.setrecursionlimit(10000)
+    parts = _partitions.get(key, [])
+    parts = parts[number * len(parts) // total:(number + 1) * len(parts) // total]
+    try:
+        matches = _compile_partition_filter(expression, _tables[key].get("PartitionKeys") or []) if expression else None
+        start = _partition_token_offset(data.get("NextToken"), key)
+        # MaxResults bounds the partitions scanned, not the matches: filtered pages can be short or empty.
+        window = parts[start:start + (max_results or _DEFAULT_PARTITION_PAGE_SIZE)]
+        page = [p for p in window if matches is None or matches(p.get("Values") or [])]
+    except _PartitionFilterError as e:
+        return error_response_json("InvalidInputException", str(e), 400)
+    except RecursionError:
+        return error_response_json("OperationTimeoutException", "Operation timed out", 400)
+    if data.get("ExcludeColumnSchema"):
+        page = [{**p, "StorageDescriptor": {**p["StorageDescriptor"], "Columns": []}} if "StorageDescriptor" in p else p
+                for p in page]
+    resp = {"Partitions": page}
+    if window:
+        resp["NextToken"] = _partition_token(key, start + len(window))
+    return json_response(resp)
 
 
 def _batch_create_partition(data):
@@ -1399,6 +1797,42 @@ def _batch_create_partition(data):
                     "CatalogId": get_account_id(),
                 }
             )
+    return json_response({"Errors": errors})
+
+
+def _batch_delete_partition(data):
+    db_name = data.get("DatabaseName")
+    table_name = data.get("TableName")
+    key = f"{db_name}/{table_name}"
+    to_delete = data.get("PartitionsToDelete") or []
+    if len(to_delete) > 25:
+        listed = ", ".join(f"PartitionValueList(values=[{', '.join(e.get('Values') or [])}])" for e in to_delete)
+        return error_response_json(
+            "ValidationException",
+            f"1 validation error detected: Value '[{listed}]' at 'partitionsToDelete' failed to satisfy constraint: "
+            "Member must have length less than or equal to 25",
+            400,
+        )
+    err = _partition_table_error(db_name, table_name)
+    if err:
+        return err
+    existing = {tuple(p.get("Values") or []) for p in _partitions.get(key, [])}
+    errors, deleted = [], set()
+    for entry in to_delete:
+        values = tuple(entry.get("Values") or [])
+        if values in existing and values not in deleted:
+            deleted.add(values)
+        else:
+            errors.append({
+                "PartitionValues": list(values),
+                "ErrorDetail": {"ErrorCode": "EntityNotFoundException", "ErrorMessage": "Partition not found"},
+            })
+    if deleted:
+        _partitions[key] = [p for p in _partitions[key] if tuple(p.get("Values") or []) not in deleted]
+        if key in _partition_column_statistics:
+            _partition_column_statistics[key] = [
+                e for e in _partition_column_statistics[key] if tuple(e.get("Values") or []) not in deleted
+            ]
     return json_response({"Errors": errors})
 
 
@@ -1536,7 +1970,7 @@ def _get_column_statistics_for_table(data):
     errors = []
     for col in data.get("ColumnNames", []):
         if col in bucket:
-            stats_list.append(bucket[col])
+            stats_list.append(_column_statistics_out(bucket[col]))
         else:
             errors.append(
                 {
@@ -1548,6 +1982,12 @@ def _get_column_statistics_for_table(data):
                 }
             )
     return json_response({"ColumnStatisticsList": stats_list, "Errors": errors})
+
+
+def _column_statistics_out(cs):
+    if isinstance(cs.get("AnalyzedTime"), float):
+        return {**cs, "AnalyzedTime": int(cs["AnalyzedTime"])}
+    return cs
 
 
 def _delete_column_statistics_for_table(data):
@@ -1604,14 +2044,14 @@ def _get_column_statistics_for_partition(data):
     errors = []
     for col in data.get("ColumnNames", []):
         if col in bucket:
-            stats_list.append(bucket[col])
+            stats_list.append(_column_statistics_out(bucket[col]))
         else:
             errors.append(
                 {
                     "ColumnName": col,
                     "Error": {
                         "ErrorCode": "EntityNotFoundException",
-                        "ErrorMessage": f"Column statistics for {col} not found",
+                        "ErrorMessage": "Statistics do not exist for this column",
                     },
                 }
             )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.4.0
+Version: 2.4.1
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -24,18 +24,18 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: click>=8.5.0
 Requires-Dist: lib-cli-exit-tools>=2.4.1
-Requires-Dist: lib-layered-config>=7.3.0
-Requires-Dist: lib-log-rich>=8.0.3
+Requires-Dist: lib-layered-config>=7.7.0
+Requires-Dist: lib-log-rich>=8.2.0
 Requires-Dist: orjson>=3.13.0
-Requires-Dist: pydantic>=2.14.1
+Requires-Dist: pydantic>=2.14.3
 Requires-Dist: python-dotenv>=1.2.4
 Requires-Dist: rich-click>=1.9.9
 Requires-Dist: wcmatch>=11.1
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
-Requires-Dist: certifi>=2026.10.19; extra == 'dev'
-Requires-Dist: hatchling>=1.32.4; extra == 'dev'
+Requires-Dist: certifi>=2026.10.23; extra == 'dev'
+Requires-Dist: hatchling>=1.33.0; extra == 'dev'
 Requires-Dist: httpx2>=2.14.0; extra == 'dev'
 Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
@@ -44,14 +44,15 @@ Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pynacl>=1.6.2; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
-Requires-Dist: pytest>=9.1.1; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
+Requires-Dist: pytest>=9.2.0; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.1; extra == 'dev'
+Requires-Dist: ruff>=0.17.3; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Requires-Dist: urllib3>=2.8.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.14.12; extra == 'dev'
+Requires-Dist: virtualenv>=21.15.5; extra == 'dev'
 Requires-Dist: wheel>=0.48.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -227,8 +228,9 @@ same `dir_cache_max` argument.
 igittigitt check -C /path/to/repo a.log src/main.py
 #   exit 0 if at least one path is ignored, 1 if none
 
-# show the deciding rule (source:line:pattern), like `git check-ignore -v`: a path a
-# negation re-includes is listed too, and the rule file is named relative to -C
+# show the deciding rule (source:line:pattern), like `git check-ignore -v`: as in git, a
+# path a negation re-includes is listed too and that makes the exit 0 (without -v it is
+# not ignored: exit 1); the rule file is named relative to -C
 igittigitt check -C /path/to/repo -v a.log
 
 # Unix filter: drop ignored paths from a stream

@@ -220,6 +220,9 @@ _HOMES = {
     "UNPLACED_PROJECT": "probe.sdk.client.resources.delivery",
     # probe.sdk.client.resources.runs.runs
     "without_patience": "probe.sdk.client.resources.runs.runs",
+    "RunCountsOut": "probe.sdk.client.resources.runs.runs",
+    # probe.sdk.client.resources.runs.table: `client.runs.table(...)` (run listing plan D7)
+    "RunTable": "probe.sdk.client.resources.runs.table",
     # probe.sdk.client.resources.runs.logs: `client.runs.logs` (run logs as a first-class feature)
     "LogsResource": "probe.sdk.client.resources.runs.logs",
     "SavedLog": "probe.sdk.client.resources.runs.logs",

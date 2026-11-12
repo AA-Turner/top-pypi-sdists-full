@@ -741,6 +741,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         "git_branch": "gitBranch",
         "git_push_command": "gitPushCommand",
         "project_changelog_file": "projectChangelogFile",
+        "release_commit_message_format": "releaseCommitMessageFormat",
     },
 )
 class GitPublishOptions:
@@ -753,6 +754,7 @@ class GitPublishOptions:
         git_branch: typing.Optional[builtins.str] = None,
         git_push_command: typing.Optional[builtins.str] = None,
         project_changelog_file: typing.Optional[builtins.str] = None,
+        release_commit_message_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Publishing options for Git releases.
 
@@ -762,6 +764,7 @@ class GitPublishOptions:
         :param git_branch: (experimental) Branch to push to. Default: "main"
         :param git_push_command: (experimental) Override git-push command. Runs as a shell command in the ``publish:git`` task - where release credentials are in scope - replacing the default ``git push --follow-tags origin <branch>``. Shell syntax is interpreted, so keep it a literal command. Set to an empty string to disable pushing.
         :param project_changelog_file: (experimental) The location of an .md file that includes the project-level changelog.
+        :param release_commit_message_format: (experimental) Format of the commit message used when updating the project-level changelog. ``{{currentTag}}`` is replaced with the release version. Default: "chore(release): {{currentTag}}"
 
         :stability: experimental
         '''
@@ -773,6 +776,7 @@ class GitPublishOptions:
             check_type(argname="argument git_branch", value=git_branch, expected_type=type_hints["git_branch"])
             check_type(argname="argument git_push_command", value=git_push_command, expected_type=type_hints["git_push_command"])
             check_type(argname="argument project_changelog_file", value=project_changelog_file, expected_type=type_hints["project_changelog_file"])
+            check_type(argname="argument release_commit_message_format", value=release_commit_message_format, expected_type=type_hints["release_commit_message_format"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "changelog_file": changelog_file,
             "release_tag_file": release_tag_file,
@@ -784,6 +788,8 @@ class GitPublishOptions:
             self._values["git_push_command"] = git_push_command
         if project_changelog_file is not None:
             self._values["project_changelog_file"] = project_changelog_file
+        if release_commit_message_format is not None:
+            self._values["release_commit_message_format"] = release_commit_message_format
 
     @builtins.property
     def changelog_file(self) -> builtins.str:
@@ -861,6 +867,19 @@ class GitPublishOptions:
         :stability: experimental
         '''
         result = self._values.get("project_changelog_file")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def release_commit_message_format(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Format of the commit message used when updating the project-level changelog.
+
+        ``{{currentTag}}`` is replaced with the release version.
+
+        :default: "chore(release): {{currentTag}}"
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_commit_message_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2060,6 +2079,7 @@ class Publisher(
         git_branch: typing.Optional[builtins.str] = None,
         git_push_command: typing.Optional[builtins.str] = None,
         project_changelog_file: typing.Optional[builtins.str] = None,
+        release_commit_message_format: typing.Optional[builtins.str] = None,
     ) -> "_projen_04054675.Task":
         '''(experimental) Publish to git.
 
@@ -2071,6 +2091,7 @@ class Publisher(
         :param git_branch: (experimental) Branch to push to. Default: "main"
         :param git_push_command: (experimental) Override git-push command. Runs as a shell command in the ``publish:git`` task - where release credentials are in scope - replacing the default ``git push --follow-tags origin <branch>``. Shell syntax is interpreted, so keep it a literal command. Set to an empty string to disable pushing.
         :param project_changelog_file: (experimental) The location of an .md file that includes the project-level changelog.
+        :param release_commit_message_format: (experimental) Format of the commit message used when updating the project-level changelog. ``{{currentTag}}`` is replaced with the release version. Default: "chore(release): {{currentTag}}"
 
         :stability: experimental
         '''
@@ -2081,6 +2102,7 @@ class Publisher(
             git_branch=git_branch,
             git_push_command=git_push_command,
             project_changelog_file=project_changelog_file,
+            release_commit_message_format=release_commit_message_format,
         )
 
         return typing.cast("_projen_04054675.Task", jsii.invoke(self, "publishToGit", [options]))
@@ -4764,6 +4786,7 @@ def _typecheckingstub__d5537e1435c9eea568279fa140de950e1b7275db307b3741959861863
     git_branch: typing.Optional[builtins.str] = None,
     git_push_command: typing.Optional[builtins.str] = None,
     project_changelog_file: typing.Optional[builtins.str] = None,
+    release_commit_message_format: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

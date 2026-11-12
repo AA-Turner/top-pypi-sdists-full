@@ -275,11 +275,11 @@ class CustomEntityCreate:
         """Specifies the behavior for automatically generated names when registering an entity.
         - NEW_IDS: Generate new registry IDs
         - IDS_FROM_NAMES: Generate registry IDs based on entity names
-        - DELETE_NAMES: Generate new registry IDs and replace name with registry ID
-        - SET_FROM_NAME_PARTS: Generate new registry IDs, rename according to name template, and keep old name as alias
-        - REPLACE_NAMES_FROM_PARTS: Generate new registry IDs, and replace name according to name template
-        - KEEP_NAMES: Keep existing entity names as registry IDs
-        - REPLACE_ID_AND_NAME_FROM_PARTS: Generate registry IDs and names according to name template
+        - DELETE_NAMES: Generate new registry IDs and use them as names
+        - SET_FROM_NAME_PARTS: Generate new registry IDs, set names from name template, keep original as alias
+        - REPLACE_NAMES_FROM_PARTS: Generate new registry IDs, set names from name template
+        - KEEP_NAMES: Use entity names as registry IDs
+        - REPLACE_ID_AND_NAME_FROM_PARTS: Set registry IDs and names from name template
         """
         if isinstance(self._naming_strategy, Unset):
             raise NotPresentError(self, "naming_strategy")

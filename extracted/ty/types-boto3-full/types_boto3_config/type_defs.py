@@ -43,6 +43,7 @@ from .literals import (
     OrganizationResourceStatusType,
     OrganizationRuleStatusType,
     OwnerType,
+    ProviderType,
     RecorderStatusType,
     RecordingFrequencyType,
     RecordingScopeType,
@@ -244,6 +245,7 @@ __all__ = (
     "FailedRemediationBatchTypeDef",
     "FailedRemediationExceptionBatchTypeDef",
     "FieldInfoTypeDef",
+    "GcpConnectorConfigurationTypeDef",
     "GetAggregateComplianceDetailsByConfigRuleRequestPaginateTypeDef",
     "GetAggregateComplianceDetailsByConfigRuleRequestTypeDef",
     "GetAggregateComplianceDetailsByConfigRuleResponseTypeDef",
@@ -682,7 +684,7 @@ class ConfigurationRecorderSummaryTypeDef(TypedDict):
     name: str
     recordingScope: RecordingScopeType
     servicePrincipal: NotRequired[str]
-    provider: NotRequired[Literal["AZURE"]]
+    provider: NotRequired[ProviderType]
 
 
 class ScopeConfigurationTypeDef(TypedDict):
@@ -746,6 +748,12 @@ class ConformancePackStatusDetailTypeDef(TypedDict):
     LastUpdateCompletedTime: NotRequired[datetime]
 
 
+class GcpConnectorConfigurationTypeDef(TypedDict):
+    serviceAccountEmail: str
+    workloadIdentityPoolProvider: str
+    gcpOrganizationId: NotRequired[str]
+
+
 class ConnectorFilterTypeDef(TypedDict):
     filterName: NotRequired[Literal["provider"]]
     filterValues: NotRequired[Sequence[str]]
@@ -754,9 +762,11 @@ class ConnectorFilterTypeDef(TypedDict):
 class ConnectorSummaryTypeDef(TypedDict):
     arn: str
     name: str
-    provider: Literal["AZURE"]
-    tenantIdentifier: str
+    provider: ProviderType
     createdTime: datetime
+    tenantIdentifier: NotRequired[str]
+    gcpOrganizationId: NotRequired[str]
+    serviceAccountEmail: NotRequired[str]
 
 
 class CustomPolicyDetailsTypeDef(TypedDict):
@@ -1526,10 +1536,6 @@ class StartResourceEvaluationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ConnectorConfigurationTypeDef(TypedDict):
-    azure: NotRequired[AzureConnectorConfigurationTypeDef]
-
-
 class BatchGetAggregateResourceConfigResponseTypeDef(TypedDict):
     BaseConfigurationItems: list[BaseConfigurationItemTypeDef]
     UnprocessedResourceIdentifiers: list[AggregateResourceIdentifierTypeDef]
@@ -1722,6 +1728,11 @@ class DescribeConformancePackStatusResponseTypeDef(TypedDict):
     ConformancePackStatusDetails: list[ConformancePackStatusDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ConnectorConfigurationTypeDef(TypedDict):
+    azure: NotRequired[AzureConnectorConfigurationTypeDef]
+    gcp: NotRequired[GcpConnectorConfigurationTypeDef]
 
 
 class ListConnectorsRequestTypeDef(TypedDict):
@@ -2309,18 +2320,6 @@ class ConfigurationAggregatorTypeDef(TypedDict):
 AggregatorFiltersUnionTypeDef = Union[AggregatorFiltersTypeDef, AggregatorFiltersOutputTypeDef]
 
 
-class ConnectorTypeDef(TypedDict):
-    name: str
-    arn: str
-    connectorConfiguration: ConnectorConfigurationTypeDef
-    createdTime: datetime
-
-
-class PutConnectorRequestTypeDef(TypedDict):
-    ConnectorConfiguration: ConnectorConfigurationTypeDef
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
 class AggregateComplianceCountTypeDef(TypedDict):
     GroupName: NotRequired[str]
     ComplianceSummary: NotRequired[ComplianceSummaryTypeDef]
@@ -2396,6 +2395,18 @@ class DescribeConformancePacksResponseTypeDef(TypedDict):
     ConformancePackDetails: list[ConformancePackDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ConnectorTypeDef(TypedDict):
+    name: str
+    arn: str
+    connectorConfiguration: ConnectorConfigurationTypeDef
+    createdTime: datetime
+
+
+class PutConnectorRequestTypeDef(TypedDict):
+    ConnectorConfiguration: ConnectorConfigurationTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DeleteRemediationExceptionsResponseTypeDef(TypedDict):
@@ -2577,11 +2588,6 @@ class PutConfigurationAggregatorRequestTypeDef(TypedDict):
     AggregatorFilters: NotRequired[AggregatorFiltersUnionTypeDef]
 
 
-class GetConnectorResponseTypeDef(TypedDict):
-    Connector: ConnectorTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetAggregateConfigRuleComplianceSummaryResponseTypeDef(TypedDict):
     GroupByKey: str
     AggregateComplianceCounts: list[AggregateComplianceCountTypeDef]
@@ -2610,6 +2616,11 @@ class DescribeComplianceByResourceResponseTypeDef(TypedDict):
     ComplianceByResources: list[ComplianceByResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetConnectorResponseTypeDef(TypedDict):
+    Connector: ConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetAggregateComplianceDetailsByConfigRuleResponseTypeDef(TypedDict):

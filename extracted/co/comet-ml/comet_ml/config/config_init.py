@@ -16,27 +16,18 @@ import os
 import os.path
 from typing import Any, Dict, Optional, Tuple
 
-from ..connection import CometApiClient
-from ..connection.connection_factory import get_comet_api_client
-from ..exceptions import (
-    AnonymousModeException,
-    CometException,
-    CometRestApiException,
-    InvalidAPIKey,
-    Unauthorized,
-)
+from ..exceptions import AnonymousModeException, InvalidAPIKey, Unauthorized
 from ..logging_messages import (
     COMET_INIT_DEPRECATED,
-    CONFIG_ANONYMOUS_UNALLOWED_ON_PREM,
+    CONFIG_ANONYMOUS_ARGUMENT_DEPRECATED,
+    CONFIG_ANONYMOUS_MODE_DISCONTINUED,
     CONFIG_API_KEY_CHECK_FAILED,
     CONFIG_API_KEY_IS_INVALID,
     CONFIG_API_KEY_IS_NOT_SET,
     CONFIG_API_KEY_SAVE_FAILED_WARNING,
-    CONFIG_CLAIMED_ANONYMOUS_USER,
     CONFIG_INIT_ONPREM_FAILED_EXCEPTION,
     CONFIG_INIT_ONPREM_START_INFO,
     CONFIG_INIT_ONPREM_USER_INPUT_INFO,
-    CONFIG_USING_ANONYMOUS_MODE,
 )
 from ..utils import get_api_key_from_user, get_root_url, is_interactive, sanitize_url
 from .config_api import get_api_key, get_comet_url_override, get_config
@@ -51,7 +42,7 @@ LOGGER = logging.getLogger(__name__)
 def login(
     directory: Optional[str] = None,
     force: Optional[bool] = False,
-    anonymous: bool = False,
+    anonymous: Optional[bool] = None,
     **settings: Any
 ) -> None:
     """An easy, safe, interactive way to set and save your Comet settings.
@@ -66,7 +57,8 @@ def login(
             COMET_CONFIG, if set.
         force (bool): If True, forces the user to
             enter required information, such as the api key.
-        anonymous (bool): If True, uses Comet temporarily without an api key.
+        anonymous (bool): Deprecated. Anonymous mode has been discontinued,
+            passing True raises an error.
         settings (Any): Any valid setting and value.
 
     Notes:
@@ -86,7 +78,7 @@ def login(
 def init(
     directory: Optional[str] = None,
     force: Optional[bool] = False,
-    anonymous: bool = False,
+    anonymous: Optional[bool] = None,
     **settings: Any
 ) -> None:
     """
@@ -100,12 +92,8 @@ def _init_get_api_key(
     prompt_user: bool,
     settings: Dict[str, Any],
     config: Config,
-    config_path: str,
-    anonymous: bool = False,
     force: bool = False,
 ) -> Tuple[Optional[str], bool]:
-    api_client = get_comet_api_client()
-
     need_to_save = False
     if "api_key" in settings:
         api_key = settings.pop("api_key", None)
@@ -115,20 +103,6 @@ def _init_get_api_key(
         api_key = config.get_string(None, "comet.api_key")
     else:
         api_key = None
-
-    if api_key is not None and anonymous is True:
-        is_active = _get_anonymous_api_key_state(api_client, api_key)
-        if is_active is not None:
-            if is_active:
-                LOGGER.info(CONFIG_USING_ANONYMOUS_MODE)
-            else:
-                raise CometException(CONFIG_CLAIMED_ANONYMOUS_USER % config_path)
-
-    elif api_key is None and anonymous is True:
-        api_key = _get_anonymous_api_key(api_client)
-        if api_key:
-            LOGGER.info(CONFIG_USING_ANONYMOUS_MODE)
-            need_to_save = True
 
     if api_key is None:
         if prompt_user:
@@ -153,41 +127,18 @@ def _check_api_key_validity(api_key: str, config: Config) -> None:
         raise InvalidAPIKey(api_key, get_comet_url_override(config))
 
 
-def _get_anonymous_api_key(api_client: CometApiClient) -> str:
-    try:
-        response = api_client.post_from_endpoint("anonymous-user", payload={})
-    except CometRestApiException as e:
-        raise AnonymousModeException(e.safe_msg, e.sdk_error_code)
-
-    return response.json()["apiKey"]
-
-
-def _get_anonymous_api_key_state(
-    api_client: CometApiClient, api_key: str
-) -> Optional[bool]:
-    try:
-        response = api_client.get_from_endpoint(
-            "anonymous/is-active", params={"apiKey": api_key}
-        )
-    except CometRestApiException as e:
-        raise AnonymousModeException(e.safe_msg, e.sdk_error_code)
-
-    if "sdk_error_code" in response:
-        sdk_error_code = response.get("sdk_error_code")
-
-        if sdk_error_code == 7000007:
-            LOGGER.error(CONFIG_ANONYMOUS_UNALLOWED_ON_PREM)
-
-    return response.get("active")
-
-
 def _init(
     directory: Optional[str] = None,
     should_prompt_user: Optional[bool] = None,
-    anonymous: bool = False,
+    anonymous: Optional[bool] = None,
     settings: Optional[Dict[str, Any]] = None,
     force: Optional[bool] = False,
 ) -> None:
+
+    if anonymous:
+        raise AnonymousModeException(CONFIG_ANONYMOUS_MODE_DISCONTINUED)
+    if anonymous is not None:
+        LOGGER.warning(CONFIG_ANONYMOUS_ARGUMENT_DEPRECATED)
 
     if settings is None:
         settings = {}
@@ -212,7 +163,6 @@ def _init(
         config=config,
         config_path=config_path,
         should_prompt_user=should_prompt_user,
-        anonymous=anonymous,
         settings=settings,
         force=force,
     )
@@ -227,7 +177,6 @@ def _check_and_save_api_key(
     config_path: str,
     settings: Dict[str, Any],
     should_prompt_user: bool = False,
-    anonymous: bool = False,
     force: bool = False,
 ) -> bool:
 
@@ -235,8 +184,6 @@ def _check_and_save_api_key(
         prompt_user=should_prompt_user,
         settings=settings,
         config=config,
-        config_path=config_path,
-        anonymous=anonymous,
         force=force,
     )
 

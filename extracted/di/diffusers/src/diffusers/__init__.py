@@ -1,4 +1,4 @@
-__version__ = "0.42.1"
+__version__ = "0.43.0"
 
 from typing import TYPE_CHECKING
 
@@ -170,18 +170,6 @@ except OptionalDependencyNotAvailable:
 else:
     _import_structure["quantizers.quantization_config"].append("SDNQConfig")
 
-try:
-    if not is_onnx_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    from .utils import dummy_onnx_objects  # noqa F403
-
-    _import_structure["utils.dummy_onnx_objects"] = [
-        name for name in dir(dummy_onnx_objects) if not name.startswith("_")
-    ]
-
-else:
-    _import_structure["pipelines"].extend(["OnnxRuntimeModel"])
 
 try:
     if not is_torch_available():
@@ -239,6 +227,7 @@ else:
     ]
     _import_structure["models"].extend(
         [
+            "AceStepConditionEncoder",
             "AceStepTransformer1DModel",
             "AllegroTransformer3DModel",
             "AnimaTextConditioner",
@@ -246,6 +235,7 @@ else:
             "AnyFlowTransformer3DModel",
             "AsymmetricAutoencoderKL",
             "AttentionBackendName",
+            "AudioLDM2ProjectionModel",
             "AuraFlowTransformer2DModel",
             "AutoencoderDC",
             "AutoencoderKL",
@@ -266,7 +256,9 @@ else:
             "AutoencoderKLMagvit",
             "AutoencoderKLMiniMaxH3",
             "AutoencoderKLMiniMaxH3Audio",
+            "AutoencoderKLMiniMaxH3Image",
             "AutoencoderKLMochi",
+            "AutoencoderKLPH3Image",
             "AutoencoderKLQwenImage",
             "AutoencoderKLQwenImage21",
             "AutoencoderKLTemporalDecoder",
@@ -283,6 +275,7 @@ else:
             "CacheMixin",
             "ChromaTransformer2DModel",
             "ChronoEditTransformer3DModel",
+            "CLIPImageProjection",
             "CogVideoXTransformer3DModel",
             "CogView3PlusTransformer2DModel",
             "CogView4Transformer2DModel",
@@ -326,16 +319,21 @@ else:
             "Kandinsky6SRTransformer3DModel",
             "Kandinsky6SRVAE",
             "Kandinsky6Transformer3DModel",
+            "KandinskyS2VTransformer3DModel",
             "Krea2Transformer2DModel",
             "LatteTransformer3DModel",
             "LongCatAudioDiTTransformer",
             "LongCatAudioDiTVae",
             "LongCatImageTransformer2DModel",
+            "LTX2LatentUpsamplerModel",
+            "LTX2TextConnectors",
             "LTX2VideoDiffusionDecoderModel",
             "LTX2VideoTransformer3DModel",
+            "LTXLatentUpsamplerModel",
             "LTXVideoTransformer3DModel",
             "Lumina2Transformer2DModel",
             "LuminaNextDiT2DModel",
+            "MiniMaxH3ImageTransformer2DModel",
             "MiniMaxH3Transformer3DModel",
             "MiniMaxMusic3ConditionEncoder",
             "MiniMaxMusic3RVQDepthDecoder",
@@ -352,7 +350,9 @@ else:
             "NucleusMoEImageTransformer2DModel",
             "OmniGenTransformer2DModel",
             "OvisImageTransformer2DModel",
+            "PAN2Transformer3DModel",
             "ParallelConfig",
+            "PH3ImageTextConnector",
             "PixArtTransformer2DModel",
             "PriorTransformer",
             "PRXTransformer2DModel",
@@ -360,6 +360,7 @@ else:
             "QwenImageControlNetModel",
             "QwenImageMultiControlNetModel",
             "QwenImageTransformer2DModel",
+            "ReduxImageEncoder",
             "RFD4ProteinaAutoencoder",
             "RFD4ProteinaTransformer",
             "SanaControlNetModel",
@@ -373,7 +374,9 @@ else:
             "SkyReelsV2Transformer3DModel",
             "SparseControlNetModel",
             "StableAudio3DiTModel",
+            "StableAudio3DurationEmbedder",
             "StableAudioDiTModel",
+            "StableAudioProjectionModel",
             "StableCascadeUNet",
             "T2IAdapter",
             "T5FilmDecoder",
@@ -577,6 +580,10 @@ else:
             "HunyuanVideo15ModularPipeline",
             "Ideogram4AutoBlocks",
             "Ideogram4ModularPipeline",
+            "KandinskyS2VAutoBlocks",
+            "KandinskyS2VDistilledAutoBlocks",
+            "KandinskyS2VDistilledModularPipeline",
+            "KandinskyS2VModularPipeline",
             "Krea2AutoBlocks",
             "Krea2ModularPipeline",
             "Krea2TurboAutoBlocks",
@@ -588,9 +595,18 @@ else:
             "LTXAutoBlocks",
             "LTXModularPipeline",
             "MiniMaxH3Blocks",
+            "MiniMaxH3ImageBlocks",
+            "MiniMaxH3ImageModularPipeline",
             "MiniMaxH3ModularPipeline",
             "MiniMaxMusic3Blocks",
             "MiniMaxMusic3ModularPipeline",
+            "PAN2Blocks",
+            "PAN2ModularPipeline",
+            "PAN2SafetyChecker",
+            "PH3ImageBlocks",
+            "PH3ImageModularPipeline",
+            "PikaH3FlexBlocks",
+            "PikaH3FlexModularPipeline",
             "QwenImage21AutoBlocks",
             "QwenImage21ModularPipeline",
             "QwenImage21TurboAutoBlocks",
@@ -629,7 +645,6 @@ else:
         [
             "AceStepAudioTokenDetokenizer",
             "AceStepAudioTokenizer",
-            "AceStepConditionEncoder",
             "AceStepPipeline",
             "AllegroPipeline",
             "AltDiffusionImg2ImgPipeline",
@@ -647,7 +662,6 @@ else:
             "AnyFlowFARPipeline",
             "AnyFlowPipeline",
             "AudioLDM2Pipeline",
-            "AudioLDM2ProjectionModel",
             "AudioLDM2UNet2DConditionModel",
             "AudioLDMPipeline",
             "AuraFlowPipeline",
@@ -661,7 +675,6 @@ else:
             "ChromaInpaintPipeline",
             "ChromaPipeline",
             "ChronoEditPipeline",
-            "CLIPImageProjection",
             "CogVideoXFunControlPipeline",
             "CogVideoXImageToVideoPipeline",
             "CogVideoXPipeline",
@@ -819,7 +832,6 @@ else:
             "QwenImageInpaintPipeline",
             "QwenImageLayeredPipeline",
             "QwenImagePipeline",
-            "ReduxImageEncoder",
             "SanaControlNetPipeline",
             "SanaImageToVideoPipeline",
             "SanaPAGPipeline",
@@ -840,11 +852,9 @@ else:
             "SkyReelsV2ImageToVideoPipeline",
             "SkyReelsV2Pipeline",
             "StableAudio3AudioToAudioPipeline",
-            "StableAudio3DurationEmbedder",
             "StableAudio3InpaintPipeline",
             "StableAudio3Pipeline",
             "StableAudioPipeline",
-            "StableAudioProjectionModel",
             "StableCascadeCombinedPipeline",
             "StableCascadeDecoderPipeline",
             "StableCascadePriorPipeline",
@@ -966,27 +976,6 @@ except OptionalDependencyNotAvailable:
 else:
     _import_structure["pipelines"].extend(["KolorsImg2ImgPipeline", "KolorsPAGPipeline", "KolorsPipeline"])
 
-try:
-    if not (is_torch_available() and is_transformers_available() and is_onnx_available()):
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    from .utils import dummy_torch_and_transformers_and_onnx_objects  # noqa F403
-
-    _import_structure["utils.dummy_torch_and_transformers_and_onnx_objects"] = [
-        name for name in dir(dummy_torch_and_transformers_and_onnx_objects) if not name.startswith("_")
-    ]
-
-else:
-    _import_structure["pipelines"].extend(
-        [
-            "OnnxStableDiffusionImg2ImgPipeline",
-            "OnnxStableDiffusionInpaintPipeline",
-            "OnnxStableDiffusionInpaintPipelineLegacy",
-            "OnnxStableDiffusionPipeline",
-            "OnnxStableDiffusionUpscalePipeline",
-            "StableDiffusionOnnxPipeline",
-        ]
-    )
 
 try:
     if not (is_torch_available() and is_librosa_available()):
@@ -1106,14 +1095,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
         from .quantizers.quantization_config import SDNQConfig
 
     try:
-        if not is_onnx_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        from .utils.dummy_onnx_objects import *  # noqa F403
-    else:
-        from .pipelines import OnnxRuntimeModel
-
-    try:
         if not is_torch_available():
             raise OptionalDependencyNotAvailable()
     except OptionalDependencyNotAvailable:
@@ -1161,6 +1142,7 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             VaeImageProcessorLDM3D,
         )
         from .models import (
+            AceStepConditionEncoder,
             AceStepTransformer1DModel,
             AllegroTransformer3DModel,
             AnimaTextConditioner,
@@ -1168,6 +1150,7 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             AnyFlowTransformer3DModel,
             AsymmetricAutoencoderKL,
             AttentionBackendName,
+            AudioLDM2ProjectionModel,
             AuraFlowTransformer2DModel,
             AutoencoderDC,
             AutoencoderKL,
@@ -1188,7 +1171,9 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             AutoencoderKLMagvit,
             AutoencoderKLMiniMaxH3,
             AutoencoderKLMiniMaxH3Audio,
+            AutoencoderKLMiniMaxH3Image,
             AutoencoderKLMochi,
+            AutoencoderKLPH3Image,
             AutoencoderKLQwenImage,
             AutoencoderKLQwenImage21,
             AutoencoderKLTemporalDecoder,
@@ -1205,6 +1190,7 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             CacheMixin,
             ChromaTransformer2DModel,
             ChronoEditTransformer3DModel,
+            CLIPImageProjection,
             CogVideoXTransformer3DModel,
             CogView3PlusTransformer2DModel,
             CogView4Transformer2DModel,
@@ -1248,16 +1234,21 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             Kandinsky6SRTransformer3DModel,
             Kandinsky6SRVAE,
             Kandinsky6Transformer3DModel,
+            KandinskyS2VTransformer3DModel,
             Krea2Transformer2DModel,
             LatteTransformer3DModel,
             LongCatAudioDiTTransformer,
             LongCatAudioDiTVae,
             LongCatImageTransformer2DModel,
+            LTX2LatentUpsamplerModel,
+            LTX2TextConnectors,
             LTX2VideoDiffusionDecoderModel,
             LTX2VideoTransformer3DModel,
+            LTXLatentUpsamplerModel,
             LTXVideoTransformer3DModel,
             Lumina2Transformer2DModel,
             LuminaNextDiT2DModel,
+            MiniMaxH3ImageTransformer2DModel,
             MiniMaxH3Transformer3DModel,
             MiniMaxMusic3ConditionEncoder,
             MiniMaxMusic3RVQDepthDecoder,
@@ -1274,7 +1265,9 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             NucleusMoEImageTransformer2DModel,
             OmniGenTransformer2DModel,
             OvisImageTransformer2DModel,
+            PAN2Transformer3DModel,
             ParallelConfig,
+            PH3ImageTextConnector,
             PixArtTransformer2DModel,
             PriorTransformer,
             PRXTransformer2DModel,
@@ -1282,6 +1275,7 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             QwenImageControlNetModel,
             QwenImageMultiControlNetModel,
             QwenImageTransformer2DModel,
+            ReduxImageEncoder,
             RFD4ProteinaAutoencoder,
             RFD4ProteinaTransformer,
             SanaControlNetModel,
@@ -1295,7 +1289,9 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             SkyReelsV2Transformer3DModel,
             SparseControlNetModel,
             StableAudio3DiTModel,
+            StableAudio3DurationEmbedder,
             StableAudioDiTModel,
+            StableAudioProjectionModel,
             T2IAdapter,
             T5FilmDecoder,
             TensorParallelConfig,
@@ -1348,7 +1344,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             AutoPipelineForText2Image,
             BlipDiffusionControlNetPipeline,
             BlipDiffusionPipeline,
-            CLIPImageProjection,
             ConsistencyModelPipeline,
             DanceDiffusionPipeline,
             DDIMPipeline,
@@ -1478,6 +1473,10 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             HunyuanVideo15ModularPipeline,
             Ideogram4AutoBlocks,
             Ideogram4ModularPipeline,
+            KandinskyS2VAutoBlocks,
+            KandinskyS2VDistilledAutoBlocks,
+            KandinskyS2VDistilledModularPipeline,
+            KandinskyS2VModularPipeline,
             Krea2AutoBlocks,
             Krea2ModularPipeline,
             Krea2TurboAutoBlocks,
@@ -1489,9 +1488,18 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             LTXAutoBlocks,
             LTXModularPipeline,
             MiniMaxH3Blocks,
+            MiniMaxH3ImageBlocks,
+            MiniMaxH3ImageModularPipeline,
             MiniMaxH3ModularPipeline,
             MiniMaxMusic3Blocks,
             MiniMaxMusic3ModularPipeline,
+            PAN2Blocks,
+            PAN2ModularPipeline,
+            PAN2SafetyChecker,
+            PH3ImageBlocks,
+            PH3ImageModularPipeline,
+            PikaH3FlexBlocks,
+            PikaH3FlexModularPipeline,
             QwenImage21AutoBlocks,
             QwenImage21ModularPipeline,
             QwenImage21TurboAutoBlocks,
@@ -1528,7 +1536,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
         from .pipelines import (
             AceStepAudioTokenDetokenizer,
             AceStepAudioTokenizer,
-            AceStepConditionEncoder,
             AceStepPipeline,
             AllegroPipeline,
             AltDiffusionImg2ImgPipeline,
@@ -1546,7 +1553,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             AnyFlowFARPipeline,
             AnyFlowPipeline,
             AudioLDM2Pipeline,
-            AudioLDM2ProjectionModel,
             AudioLDM2UNet2DConditionModel,
             AudioLDMPipeline,
             AuraFlowPipeline,
@@ -1558,7 +1564,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             ChromaInpaintPipeline,
             ChromaPipeline,
             ChronoEditPipeline,
-            CLIPImageProjection,
             CogVideoXFunControlPipeline,
             CogVideoXImageToVideoPipeline,
             CogVideoXPipeline,
@@ -1716,7 +1721,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             QwenImageInpaintPipeline,
             QwenImageLayeredPipeline,
             QwenImagePipeline,
-            ReduxImageEncoder,
             SanaControlNetPipeline,
             SanaImageToVideoPipeline,
             SanaPAGPipeline,
@@ -1736,11 +1740,9 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
             SkyReelsV2ImageToVideoPipeline,
             SkyReelsV2Pipeline,
             StableAudio3AudioToAudioPipeline,
-            StableAudio3DurationEmbedder,
             StableAudio3InpaintPipeline,
             StableAudio3Pipeline,
             StableAudioPipeline,
-            StableAudioProjectionModel,
             StableCascadeCombinedPipeline,
             StableCascadeDecoderPipeline,
             StableCascadePriorPipeline,
@@ -1848,21 +1850,6 @@ if TYPE_CHECKING or DIFFUSERS_SLOW_IMPORT:
         from .utils.dummy_torch_and_transformers_and_opencv_objects import *  # noqa F403
     else:
         from .pipelines import ConsisIDPipeline
-
-    try:
-        if not (is_torch_available() and is_transformers_available() and is_onnx_available()):
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        from .utils.dummy_torch_and_transformers_and_onnx_objects import *  # noqa F403
-    else:
-        from .pipelines import (
-            OnnxStableDiffusionImg2ImgPipeline,
-            OnnxStableDiffusionInpaintPipeline,
-            OnnxStableDiffusionInpaintPipelineLegacy,
-            OnnxStableDiffusionPipeline,
-            OnnxStableDiffusionUpscalePipeline,
-            StableDiffusionOnnxPipeline,
-        )
 
     try:
         if not (is_torch_available() and is_librosa_available()):

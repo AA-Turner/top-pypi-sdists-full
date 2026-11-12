@@ -93,6 +93,84 @@ def test_junitxml_file(ctx, cli, hypothesis_max_examples, tmp_path, path, in_con
     )
 
 
+INVALID_ITEMS = {"type": "array", "items": {"type": "string", "required": True}}
+NO_INTEGER = {"type": "integer", "minimum": 5, "maximum": 1}
+CREATED = {
+    "201": {
+        "description": "Created",
+        "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}},
+    }
+}
+
+
+def _create(schema):
+    return {
+        "post": {
+            "requestBody": {"required": True, "content": {"application/json": {"schema": schema}}},
+            "responses": CREATED,
+        }
+    }
+
+
+def _read(name):
+    return {
+        "get": {
+            "parameters": [{"name": name, "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}},
+        }
+    }
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize(
+    ("mode", "version", "body", "expected"),
+    [
+        ("positive", "3.0.2", INVALID_ITEMS, "Invalid `items` definition"),
+        ("all", "3.1.0", INVALID_ITEMS, "Invalid `required` definition"),
+        ("positive", "3.0.2", NO_INTEGER, "Cannot generate test data for request body (application/json)"),
+    ],
+    ids=["invalid-schema", "invalid-schema-openapi-3.1", "unsatisfiable"],
+)
+def test_operation_error_reported_once_across_phases(ctx, cli, tmp_path, snapshot_cli, mode, version, body, expected):
+    xml_path = tmp_path / "junit.xml"
+    html_dir = tmp_path / "report"
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": _create({"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}),
+            "/users/{userId}": _read("userId"),
+            "/items": _create(body),
+            "/items/{itemId}": _read("itemId"),
+        },
+        version=version,
+    )
+
+    @app.route("/users", methods=["POST"])
+    @app.route("/items", methods=["POST"])
+    def create():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>")
+    @app.route("/items/<int:item_id>")
+    def read(**_):
+        return jsonify({"id": 1})
+
+    result = cli.run_openapi_app(
+        app,
+        "--phases=coverage,fuzzing,stateful",
+        f"--mode={mode}",
+        "--checks=not_a_server_error",
+        "--max-examples=10",
+        "--seed=1",
+        f"--report-junit-path={xml_path}",
+        f"--report-html-path={html_dir}",
+    )
+    testcases = {testcase.attrib["name"]: testcase for testcase in ElementTree.parse(xml_path).getroot()[0]}
+    errors = [child.text.splitlines()[2] for child in testcases["POST /items"] if child.tag == "error"]
+    assert errors == [expected]
+    assert (html_dir / "index.html").read_text(encoding="utf-8").count('<article class="case case-error">') == 1
+    assert result == snapshot_cli
+
+
 @pytest.mark.skipif(
     platform.system() == "Windows",
     reason="Cover only tracebacks that highlight error positions in every line",
@@ -295,7 +373,6 @@ def test_permission_denied(ctx, cli, tmp_path, path):
     assert "Permission denied" in result.stdout or "Permission denied" in result.stderr
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.skipif(platform.system() != "Linux", reason="Requires /dev/full")
 def test_report_write_error(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
@@ -308,34 +385,6 @@ def test_report_write_error(ctx, cli, snapshot_cli):
     )
     assert result.exit_code == ExitCode.OK
     assert result == snapshot_cli
-
-
-def test_coverage_unspecified_method_in_junit(cli, ctx, tmp_path):
-    # See GH-3699
-    # When coverage phase triggers an `unsupported_method` failure via UNSPECIFIED_HTTP_METHOD,
-    # the failure must appear in JUnit XML
-    xml_path = tmp_path / "junit.xml"
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    # Server accepts all methods — returns 200 instead of 405 for undocumented methods
-    @app.route("/users", methods=["GET", "DELETE", "POST", "PUT", "PATCH", "HEAD"])
-    def users():
-        return jsonify([])
-
-    result = cli.run_openapi_app(
-        app,
-        "--phases=coverage",
-        f"--report-junit-path={xml_path}",
-        "--checks=unsupported_method",
-    )
-
-    # Exit code is 1: the check detected that undocumented methods were accepted
-    assert result.exit_code == 1
-
-    # JUnit must reflect that failure
-    tree = ElementTree.parse(xml_path)
-    root = tree.getroot()
-    assert int(root.attrib.get("failures", 0)) > 0
 
 
 def test_after_run_failure_in_junit(ctx, cli, ensure_reachability_module, tmp_path):
@@ -358,6 +407,39 @@ def test_after_run_failure_in_junit(ctx, cli, ensure_reachability_module, tmp_pa
     assert run_checks is not None, list(testcases_by_name)
     assert run_checks[0].tag == "failure"
     assert "never returned 2xx" in (run_checks[0].text or run_checks[0].attrib.get("message", ""))
+
+
+_UNSORTED_RUN_CHECK_FAILURES = """
+from schemathesis.core.failures import CustomFailure, FailureGroup
+
+
+@schemathesis.check
+class ZRunCheck:
+    def after_response(self, ctx, response, case):
+        pass
+
+    def after_run(self, ctx):
+        raise AssertionError("zzz run-level failure")
+
+
+@schemathesis.check
+class ARunCheck:
+    def after_response(self, ctx, response, case):
+        pass
+
+    def after_run(self, ctx):
+        raise FailureGroup(
+            [
+                CustomFailure(operation=None, title="dup", message="aaa duplicated", exception=AssertionError("dup"))
+                for _ in range(2)
+            ]
+        )
+"""
+
+
+@pytest.fixture
+def unsorted_run_check_failures_module(ctx):
+    return ctx.write_pymodule(_UNSORTED_RUN_CHECK_FAILURES)
 
 
 def test_after_run_failures_in_reports_are_sorted_and_deduplicated(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prowler
-Version: 5.48.0
+Version: 5.49.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -100,6 +100,7 @@ Requires-Dist: pydantic==2.12.5
 Requires-Dist: pygithub==2.8.0
 Requires-Dist: python-dateutil==2.9.0.post0
 Requires-Dist: pytz==2025.1
+Requires-Dist: regex==2026.5.9
 Requires-Dist: scaleway==2.10.3
 Requires-Dist: schema==0.7.5
 Requires-Dist: shodan==1.31.0
@@ -403,7 +404,7 @@ Some pre-commit hooks require tools installed on your system:
 
 ## Prowler CLI
 ### Pip package
-Prowler CLI is available as a project in [PyPI](https://pypi.org/project/prowler-cloud/). Consequently, it can be installed using pip with Python >=3.10, <3.13:
+Prowler CLI is available as a project in [PyPI](https://pypi.org/project/prowler-cloud/). Consequently, it can be installed using pip with Python >=3.10, <3.14:
 
 ```console
 pip install prowler
@@ -435,7 +436,7 @@ The container images are available here:
 
 ### From GitHub
 
-Python >=3.10, <3.13 is required with [uv](https://docs.astral.sh/uv/):
+Python >=3.10, <3.14 is required with [uv](https://docs.astral.sh/uv/):
 
 ``` console
 git clone https://github.com/prowler-cloud/prowler

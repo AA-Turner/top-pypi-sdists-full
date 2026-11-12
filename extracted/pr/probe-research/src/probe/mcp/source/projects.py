@@ -130,7 +130,7 @@ class ProjectReadsMixin:
         already shows, never a write an agent chose."""
         return self.client.transport.get(f"/v1/projects/{project_id}/readme")
 
-    # -- flat listings (browse modes other than `tree`) ------------------------
+    # -- flat listings (browse modes other than `projects`) ------------------------
 
     def workspaces(self) -> list[dict]:
         """``GET /v1/workspaces``: every workspace, whole and in server order

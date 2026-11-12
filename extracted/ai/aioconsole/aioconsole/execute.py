@@ -3,7 +3,7 @@
 import ast
 import codeop
 from io import StringIO
-from tokenize import generate_tokens, STRING, TokenError
+from tokenize import STRING, TokenError, generate_tokens
 
 CORO_NAME = "__corofn"
 CORO_DEF = f"async def {CORO_NAME}(): "
@@ -104,11 +104,7 @@ def compile_for_aexec(source, filename, mode, dont_imply_dedent=False):
     flags = ast.PyCF_ONLY_AST
     if dont_imply_dedent:
         flags |= codeop.PyCF_DONT_IMPLY_DEDENT
-        # This flag is not available for python before 3.10
-        try:
-            flags |= codeop.PyCF_ALLOW_INCOMPLETE_INPUT
-        except AttributeError:
-            pass
+        flags |= codeop.PyCF_ALLOW_INCOMPLETE_INPUT
 
     # Avoid a syntax error by wrapping code with `async def`
     # Disabling indentation inside multiline strings
@@ -126,10 +122,7 @@ def compile_for_aexec(source, filename, mode, dont_imply_dedent=False):
     statements = compiled.body[0].body
 
     # Use original source to detect missing newlines, depending on the mode
-    try:
-        compile(source, filename, mode, flags)
-    except SyntaxError:
-        raise
+    compile(source, filename, mode, flags)
 
     return [make_tree(statement, filename, mode) for statement in statements]
 
@@ -162,10 +155,7 @@ async def aeval(source, local=None):
         key += "_"
 
     # Perform syntax check to ensure the input is a valid eval expression
-    try:
-        ast.parse(source, mode="eval")
-    except SyntaxError:
-        raise
+    ast.parse(source, mode="eval")
 
     # Assign the result of the expression to a known variable
     wrapped_code = f"{key} = {source}"

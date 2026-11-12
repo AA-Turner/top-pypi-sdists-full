@@ -1,6 +1,6 @@
 [project]
 name = "atlan-application-sdk"
-version = "3.55.3"
+version = "3.56.0"
 description = "Atlan Application SDK is a Python library for developing applications on the Atlan Platform"
 license = "Apache-2.0"
 authors = [
@@ -21,7 +21,7 @@ classifiers = [
 ]
 keywords = ["atlan", "sdk", "platform", "app", "development"]
 dependencies = [
-    "atlan-application-sdk-api==3.55.3",
+    "atlan-application-sdk-api==3.56.0",
     # The OTLP gRPC exporters only, not the opentelemetry-exporter-otlp meta
     # package: that also pulls the HTTP exporter, which nothing imports.
     "opentelemetry-exporter-otlp-proto-grpc>=1.45.0,<2.0.0",
@@ -47,7 +47,7 @@ dependencies = [
     "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2
     # Arrives via pyatlan (~=1.9.1 on Python >=3.10). Published as well so the
     # api wheel's pyatlan extra can carry the same pin (test_api_distribution).
-    "authlib>=1.9.4,<2",  # CVE-2026-96760; GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3
+    "authlib>=1.9.5,<2",  # CVE-2026-96760; GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3; GHSA-f7j6-p4qx-gq99
     # Transitive runtime deps, published for the same reason as certifi:
     # protobuf arrives via temporalio / opentelemetry-proto, pyjwt via
     # azure-identity -> msal.
@@ -169,6 +169,13 @@ tests = [
     # through fastapi[standard]; without it TestClient falls back to httpx with
     # a deprecation warning, which fails a suite run with `-W error`.
     "httpx2>=2.16.0,<3.0.0",
+    # application_sdk.testing imports these at module top (testing/fixtures.py,
+    # preflight.py, e2e/base.py, sdr/base.py; integration/fixtures.py for
+    # pytest-asyncio), so the extra that ships those modules declares them
+    # rather than leaving them to each app's own test deps (FND-4661). Same
+    # ranges as the dev group below, so the lock resolves the same versions.
+    "pytest>=8.3.3,<10.0.0",
+    "pytest-asyncio>=1.4.0,<2.0.0",
 ]
 # Typed Kubernetes backend for application_sdk.testing.harness.cluster — the
 # in-process client that replaces the `kubectl`-shelling reads in
@@ -185,6 +192,8 @@ tests = [
 harness = [
     "kubernetes>=36.0.3,<38.0.0",
 ]
+# Deprecated, removed in v4.0.0 with application_sdk.testing.scale_data_generator,
+# which no app or CI job uses (FND-4660). Use faker directly instead.
 scale_data_generator = [
     "faker>=40.44.0,<41.0.0",
 ]
@@ -222,7 +231,6 @@ test = [
     "coverage>=7.6.1,<8.0.0",
     "pytest-asyncio>=1.4.0,<2.0.0",
     "pytest-timeout>=2.3.0,<3.0.0",
-    "pytest-rerunfailures>=16.7,<17.0",
     "pytest-socket>=0.7.0,<1.0.0",
     "pytest-xdist>=3.8.0,<4.0.0",
     # starlette's TestClient (fastapi.testclient) is built on httpx2 and only
@@ -283,6 +291,9 @@ test-integration = "pytest tests/integration/ -m integration -v --timeout=120"
 # Size via ATLAN_LOAD_TEST_SIZE_MIB (default 1024; 51200 = 50 GiB). See tests/load/README.md.
 load-test-storage = "pytest tests/load -m load -v -s --timeout=0"
 test-scripts = "bats .github/scripts/tests"  # requires: bats-core (apt-get install -y bats)
+# Re-render the golden fixtures built from a toolkit contract; the freshness
+# test fails with this command when the checked-in copy is stale (FND-4680).
+regen-test-fixtures = "python -m tests.regen_fixtures"
 
 # API docs — must be before any sub-table header ([tool.poe.tasks.*])
 # or TOML nests it inside the sub-table rather than the parent tasks namespace
@@ -439,8 +450,7 @@ venv = ".venv"
 typeCheckingMode = "standard"
 extraPaths = []
 exclude = [
-    "application_sdk/test_utils/**",
-    "application_sdk/testing/scale_data_generator/**",
+    "application_sdk/testing/_scale_data_generator/**",
     ".github/**",
     "tests",
 ]
@@ -454,6 +464,9 @@ reportMissingImports = "warning"
 reportInvalidTypeForm = "warning"
 
 [tool.pytest.ini_options]
+# auto: every `async def` test and fixture runs on pytest-asyncio without a
+# mark. Do not add `@pytest.mark.asyncio`; only a non-default argument such as
+# `@pytest.mark.asyncio(loop_scope="session")` needs one.
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
@@ -462,7 +475,10 @@ pythonpath = ["."]
 # that spawn run_fault_isolated's process-pool children, so one worker owns them
 # instead of every worker spawning its own and starving timing-sensitive tests
 # of CPU (FND-4237). Inert without -n.
-addopts = "-m 'not integration and not e2e and not s3_integration and not azure_integration and not gcs_integration and not storage_emulator and not load and not perf' --dist loadgroup"
+# --strict-markers: an unregistered mark is a collection error, so a typo such
+# as `@pytest.mark.integraton` cannot slip past the -m filter and run a
+# Temporal-bound test in the unit legs. Register new marks in `markers` below.
+addopts = "-m 'not integration and not e2e and not s3_integration and not azure_integration and not gcs_integration and not storage_emulator and not load and not perf' --dist loadgroup --strict-markers"
 markers = [
     "perf: throughput comparisons and large-scale probes (≥10s each); excluded from the unit matrix, run once in the `Unit Perf Tests` job via `pytest tests/unit -m perf`",
     "load: opt-in large-file storage load tests — real bytes at ATLAN_LOAD_TEST_SIZE_MIB (50 GiB-class); run via `poe load-test-storage`, never in CI",
@@ -490,8 +506,8 @@ markers = [
 # proximity would exempt the one part of this surface that is unit-testable.
 omit = [
     "tests/**",
-    "application_sdk/test_utils/**",
     "application_sdk/testing/scale_data_generator/**",
+    "application_sdk/testing/_scale_data_generator/**",
     "application_sdk/testing/integration/**",
     "application_sdk/testing/e2e/**",
     "application_sdk/testing/hypothesis/**",
@@ -502,20 +518,37 @@ source = ["application_sdk"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "pass",
-    "raise ImportError",
-    # An ellipsis-only body is a Protocol method or a typing stub: a signature
-    # declaration, never a statement that runs. Anchored to a line that is
-    # nothing but `...` so it cannot swallow a real statement.
-    "^\\s*\\.\\.\\.$",
+    # Every other pattern is anchored to the start of a line. coverage.py
+    # matches these with re.search over the whole file, so an unanchored
+    # `pass` hid every statement in `create_worker` (its `passthrough_modules`
+    # parameter) and in each `imports_passed_through()` block (FND-4677).
+    # `[ \t]` rather than `\s`: the file is searched with re.MULTILINE, and
+    # `\s` also matches a newline. tests/unit/test_coverage_config.py holds
+    # this list to that shape.
+    "^[ \\t]*def __repr__\\(",
+    "^[ \\t]*if self\\.debug:",
+    "^[ \\t]*raise NotImplementedError\\b",
+    "^[ \\t]*if __name__ == .__main__.:",
+    "^[ \\t]*raise ImportError\\b",
+    # A bare `pass` or ellipsis-only body is a placeholder: an empty block, a
+    # Protocol method or a typing stub, never a statement that does work.
+    # Anchored at both ends so neither can swallow a line with other tokens.
+    "^[ \\t]*pass[ \\t]*$",
+    "^[ \\t]*\\.\\.\\.[ \\t]*$",
 ]
 fail_under = 85
 show_missing = true
 precision = 2
+
+# Per-package coverage floors, checked on the coverage leg by
+# .github/scripts/unit_test_command.py against coverage.xml (FND-4678). Every
+# top-level application_sdk subpackage must meet the global fail_under above
+# unless it is listed here. List a package only to hold it to a different
+# floor, and raise its entry when its coverage rises: a floor is a ratchet,
+# not a target. An entry for a package that no longer exists fails the leg.
+[tool.application-sdk.coverage.package-floors]
+# 84.07% when the per-package check was introduced.
+server = 83
 
 [tool.ruff.format]
 # ruff 0.17 also formats Python code blocks inside Markdown. The hook did not
@@ -576,7 +609,7 @@ default-groups = ["dev", "test"]
 constraint-dependencies = [
     "python-multipart>=0.0.26",  # CVE-2026-24486, CVE-2026-40347
     "protobuf>=6.33.5",          # CVE-2026-0994
-    "authlib>=1.9.4",  # CVE-2026-96760 (signature bypass), CVE-2026-28802, GHSA-jj8c-mmj3-mmgv, GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3
+    "authlib>=1.9.5",  # CVE-2026-96760 (signature bypass), CVE-2026-28802, GHSA-jj8c-mmj3-mmgv, GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3, GHSA-f7j6-p4qx-gq99
     "pyjwt>=2.12.0",             # CVE-2026-32597
     "python-dotenv>=1.2.2",      # CVE-2026-28684 (symlink file overwrite)
     "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2

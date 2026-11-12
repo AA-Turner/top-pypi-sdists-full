@@ -605,6 +605,17 @@ _entity.details
 #
 """)
 
+    def test_entity_duplicate_unknown(self):
+        """Test EntityDumper with duplicate unknown-sequence entities"""
+        system = ihm.System()
+        system.entities.append(ihm.Entity(['UNK'] * 3, description='heavy'))
+        system.entities.append(ihm.Entity(['UNK'] * 3, description='light'))
+        dumper = ihm.dumper._EntityDumper()
+        # All-UNK sequences say nothing about identity, so are not duplicates
+        dumper.finalize(system)
+        self.assertEqual(system.entities[0]._id, 1)
+        self.assertEqual(system.entities[1]._id, 2)
+
     def test_entity_empty(self):
         """Test EntityDumper with empty entity"""
         system = ihm.System()
@@ -741,7 +752,7 @@ _entity_src_gen.pdbx_host_org_strain
                                                      seq_dif=[sd, sd2]))
         r2 = ihm.reference.UniProtSequence(
             db_code='testcode', accession='testacc', sequence='MELSPTYQT',
-            details='test2')
+            details='test2', isoform='testacc-2')
         r2.alignments.append(ihm.reference.Alignment(
             db_begin=4, db_end=5, entity_begin=2, entity_end=3))
         r2.alignments.append(ihm.reference.Alignment(
@@ -792,15 +803,16 @@ _struct_ref.entity_id
 _struct_ref.db_name
 _struct_ref.db_code
 _struct_ref.pdbx_db_accession
+_struct_ref.pdbx_db_isoform
 _struct_ref.pdbx_align_begin
 _struct_ref.pdbx_seq_one_letter_code
 _struct_ref.details
-1 1 UNP NUP84_YEAST P52891 3 LWPTYQT 'test sequence'
-2 1 UNP testcode testacc 4 SPTYQT test2
-3 1 UNP testcode2 testacc2 4 . .
-4 1 UNP testcode3 testacc3 4 ? .
-5 2 UNP testcode2 testacc2 4 . .
-6 3 UNP testcode4 testacc4 5 LS(BAR)TW .
+1 1 UNP NUP84_YEAST P52891 . 3 LWPTYQT 'test sequence'
+2 1 UNP testcode testacc testacc-2 4 SPTYQT test2
+3 1 UNP testcode2 testacc2 . 4 . .
+4 1 UNP testcode3 testacc3 . 4 ? .
+5 2 UNP testcode2 testacc2 . 4 . .
+6 3 UNP testcode4 testacc4 . 5 LS(BAR)TW .
 #
 #
 loop_
@@ -860,10 +872,11 @@ _struct_ref.entity_id
 _struct_ref.db_name
 _struct_ref.db_code
 _struct_ref.pdbx_db_accession
+_struct_ref.pdbx_db_isoform
 _struct_ref.pdbx_align_begin
 _struct_ref.pdbx_seq_one_letter_code
 _struct_ref.details
-1 1 UNP NUP84_YEAST P52891 3 LWPTYQT 'test sequence'
+1 1 UNP NUP84_YEAST P52891 . 3 LWPTYQT 'test sequence'
 #
 #
 loop_
@@ -1063,10 +1076,11 @@ _struct_ref.entity_id
 _struct_ref.db_name
 _struct_ref.db_code
 _struct_ref.pdbx_db_accession
+_struct_ref.pdbx_db_isoform
 _struct_ref.pdbx_align_begin
 _struct_ref.pdbx_seq_one_letter_code
 _struct_ref.details
-1 1 UNP NUP84_YEAST P52891 1 MEWPTYQT 'test sequence'
+1 1 UNP NUP84_YEAST P52891 . 1 MEWPTYQT 'test sequence'
 #
 #
 loop_
@@ -1091,6 +1105,34 @@ _struct_ref_seq_dif.details
 2 1 ? ? HIS 1 'expression tag'
 #
 """)
+
+    def test_struct_ref_negative_strand(self):
+        """Test StructRefDumper with alignment to negative strand"""
+        system = ihm.System()
+        r1 = ihm.reference.Sequence(
+            db_name='GB', db_code='testcode', accession='testacc',
+            sequence=None)
+        r1.alignments.append(ihm.reference.Alignment(
+            db_begin=3950328, db_end=3948799, entity_begin=1,
+            entity_end=1530))
+        # Sequence is not checked for negative strand alignments
+        r2 = ihm.reference.Sequence(
+            db_name='GB', db_code='testcode2', accession='testacc2',
+            sequence='ACGU')
+        r2.alignments.append(ihm.reference.Alignment(
+            db_begin=4, db_end=1))
+        system.entities.append(ihm.Entity('A' * 1530, references=[r1]))
+        system.entities.append(ihm.Entity('UGCA', references=[r2]))
+        dumper = ihm.dumper._EntityDumper()
+        dumper.finalize(system)  # Assign entity IDs
+
+        dumper = ihm.dumper._StructRefDumper()
+        dumper.finalize(system)  # Assign IDs
+        out = _get_dumper_output(dumper, system)
+        self.assertIn("""_struct_ref_seq.db_align_end
+1 1 1 1530 3950328 3948799
+2 2 1 4 4 1
+#""", out)
 
     def test_chem_comp_dumper(self):
         """Test ChemCompDumper"""
@@ -1136,7 +1178,8 @@ THR 'L-peptide linking' THREONINE 'C4 H9 N O3' 119.119
         """Test ChemDescriptorDumper"""
         system = ihm.System()
         d1 = ihm.ChemDescriptor('EDC', smiles='CCN=C=NCCCN(C)C',
-                                inchi_key='LMDZBCPBFSXMTL-UHFFFAOYSA-N')
+                                inchi_key='LMDZBCPBFSXMTL-UHFFFAOYSA-N',
+                                details='foo')
         system.orphan_chem_descriptors.append(d1)
         dumper = ihm.dumper._ChemDescriptorDumper()
         dumper.finalize(system)  # Assign descriptor IDs
@@ -1151,7 +1194,8 @@ _ihm_chemical_component_descriptor.smiles
 _ihm_chemical_component_descriptor.smiles_canonical
 _ihm_chemical_component_descriptor.inchi
 _ihm_chemical_component_descriptor.inchi_key
-1 EDC . . CCN=C=NCCCN(C)C . . LMDZBCPBFSXMTL-UHFFFAOYSA-N
+_ihm_chemical_component_descriptor.details
+1 EDC . . CCN=C=NCCCN(C)C . . LMDZBCPBFSXMTL-UHFFFAOYSA-N foo
 #
 """)
 
@@ -1742,6 +1786,10 @@ _ihm_struct_assembly_details.entity_poly_segment_id
         loc = ihm.location.InputFileLocation(repo=repo3, path=None,
                                              details='EM micrographs')
         system.locations.append(loc)
+        # Dictionary allows for path to be ? also
+        loc = ihm.location.InputFileLocation(repo=repo3, path=ihm.unknown,
+                                             details='EM micrographs')
+        system.locations.append(loc)
 
         with utils.temporary_directory('') as tmpdir:
             # Force tmpdir to be a relative path (in Python 3.12 or later
@@ -1758,11 +1806,11 @@ _ihm_struct_assembly_details.entity_poly_segment_id
 
             d = ihm.dumper._ExternalReferenceDumper()
             d.finalize(system)
-            self.assertEqual(len(d._ref_by_id), 6)
+            self.assertEqual(len(d._ref_by_id), 7)
             self.assertEqual(len(d._repo_by_id), 4)
             # Repeated calls to finalize() should yield identical results
             d.finalize(system)
-            self.assertEqual(len(d._ref_by_id), 6)
+            self.assertEqual(len(d._ref_by_id), 7)
             self.assertEqual(len(d._repo_by_id), 4)
             out = _get_dumper_output(d, system)
             self.assertEqual(out, """#
@@ -1793,7 +1841,8 @@ _ihm_external_files.details
 3 2 foo/bar/baz 'Modeling or post-processing output' . . .
 4 3 foo.spd 'Input data or restraints' . . 'EM micrographs'
 5 3 . 'Input data or restraints' . . 'EM micrographs'
-6 4 %s 'Modeling workflow or script' . 4 .
+6 3 ? 'Input data or restraints' . . 'EM micrographs'
+7 4 %s 'Modeling workflow or script' . 4 .
 #
 """ % bar.replace(os.sep, '/'))
 
@@ -1858,6 +1907,18 @@ _ihm_external_files.details
         dump.finalize(system)  # Assign IDs
         self.assertEqual(cx2._id, 1)
         self.assertEqual(em3d._id, 2)
+        self.assertEqual(len(dump._dataset_by_id), 2)
+
+    def test_dataset_dumper_duplicates_no_location(self):
+        """DatasetDumper keeps distinct datasets that have no location"""
+        system = ihm.System()
+        ds1 = ihm.dataset.Dataset(None, details='first publication')
+        ds2 = ihm.dataset.Dataset(None, details='second publication')
+        dump = ihm.dumper._DatasetDumper()
+        system.orphan_datasets.extend((ds1, ds2, ds1))
+        dump.finalize(system)  # Assign IDs
+        self.assertEqual(ds1._id, 1)
+        self.assertEqual(ds2._id, 2)
         self.assertEqual(len(dump._dataset_by_id), 2)
 
     def test_dataset_dumper_allow_duplicates(self):
@@ -2165,7 +2226,7 @@ _ihm_model_representation_details.description
             dataset=dstemplate, asym_id='C',
             seq_id_range=(-9, 0),  # 1,10 in IHM numbering
             template_seq_id_range=(101, 110),
-            sequence_identity=30.)
+            sequence_identity=30., details='foo')
         s2 = ihm.startmodel.Template(
             dataset=dstemplate, asym_id='D',
             seq_id_range=(-5, 2),  # 5,12 in IHM numbering
@@ -2258,10 +2319,11 @@ _ihm_starting_comparative_models.template_sequence_identity
 _ihm_starting_comparative_models.template_sequence_identity_denominator
 _ihm_starting_comparative_models.template_dataset_list_id
 _ihm_starting_comparative_models.alignment_file_id
-1 1 A 1 10 C 101 110 30.000 1 101 .
-2 1 A 5 12 D 201 210 40.000 . 101 5
-3 1 A 5 12 D 201 210 ? ? 101 5
-4 1 A . . D . . . . 101 5
+_ihm_starting_comparative_models.details
+1 1 A 1 10 C 101 110 30.000 1 101 . foo
+2 1 A 5 12 D 201 210 40.000 . 101 5 .
+3 1 A 5 12 D 201 210 ? ? 101 5 .
+4 1 A . . D . . . . 101 5 .
 #
 #
 loop_
@@ -2358,14 +2420,14 @@ _ihm_starting_model_seq_dif.details
             method='Monte Carlo', num_models_begin=0,
             num_models_end=500, multi_scale=True, ensemble=True, name='s1'))
         p1.steps.append(ihm.protocol.Step(
-            assembly=assembly, dataset_group=dsg,
+            assembly=None, dataset_group=dsg,
             method='Replica exchange', num_models_begin=500,
             num_models_end=2000, multi_scale=True, ensemble=False))
         system.orphan_protocols.append(p1)
 
         p2 = ihm.protocol.Protocol('sampling', details='extra details')
         p2.steps.append(ihm.protocol.Step(
-            assembly=assembly, dataset_group=dsg2,
+            assembly=ihm.unknown, dataset_group=dsg2,
             method='Replica exchange', num_models_begin=2000,
             num_models_end=1000, multi_scale=True,
             software=software, script_file=script,
@@ -2403,8 +2465,8 @@ _ihm_modeling_protocol_details.software_id
 _ihm_modeling_protocol_details.script_file_id
 _ihm_modeling_protocol_details.description
 1 1 1 42 99 s1 'Monte Carlo' 0 500 YES NO NO YES . . .
-2 1 2 42 99 . 'Replica exchange' 500 2000 YES NO NO NO . . .
-3 2 1 42 101 . 'Replica exchange' 2000 1000 YES NO NO NO 80 90 'test step'
+2 1 2 . 99 . 'Replica exchange' 500 2000 YES NO NO NO . . .
+3 2 1 ? 101 . 'Replica exchange' 2000 1000 YES NO NO NO 80 90 'test step'
 #
 """)
 
@@ -3155,7 +3217,8 @@ N
 
         rr1 = ihm.model.NotModeledResidueRange(asym, 1, 2)
         rr2 = ihm.model.NotModeledResidueRange(
-            asym, 3, 4, reason="Highly variable models with poor precision")
+            asym, 3, 4, reason="Highly variable models with poor precision",
+            details='foo')
         model.not_modeled_residue_ranges.extend((rr1, rr2))
 
         dumper = ihm.dumper._ModelDumper()
@@ -3175,8 +3238,9 @@ _ihm_residues_not_modeled.seq_id_end
 _ihm_residues_not_modeled.comp_id_begin
 _ihm_residues_not_modeled.comp_id_end
 _ihm_residues_not_modeled.reason
-1 1 Nup84 9 X 1 2 ALA CYS .
-2 1 Nup84 9 X 3 4 GLY THR 'Highly variable models with poor precision'
+_ihm_residues_not_modeled.details
+1 1 Nup84 9 X 1 2 ALA CYS . .
+2 1 Nup84 9 X 3 4 GLY THR 'Highly variable models with poor precision' foo
 #
 """)
 
@@ -3273,6 +3337,61 @@ _ihm_ensemble_sub_sample.model_group_id
 _ihm_ensemble_sub_sample.file_id
 1 ss1 2 5 0 . .
 2 ss2 2 5 2 42 3
+#
+""")
+
+    def test_ensemble_dumper_post_process(self):
+        """Test EnsembleDumper reference to a post-process step"""
+        system = ihm.System()
+        p1 = ihm.protocol.Protocol('refinement')
+        system.orphan_protocols.append(p1)
+
+        a1 = ihm.analysis.Analysis()
+        a1.steps.append(ihm.analysis.EmptyStep())
+        a2 = ihm.analysis.Analysis()
+        a2.steps.append(ihm.analysis.FilterStep(
+            feature='energy/score', num_models_begin=1000,
+            num_models_end=200))
+        a2.steps.append(ihm.analysis.ClusterStep(
+            feature='RMSD', num_models_begin=200, num_models_end=42))
+        p1.analyses.extend((a1, a2))
+
+        # Each ensemble is the output of a different step of the second
+        # analysis
+        e1 = ihm.model.Ensemble(model_group=None, num_models=200,
+                                post_process=a2.steps[0])
+        e2 = ihm.model.Ensemble(model_group=None, num_models=42,
+                                post_process=a2.steps[1])
+        system.ensembles.extend((e1, e2))
+
+        dumper = ihm.dumper._PostProcessDumper()
+        dumper.finalize(system)  # assign analysis step IDs
+
+        dumper = ihm.dumper._EnsembleDumper()
+        dumper.finalize(system)  # assign ensemble IDs
+
+        # post_process_id should be the _ihm_modeling_post_process.id of
+        # each step (2, 3), not the number of the step within its
+        # analysis (step_id; 1, 2)
+        out = _get_dumper_output(dumper, system)
+        self.assertEqual(out, """#
+loop_
+_ihm_ensemble_info.ensemble_id
+_ihm_ensemble_info.ensemble_name
+_ihm_ensemble_info.post_process_id
+_ihm_ensemble_info.model_group_id
+_ihm_ensemble_info.ensemble_clustering_method
+_ihm_ensemble_info.ensemble_clustering_feature
+_ihm_ensemble_info.num_ensemble_models
+_ihm_ensemble_info.num_ensemble_models_deposited
+_ihm_ensemble_info.ensemble_precision_value
+_ihm_ensemble_info.ensemble_file_id
+_ihm_ensemble_info.details
+_ihm_ensemble_info.model_group_superimposed_flag
+_ihm_ensemble_info.sub_sample_flag
+_ihm_ensemble_info.sub_sampling_type
+1 . 2 . . . 200 . . . . . NO .
+2 . 3 . . . 42 . . . . . NO .
 #
 """)
 
@@ -3426,7 +3545,8 @@ _ihm_entity_poly_segment.comp_id_end
         state2.append(ihm.model.ModelGroup(name="group3"))
         sg1.extend((state1, state2))
 
-        state3 = ihm.model.State(population_fraction=0.4)
+        state3 = ihm.model.State(population_fraction=0.4,
+                                 population_fraction_sd=0.1)
         state3.append(ihm.model.ModelGroup(name="group4"))
         sg2.append(state3)
 
@@ -3442,13 +3562,14 @@ loop_
 _ihm_multi_state_modeling.state_id
 _ihm_multi_state_modeling.state_group_id
 _ihm_multi_state_modeling.population_fraction
+_ihm_multi_state_modeling.population_fraction_sd
 _ihm_multi_state_modeling.state_type
 _ihm_multi_state_modeling.state_name
 _ihm_multi_state_modeling.experiment_type
 _ihm_multi_state_modeling.details
-1 1 . 'complex formation' unbound 'Fraction of bulk' 'Unbound molecule 1'
-2 1 . 'complex formation' bound 'Fraction of bulk' 'Unbound molecule 2'
-3 2 0.400 . . . .
+1 1 . . 'complex formation' unbound 'Fraction of bulk' 'Unbound molecule 1'
+2 1 . . 'complex formation' bound 'Fraction of bulk' 'Unbound molecule 2'
+3 2 0.400 0.100 . . . .
 #
 #
 loop_
@@ -4361,10 +4482,26 @@ _ihm_pseudo_site.description
         dataset = MockObject()
         dataset._id = 97
 
-        dist = ihm.restraint.UpperBoundDistanceRestraint(25.0)
-        r = ihm.restraint.CenterGeometricRestraint(
+        dist = ihm.restraint.UpperBoundDistanceRestraint(25.0, esd=2.0)
+        for restrain_all in (True, ihm.unknown):
+            r = ihm.restraint.CenterGeometricRestraint(
+                dataset=dataset, geometric_object=geom, feature=feat,
+                distance=dist, harmonic_force_constant=2.0,
+                restrain_all=restrain_all)
+            system.restraints.append(r)
+
+        dist = ihm.restraint.LowerBoundDistanceRestraint(25.0, esd=1.0)
+        r = ihm.restraint.InnerSurfaceGeometricRestraint(
             dataset=dataset, geometric_object=geom, feature=feat,
-            distance=dist, harmonic_force_constant=2.0, restrain_all=False)
+            distance=dist, harmonic_force_constant=2.0,
+            restrain_all=False)
+        system.restraints.append(r)
+
+        dist = ihm.restraint.LowerUpperBoundDistanceRestraint(15.0, 22.0)
+        r = ihm.restraint.OuterSurfaceGeometricRestraint(
+            dataset=dataset, geometric_object=geom, feature=feat,
+            distance=dist, harmonic_force_constant=2.0,
+            restrain_all=None)
         system.restraints.append(r)
 
         dumper = ihm.dumper._GeometricRestraintDumper()
@@ -4380,10 +4517,15 @@ _ihm_geometric_object_distance_restraint.object_characteristic
 _ihm_geometric_object_distance_restraint.restraint_type
 _ihm_geometric_object_distance_restraint.harmonic_force_constant
 _ihm_geometric_object_distance_restraint.distance_lower_limit
+_ihm_geometric_object_distance_restraint.distance_lower_limit_esd
 _ihm_geometric_object_distance_restraint.distance_upper_limit
+_ihm_geometric_object_distance_restraint.distance_upper_limit_esd
 _ihm_geometric_object_distance_restraint.group_conditionality
 _ihm_geometric_object_distance_restraint.dataset_list_id
-1 23 44 center 'upper bound' 2.000 . 25.000 ANY 97
+1 23 44 center 'upper bound' 2.000 . . 25.000 2.000 ALL 97
+2 23 44 center 'upper bound' 2.000 . . 25.000 2.000 ? 97
+3 23 44 'inner surface' 'lower bound' 2.000 25.000 1.000 . . ANY 97
+4 23 44 'outer surface' 'lower and upper bound' 2.000 15.000 . 22.000 . . 97
 #
 """)
 
@@ -4400,19 +4542,24 @@ _ihm_geometric_object_distance_restraint.dataset_list_id
         dataset = MockObject()
         dataset._id = 97
 
-        dist = ihm.restraint.LowerBoundDistanceRestraint(25.0)
+        dist = ihm.restraint.LowerBoundDistanceRestraint(25.0, esd=1.5)
         unkdist = ihm.restraint.DistanceRestraint()
+        harmdist = ihm.restraint.HarmonicDistanceRestraint(6.4, esd=0.5)
         r1 = ihm.restraint.DerivedDistanceRestraint(
             dataset=dataset, feature1=feat1, feature2=feat2, distance=dist,
-            probability=0.8)
+            probability=0.8, restrain_all=True)
         r2 = ihm.restraint.DerivedDistanceRestraint(
             dataset=dataset, feature1=feat1, feature2=feat2, distance=dist,
-            probability=0.4)
+            probability=0.4, restrain_all=False)
         r3 = ihm.restraint.DerivedDistanceRestraint(
             dataset=dataset, feature1=feat1, feature2=feat2, distance=unkdist,
-            probability=0.6, mic_value=0.4)
+            probability=0.6, mic_value=0.4, random_exclusion_fraction=0.3)
+        r4 = ihm.restraint.DerivedDistanceRestraint(
+            dataset=dataset, feature1=feat1, feature2=feat2,
+            distance=harmdist, restrain_all=ihm.unknown)
         rg = ihm.restraint.RestraintGroup((r2, r3))
-        system.restraints.extend((r1, r2))  # r2 is in restraints and groups
+        # r2 is in restraints and groups
+        system.restraints.extend((r1, r2, r4))
         system.restraint_groups.append(rg)
 
         dumper = ihm.dumper._DerivedDistanceRestraintDumper()
@@ -4428,13 +4575,19 @@ _ihm_derived_distance_restraint.feature_id_2
 _ihm_derived_distance_restraint.restraint_type
 _ihm_derived_distance_restraint.distance_lower_limit
 _ihm_derived_distance_restraint.distance_upper_limit
+_ihm_derived_distance_restraint.distance_lower_limit_esd
+_ihm_derived_distance_restraint.distance_upper_limit_esd
+_ihm_derived_distance_restraint.distance_threshold_mean
+_ihm_derived_distance_restraint.distance_threshold_esd
 _ihm_derived_distance_restraint.probability
 _ihm_derived_distance_restraint.mic_value
+_ihm_derived_distance_restraint.random_exclusion_fraction
 _ihm_derived_distance_restraint.group_conditionality
 _ihm_derived_distance_restraint.dataset_list_id
-1 . 44 84 'lower bound' 25.000 . 0.800 . . 97
-2 1 44 84 'lower bound' 25.000 . 0.400 . . 97
-3 1 44 84 . . . 0.600 0.400 . 97
+1 . 44 84 'lower bound' 25.000 . 1.500 . . . 0.800 . . ALL 97
+2 1 44 84 'lower bound' 25.000 . 1.500 . . . 0.400 . . ANY 97
+3 . 44 84 harmonic 6.400 6.400 . . 6.400 0.500 . . . ? 97
+4 1 44 84 . . . . . . . 0.600 0.400 0.300 . 97
 #
 """)
 
@@ -5049,14 +5202,10 @@ _ihm_kinetic_rate.scheme_connectivity_id
 _ihm_kinetic_rate.dataset_group_id
 _ihm_kinetic_rate.external_file_id
 1 3.000 . . . 'transition rate constant 1' 1 . .
-2 . 4.000 'equilibrium constant is determined from population' unit_placeholder
-'equilibrium constant 2' 2 1 2
-3 6.000 5.000 'equilibrium constant is determined from population' .
-'equilibrium constant 3' 3 1 .
-4 . 6.000 'equilibrium constant is determined from kinetic rates, kAB/kBA' .
-'equilibrium constant 4' 4 . .
-5 . 7.000 'equilibrium constant is determined from another method not listed'
-unit7 'equilibrium constant 5' 5 . .
+2 . 4.000 'from population' unit_placeholder 'equilibrium constant 2' 2 1 2
+3 6.000 5.000 'from population' . 'equilibrium constant 3' 3 1 .
+4 . 6.000 'from kinetic rates' . 'equilibrium constant 4' 4 . .
+5 . 7.000 other unit7 'equilibrium constant 5' 5 . .
 #
 """)
         f = ihm.flr.FLRData()
@@ -5089,14 +5238,10 @@ _ihm_kinetic_rate.scheme_connectivity_id
 _ihm_kinetic_rate.dataset_group_id
 _ihm_kinetic_rate.external_file_id
 1 3.000 . . . 'transition rate constant 1' 1 . .
-2 . 4.000 'equilibrium constant is determined from population' unit_placeholder
-'equilibrium constant 2' 2 1 2
-3 6.000 5.000 'equilibrium constant is determined from population' .
-'equilibrium constant 3' 3 1 .
-4 . 6.000 'equilibrium constant is determined from kinetic rates, kAB/kBA' .
-'equilibrium constant 4' 4 . .
-5 . 7.000 'equilibrium constant is determined from another method not listed'
-unit7 'equilibrium constant 5' 5 . .
+2 . 4.000 'from population' unit_placeholder 'equilibrium constant 2' 2 1 2
+3 6.000 5.000 'from population' . 'equilibrium constant 3' 3 1 .
+4 . 6.000 'from kinetic rates' . 'equilibrium constant 4' 4 . .
+5 . 7.000 other unit7 'equilibrium constant 5' 5 . .
 6 4.000 . . . 'transition rate constant 4' . . .
 #
 """)

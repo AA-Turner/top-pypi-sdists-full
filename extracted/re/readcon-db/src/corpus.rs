@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -92,16 +92,23 @@ const MAX_DBS: u32 = 48;
 const MAX_READERS: u32 = 512;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// Metadata stored for one trajectory.
 pub struct TrajMeta {
+    /// Frames committed for this trajectory.
     pub n_frames: u32,
+    /// Caller-supplied source label from the ingest that created the trajectory.
     pub source: String,
     #[serde(default)]
+    /// Cutoff in angstrom recorded by the last topology annotation.
     pub topo_cutoff: Option<f64>,
     #[serde(default)]
+    /// Graph mode recorded by the last topology annotation.
     pub topo_graph: Option<String>,
     #[serde(default)]
+    /// Hop count recorded by the last topology annotation.
     pub topo_hops: Option<u32>,
     #[serde(default)]
+    /// Fingerprint method recorded by the last topology annotation.
     pub topo_method: Option<String>,
 }
 
@@ -147,6 +154,7 @@ struct PreparedIndexPuts {
     meta_keys: Vec<[u8; 21]>,
 }
 
+/// One LMDB environment. The directory holds `data.mdb` and `lock.mdb`.
 pub struct ConCorpus {
     path: PathBuf,
     env: Env,
@@ -261,6 +269,7 @@ fn prepared_bytes(prepared: &[PreparedIndexPuts]) -> usize {
 }
 
 impl ConCorpus {
+    /// Create or open a corpus at `path` with the default map size.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_with(path, false, None)
     }
@@ -278,8 +287,9 @@ impl ConCorpus {
     }
 
     /// Open or create a writable corpus with an explicit LMDB map size in
-    /// bytes, overriding [`MAP_SIZE_ENV`] and [`DEFAULT_MAP_SIZE`]. The map
-    /// is still at least twice an existing `data.mdb`.
+    /// bytes. This replaces the `READCON_DB_MAP_SIZE` environment variable
+    /// and the built-in default. The map is still at least twice an existing
+    /// `data.mdb`.
     pub fn open_with_map_size(path: impl AsRef<Path>, map_size: usize) -> Result<Self> {
         Self::open_with(path, false, Some(map_size))
     }
@@ -587,6 +597,7 @@ impl ConCorpus {
         crate::cooked_soa::encode_batch(&blobs)
     }
 
+    /// Directory that holds this environment.
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -765,11 +776,23 @@ impl ConCorpus {
         Ok(())
     }
 
-    fn delete_index_puts(&self, wtxn: &mut RwTxn, p: &PreparedIndexPuts) -> Result<()> {
+    /// Drop one frame's index rows.
+    ///
+    /// Returns the content hash when `frame_by_hash` still names this frame.
+    /// That posting is left in place so the caller can point it at another
+    /// frame that stores the same bytes, or remove it when none does.
+    fn delete_index_puts(
+        &self,
+        wtxn: &mut RwTxn,
+        p: &PreparedIndexPuts,
+    ) -> Result<Option<[u8; 16]>> {
         let fk_b = p.fk.to_bytes();
+        let posted = match self.frame_by_hash.get(wtxn, &p.hash[..])? {
+            Some(bytes) => FrameKey::from_bytes(bytes) == Some(p.fk),
+            None => false,
+        };
         let _ = self.frames.delete(wtxn, &fk_b[..])?;
         let _ = self.hash_by_frame.delete(wtxn, &fk_b[..])?;
-        let _ = self.frame_by_hash.delete(wtxn, &p.hash[..])?;
         let _ = self.frames_soa.delete(wtxn, &fk_b[..])?;
         let _ = self.idx_natoms.delete(wtxn, &p.natoms_k[..])?;
         for sk in &p.symbol_keys {
@@ -801,6 +824,57 @@ impl ConCorpus {
         }
         for mk in &p.meta_keys {
             let _ = self.idx_meta.delete(wtxn, &mk[..])?;
+        }
+        Ok(posted.then_some(p.hash))
+    }
+
+    /// `frame_by_hash` keeps one key per digest. After a frame is removed, a
+    /// posting that named that frame moves to any frame that still stores the
+    /// same bytes, or is deleted when the digest is gone.
+    fn repoint_frame_by_hash(&self, wtxn: &mut RwTxn, stale: &[[u8; 16]]) -> Result<()> {
+        if stale.is_empty() {
+            return Ok(());
+        }
+        let mut survivor: BTreeMap<[u8; 16], FrameKey> = BTreeMap::new();
+        {
+            let mut iter = self.hash_by_frame.iter(wtxn)?;
+            while let Some(Ok((key, hash))) = iter.next() {
+                if hash.len() != 16 {
+                    continue;
+                }
+                let mut digest = [0u8; 16];
+                digest.copy_from_slice(hash);
+                if survivor.contains_key(&digest) {
+                    continue;
+                }
+                if let Some(fk) = FrameKey::from_bytes(key) {
+                    survivor.insert(digest, fk);
+                }
+            }
+        }
+        for digest in stale {
+            let posted = {
+                let current = self.frame_by_hash.get(wtxn, &digest[..])?;
+                current
+                    .as_ref()
+                    .and_then(|bytes| FrameKey::from_bytes(bytes))
+            };
+            let Some(posted) = posted else {
+                continue;
+            };
+            let posted_bytes = posted.to_bytes();
+            if self.hash_by_frame.get(wtxn, &posted_bytes[..])?.is_some() {
+                continue;
+            }
+            match survivor.get(digest).copied() {
+                Some(other) => {
+                    let bytes = other.to_bytes();
+                    self.frame_by_hash.put(wtxn, &digest[..], &bytes[..])?;
+                }
+                None => {
+                    let _ = self.frame_by_hash.delete(wtxn, &digest[..])?;
+                }
+            }
         }
         Ok(())
     }
@@ -886,13 +960,21 @@ impl ConCorpus {
     }
 
     /// Fail with `TrajExists` if `traj_id` already has metadata.
-    #[cfg(feature = "mpi")]
-    pub(crate) fn check_traj_free(&self, traj_id: TrajId) -> Result<()> {
-        let rtxn = self.read_txn()?;
+    ///
+    /// The check runs in the caller's write transaction. A separate read
+    /// transaction would let a second writer pass before either commit.
+    #[cfg(any(feature = "mpi", test))]
+    fn traj_claimed(txn: &RwTxn<'_>, corpus: &ConCorpus, traj_id: TrajId) -> Result<()> {
         let tid_key = traj_id.to_be_bytes();
-        if let Some(existing) = self.traj_meta.get(&rtxn, &tid_key[..])? {
+        if let Some(existing) = corpus.traj_meta.get(txn, &tid_key[..])? {
             let meta: TrajMeta = serde_json::from_str(existing)?;
             return Err(Error::TrajExists(traj_id, meta.n_frames));
+        }
+        let mut it = corpus.frames.prefix_iter(txn, &tid_key[..])?;
+        if it.next().transpose()?.is_some() {
+            return Err(Error::Message(format!(
+                "trajectory {traj_id} has frame records and no metadata; refusing to overwrite"
+            )));
         }
         Ok(())
     }
@@ -907,123 +989,40 @@ impl ConCorpus {
     ) -> Result<([u8; 16], Vec<u8>, Vec<u8>)> {
         let p = Self::build_index_puts(fk, frame, blob.to_owned(), true)?;
         let mut v = Vec::with_capacity(160);
-        fn put(v: &mut Vec<u8>, b: &[u8]) {
-            v.extend_from_slice(&(b.len() as u32).to_le_bytes());
+        fn put_u32(v: &mut Vec<u8>, b: &[u8]) -> Result<()> {
+            let n = u32::try_from(b.len()).map_err(|_| {
+                Error::Message(format!("encoded key length {} exceeds u32::MAX", b.len()))
+            })?;
+            v.extend_from_slice(&n.to_le_bytes());
             v.extend_from_slice(b);
+            Ok(())
         }
-        fn list<T: AsRef<[u8]>>(v: &mut Vec<u8>, xs: &[T]) {
-            v.extend_from_slice(&(xs.len() as u32).to_le_bytes());
+        fn list<T: AsRef<[u8]>>(v: &mut Vec<u8>, xs: &[T]) -> Result<()> {
+            let n = u32::try_from(xs.len()).map_err(|_| {
+                Error::Message(format!(
+                    "encoded key list length {} exceeds u32::MAX",
+                    xs.len()
+                ))
+            })?;
+            v.extend_from_slice(&n.to_le_bytes());
             for x in xs {
-                put(v, x.as_ref());
+                put_u32(v, x.as_ref())?;
             }
+            Ok(())
         }
         v.extend_from_slice(&p.hash);
         v.extend_from_slice(&p.natoms_k);
-        list(&mut v, &p.symbol_keys);
-        list(&mut v, &p.elem_count_keys);
-        list(&mut v, p.formula_k.as_slice());
-        list(&mut v, p.energy_k.as_slice());
-        list(&mut v, p.fmax_k.as_slice());
-        list(&mut v, p.mass_k.as_slice());
-        list(&mut v, p.volume_k.as_slice());
-        list(&mut v, p.pbc_k.as_slice());
-        list(&mut v, &p.flag_keys);
-        list(&mut v, &p.meta_keys);
+        list(&mut v, &p.symbol_keys)?;
+        list(&mut v, &p.elem_count_keys)?;
+        list(&mut v, p.formula_k.as_slice())?;
+        list(&mut v, p.energy_k.as_slice())?;
+        list(&mut v, p.fmax_k.as_slice())?;
+        list(&mut v, p.mass_k.as_slice())?;
+        list(&mut v, p.volume_k.as_slice())?;
+        list(&mut v, p.pbc_k.as_slice())?;
+        list(&mut v, &p.flag_keys)?;
+        list(&mut v, &p.meta_keys)?;
         Ok((p.hash, v, p.stored))
-    }
-
-    /// Insert frames from encoded keys plus blobs, in slice order, in one
-    /// write transaction. Same puts as the serial path.
-    #[cfg(feature = "mpi")]
-    pub(crate) fn put_encoded(&self, rows: Vec<(FrameKey, Vec<u8>, Vec<u8>)>) -> Result<()> {
-        struct Rd<'a>(&'a [u8]);
-        impl<'a> Rd<'a> {
-            fn take(&mut self, n: usize) -> Result<&'a [u8]> {
-                if self.0.len() < n {
-                    return Err(Error::Message("truncated MPI frame record".into()));
-                }
-                let (a, b) = self.0.split_at(n);
-                self.0 = b;
-                Ok(a)
-            }
-            fn u32(&mut self) -> Result<usize> {
-                Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()) as usize)
-            }
-            fn list(&mut self) -> Result<Vec<Vec<u8>>> {
-                let n = self.u32()?;
-                (0..n)
-                    .map(|_| {
-                        let l = self.u32()?;
-                        Ok(self.take(l)?.to_vec())
-                    })
-                    .collect()
-            }
-            fn fixed<const N: usize>(&mut self) -> Result<Vec<[u8; N]>> {
-                self.list()?
-                    .into_iter()
-                    .map(|x| {
-                        x.try_into()
-                            .map_err(|_| Error::Message("bad MPI key width".into()))
-                    })
-                    .collect()
-            }
-        }
-        // Decode once and move each blob in, so a MapFull retry neither
-        // re-parses nor copies the payload.
-        let prepared = rows
-            .into_iter()
-            .map(|(fk, enc, stored)| {
-                let mut r = Rd(&enc);
-                let hash: [u8; 16] = r.take(16)?.try_into().unwrap();
-                let natoms_k: [u8; 16] = r.take(16)?.try_into().unwrap();
-                Ok(PreparedIndexPuts {
-                    fk,
-                    stored,
-                    hash,
-                    natoms_k,
-                    symbol_keys: r.list()?,
-                    elem_count_keys: r.list()?,
-                    formula_k: r.list()?.pop(),
-                    energy_k: r.fixed::<20>()?.pop(),
-                    fmax_k: r.fixed::<20>()?.pop(),
-                    mass_k: r.fixed::<20>()?.pop(),
-                    volume_k: r.fixed::<20>()?.pop(),
-                    pbc_k: r.fixed::<13>()?.pop(),
-                    flag_keys: r.fixed::<13>()?,
-                    meta_keys: r.fixed::<21>()?,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        self.with_write(prepared_bytes(&prepared), |wtxn| {
-            for p in &prepared {
-                self.put_index_puts(wtxn, p)?;
-            }
-            Ok(())
-        })
-    }
-
-    /// Write trajectory metadata after an MPI ingest (serial `commit_prepared` tail).
-    #[cfg(feature = "mpi")]
-    pub(crate) fn put_traj_meta(
-        &self,
-        traj_id: TrajId,
-        n_frames: u32,
-        source: String,
-    ) -> Result<()> {
-        let input_bytes = source.len().saturating_add(64);
-        self.with_write(input_bytes, |wtxn| {
-            let meta = TrajMeta {
-                n_frames,
-                source: source.clone(),
-                ..Default::default()
-            };
-            self.traj_meta.put(
-                wtxn,
-                &traj_id.to_be_bytes()[..],
-                &serde_json::to_string(&meta)?,
-            )?;
-            Ok(())
-        })
     }
 
     /// Every table in LMDB key order as length-prefixed (name, key, value)
@@ -1133,6 +1132,7 @@ impl ConCorpus {
         })
     }
 
+    /// Ingest a UTF-8 CON file as a new trajectory. Gzip and zstd are not decompressed here.
     pub fn append_trajectory_path(&self, traj_id: TrajId, file: impl AsRef<Path>) -> Result<u32> {
         self.append_trajectory_path_units(traj_id, file, None)
     }
@@ -1190,9 +1190,13 @@ impl ConCorpus {
         }
         let input_bytes = prepared_bytes(&prepared);
         self.with_write(input_bytes, |wtxn| {
+            let mut stale_hashes = Vec::new();
             for p in &old_puts {
-                self.delete_index_puts(wtxn, p)?;
+                if let Some(hash) = self.delete_index_puts(wtxn, p)? {
+                    stale_hashes.push(hash);
+                }
             }
+            self.repoint_frame_by_hash(wtxn, &stale_hashes)?;
             for p in &prepared {
                 self.put_index_puts(wtxn, p)?;
             }
@@ -1206,6 +1210,7 @@ impl ConCorpus {
         Ok(fr.header.metadata.get("units").cloned())
     }
 
+    /// Ingest CON text as a new trajectory. Returns the number of frames committed.
     pub fn append_trajectory_str(
         &self,
         traj_id: TrajId,
@@ -1219,7 +1224,28 @@ impl ConCorpus {
         self.commit_prepared(traj_id, &mut prepared, source, false, self.compress_on())
     }
 
-    /// Ingest already-parsed frames (chemfiles / builder path). Serialize in prepare, not under write_txn.
+    /// Append CON text onto an existing trajectory, or create it when it is absent.
+    ///
+    /// Callers that stream a long trajectory pass one chunk at a time so the
+    /// prepared index rows for the whole file are not resident together.
+    pub fn extend_trajectory_str(
+        &self,
+        traj_id: TrajId,
+        file_contents: &str,
+        source: impl Into<String>,
+    ) -> Result<u32> {
+        let mut frames = Vec::new();
+        for item in ConFrameIterator::new(file_contents) {
+            frames.push(item.map_err(|e| Error::Parse(e.to_string()))?);
+        }
+        self.extend_trajectory_frames(traj_id, &frames, source)
+    }
+
+    /// Ingest already-parsed frames in one commit.
+    ///
+    /// Serialization happens before the write transaction. The Python
+    /// binding does not call this with the whole trajectory: it commits
+    /// groups of 64 frames so a long append does not hold every blob.
     pub fn append_trajectory_frames(
         &self,
         traj_id: TrajId,
@@ -1502,6 +1528,7 @@ impl ConCorpus {
         })
     }
 
+    /// Metadata for `traj_id`, or `None` when that trajectory has not been created.
     pub fn traj_meta(&self, traj_id: TrajId) -> Result<Option<TrajMeta>> {
         let rtxn = self.read_txn()?;
         let tid_key = traj_id.to_be_bytes();
@@ -1765,6 +1792,7 @@ impl ConCorpus {
         Ok(out.into_iter().collect())
     }
 
+    /// CON text of one stored frame. A grouped zstd blob is decoded for that frame only.
     pub fn get_frame_text(&self, key: FrameKey) -> Result<String> {
         let rtxn = self.read_txn()?;
         self.get_frame_text_txn(&rtxn, key)
@@ -1825,6 +1853,7 @@ impl ConCorpus {
         Ok((total, checksum))
     }
 
+    /// Parse one stored frame into a `readcon_core` `ConFrame`.
     pub fn get_frame(&self, key: FrameKey) -> Result<ConFrame> {
         let text = self.get_frame_text(key)?;
         let mut it = ConFrameIterator::new(&text);
@@ -2027,6 +2056,7 @@ impl ConCorpus {
         Ok(n)
     }
 
+    /// xxHash3-128 of the stored CON text, computed before compression.
     pub fn frame_hash(&self, key: FrameKey) -> Result<ContentHash> {
         let rtxn = self.read_txn()?;
         let fk_b = key.to_bytes();
@@ -2039,6 +2069,7 @@ impl ConCorpus {
         }
     }
 
+    /// First frame stored under this content hash, if any.
     pub fn find_by_hash(&self, hash: ContentHash) -> Result<Option<FrameKey>> {
         let rtxn = self.read_txn()?;
         let hb = hash.to_bytes();
@@ -2048,6 +2079,7 @@ impl ConCorpus {
         }
     }
 
+    /// xxHash3-128 of CON text, using the same bytes the corpus stores.
     pub fn hash_con_text(text: &str) -> Result<ContentHash> {
         let mut it = ConFrameIterator::new(text);
         let frame = it
@@ -2069,6 +2101,7 @@ impl ConCorpus {
         Ok(composition_formula(&frame_species(&fr)))
     }
 
+    /// Frames that match every predicate. The scan uses the secondary indexes.
     pub fn select(&self, sel: &Select) -> Result<Vec<FrameKey>> {
         let rtxn = self.read_txn()?;
         let mut sets: Vec<BTreeSet<FrameKey>> = Vec::new();
@@ -2440,6 +2473,7 @@ impl ConCorpus {
         Ok(out)
     }
 
+    /// Write the selected frames as extended XYZ. The destination must not exist.
     pub fn export_extxyz(
         &self,
         keys: &[FrameKey],
@@ -2474,6 +2508,7 @@ impl ConCorpus {
         written
     }
 
+    /// Ingest every `.con` and `.convel` file in `dir`, numbered from `start_traj_id`.
     pub fn ingest_directory(
         &self,
         dir: impl AsRef<Path>,
@@ -2496,7 +2531,7 @@ impl ConCorpus {
         self.ingest_directory_units_nthreads(dir, start_traj_id, units, ingest_thread_count())
     }
 
-    /// [`ingest_directory_units`] with an explicit worker count.
+    /// [`Self::ingest_directory_units`] with an explicit worker count.
     pub fn ingest_directory_units_nthreads(
         &self,
         dir: impl AsRef<Path>,
@@ -2662,6 +2697,7 @@ impl ConCorpus {
         Ok(lines)
     }
 
+    /// Matching frames with duplicate content hashes removed. The first stored key wins.
     pub fn unique_frame_keys(&self, sel: &Select) -> Result<Vec<FrameKey>> {
         let keys = self.select(sel)?;
         let mut uniq = Vec::new();
@@ -2672,6 +2708,150 @@ impl ConCorpus {
             }
         }
         Ok(uniq)
+    }
+}
+
+/// One LMDB write transaction for an MPI ingest of this environment.
+///
+/// Frame records and trajectory metadata stay invisible until [`commit`](Self::commit).
+/// Dropping the session, or crashing while it is open, aborts the transaction,
+/// so a failed or partial ingest cannot leave frame records behind. The write
+/// side of [`ConCorpus`]'s transaction lock is held for the whole session,
+/// which is what stops a second writer from passing the existence check.
+#[cfg(any(feature = "mpi", test))]
+pub(crate) struct IngestSession<'a> {
+    /// Declared first so the transaction aborts before the lock is released.
+    txn: Option<RwTxn<'a>>,
+    corpus: &'a ConCorpus,
+    _guard: RwLockWriteGuard<'a, ()>,
+}
+
+#[cfg(any(feature = "mpi", test))]
+impl<'a> IngestSession<'a> {
+    pub(crate) fn begin(corpus: &'a ConCorpus) -> Result<Self> {
+        let guard = corpus.write_guard();
+        let txn = corpus.env.write_txn()?;
+        Ok(Self {
+            txn: Some(txn),
+            corpus,
+            _guard: guard,
+        })
+    }
+
+    fn txn(&mut self) -> Result<&mut RwTxn<'a>> {
+        self.txn
+            .as_mut()
+            .ok_or_else(|| Error::Message("ingest session is closed".into()))
+    }
+
+    /// Reserve `traj_id` for this transaction. Fails if metadata or any frame
+    /// key for it is already stored.
+    pub(crate) fn claim(&mut self, traj_id: TrajId) -> Result<()> {
+        let corpus = self.corpus;
+        let txn = self.txn()?;
+        ConCorpus::traj_claimed(txn, corpus, traj_id)
+    }
+
+    fn put_prepared(&mut self, prepared: &[PreparedIndexPuts]) -> Result<()> {
+        let corpus = self.corpus;
+        let txn = self.txn()?;
+        for p in prepared {
+            corpus.put_index_puts(txn, p)?;
+        }
+        Ok(())
+    }
+
+    /// Stage trajectory metadata. Visible only after [`Self::commit`].
+    pub(crate) fn put_traj_meta(
+        &mut self,
+        traj_id: TrajId,
+        n_frames: u32,
+        source: String,
+    ) -> Result<()> {
+        let meta = TrajMeta {
+            n_frames,
+            source,
+            ..Default::default()
+        };
+        let text = serde_json::to_string(&meta)?;
+        let corpus = self.corpus;
+        let txn = self.txn()?;
+        corpus
+            .traj_meta
+            .put(txn, &traj_id.to_be_bytes()[..], &text)?;
+        Ok(())
+    }
+
+    /// Insert frames from encoded keys plus stored bytes, in slice order.
+    /// Same puts as the serial path. Does not commit.
+    #[cfg(feature = "mpi")]
+    pub(crate) fn put_encoded(&mut self, rows: Vec<(FrameKey, Vec<u8>, Vec<u8>)>) -> Result<()> {
+        struct Rd<'a>(&'a [u8]);
+        impl<'a> Rd<'a> {
+            fn take(&mut self, n: usize) -> Result<&'a [u8]> {
+                if self.0.len() < n {
+                    return Err(Error::Message("truncated MPI frame record".into()));
+                }
+                let (a, b) = self.0.split_at(n);
+                self.0 = b;
+                Ok(a)
+            }
+            fn u32(&mut self) -> Result<usize> {
+                Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()) as usize)
+            }
+            fn list(&mut self) -> Result<Vec<Vec<u8>>> {
+                let n = self.u32()?;
+                (0..n)
+                    .map(|_| {
+                        let l = self.u32()?;
+                        Ok(self.take(l)?.to_vec())
+                    })
+                    .collect()
+            }
+            fn fixed<const N: usize>(&mut self) -> Result<Vec<[u8; N]>> {
+                self.list()?
+                    .into_iter()
+                    .map(|x| {
+                        x.try_into()
+                            .map_err(|_| Error::Message("bad MPI key width".into()))
+                    })
+                    .collect()
+            }
+        }
+        let prepared = rows
+            .into_iter()
+            .map(|(fk, enc, stored)| {
+                let mut r = Rd(&enc);
+                let hash: [u8; 16] = r.take(16)?.try_into().unwrap();
+                let natoms_k: [u8; 16] = r.take(16)?.try_into().unwrap();
+                Ok(PreparedIndexPuts {
+                    fk,
+                    stored,
+                    hash,
+                    natoms_k,
+                    symbol_keys: r.list()?,
+                    elem_count_keys: r.list()?,
+                    formula_k: r.list()?.pop(),
+                    energy_k: r.fixed::<20>()?.pop(),
+                    fmax_k: r.fixed::<20>()?.pop(),
+                    mass_k: r.fixed::<20>()?.pop(),
+                    volume_k: r.fixed::<20>()?.pop(),
+                    pbc_k: r.fixed::<13>()?.pop(),
+                    flag_keys: r.fixed::<13>()?,
+                    meta_keys: r.fixed::<21>()?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.put_prepared(&prepared)
+    }
+
+    pub(crate) fn commit(mut self) -> Result<()> {
+        let txn = self
+            .txn
+            .take()
+            .ok_or_else(|| Error::Message("ingest session is closed".into()))?;
+        txn.commit()?;
+        Ok(())
     }
 }
 
@@ -2939,6 +3119,64 @@ mod tests {
             .select(&Select::new().volume_range(vol_nm * 0.5, vol_nm * 1.5))
             .unwrap();
         assert_eq!(fresh, vec![k]);
+    }
+
+    #[test]
+    fn hash_index_follows_surviving_duplicate_after_unit_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = ConCorpus::open(dir.path()).unwrap();
+        let path = fixture("tiny_cuh2.con");
+        db.append_trajectory_path(1, &path).unwrap();
+        db.append_trajectory_path(2, &path).unwrap();
+        let k1 = FrameKey {
+            traj_id: 1,
+            frame_idx: 0,
+        };
+        let k2 = FrameKey {
+            traj_id: 2,
+            frame_idx: 0,
+        };
+        let h_old = db.frame_hash(k1).unwrap();
+        assert_eq!(db.frame_hash(k2).unwrap(), h_old);
+        assert_eq!(db.find_by_hash(h_old).unwrap(), Some(k1));
+        let text2 = db.get_frame_text(k2).unwrap();
+        db.set_trajectory_units(1, serde_json::json!({"length": "bohr", "energy": "eV"}))
+            .unwrap();
+        let text2_after = db.get_frame_text(k2).unwrap();
+        assert_eq!(text2_after, text2);
+        assert_eq!(db.frame_hash(k2).unwrap(), h_old);
+        assert_eq!(hash_frame_bytes(text2_after.as_bytes()), h_old);
+        assert_eq!(
+            db.find_by_hash(h_old).unwrap(),
+            Some(k2),
+            "the hash posting must move to the frame that still stores those bytes"
+        );
+        let h_new = db.frame_hash(k1).unwrap();
+        assert_ne!(h_new, h_old);
+        assert_eq!(db.find_by_hash(h_new).unwrap(), Some(k1));
+        assert_eq!(
+            h_new,
+            hash_frame_bytes(db.get_frame_text(k1).unwrap().as_bytes())
+        );
+    }
+
+    #[test]
+    fn hash_index_drops_sole_frame_hash_after_unit_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = ConCorpus::open(dir.path()).unwrap();
+        db.append_trajectory_path(1, fixture("tiny_cuh2.con"))
+            .unwrap();
+        let k1 = FrameKey {
+            traj_id: 1,
+            frame_idx: 0,
+        };
+        let h_old = db.frame_hash(k1).unwrap();
+        db.set_trajectory_units(1, serde_json::json!({"length": "bohr", "energy": "eV"}))
+            .unwrap();
+        let h_new = db.frame_hash(k1).unwrap();
+        assert_ne!(h_new, h_old);
+        assert_eq!(db.find_by_hash(h_old).unwrap(), None);
+        assert_eq!(db.find_by_hash(h_new).unwrap(), Some(k1));
     }
 
     #[test]
@@ -4177,5 +4415,90 @@ mod tests {
             dumps.push(db.canonical_dump().unwrap());
         }
         assert_eq!(dumps[0], dumps[1]);
+    }
+
+    fn prepared_fixture(traj: u64, name: &str) -> (String, Vec<PreparedIndexPuts>) {
+        let text = std::fs::read_to_string(fixture(name)).unwrap();
+        let prepared = ConCorpus::prepare_trajectory_str(traj, &text, true).unwrap();
+        (text, prepared)
+    }
+
+    #[test]
+    fn ingest_session_abort_drops_staged_frames_and_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = ConCorpus::open(dir.path()).unwrap();
+        let (_text, mut prepared) = prepared_fixture(7, "tiny_multi_cuh2.con");
+        ConCorpus::group_prepared(&mut prepared).unwrap();
+        let n = prepared.last().unwrap().fk.frame_idx + 1;
+        {
+            let mut session = IngestSession::begin(&db).unwrap();
+            session.claim(7).unwrap();
+            session.put_prepared(&prepared).unwrap();
+            session.put_traj_meta(7, n, "partial.con".into()).unwrap();
+        }
+        assert!(db.traj_meta(7).unwrap().is_none());
+        assert!(db.list_frame_keys().unwrap().is_empty());
+        let fresh_dir = tempfile::tempdir().unwrap();
+        let fresh = ConCorpus::open(fresh_dir.path()).unwrap();
+        assert_eq!(
+            db.canonical_dump().unwrap(),
+            fresh.canonical_dump().unwrap()
+        );
+    }
+
+    #[test]
+    fn ingest_session_commit_matches_serial_and_blocks_a_second_claim() {
+        let (text, mut prepared) = prepared_fixture(3, "tiny_multi_cuh2.con");
+        let dir = tempfile::tempdir().unwrap();
+        let db = ConCorpus::open(dir.path()).unwrap();
+        ConCorpus::group_prepared(&mut prepared).unwrap();
+        let n = prepared.last().map(|p| p.fk.frame_idx + 1).unwrap_or(0);
+        {
+            let mut session = IngestSession::begin(&db).unwrap();
+            session.claim(3).unwrap();
+            session.put_prepared(&prepared).unwrap();
+            session
+                .put_traj_meta(3, n, "tiny_multi_cuh2.con".into())
+                .unwrap();
+            session.commit().unwrap();
+        }
+        let serial_dir = tempfile::tempdir().unwrap();
+        let serial = ConCorpus::open(serial_dir.path()).unwrap();
+        let n2 = serial
+            .append_trajectory_str(3, &text, "tiny_multi_cuh2.con")
+            .unwrap();
+        assert_eq!(n, n2);
+        assert_eq!(
+            db.canonical_dump().unwrap(),
+            serial.canonical_dump().unwrap()
+        );
+        let again = db.append_trajectory_str(3, &text, "again.con").unwrap_err();
+        assert!(matches!(again, Error::TrajExists(3, _)), "{again}");
+        let mut session = IngestSession::begin(&db).unwrap();
+        let claimed = session.claim(3).unwrap_err();
+        assert!(matches!(claimed, Error::TrajExists(3, _)), "{claimed}");
+    }
+
+    #[test]
+    fn ingest_session_refuses_orphan_frames_without_overwriting_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = ConCorpus::open(dir.path()).unwrap();
+        let (_text, prepared) = prepared_fixture(1, "tiny_cuh2.con");
+        db.with_write(prepared_bytes(&prepared), |wtxn| {
+            for p in &prepared {
+                db.put_index_puts(wtxn, p)?;
+            }
+            Ok(())
+        })
+        .unwrap();
+        let before = db.list_frame_keys().unwrap();
+        assert!(!before.is_empty());
+        assert!(db.traj_meta(1).unwrap().is_none());
+        let mut session = IngestSession::begin(&db).unwrap();
+        let err = session.claim(1).unwrap_err();
+        assert!(err.to_string().contains("no metadata"), "{err}");
+        drop(session);
+        assert!(db.traj_meta(1).unwrap().is_none());
+        assert_eq!(db.list_frame_keys().unwrap(), before);
     }
 }

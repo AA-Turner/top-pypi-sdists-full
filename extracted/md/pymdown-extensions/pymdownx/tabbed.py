@@ -26,6 +26,7 @@ from markdown.blockprocessors import BlockProcessor
 from markdown.treeprocessors import Treeprocessor
 from markdown.extensions import toc
 import xml.etree.ElementTree as etree
+from .util import nearing_depth_limit
 import re
 import html
 
@@ -148,10 +149,11 @@ class TabbedProcessor(BlockProcessor):
     def test(self, parent, block):
         """Test block."""
 
+        # Stop short of the recursion limit and let the content be handled by other processors.
         if self.START.search(block):
-            return True
+            return not nearing_depth_limit(self.parser, parent)
         else:
-            return self.parse_content(parent, block)[0] is not None
+            return self.parse_content(parent, block)[0] is not None and not nearing_depth_limit(self.parser, parent)
 
     def run(self, parent, blocks):
         """Convert to tabbed block."""

@@ -10,7 +10,16 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import CallToolResult, TextContent
 from ..delivery import accounting
-from ...foundation.token_budget.token_budget import Budget, InvalidBudget, TokenizerUnavailable, count_tokens, serialize
+from ...foundation.token_budget.token_budget import (
+    MAX_TOKENS,
+    MIN_TOKENS,
+    Budget,
+    InvalidBudget,
+    TokenizerUnavailable,
+    cap_to_range,
+    count_tokens,
+    serialize,
+)
 from probe.mcp.server.limits import _limiters
 from probe.mcp.server.tool_runner import _bounded_error_text
 
@@ -104,7 +113,8 @@ class _RetiringMCP(FastMCP):
     ) -> Any:
         budget = Budget(512)
         try:
-            budget = Budget(arguments.get("token_budget", 2000))
+            # Capped as the tool's own `TokenBudget` caps it: an over-ask is the most there is.
+            budget = Budget(cap_to_range(arguments.get("token_budget", 2000), MIN_TOKENS, MAX_TOKENS))
             if name == "entity":
                 refs = arguments.get("refs")
                 if not isinstance(refs, list) or not 1 <= len(refs) <= 20:

@@ -57,7 +57,7 @@ import dataclasses
 import io
 import functools
 
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 
 from . import ast, properties
 from .visitor import QASMVisitor
@@ -218,7 +218,7 @@ class Printer(QASMVisitor[PrinterState]):
         self._end_statement(context)
 
     def _visit_statement_list(
-        self, nodes: List[ast.Statement], context: PrinterState, prefix: str = ""
+        self, nodes: Sequence[ast.Statement], context: PrinterState, prefix: str = ""
     ) -> None:
         self.stream.write(prefix)
         self.stream.write("{")
@@ -462,6 +462,14 @@ class Printer(QASMVisitor[PrinterState]):
         self.stream.write(")")
         if node.qubits:
             self._visit_sequence(node.qubits, context, start=" ", separator=", ")
+        self._end_statement(context)
+
+    def visit_QuantumNop(self, node: ast.QuantumNop, context: PrinterState) -> None:
+        self._start_line(context)
+        self.stream.write("nop")
+        if node.operands:
+            self.stream.write(" ")
+            self._visit_sequence(node.operands, context, separator=", ")
         self._end_statement(context)
 
     def visit_QuantumMeasurement(self, node: ast.QuantumMeasurement, context: PrinterState) -> None:

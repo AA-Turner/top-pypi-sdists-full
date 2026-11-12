@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.58.3
+Version: 0.59.4
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -27,19 +27,21 @@ Requires-Python: >=3.9
 Requires-Dist: httpx<1,>=0.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
-Requires-Dist: sequence-base<0.9,>=0.8.10; python_version >= '3.10'
+Requires-Dist: sequence-base<0.9,>=0.8.11; python_version >= '3.10'
 Provides-Extra: data
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'data'
 Requires-Dist: numpy>=1.24; extra == 'data'
 Requires-Dist: pyarrow>=14; extra == 'data'
 Requires-Dist: zstandard>=0.22; extra == 'data'
 Provides-Extra: dev
+Requires-Dist: aiortc<1.17,>=1.16; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: numpy>=1.24; extra == 'dev'
+Requires-Dist: opencv-python-headless>=4.8; extra == 'dev'
 Requires-Dist: pillow>=10; extra == 'dev'
 Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
-Requires-Dist: sequence-base<0.9,>=0.8.10; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: sequence-base<0.9,>=0.8.11; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: zstandard>=0.22; extra == 'dev'
 Provides-Extra: observe
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'observe'
@@ -49,6 +51,10 @@ Provides-Extra: port
 Requires-Dist: mujoco-warp==3.15.0; (python_version >= '3.10') and extra == 'port'
 Requires-Dist: mujoco==3.15.0; (python_version >= '3.10') and extra == 'port'
 Requires-Dist: sapien==3.0.3; (python_version >= '3.10' and platform_machine != 'aarch64') and extra == 'port'
+Provides-Extra: teleop
+Requires-Dist: aiortc<1.17,>=1.16; (python_version >= '3.10') and extra == 'teleop'
+Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'teleop'
+Requires-Dist: numpy>=1.24; (python_version >= '3.10') and extra == 'teleop'
 Description-Content-Type: text/markdown
 
 # sequence-ai
@@ -66,8 +72,9 @@ Your key, which starts `seq_dev_`, manages your policies and reads the account, 
 use it; making keys, paying and changing the account take you signed in (`seq login`, once, in your browser; `seq
 login --profile NAME` keeps another sign-in apart, and `seq profile list` shows them). Adding a card and deleting the
 account are done on the console's pages, which `seq billing card` and `seq account delete` open. A robot connects
-with its own robot key, `seq_robot_`: made on a policy's Robot keys tab in the console, it drives that one policy and
-nothing else. A key made earlier may start `seq_prod_` or `seq_live_`, and works as any other
+with its own robot key, `seq_robot_`: made when you create the robot (`seq robot create <name>`, or the console's
+Robots page), it stays with the robot as you point it at one policy or another. A key made earlier may start
+`seq_prod_` or `seq_live_`, and works as any other
 ([the kinds of key](https://generalsequences.com/docs/reference/#keys)).
 
 What changed in each release: [generalsequences.com/docs/changelog](https://generalsequences.com/docs/changelog/).
@@ -78,7 +85,7 @@ points to your Python environment's `bin`, or run the CLI as `python -m seq …`
 ```python
 import sequence_ai
 
-with sequence_ai.connect(model="my_pi05_user") as policy_user:  # your deployment, by the name you gave it
+with sequence_ai.connect("my_pi05_user") as policy_user:  # your robot's name (the policy it is on works too)
     while not done_user():
         policy_user.observe(robot_user.read_observation())  # cameras, joints and the task, in the shape your policy reads
         out_user = policy_user.act()                    # what the policy's act function returned, as it returned it
@@ -203,7 +210,7 @@ returns, at the rate it declares. That is why cloud inference works at all: the 
 not need a network round trip per control step.
 
 ```python
-with sequence_ai.connect(model="my_pi05_user") as policy_user:
+with sequence_ai.connect("my_pi05_user") as policy_user:
     policy_user.observe(observation_user)  # goes to the policy's worker as it is made
     out_user = policy_user.act()           # what the act function returned, as it returned it
     print(out_user["actions"].shape)
@@ -248,7 +255,7 @@ observes on one thread while it acts on another.
 
 ```python
 def drive_user(robot_user, model_user):
-    with sequence_ai.connect(model=model_user) as policy_user:  # one each
+    with sequence_ai.connect(model_user) as policy_user:  # one each (its name)
         while not robot_user.done():
             policy_user.observe(robot_user.read())
             for row_user in policy_user.act()["actions"][:8]:
@@ -392,7 +399,7 @@ mistakable for a hang (`on_warming=` replaces the line):
 ```
 
 ```python
-sequence_ai.connect(model="my_pi05_user", startup_timeout_s=0)  # opt out: raise at once on a cold worker
+sequence_ai.connect("my_pi05_user", startup_timeout_s=0)  # opt out: raise at once on a cold worker
 ```
 
 `wait_until_ready()` waits within `startup_timeout_s` too, unless you pass it its own `timeout_s`; with
@@ -736,7 +743,7 @@ and kept on `policy.stale` (`.now`, `.events`, `.stale_s`, `.last`); with no `on
 process.
 
 The platform hears your robot too: from its first `observe()` or `act()` on, its SDK sends its worker a heartbeat every
-0.4 s saying how the arm stands, and `seq robot status` says each connection's - acting (asking ahead), waiting, stale
+0.4 s saying how the arm stands, and `seq robot show` says each connection's - acting (asking ahead), waiting, stale
 (and why, for how long) or silent once it was not heard for 2 s: its process gone, hung, or its link down. A stretch
 that lasts past a heartbeat is two lines of `seq policy logs` too, as it began and as it ended, with the late act's
 request id.
@@ -1022,7 +1029,7 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
 
 - **What a policy keeps of an episode is read from how it is written.** An `@seq.infer` that takes
   `episode: seq.Episode` is handed it: `episode.state` is a dict of its own, empty on the episode's first act and the
-  same object on every act after, saved for the robot's standby copy and with capture - so keep it small;
+  same object on every act after, saved for the robot's standby copy and by its Record - so keep it small;
   `episode.local`, a dict of its own beside it, is never saved - a frame history, a GPU cache - and starts empty on a
   standby that takes the episode on; the platform drops both at the episode's end — so keep nothing of an episode on
   `self`: a copy serves one robot, but an eval plays several episodes in turn on one copy. One `@seq.on_episode`
@@ -1219,9 +1226,9 @@ A stop ends workers, never a build: a version still building finishes and is che
 any worker, and once it passes it is the version that serves when you `seq policy start` the deployment.
 
 **Trying a new version first.** Deploy it as a policy of its own beside the one your robots run (`seq deploy --name
-<name>-next`, or `seq policy fork <name> <name>-next` for a copy of it, weights and all), and give a test robot a key
-to it (`seq robot add --policy <name>-next`): a robot reaches the policy its key is for, and the others stay where they
-are.
+<name>-next`, or `seq policy fork <name> <name>-next` for a copy of it, weights and all), and put it on a test robot's
+list (`seq robot set <robot> policies=<name>-next`): that robot reaches the new policy, and the others stay where they
+are - the robot keeps its key as you change its list.
 
 ### Settings without a redeploy
 
@@ -1245,7 +1252,6 @@ the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name
 - `max_wait_for_batch`, in seconds: how long a robot waits for an answer so that its act can share a batch - a robot
   takes it with its next connect and each running worker seats and batches its robots by it within a minute; an eval
   plays as before, its world held still for every answer;
-- `capture=on|off`, `capture.retention_days` and `teleop.keep=on|off` ([Field data](#field-data-capture-label-export));
 - `record=on|off` ([Your own recorder](#your-own-recorder-record));
 - `budget.monthly_usd`, and `alerts.webhook`;
 - `models`;
@@ -1269,36 +1275,43 @@ A setting changed this way stays when you deploy again; `seq deploy` says where 
   acts), or the month's spend reaches 80% and then 100% of `budget.monthly_usd`. Each body is signed: `X-Seq-Signature: sha256=HMAC(secret, body)` with the secret printed
   once.
 
-### Robot keys
+### Robots
 
-Each robot connects with its own key: `seq robot add --policy <name>` prints a new one, this once (`seq.robot_add(policy=
-name)` returns it, for a robot's provisioning to write); `seq robot list` lists every robot key, offline ones too, each
-by its id and last four with its connections now, and `seq robot revoke <id or last four>` stops one.
+Each robot is one of your own, made before any policy: `seq robot create <name>` makes it and prints its key once
+(`seq.robot_create("<name>")` returns it, for the robot's provisioning to write), and the robot connects with that key.
+`seq robot set <name> policies=<p1>,<p2>` sets the whole list of policies the robot may connect to (`policies=` clears
+it); a robot connects to any name on its list in one `sequence_ai.connect("<p1>", "<p2>")`, and a name off the list is
+refused. `seq robot list` lists your robots, offline ones too, each by its name, whether it is connected, the policies
+it connects to and when it was last seen; `seq robot show <name>` opens one; `seq robot key <name>` replaces its key
+with a new one (the old one fails at once); `seq robot rm <name>` deletes the robot. A robot keeps its one key as you
+change its list of policies.
 
-### Field data: capture, label, export
+### Field data: Record, label, export
 
-`seq policy set <name> capture=on` makes the deployment's workers keep every episode whole: what each robot observed,
-the chunks it got, the inference parameters, its camera frames as they were sent. No redeploy: running workers pick it
-up within a minute. A robot marks how an episode went with
-`policy.label(success=True, notes="")` after the episode's last act. `seq policy data export <name> --format lerobot -o DIR`
-writes a LeRobot v3.0 dataset that `LeRobotDataset` opens as it is (a frame for each step the robot observed, with the
-action its act's answer gives that step, `driver` saying whether the model or a person drove it, and the episode's label
-as `next.success`; needs `pip install 'sequence-ai[data]'`), or `--format jsonl` the files as kept. Kept data is
-billed as the `capture:<name>` dataset volume and removed after `capture.retention_days` (default 30). Deleting the
-deployment never deletes it: it stays as a dataset of its own, `capture:<name>-<id8>` in `seq volume ls`, billed the
-same way until you delete it with `seq volume rm`. `seq policy set <name> capture=off` stops it.
+`seq robot set <name> record=on` keeps every episode that robot runs, whole, whichever policy it is connected to, and with
+no policy at all: what it observed, the chunks it got and who drove it, its camera frames as they were sent. No redeploy: a
+robot already connected picks it up within half a minute. Other robots on the same machine are not kept.
 
-`seq policy set <name> teleop.keep=on` keeps every episode of its robots connected with `teleop=True` whole as well -
-a person's demonstrations - whatever capture says: the same files, export, billing and retention. Each switch is off
-unless set, and off is off: with `capture`, `teleop.keep` and `record` off, the platform keeps none of a robot's
-observations, actions, frames or labels (a standby worker's checkpoint, kept while an episode runs, is deleted at its
-end - https://generalsequences.com/docs/data-safety/).
+A robot marks how an episode went with `policy.label(success=True, notes="")` after the episode's last act.
+`seq policy data export <name> --format lerobot -o DIR`, with `capture:robot.<robot>` as its `<name>`, writes a LeRobot v3.0
+dataset that `LeRobotDataset` opens as it is (a frame for each step the robot observed, with the action its act's answer gives that step, `driver` saying
+whether the model or a person drove it, and the episode's label as `next.success`; needs
+`pip install 'sequence-ai[data]'`), or `--format jsonl` the files as kept.
+
+What it keeps is billed as the `capture:robot.<name>` dataset volume, listed by `seq volume ls`, and removed after 30 days,
+or after `seq robot set <name> record.retention_days=<days>`. Deleting the robot never deletes it: it stays as a dataset of
+its own, `capture:robot.<name>-<id8>`, billed the same way until you delete it with `seq volume rm`.
+`seq robot set <name> record=off` stops it, and what it kept stays until its retention ends. Off is off: with its Record and
+`record` off, the platform keeps none of a robot's observations, actions, frames or labels (a standby worker's checkpoint,
+kept while an episode runs, is deleted at its end - https://generalsequences.com/docs/data-safety/).
+
+What a policy kept before Record moved to the robot stays as its `capture:<name>` dataset, read the same way.
 
 ### Your own recorder: record
 
 `seq policy set <name> record=on` makes the deployment's workers hold each step for your own recorder, which reads it
 straight from them and writes it wherever you keep your data. The platform keeps none of it, and it costs nothing more.
-It is apart from capture: either, both or neither. `seq record add --policy <name>` prints a record key, this once:
+It is apart from a robot's Record: either, both or neither. `seq record add --policy <name>` prints a record key, this once:
 
 ```python
 import sequence_ai
@@ -1313,7 +1326,7 @@ Each item is a dict, its `kind` saying which:
 - `step`, one act: `robot` and `robot_key` (the name and last four of the key its robot connected with, as
   `seq usage` names it), `episode`, `step`, `observations` (each its robot sent since its last act, as it sent it -
   frames byte for byte), `action` (the chunk it answered), `params`, `driver` (`model`, or `human` with `operator`
-  through teleop) and `at`;
+  through teleop), `path` (`worker`, or `direct` for a person's chunk sent straight from their console) and `at`;
 - `label` (`success`, `notes`) and `end`, an episode's;
 - `driver`, who drives a robot from now through teleop, and `help`, a robot's ask for a person with its newest frame;
 - `gap`: a worker let `count` records go before your recorder read them - or, with `episode`, `observations` and
@@ -1321,7 +1334,7 @@ Each item is a dict, its `kind` saying which:
   there, which were not recorded. A worker hears `record=on` within a minute.
 
 Each worker holds its newest minute, at most 32 MiB, in memory and nothing on disk. A recorder away longer loses the
-oldest and is told how many in a `gap`; one that must have no gap keeps capture on as well. A recorder started again
+oldest and is told how many in a `gap`; one that must have no gap keeps its robots' Record on as well. A recorder started again
 reads each worker's newest minute again: `worker` and `n` say which items it had. A record key reads its own policy's
 steps and opens nothing else - no robot connects with it and it acts on nothing; `seq record list` lists them, and
 `seq record revoke <id or last four>` closes its recorders on the workers. `record=off` stops it, and the workers drop
@@ -1349,7 +1362,7 @@ data) - and the dry run prices it; without a key it is the checks here alone, an
 
 ```
 policy      my_pi05_user
-contract    valid for this SDK's deployment contract 0.5.49 (the platform checks it again when you deploy)
+contract    valid for this SDK's deployment contract 0.5.50 (the platform checks it again when you deploy)
 image       nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04@sha256:131e238d724ee145317f10d6c8eba0d301439c6c8764b02473510e7035756e81
   add               third_party/openpi/src → /opt/openpi/src
   add               third_party/openpi/packages/openpi-client → /opt/openpi/packages/openpi-client
@@ -1396,8 +1409,8 @@ export SEQUENCES_API_KEY=seq_dev_...       # or pass api_key= to connect()
 ```
 
 Get a key at [app.generalsequences.com](https://app.generalsequences.com): it starts `seq_dev_`. A robot connects with
-its policy's robot key instead - `seq_robot_…`, made on the policy's Robot keys tab - which reaches that one policy only.
-A key made earlier may start `seq_prod_` or `seq_live_`, and works as any other.
+its own robot key instead - `seq_robot_…`, which `seq robot create <name>` prints once - and that key stays with the
+robot when you change the policy it is on. A key made earlier may start `seq_prod_` or `seq_live_`, and works as any other.
 
 ## Secrets — bring your own keys (BYOK)
 
@@ -1474,6 +1487,59 @@ listed, or deleted.
 `pip install sequence-ai` on Python 3.10+ brings everything: the robot client (`sequence_ai`), the `seq` command
 and the decorators, with pydantic and the shared contract package `sequence-base`. On Python 3.9 — a robot's
 interpreter — the same install is the client alone, and `seq` says it needs 3.10+ instead of a stack trace.
+
+## GPU machines you run yourself
+
+Apart from the GPUs a deployment serves on, you can open a GPU machine of your own — tell the platform where, which
+card, and how many, and it opens one near you that you are root on. SSH in, `apt install` and `pip install` what you
+like, run anything on the card; `remove` ends it when you are done. These are a different thing from `seq gpus`
+(plural), which only lists the cards and their prices.
+
+```python
+import sequence_ai
+
+sequence_ai.gpu.places("san fr")     # [{"name": "San Francisco", ..., "lon": -122.4194, "also": None}, ...]
+gpus_user = sequence_ai.gpu.add(place="San Francisco, CA", gpu="L4", count=2)
+sequence_ai.gpu.list()
+sequence_ai.gpu.remove(gpus_user[0]["id"])
+```
+
+```
+seq gpu places san fr
+seq gpu add --place "San Francisco, CA" --gpu L4 --count 2
+seq gpu list
+seq gpu ssh <id>
+seq gpu remove <id>
+```
+
+`place` is the exact spot you want it near — a city (`"San Francisco, CA"`) or a lat,lon (`"37.77,-122.42"`); the
+platform opens each machine on the nearest place it can get the card, and `list` shows which region it landed in. You
+never pick a region, and a `--count` over 1 is all-or-nothing. `seq gpu places <words>` (`sequence_ai.gpu.places`) lists
+the cities whose name or another name they go by starts with the words, the largest first, each with its latitude and
+longitude — either is a `place` — as the console's City list does; a city found by another name says it (`also`:
+`seq gpu places paris` lists Warsaw `(as Paris of the North)`), and a state or a country after a comma narrows them
+(`"Springfield, IL"`). `seq gpu ssh <id>` sends your `~/.ssh` public key
+(making an ed25519 key if you have none), which the platform signs into a certificate for that one machine, and hands
+off to the system `ssh` as root; a command after `--` (`seq gpu ssh <id> -- nvidia-smi`) runs once instead of opening a
+shell. The certificate is passed with `-o CertificateFile=` from a temporary file, so nothing is written into your
+`~/.ssh`.
+
+For VS Code Remote-SSH or a persistent `ssh`, run `seq gpu ssh <id> --print`: it keeps the certificate under
+`~/.config/sequences` (never your `~/.ssh`) and prints a `Host gpu-<id>` block — `HostName`, `Port`, `User root`,
+`IdentityFile`, `CertificateFile` — to paste into `~/.ssh/config`, after which `ssh gpu-<id>` and VS Code reach the
+machine. The certificate is good for about a year on the same key; run `--print` again when it expires.
+
+You are root in a container on a machine kept for you alone: `apt`, `pip`, any program, the card to yourself, the public
+internet, SSH, `scp`, port forwarding and VS Code Remote all work. The container is the fence — you cannot touch the VM,
+its driver or kernel, our host agent or metering (they run outside it), our internal network or the cloud's metadata,
+and you cannot run a privileged container inside it. Mining and other uses the Acceptable Use Policy forbids are not
+allowed, which is also why a machine needs a payment method on the account — the free monthly credit cannot open one.
+
+`remove` shuts the machine down and its disk with it — nothing you left on it is kept, so copy anything you want off
+first (`scp`). A machine runs until you remove it — it is never stopped for sitting unused; if the account runs out of
+credit it ends on its own, status `shut_down`. It is billed per second it runs — the card, plus its standard machine's
+CPU and memory at the serving rate, at least 60 s each time it starts — and counts against the same GPU limit serving
+and evals share (`seq account` shows it, 8 on Starter, 32 on Team).
 
 ## Limits
 

@@ -2,6 +2,7 @@ import warnings
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
+from coffea.nanoevents.util import concat, quote
 
 
 def _key_formatter(prefix, form_key, form, attribute):
@@ -43,6 +44,7 @@ class NanoAODSchema(BaseSchema):
     """
 
     __dask_capable__ = True
+    __graphed_capable__ = True  # not inherited: subclasses declare their own
     warn_missing_crossrefs = True  # If True, issues a warning when a missing global index cross-ref target is encountered
     error_missing_event_ids = True  # If True, raises an exception when 'run', 'event', or 'luminosityBlock' fields are missing
 
@@ -253,11 +255,40 @@ class NanoAODSchema(BaseSchema):
         return cls(base_form, version="5")
 
     def _build_collections(self, field_names, input_contents):
-        branch_forms = {k: v for k, v in zip(field_names, input_contents)}
+        branch_forms = {}
+        for name, form in zip(field_names, input_contents):
+            jagged = form["class"].startswith("ListOffset")
+            if jagged:
+                wide = form["offsets"] == "i64"
+                branch_forms["o" + name] = {
+                    "class": "NumpyArray",
+                    "itemsize": 8 if wide else 4,
+                    "format": "i",
+                    "primitive": "int64" if wide else "int32",
+                    "parameters": dict(form.get("parameters", {})),
+                    "form_key": concat(form["form_key"], "!offsets"),
+                }
+            record = form["content"] if jagged else form
+            if record["class"] != "RecordArray":
+                branch_forms[name] = form
+                continue
+            for subname, subform in zip(record["fields"], record["contents"]):
+                branch_forms[f"{name}_{subname}"] = (
+                    {
+                        "class": form["class"],
+                        "offsets": form["offsets"],
+                        "content": subform,
+                        "form_key": quote(f"{name}.{subname},!load"),
+                        "parameters": {},
+                    }
+                    if jagged
+                    else subform
+                )
+
         # parse into high-level records (collections, list collections, and singletons)
         collections = {k.split("_")[0] for k in branch_forms}
         collections -= {
-            k for k in collections if k.startswith("n") and k[1:] in collections
+            k for k in collections if k[:1] in ("n", "o") and k[1:] in collections
         }
         isData = "GenPart" not in collections
 
@@ -360,7 +391,7 @@ class NanoAODSchema(BaseSchema):
                 branch_forms[alias_name] = branch_forms[original_name]
 
         output = {}
-        for name in collections:
+        for name in sorted(collections):
             mixin = self.mixins.get(name, "NanoCollection")
             if "o" + name in branch_forms and name not in branch_forms:
                 # list collection
@@ -471,6 +502,8 @@ class PFNanoAODSchema(NanoAODSchema):
     More info at https://github.com/cms-jet/PFNano
     """
 
+    __graphed_capable__ = True
+
     mixins = {
         **NanoAODSchema.mixins,
         "JetSVs": "AssociatedSV",
@@ -514,6 +547,8 @@ class ScoutingNanoAODSchema(NanoAODSchema):
     ScoutingNano is a NanoAOD format that includes Scouting objects
     """
 
+    __graphed_capable__ = True
+
     mixins = {
         **NanoAODSchema.mixins,
         "ScoutingJet": "Jet",
@@ -526,6 +561,8 @@ class ScoutingNanoAODSchema(NanoAODSchema):
         "ScoutingPhoton": "Photon",
         "ScoutingMuonNoVtx": "Muon",
         "ScoutingMuonVtx": "Muon",
+        "ScoutingMuon": "Muon",
+        "ScoutingPFJet": "Jet",
     }
 
     all_cross_references = {**NanoAODSchema.all_cross_references}
@@ -539,6 +576,10 @@ class ScoutingNanoAODSchema(NanoAODSchema):
         "ScoutingFatJet_charge": (
             transforms.full_like_from_offsets_form,
             ("oScoutingFatJet", 0.0),
+        ),
+        "ScoutingPFJet_charge": (
+            transforms.full_like_from_offsets_form,
+            ("oScoutingPFJet", 0.0),
         ),
         "ScoutingPhoton_m": (
             transforms.full_like_from_offsets_form,

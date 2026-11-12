@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentenv-framework"
-version = "0.9.1508"
+version = "0.9.1514"
 description = "SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them."
 readme = "README.md"
 license = "Apache-2.0"
@@ -29,7 +29,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "agentenv-framework-protocol[computer]==0.1.523",  # a computer_driver env's put reads the driver class with it
+    "agentenv-framework-protocol[computer]==0.1.529",  # a computer_driver env's put reads the driver class with it
     "certifi>=2024.2.2",  # the public roots the local transfer CA's trust bundle carries
     "click>=8.0.0",
     "cryptography>=42",  # the local transfer CA
@@ -162,7 +162,7 @@ dev = [
     "moto>=5.0.0",
     "psycopg2-binary>=2.9.0",  # the gateway server module's driver; outside its container only the tests import it
     "regex>=2023.12.25",  # the gateway's trigger predicates, matched under a timeout; outside its container only the tests import it
-    "websockets>=13",  # the gateway's WebSocket relay to a website; outside its container only the tests import it
+    "websockets>=15",  # the gateway's WebSocket relay to a website; outside its container only the tests import it
     "pytest>=9.0",
     "pytest-asyncio>=0.23.0",
     "pytest-dependency>=0.6.0",

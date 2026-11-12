@@ -5,12 +5,13 @@ import os
 import sys
 import time
 from collections.abc import Callable
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any
 
 import sentry_sdk
 from fastmcp.exceptions import FastMCPError, NotFoundError, ToolError
-from fastmcp.server.dependencies import get_access_token
+from fastmcp.server.dependencies import get_access_token, get_http_headers
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from mcp.types import CallToolRequestParams, TextContent
 from sentry_sdk.integrations.logging import ignore_logger
@@ -19,6 +20,7 @@ from sentry_sdk.integrations.mcp import MCPIntegration
 from late.client.exceptions import LateAPIError, LateError
 from late.mcp.auth import token_cache_key
 from late.mcp.constants import SERVICE_VERSION
+from late.mcp.response_format import format_stats
 
 _TOOL_TRANSACTION_OP = "mcp.tool"
 _REJECTED_RESULT_PREFIX = "❌"
@@ -33,6 +35,15 @@ _SENTRY_STATUS_BY_OUTCOME = {
 }
 
 _tool_logger = logging.getLogger("late.mcp.tools")
+
+_CALL_TOOL = "call_tool"
+# Tools the in-flight call_tool dispatched. FastMCP runs the middleware again
+# for the dispatched tool, which records itself with via=call_tool, so the
+# wrapper records only when it failed before dispatching anything: each call
+# counts once in the logs and in Sentry.
+_dispatched_by_call_tool: ContextVar[list[str] | None] = ContextVar(
+    "dispatched_by_call_tool", default=None
+)
 
 
 def _tool_call_sampler(rate: float) -> Callable[[dict[str, Any]], float]:
@@ -112,12 +123,28 @@ def _caller_key() -> str | None:
     return token_cache_key(token.token)[:12] if token and token.token else None
 
 
+def _request_fields(arguments: dict[str, Any] | None) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    limit = (arguments or {}).get("limit")
+    if isinstance(limit, int):
+        fields["limit"] = limit
+    client = get_http_headers().get("user-agent", "").split("/", 1)[0].strip()
+    if client:
+        fields["client"] = client[:64]
+    return fields
+
+
 def _is_rejected(result: Any) -> bool:
     content = getattr(result, "content", None) or []
     first = content[0] if content else None
     return isinstance(first, TextContent) and first.text.startswith(
         _REJECTED_RESULT_PREFIX
     )
+
+
+def _result_chars(result: Any) -> int:
+    content = getattr(result, "content", None) or []
+    return sum(len(block.text) for block in content if isinstance(block, TextContent))
 
 
 def _error_fields(exc: Exception) -> dict[str, Any]:
@@ -144,17 +171,60 @@ class ToolTelemetryMiddleware(Middleware):
         call_next: CallNext[CallToolRequestParams, Any],
     ) -> Any:
         tool = context.message.name
+        if tool != _CALL_TOOL:
+            dispatched = _dispatched_by_call_tool.get()
+            if dispatched is not None:
+                dispatched.append(tool)
+            via = _CALL_TOOL if dispatched is not None else "direct"
+            return await self._record(context, call_next, via=via)
+
+        dispatched = []
+        token = _dispatched_by_call_tool.set(dispatched)
+        try:
+            return await self._record(
+                context, call_next, via="direct", silent=lambda: bool(dispatched)
+            )
+        finally:
+            _dispatched_by_call_tool.reset(token)
+
+    async def _record(
+        self,
+        context: MiddlewareContext[CallToolRequestParams],
+        call_next: CallNext[CallToolRequestParams, Any],
+        *,
+        via: str,
+        silent: Callable[[], bool] = lambda: False,
+    ) -> Any:
+        tool = context.message.name
+        caller = _caller_key()
+        request = _request_fields(context.message.arguments)
         fields: dict[str, Any] = {"outcome": "ok"}
+        stats: dict[str, Any] = {}
+        stats_token = format_stats.set(stats)
         started = time.perf_counter()
         with sentry_sdk.start_transaction(
             op=_TOOL_TRANSACTION_OP, name=f"tools/call {tool}"
         ) as transaction:
             transaction.set_tag("mcp.tool", tool)
             transaction.set_tag("mcp.surface", self._surface)
+            transaction.set_tag("mcp.via", via)
+            if caller:
+                transaction.set_tag("mcp.caller", caller)
+            for name, value in request.items():
+                transaction.set_tag(f"mcp.{name}", value)
             try:
                 result = await call_next(context)
                 if _is_rejected(result):
                     fields["outcome"] = "rejected"
+                fields["result_chars"] = _result_chars(result)
+                transaction.set_data("mcp.tool.result.chars", fields["result_chars"])
+                if "raw_chars" in stats:
+                    fields["raw_chars"] = stats["raw_chars"]
+                    fields["truncated"] = bool(stats.get("truncated"))
+                    transaction.set_data(
+                        "mcp.tool.result.raw_chars", stats["raw_chars"]
+                    )
+                    transaction.set_tag("mcp.truncated", fields["truncated"])
                 return result
             except asyncio.CancelledError:
                 fields = {"outcome": "cancelled"}
@@ -165,22 +235,30 @@ class ToolTelemetryMiddleware(Middleware):
                     sentry_sdk.capture_exception(exc)
                 raise
             finally:
+                format_stats.reset(stats_token)
                 transaction.set_tag("mcp.outcome", fields["outcome"])
                 transaction.set_status(_SENTRY_STATUS_BY_OUTCOME[fields["outcome"]])
-                _tool_logger.info(
-                    json.dumps(
-                        {
-                            "event": "mcp_tool_call",
-                            "ts": datetime.now(timezone.utc).isoformat(
-                                timespec="milliseconds"
-                            ),
-                            "surface": self._surface,
-                            "tool": tool,
-                            "duration_ms": round(
-                                (time.perf_counter() - started) * 1000
-                            ),
-                            "caller": _caller_key(),
-                            **fields,
-                        }
+                if silent():
+                    # The tool call_tool dispatched recorded itself; an
+                    # unsampled transaction is dropped at finish, not sent.
+                    transaction.sampled = False
+                else:
+                    _tool_logger.info(
+                        json.dumps(
+                            {
+                                "event": "mcp_tool_call",
+                                "ts": datetime.now(timezone.utc).isoformat(
+                                    timespec="milliseconds"
+                                ),
+                                "surface": self._surface,
+                                "tool": tool,
+                                "via": via,
+                                "duration_ms": round(
+                                    (time.perf_counter() - started) * 1000
+                                ),
+                                "caller": caller,
+                                **request,
+                                **fields,
+                            }
+                        )
                     )
-                )

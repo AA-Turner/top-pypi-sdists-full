@@ -639,7 +639,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
         if stopped:
             print(f"stopped: {request.name}{ver} is deployed, but {request.name} is stopped - {stopped}")
         else:
-            print(f"ready: {request.name}{ver} is deployed — connect with sequence_ai.connect(model={request.name!r})")
+            print(f"ready: {request.name}{ver} is deployed — connect with sequence_ai.connect({request.name!r})")
         kept = None if stopped else _check_machine_kept(request.name, args.base_url, fleet)
         if kept:
 

@@ -32,7 +32,7 @@ name: mutation
 #
 # The baseline check, the session loop, the restore guard, the counts and the
 # upload are btclib-org/.github's reusable-mutation.yml, called at a tagged
-# commit (section 10 of btclib-org/.github's README.md). What stays here is this
+# commit (section 10 of the organization's standard). What stays here is this
 # tree's own subject matter -- the two scopes .github/mutation/bindings.toml and
 # .github/mutation/zkp.toml state, the budget of each and the job's ceiling --
 # and the trigger, the schedule, the concurrency group and the permissions, none
@@ -57,7 +57,7 @@ on:
     # asks is on a different axis from every other sentinel here -- the
     # suite's own quality, not a dependency's or a platform's.
     # The time is the organization grid -- section 10 of
-    # btclib-org/.github's README.md -- and not this file's to restate.
+    # the organization's standard -- and not this file's to restate.
     # Cron runs from the default branch only, so this file does nothing
     # until it reaches main -- on any other branch it is reachable through
     # the dispatch below and nowhere else
@@ -111,7 +111,7 @@ jobs:
   # extension and the sessions run on, against tests that skip, without
   # saying so.
   mutation:
-    uses: btclib-org/.github/.github/workflows/reusable-mutation.yml@72e0222ef466daf096e3ac8d07e2ba59c0544b1a # v2026.10.28
+    uses: btclib-org/.github/.github/workflows/reusable-mutation.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
     with:
       profiles: >-
         [{"profile": "the bindings", "slug": "bindings", "ceiling": 150,

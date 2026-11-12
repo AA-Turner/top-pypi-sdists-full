@@ -12,7 +12,8 @@ import secrets
 import shlex
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from collections.abc import Iterable
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -33,9 +34,12 @@ from agent_env.config import get_config
 from agent_env.env.env import DeployedGatewayEnv, _mcp_url
 from agent_env.env.gateway import AGENT_ENV_GATEWAY_MCP_PORT, ExternalChild, GatewayMode
 from agent_env.env.gateway.constants import (
+    CLOCK_FOLLOWERS_ENV,
     DEFAULT_MCP_SERVER_NAME,
     GATEWAY_PROVIDER_HEADERS_ENV,
     STATE_TOOL_NAME_CLASHES_KEY,
+    WEBSITE_LISTED_BY_NAME_ENV,
+    WEBSITE_NAMES_ENV,
     WELL_KNOWN_PATH,
     random_mcp_server_name,
     tool_name_clashes_text,
@@ -167,6 +171,10 @@ class WebsiteConfig:
     # a failure and the deploy waits, and its server's /dev/shm in MiB; None keeps the gateway's own and Docker's.
     ready_timeout_s: float | None = None
     shm_mb: int | None = None
+    # The names its env stores, one of which it takes as its Host when a client reaches it there (its card's stand in
+    # for none), and whether list_website_urls gives it at its first name, as a browser computer opens it.
+    domains: tuple[str, ...] = ()
+    listed_by_name: bool = False
 
 
 @dataclass
@@ -523,6 +531,11 @@ class EnvironmentGatewayProvider(_SandboxEnvironmentProvider):
             )
             if website_urls:
                 gateway_env.append(f"      - WEBSITE_URLS={website_urls}")
+            if names := ",".join(f"{wc.environment_name}={'|'.join(wc.domains)}"
+                                 for wc in website_configs if wc.domains and not wc.live):
+                gateway_env.append(f"      - {WEBSITE_NAMES_ENV}={names}")
+            if listed := ",".join(wc.environment_name for wc in website_configs if wc.listed_by_name and not wc.live):
+                gateway_env.append(f"      - {WEBSITE_LISTED_BY_NAME_ENV}={listed}")
             for wc in website_configs:
                 rest_proxy_urls.append(
                     f"{wc.environment_name}=http://{wc.environment_name}-{AGENT_ENV_WEBSITE_BACKEND_SUFFIX}:{AGENT_ENV_WEBSITE_BACKEND_PORT}"
@@ -533,6 +546,7 @@ class EnvironmentGatewayProvider(_SandboxEnvironmentProvider):
         gateway_env.append(f"      - GATEWAY_MODE={gateway_mode.value}")
         gateway_env.append(f"      - SERVICE_DB_URL={state_provider.base_url(state_instance)}")
         gateway_env.extend(f"      - {key}={value}" for key, value in control_environment(control_token).items())
+        gateway_env.extend(f"      - {key}={value}" for key, value in clock_followers_environment(external_children).items())
         if provider_headers := sandbox_request_header_names():
             gateway_env.append(f"      - {GATEWAY_PROVIDER_HEADERS_ENV}={','.join(provider_headers)}")
         publish = host_port or (lambda port: port)
@@ -912,8 +926,8 @@ class EnvironmentGatewayProvider(_SandboxEnvironmentProvider):
             for result in (up, started):
                 if isinstance(result, BaseException):
                     raise result
-            external = tuple(ExternalChild(child.name, sandbox.url_from_sandbox(child.mcp_url),
-                                           sandbox.url_from_sandbox(child.base_url)) for child in started)
+            external = tuple(replace(child, mcp_url=sandbox.url_from_sandbox(child.mcp_url),
+                                     base_url=sandbox.url_from_sandbox(child.base_url)) for child in started)
             await self._write_file(sandbox, DOCKER_COMPOSE_PATH, compose(external_children=external))
             await self._compose_up(sandbox)
 
@@ -1109,6 +1123,7 @@ class EnvironmentGatewayProvider(_SandboxEnvironmentProvider):
                 "SERVICE_DB_URL": self._state_provider.base_url(state_instance),
                 "MCP_SERVER_NAME": mcp_server_name or DEFAULT_MCP_SERVER_NAME,
                 **control_environment(control_token),
+                **clock_followers_environment(external),
                 **({GATEWAY_PROVIDER_HEADERS_ENV: ",".join(names)} if (names := sandbox_request_header_names()) else {}),
             }
             gateway_sb = await sandbox_provider.create_container(
@@ -1580,14 +1595,15 @@ class _GatewayTopology:
     website_browser: "MCPServerEnv | None | object"  # the browser it runs among its MCP servers, or _THE_RUNS
 
 
-def website_config(env: WebsiteEnv) -> WebsiteConfig:
+def website_config(env: WebsiteEnv, *, listed_by_name: bool = False) -> WebsiteConfig:
     """A website env as the gateway runs it: its server image, any deprecated frontend image, its health path, how long
-    it may take to be ready and its shared memory."""
+    it may take to be ready, its shared memory and the names it stores, listed by its first when ``listed_by_name``."""
     frontend = env.frontend_docker_image_artifact
     return WebsiteConfig(backend_image=env.server_docker_image_artifact.image_name,
                          frontend_image=frontend.image_name if frontend else None,
                          environment_name=env.environment_name, health_path=env.health_path, live=env.live,
-                         settings=dict(env.settings), ready_timeout_s=env.ready_timeout_s, shm_mb=env.shm_mb)
+                         settings=dict(env.settings), ready_timeout_s=env.ready_timeout_s, shm_mb=env.shm_mb,
+                         domains=tuple(env.domains), listed_by_name=listed_by_name)
 
 
 def run_website_browser() -> "MCPServerEnv":
@@ -1618,16 +1634,18 @@ def _with_browser(mcp_servers: list[MCPServerConfig], images: list[DockerImageAr
 
 def _gateway_topology(env: Env) -> _GatewayTopology:
     """What a gateway fronts for env: a MultiEnv's MCP servers and websites (whatever their own env_provider_type) under its
-    name and the website browser it names or the run's, a WebsiteEnv's website and the run's browser, or else the env's
-    one MCP server."""
+    name and the website browser it names or the run's, its websites listed by name when that's a browser computer, a
+    WebsiteEnv's website and the run's browser, or else the env's one MCP server."""
     from agent_env.env.envs.multi_env import MultiEnv
     from agent_env.env.envs.website import WebsiteEnv
 
     is_multi = isinstance(env, MultiEnv)
+    by_name = False
     if is_multi:
         servers, websites, name = env.mcp_server_envs, env.website_envs, env.name
         placed = env.website_browser()
         browser = _THE_RUNS if placed.runs else placed.server
+        by_name = placed.computer is not None  # it opens the sites at their names, on a sandbox of its own
     elif isinstance(env, WebsiteEnv):
         servers, websites, name, browser = [], [env], None, _THE_RUNS
     else:
@@ -1635,7 +1653,7 @@ def _gateway_topology(env: Env) -> _GatewayTopology:
     return _GatewayTopology(
         mcp_servers=[MCPServerConfig(image=s.docker_image_artifact.image_name, environment_name=s.environment_name) for s in servers],
         mcp_server_images=[s.docker_image_artifact for s in servers],
-        website_configs=[website_config(w) for w in websites] or None,
+        website_configs=[website_config(w, listed_by_name=by_name) for w in websites] or None,
         website_images=[image for w in websites
                         for image in (w.server_docker_image_artifact, w.frontend_docker_image_artifact) if image] or None,
         mcp_server_name=name,
@@ -1720,6 +1738,12 @@ def _redact_compose_secrets(compose_content: str) -> str:
         _SETTINGS_LINE_RE.sub(r'\1\2=***"', _SECRET_ENV_KEY_RE.sub(r"\1\2=***", line))
         for line in compose_content.splitlines()
     )
+
+
+def clock_followers_environment(children: Iterable[ExternalChild]) -> dict[str, str]:
+    """The gateway's declared clock followers: each child that is one, by the read token its watch carries."""
+    followers = ",".join(f"{child.name}={child.clock_read_token}" for child in children if child.clock_read_token)
+    return {CLOCK_FOLLOWERS_ENV: followers} if followers else {}
 
 
 def _frontend_urls(gateway_url: str, website_configs: Optional[list[WebsiteConfig]]) -> Optional[dict[str, str]]:

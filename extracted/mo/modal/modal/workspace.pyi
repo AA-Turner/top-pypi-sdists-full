@@ -1009,6 +1009,110 @@ class WorkspaceMemberTokenManager:
 
     list: __list_spec
 
+    class __disable_spec(typing_extensions.Protocol):
+        def __call__(self, /, *token_ids: str) -> None:
+            """Disable member tokens in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to disable any token in the
+            Workspace. Otherwise, you can only disable tokens that you have created. Disabled tokens cannot
+            be used to authenticate with Modal, but can be re-enabled at any point.
+
+            Args:
+                *token_ids: The ID(s) of any tokens you want to disable.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.disable("ak-0123456789abcdefghijkl", "ak-mnopqrstuvwxyz01234567")
+            ```
+
+            See Also:
+                - [`Workspace.member_tokens.enable()`](https://modal.com/docs/sdk/py/latest/Workspace#member_tokensenable):
+                  A function that re-enables a disabled token, so that it may be used again.
+                - [`modal workspace member-tokens disable`](https://modal.com/docs/cli/latest/workspace#modal-workspace-member-tokens-disable)
+                  Command-line equivalent to this function.
+            """
+            ...
+
+        async def aio(self, /, *token_ids: str) -> None:
+            """Disable member tokens in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to disable any token in the
+            Workspace. Otherwise, you can only disable tokens that you have created. Disabled tokens cannot
+            be used to authenticate with Modal, but can be re-enabled at any point.
+
+            Args:
+                *token_ids: The ID(s) of any tokens you want to disable.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.disable("ak-0123456789abcdefghijkl", "ak-mnopqrstuvwxyz01234567")
+            ```
+
+            See Also:
+                - [`Workspace.member_tokens.enable()`](https://modal.com/docs/sdk/py/latest/Workspace#member_tokensenable):
+                  A function that re-enables a disabled token, so that it may be used again.
+                - [`modal workspace member-tokens disable`](https://modal.com/docs/cli/latest/workspace#modal-workspace-member-tokens-disable)
+                  Command-line equivalent to this function.
+            """
+            ...
+
+    disable: __disable_spec
+
+    class __enable_spec(typing_extensions.Protocol):
+        def __call__(self, /, *token_ids: str) -> None:
+            """Re-enable member tokens that have been disabled in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to enable any token in the
+            Workspace. Otherwise, you can only enable tokens that you have created.
+
+            Args:
+                *token_ids: The ID(s) of any tokens you want to enable.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.enable("ak-0123456789abcdefghijkl", "ak-mnopqrstuvwxyz01234567")
+            ```
+
+            See Also:
+                - [`Workspace.member_tokens.disable()`](https://modal.com/docs/sdk/py/latest/Workspace#member_tokensdisable).
+                  A function that disables a token, so that it may not be used to authenticate with Modal.
+                - [`modal workspace member-tokens enable`](https://modal.com/docs/cli/latest/workspace#modal-workspace-member-tokens-enable)
+                  Command-line equivalent to this function.
+            """
+            ...
+
+        async def aio(self, /, *token_ids: str) -> None:
+            """Re-enable member tokens that have been disabled in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to enable any token in the
+            Workspace. Otherwise, you can only enable tokens that you have created.
+
+            Args:
+                *token_ids: The ID(s) of any tokens you want to enable.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.enable("ak-0123456789abcdefghijkl", "ak-mnopqrstuvwxyz01234567")
+            ```
+
+            See Also:
+                - [`Workspace.member_tokens.disable()`](https://modal.com/docs/sdk/py/latest/Workspace#member_tokensdisable).
+                  A function that disables a token, so that it may not be used to authenticate with Modal.
+                - [`modal workspace member-tokens enable`](https://modal.com/docs/cli/latest/workspace#modal-workspace-member-tokens-enable)
+                  Command-line equivalent to this function.
+            """
+            ...
+
+    enable: __enable_spec
+
     class __delete_spec(typing_extensions.Protocol):
         def __call__(self, /, token_id: str, *, allow_missing: bool = False) -> None:
             """Delete a Member Token in the specified Workspace.

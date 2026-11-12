@@ -108,6 +108,8 @@ READ_VERBS = frozenset(
         "audit-advisory",
         # `probe checkpoint best` prints the best save by a named metric.
         "best",
+        # `probe run count` prints how many runs a listing's filters match.
+        "count",
         # Print what is already recorded: `artifact tree|pin-impact`,
         # `experiment|paper edges`, `run metrics|series`, `views data|preview`
         # (a preview evaluates a spec without saving it).
@@ -431,7 +433,9 @@ def daemon_allows_agent(matched: str) -> bool:
 #: Probe's own docs, an outside source too and not the team's records: the same
 #: rule, and the only way this profile reaches them (it has no MCP). `feedback send`
 #: holds feedback for the Probe team as a question for the researcher
-#: (`probe.feedback`); nothing leaves without their yes. `approvals` lists the
+#: (`probe.feedback`); nothing leaves without their yes. `feedback install` sends the
+#: install's note once the person picked Send on the install page (its text may hold
+#: `$` or braces, which upkeep refuses). `approvals` lists the
 #: questions the daemon holds for the researcher: in an agent's shell the CLI
 #: only lists them and answers nothing (`daemon_cli.approvals_cmd`). Never
 #: `deny`: a no is the researcher's.
@@ -478,7 +482,7 @@ DAEMON_PROFILE_ALLOWED = frozenset(
      "token list", "context show", "outbox drain", "outbox retry", "outbox watch", "statusline status",
      "statusline show", "mcp status", "workspace list", "workspace get", "workspace writers show",
      "access-group list", "notes sync", "agent-rules refresh", "draft edit",
-     "file preview", "feedback flush", "capy sync", "capy disconnect", "session owed", "session home show",
+     "file preview", "feedback flush", "feedback install", "capy sync", "capy disconnect", "session owed", "session home show",
      "pin add", "pin list", "pin rm"}
 )
 
@@ -1276,8 +1280,8 @@ ALLOWANCE_SPENT_INLINE = ALLOWANCE_SPENT + " Probe's `on` is inline here: you re
 
 #: The chat's first researcher prompt, at its seeded default (`{state}`).
 AUTO_FIRST_PROMPT_LINE = (
-    "Probe is {state} here (the researcher's default, auto mode). Set it first: ML work, data included, "
-    "is `on`."
+    "Probe is {state} here (the researcher's default, auto mode). If this is ML work, data included, set `on` "
+    "first."
 )
 AUTO_OFF_LINE = "Probe is off here (auto mode). If this request is ML work, data included, run `probe session state on` first."
 AUTO_READ_LINE = (

@@ -17,6 +17,7 @@ import urllib3
 import yaml
 from hypothesis import HealthCheck, given, settings
 from hypothesis.database import InMemoryExampleDatabase
+from hypothesis.strategies import SearchStrategy
 
 from schemathesis import Case
 from schemathesis.checks import CheckContext
@@ -29,6 +30,7 @@ from schemathesis.engine.events import EngineEvent, EngineFinished, NonFatalErro
 from schemathesis.engine.recorder import Interaction
 from schemathesis.engine.run import PhaseName
 from schemathesis.generation.stateful.state_machine import DEFAULT_STATE_MACHINE_SETTINGS, APIStateMachine
+from schemathesis.schemas import BaseSchema
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -67,6 +69,18 @@ def run_given(
         wrapped()
 
     return run
+
+
+T = TypeVar("T")
+
+
+def find_first(strategy: SearchStrategy[T], condition: Callable[[T], object], *, max_examples: int) -> T:
+    """Return the first drawn value satisfying `condition`; unlike `hypothesis.find`, skip shrinking it."""
+    return hypothesis.find(
+        strategy,
+        condition,
+        settings=settings(max_examples=max_examples, phases=[hypothesis.Phase.generate], database=None, deadline=None),
+    )
 
 
 def objects_at(value: Any, path: Sequence[str]) -> list[Any]:
@@ -313,6 +327,16 @@ def check_context(config=None, *, recorder=None, override=None, headers=None, tr
         recorder=recorder,
         response_checks=None,
     )
+
+
+def oas3_response(schema, *, description="text", media_type="application/json"):
+    return {"description": description, "content": {media_type: {"schema": schema}}}
+
+
+def make_case(ctx, schema: BaseSchema, definition: dict[str, Any]) -> Case:
+    return ctx.openapi.from_full_schema({**schema.raw_schema, "paths": {"/path": {"get": definition}}})["/path"][
+        "GET"
+    ].Case()
 
 
 @contextmanager

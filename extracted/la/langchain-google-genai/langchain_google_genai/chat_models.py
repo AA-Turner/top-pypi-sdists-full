@@ -24,6 +24,7 @@ from operator import itemgetter
 from typing import (
     Any,
     Literal,
+    Self,
     cast,
 )
 from urllib.parse import urlparse
@@ -122,12 +123,13 @@ from pydantic import (
     model_validator,
 )
 from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import Self, is_typeddict
+from typing_extensions import is_typeddict
 
 from langchain_google_genai._common import (
     GoogleGenerativeAIError,
     SafetySettingDict,
     _BaseGoogleGenerativeAI,
+    _default_api_version,
     get_user_agent,
 )
 from langchain_google_genai._compat import (
@@ -3464,7 +3466,10 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
 
         http_options = HttpOptions(
             base_url=cast("str", base_url),
-            api_version=self.api_version,
+            api_version=_default_api_version(
+                self.api_version,
+                vertexai=self._use_vertexai,  # type: ignore[attr-defined]
+            ),
             headers=headers,
             client_args=self.client_args,
             async_client_args=self.client_args,

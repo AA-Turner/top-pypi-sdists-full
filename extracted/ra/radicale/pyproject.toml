@@ -3,7 +3,7 @@ name = "Radicale"
 # When the version is updated, a new section in the CHANGELOG.md file must be
 # added too.
 readme = "README.md"
-version = "3.9.0"
+version = "3.9.1"
 authors = [{name = "Guillaume Ayoub", email = "guillaume.ayoub@kozea.fr"}, {name = "Unrud", email = "unrud@outlook.com"}, {name = "Peter Bieringer", email = "pb@bieringer.de"}]
 license = {text = "GNU GPL v3"}
 description = "CalDAV and CardDAV Server"
@@ -34,19 +34,21 @@ dependencies = [
     "defusedxml",
     "libpass>=1.9.3",
     "vobject>=0.9.6",
-    "pika>=1.1.0",
-    "requests",
 ]
 
 
 [project.optional-dependencies]
-test = ["pytest>=7", "waitress", "bcrypt", "argon2-cffi", "pam", "ldap3", "hypercorn>=0.17"]
+test = ["pytest>=7", "waitress", "bcrypt", "argon2-cffi", "pam", "ldap3", "hypercorn>=0.17", "cheroot>=8.5.0", "pika>=1.1.0", "requests"]
 h2 = ["hypercorn>=0.17"]
+cheroot = ["cheroot>=8.5.0"]
 bcrypt = ["bcrypt"]
 argon2 = ["argon2-cffi"]
 ldap = ["ldap3"]
+python_ldap = ["python_ldap"]
 pam = ["pam"]
-dev = ["flake8", "isort", "mypy", "pytest", "pytest-playwright", "html5validator"]
+rabbitmq = ["pika>=1.1.0"]
+oauth2 = ["requests"]
+dev = ["flake8", "isort", "mypy", "pytest", "pytest-playwright", "html5validator", "requests"]
 # Exact pins: the observed feature report depends on the client libraries
 # (feature model, search matching, recurrence expansion), not only on
 # caldav-server-tester, so they are all frozen together. This is the single
@@ -71,14 +73,23 @@ build-backend = "setuptools.build_meta"
 min_version = "4.0"
 envlist = ["flake8", "isort", "mypy", "py_loglevel_info", "py_radicale_loglevel_info", "py_radicale_loglevel_trace", "py", "integ_test", "caldav_compat_test", "html5validator"]
 
-[tool.tox.env.py]
+[tool.tox.env.py_coverage]
 description = "Server: run 'pytest' (incl. coverage report)"
 extras = ["test"]
 deps = [
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
+    "python-ldap",
 ]
 commands = [["pytest", "-r", "s", "--cov", "--cov-report=term", "--cov-report=xml", "."]]
+
+[tool.tox.env.py]
+description = "Server: run 'pytest'"
+extras = ["test"]
+deps = [
+    "pytest",
+]
+commands = [["pytest", "-r", "s", "."]]
 
 [tool.tox.env.py_loglevel_info]
 description = "Server: run 'pytest' with log level 'INFO'"
@@ -239,7 +250,7 @@ skip_install = true
 
 [tool.tox.env.integ_test]
 description = "Server+WebUI: run 'playwright' integration tests (with 'chromium', may require additional system libs, check with 'ldd `find .tox/ -name chrome-headless-shell` | grep found')"
-deps = ["pytest", "pytest-playwright"]
+deps = ["pytest", "pytest-playwright", "requests"]
 # Store Playwright browsers inside .tox for better caching
 setenv = { PLAYWRIGHT_BROWSERS_PATH = "{toxworkdir}/.playwright" }
 commands_pre = [["playwright", "install", "chromium"]]

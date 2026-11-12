@@ -926,6 +926,7 @@ def create_domain_record(payload, compatibility_properties=None):
             _tags[rec["ARN"]] = tags
         else:
             _tags.pop(rec["ARN"], None)
+        _record_change(name, rec, [])
         # Only now — the finisher looks the record up by name and reclaims what
         # it started if it is not there, so it must not run before this.
         deferred_start = rec.pop("_deferred_start", None)
@@ -986,16 +987,35 @@ def update_domain_from_cloudformation(name, payload, compatibility_properties):
 
     if changed_properties:
         rec["_UpdatedTime"] = _now()
-        _change_progress[name] = {
-            "ChangeId": new_uuid(),
-            "StartTime": _now(),
-            "Status": "COMPLETED",
-            "PendingProperties": [],
-            "CompletedProperties": changed_properties,
-            "TotalNumberOfStages": 0,
-            "ConfigChangeStatus": "Completed",
-        }
+        _record_change(name, rec, changed_properties)
     return rec
+
+
+def _record_change(name, rec, completed_properties):
+    """Record a completed configuration change, reported by DescribeDomainChangeProgress and
+    summarized on the domain's ChangeProgressDetails under the same ChangeId. Earlier changes
+    stay readable by their ChangeId (real AWS, us-west-2)."""
+    now = _now()
+    change_id = new_uuid()
+    _change_progress[name] = {
+        "ChangeId": change_id,
+        "StartTime": now,
+        "LastUpdatedTime": now,
+        "Status": "COMPLETED",
+        "PendingProperties": [],
+        "CompletedProperties": completed_properties,
+        "TotalNumberOfStages": 0,
+        "ConfigChangeStatus": "Completed",
+        "InitiatedBy": "CUSTOMER",
+    }
+    rec.setdefault("_Changes", {})[change_id] = _change_progress[name]
+    rec["ChangeProgressDetails"] = {
+        "ChangeId": change_id,
+        "ConfigChangeStatus": "Completed",
+        "InitiatedBy": "CUSTOMER",
+        "StartTime": now,
+        "LastUpdatedTime": now,
+    }
 
 
 def delete_domain_record(name, missing_ok=False):
@@ -1132,15 +1152,7 @@ def _update_domain_config(name, payload):
     # Real AWS marks the domain Processing while config rollout happens; we
     # complete immediately because the data plane (if any) doesn't actually
     # re-provision.
-    _change_progress[name] = {
-        "ChangeId": new_uuid(),
-        "StartTime": _now(),
-        "Status": "COMPLETED",
-        "PendingProperties": [],
-        "CompletedProperties": list(payload.keys()),
-        "TotalNumberOfStages": 0,
-        "ConfigChangeStatus": "Completed",
-    }
+    _record_change(name, rec, list(payload.keys()))
     return _json(200, {"DomainConfig": _domain_config(rec)})
 
 
@@ -1155,7 +1167,7 @@ def _describe_domain_change_progress(name, query_params):
     rec = _domains.get(name)
     if not rec:
         return _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
-    progress = _change_progress.get(name) or {
+    progress = (rec.get("_Changes") or {}).get(_qp(query_params, "changeid")) or _change_progress.get(name) or {
         "ChangeId": "",
         "StartTime": rec.get("_CreatedTime", _now()),
         "Status": "COMPLETED",

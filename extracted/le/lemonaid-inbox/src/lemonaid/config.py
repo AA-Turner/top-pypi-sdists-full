@@ -18,6 +18,7 @@ from . import (
     launch_config,
     messages_config,
     palette,
+    restore_config,
     status_registry,
     tasks_config,
     watch_config,
@@ -91,6 +92,9 @@ class TmuxSessionConfig:
     # switching position keeps the size you chose for each.
     scratch_height: str = "10"
     scratch_width: str = "45"
+    # What `tmux scratch` opens the pane on: "inbox", or "brief" for the brief of
+    # the window you pressed it in. `--view` overrides it per binding.
+    scratch_view: str = "inbox"
     # When true, the scratch pane follows across window/session switches.
     follow_scratch: bool = False
     autosave_scratch_size: bool = False
@@ -150,6 +154,7 @@ class KeybindingsConfig:
     # Unlike the fields above, these name one key each rather than a set of
     # single-character alternatives, so that they can be a named key or carry a modifier.
     brief_key: str = ""  # A second key for brief
+    inbox: str = "i"  # In a brief view, back to the inbox list
     group_key: str = "tab"  # Open or collapse the group of the row under the cursor
     grove: str = "space"  # Open the grove map, and close it again
     move_pin_up: str = "shift+up"
@@ -263,6 +268,12 @@ class BriefConfig:
     # Obsidian vault roots, expanded. A bare `.md` path under one becomes an
     # `obsidian://` link.
     vaults: tuple[Path, ...] = ()
+    # Statuses whose brief shows its Executive Summary of Results expanded; any
+    # other brief shows it collapsed to one line.
+    summary_open: tuple[str, ...] = ("done", "merge", "approve", "review")
+    # A collapsed summary at least this many characters long says how long it is,
+    # since that much text suggests real content rather than a placeholder.
+    summary_long: int = 300
     # Who a new top-level brief names in `responsible-parties`. Unset is the
     # account's full name; a child copies its parent's.
     responsible_parties: tuple[str, ...] = ()
@@ -339,6 +350,9 @@ class PlaceRoot:
     # losing it is not the sort of mistake a --force flag should be able to make.
     protected: tuple[str, ...] = ("main", "master")
     open_prs: str = ""  # open PRs, one '<branch> <number>' line each
+    # The user lets Claude trust every directory under this root without its folder-trust
+    # prompt, so `lemon move` records that trust for a Claude lemon it moves here.
+    claude_trust: bool = False
 
     def is_protected(self, key: str) -> bool:
         return key in self.protected
@@ -414,6 +428,7 @@ class Config:
     messages: messages_config.MessagesConfig = field(default_factory=messages_config.MessagesConfig)
     codex: codex_config.CodexConfig = field(default_factory=codex_config.CodexConfig)
     tasks: tasks_config.TasksConfig = field(default_factory=tasks_config.TasksConfig)
+    restore: restore_config.RestoreConfig = field(default_factory=restore_config.RestoreConfig)
 
     def get_handler(self, channel: str) -> str | None:
         """Get the handler for a channel, using pattern matching."""
@@ -704,6 +719,7 @@ def _parse_config(data: dict[str, Any]) -> Config:
             "scratch_height", tmux_session_defaults.scratch_height
         ),
         scratch_width=tmux_session_data.get("scratch_width", tmux_session_defaults.scratch_width),
+        scratch_view=tmux_session_data.get("scratch_view", tmux_session_defaults.scratch_view),
         follow_scratch=tmux_session_data.get("follow_scratch", False),
         autosave_scratch_size=tmux_session_data.get("autosave_scratch_size", False),
         popup_margin=max(0, int(tmux_session_data.get("popup_margin", 3))),
@@ -783,6 +799,10 @@ def _parse_config(data: dict[str, Any]) -> Config:
         name_idle_days=_idle_days(brief_data.get("name_idle_days", 14)),
         archive_idle_days=_idle_days(brief_data.get("archive_idle_days", 14), "archive_idle_days"),
         vaults=_vaults(brief_data.get("vaults")),
+        summary_open=tuple(
+            str(s).lower() for s in brief_data.get("summary_open", BriefConfig.summary_open)
+        ),
+        summary_long=_idle_days(brief_data.get("summary_long", 300), "summary_long"),
         responsible_parties=tuple(str(p) for p in brief_data.get("responsible_parties", ())),
         statuses=status_registry.parse(brief_data.get("statuses")),
     )
@@ -840,6 +860,7 @@ def _parse_config(data: dict[str, Any]) -> Config:
                 inspect=rd.get("inspect", ""),
                 open_prs=rd.get("open_prs", ""),
                 project_name=rd.get("project_name", ""),
+                claude_trust=rd.get("claude_trust") is True,
                 protected=tuple(rd["protected"]) if "protected" in rd else PlaceRoot.protected,
             )
             for rd in places_data.get("roots", [])
@@ -862,6 +883,7 @@ def _parse_config(data: dict[str, Any]) -> Config:
         usage=settings.parse(data.get("usage", {})),
         messages=messages_config.parse(data.get("messages", {})),
         tasks=tasks_config.parse(data.get("tasks", {})),
+        restore=restore_config.parse(data.get("restore", {})),
         codex=codex_config.parse(data.get("codex", {})),
     )
 

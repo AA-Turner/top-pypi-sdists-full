@@ -11,7 +11,8 @@ from unittest import mock
 
 import pytest
 
-from jupyter_builder import core_path, federated_extensions
+from jupyter_builder import _node_deps, core_path, federated_extensions
+from jupyter_builder.commands import _test_overlap
 from jupyter_builder.federated_extensions import (
     _check_node_version,
     _ensure_builder,
@@ -65,7 +66,7 @@ def test_get_core_meta_installs_dependencies_before_searching(tmp_path, monkeypa
         core_meta_dir.mkdir(parents=True)
         (core_meta_dir / "core.package.json").write_text("{}")
 
-    monkeypatch.setattr(core_path.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(_node_deps.subprocess, "check_call", fake_check_call)
 
     location = core_path.get_core_meta(ext_path=ext_path)
 
@@ -73,6 +74,175 @@ def test_get_core_meta_installs_dependencies_before_searching(tmp_path, monkeypa
     assert location == str(
         ext_path / "node_modules" / "@jupyterlab" / "core-meta" / "core.package.json",
     )
+
+
+def _make_workspace(root: Path, link_dir) -> Path:
+    """Create a hoisted workspace at `root` and return a member ext without node_modules."""
+    (root / "package.json").write_text(json.dumps({"workspaces": ["packages/*"]}))
+    core_meta_dir = root / "node_modules" / "@jupyterlab" / "core-meta"
+    core_meta_dir.mkdir(parents=True)
+    (core_meta_dir / "core.package.json").write_text(
+        json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+    )
+    builder_dir = root / "node_modules" / "@jupyter" / "builder"
+    builder_dir.mkdir(parents=True)
+    (builder_dir / "package.json").write_text(json.dumps({"version": "5.0.0"}))
+    ext_path = root / "packages" / "ext"
+    ext_path.mkdir(parents=True)
+    (ext_path / "package.json").write_text(
+        json.dumps({"name": "ext", "devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+    )
+    link_dir(ext_path, root / "node_modules" / "ext")
+    return ext_path
+
+
+@pytest.fixture
+def jlpm_calls(monkeypatch):
+    """Record `jlpm` invocations; fail loudly if anything else is spawned."""
+    calls = []
+
+    def fake_check_call(args, cwd):
+        assert args == ["jlpm"]
+        calls.append(Path(cwd))
+
+    monkeypatch.setattr(_node_deps.subprocess, "check_call", fake_check_call)
+    return calls
+
+
+def test_get_core_meta_skips_install_in_workspace(tmp_path, jlpm_calls, link_dir):
+    ext_path = _make_workspace(tmp_path, link_dir)
+
+    location = core_path.get_core_meta(ext_path=ext_path)
+
+    assert jlpm_calls == []
+    assert location == str(
+        tmp_path / "node_modules" / "@jupyterlab" / "core-meta" / "core.package.json",
+    )
+
+
+def test_ensure_builder_skips_install_in_workspace(tmp_path, jlpm_calls, link_dir):
+    ext_path = _make_workspace(tmp_path, link_dir)
+    core_package_file = tmp_path / "node_modules" / "@jupyterlab" / "core-meta"
+
+    builder_path, marker_pkg = _ensure_builder(
+        str(ext_path),
+        str(core_package_file / "core.package.json"),
+    )
+
+    assert jlpm_calls == []
+    assert marker_pkg == "@jupyter/builder"
+    assert builder_path == str(
+        tmp_path / "node_modules" / "@jupyter" / "builder" / "lib" / "build-labextension.js",
+    )
+
+
+def test_get_core_meta_installs_when_ancestor_is_not_a_workspace(
+    tmp_path,
+    jlpm_calls,
+    link_dir,
+):
+    ext_path = _make_workspace(tmp_path, link_dir)
+    (tmp_path / "package.json").write_text(json.dumps({"name": "unrelated"}))
+
+    core_path.get_core_meta(ext_path=ext_path)
+
+    assert jlpm_calls == [ext_path]
+
+
+def test_build_flow_installs_for_non_member_below_workspace_root(
+    tmp_path,
+    monkeypatch,
+    link_dir,
+):
+    # Like JupyterLab's mock_packages/test-hyphens: below the workspace root but
+    # not listed in `workspaces`, with its own (empty) yarn.lock. It must get
+    # its own install rather than build against the workspace's node_modules.
+    _make_workspace(tmp_path, link_dir)
+    ext_path = tmp_path / "tests" / "mock_packages" / "test-hyphens"
+    ext_path.mkdir(parents=True)
+    (ext_path / "package.json").write_text(
+        json.dumps({"name": "test-hyphens", "devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+    )
+    (ext_path / "yarn.lock").touch()
+    calls = []
+
+    def fake_check_call(args, cwd):
+        calls.append((args, Path(cwd)))
+        node_modules = Path(cwd) / "node_modules"
+        core_meta_dir = node_modules / "@jupyterlab" / "core-meta"
+        core_meta_dir.mkdir(parents=True)
+        (core_meta_dir / "core.package.json").write_text(
+            json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+        )
+        builder_dir = node_modules / "@jupyter" / "builder"
+        builder_dir.mkdir(parents=True)
+        (builder_dir / "package.json").write_text(json.dumps({"version": "5.0.0"}))
+
+    monkeypatch.setattr(_node_deps.subprocess, "check_call", fake_check_call)
+
+    core_package_file = core_path.get_core_meta(ext_path=ext_path)
+    builder_path, _ = _ensure_builder(str(ext_path), core_package_file)
+
+    assert calls == [(["jlpm"], ext_path)]
+    assert core_package_file == str(
+        ext_path / "node_modules" / "@jupyterlab" / "core-meta" / "core.package.json",
+    )
+    assert builder_path == str(
+        ext_path / "node_modules" / "@jupyter" / "builder" / "lib" / "build-labextension.js",
+    )
+
+
+def test_get_core_meta_skips_install_with_local_node_modules_without_core_meta(
+    tmp_path,
+    jlpm_calls,
+    monkeypatch,
+):
+    # Legacy @jupyterlab/builder extensions have node_modules but no core-meta;
+    # they must not reinstall on every build.
+    ext_path = tmp_path / "ext"
+    (ext_path / "node_modules").mkdir(parents=True)
+    (ext_path / "package.json").write_text(
+        json.dumps({"devDependencies": {"@jupyterlab/builder": "~4.5.0"}}),
+    )
+    monkeypatch.setenv("HOME", str(tmp_path))
+    cache_root = tmp_path / ".cache" / "jupyterlab_builder" / "core"
+    cached_file = cache_root / "4.5.0" / "core.package.json"
+    cached_file.parent.mkdir(parents=True)
+    cached_file.write_text("{}")
+
+    location = core_path.get_core_meta(ext_path=ext_path)
+
+    assert jlpm_calls == []
+    assert location == str(cached_file)
+
+
+def test_build_flow_installs_at_most_once_for_standalone_ext(tmp_path, monkeypatch):
+    ext_path = tmp_path / "ext"
+    ext_path.mkdir()
+    (ext_path / "package.json").write_text(
+        json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+    )
+    calls = []
+
+    def fake_check_call(args, cwd):
+        calls.append((args, Path(cwd)))
+        node_modules = Path(cwd) / "node_modules"
+        core_meta_dir = node_modules / "@jupyterlab" / "core-meta"
+        core_meta_dir.mkdir(parents=True)
+        (core_meta_dir / "core.package.json").write_text(
+            json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}),
+        )
+        builder_dir = node_modules / "@jupyter" / "builder"
+        builder_dir.mkdir(parents=True)
+        (builder_dir / "package.json").write_text(json.dumps({"version": "5.0.0"}))
+
+    monkeypatch.setattr(_node_deps.subprocess, "check_call", fake_check_call)
+
+    # Mirrors build_labextension(): get_core_meta() then _ensure_builder().
+    core_package_file = core_path.get_core_meta(ext_path=ext_path)
+    _ensure_builder(str(ext_path), core_package_file)
+
+    assert calls == [(["jlpm"], ext_path)]
 
 
 def test_get_core_meta_uses_cache_for_explicit_version_before_installed(tmp_path, monkeypatch):
@@ -118,7 +288,7 @@ def test_get_core_meta_fetches_npm_core_meta_before_github(tmp_path, monkeypatch
         msg = f"Unexpected URL {url}"
         raise AssertionError(msg)
 
-    monkeypatch.setattr(core_path.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(_node_deps.subprocess, "check_call", fake_check_call)
     monkeypatch.setattr(core_path.urllib.request, "urlopen", fake_urlopen)
 
     location = core_path.get_core_meta(version="4.6.0-alpha.4", ext_path=ext_path)
@@ -986,6 +1156,65 @@ def test_ensure_builder_with_jupyterlab_builder(tmp_path):
 
     assert builder_path == str(builder_dir / "lib" / "build-labextension.js")
     assert marker_pkg == "@jupyterlab/builder"
+
+
+@pytest.mark.parametrize(
+    ("dep_spec", "local_builder"),
+    [
+        ("file:../local-builder", ("local-builder",)),
+        ("file:local-builder", ("ext", "local-builder")),
+    ],
+)
+def test_ensure_builder_with_local_file_package(tmp_path, dep_spec, local_builder):
+    ext_path = tmp_path / "ext"
+    core_path_dir = tmp_path / "core-meta"
+    core_package_file = core_path_dir / "core.package.json"
+    local_builder_dir = tmp_path.joinpath(*local_builder)
+    builder_dir = ext_path / "node_modules" / "@jupyter" / "builder"
+
+    builder_dir.mkdir(parents=True)
+    core_path_dir.mkdir()
+    local_builder_dir.mkdir()
+
+    core_package_file.write_text(json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}))
+    (ext_path / "package.json").write_text(
+        json.dumps({"devDependencies": {"@jupyter/builder": dep_spec}}),
+    )
+    (local_builder_dir / "package.json").write_text(json.dumps({"version": "5.0.0"}))
+    # Incompatible on purpose: the check must pass on the version read from the local path.
+    (builder_dir / "package.json").write_text(json.dumps({"version": "4.0.0"}))
+
+    builder_path, marker_pkg = _ensure_builder(str(ext_path), str(core_package_file))
+
+    assert builder_path == str(builder_dir / "lib" / "build-labextension.js")
+    assert marker_pkg == "@jupyter/builder"
+
+
+def test_ensure_builder_file_protocol_without_package_json_falls_back(tmp_path):
+    ext_path = tmp_path / "ext"
+    core_path_dir = tmp_path / "core-meta"
+    core_package_file = core_path_dir / "core.package.json"
+    builder_dir = ext_path / "node_modules" / "@jupyter" / "builder"
+
+    builder_dir.mkdir(parents=True)
+    core_path_dir.mkdir()
+
+    core_package_file.write_text(json.dumps({"devDependencies": {"@jupyter/builder": "^5.0.0"}}))
+    (ext_path / "package.json").write_text(
+        json.dumps({"devDependencies": {"@jupyter/builder": "file:../local-builder"}}),
+    )
+    (builder_dir / "package.json").write_text(json.dumps({"version": "5.0.0"}))
+
+    builder_path, marker_pkg = _ensure_builder(str(ext_path), str(core_package_file))
+
+    assert builder_path == str(builder_dir / "lib" / "build-labextension.js")
+    assert marker_pkg == "@jupyter/builder"
+
+
+def test_test_overlap_handles_invalid_semver_range():
+    assert _test_overlap("^1.0.0", "file:../builder") is None
+    assert _test_overlap("file:../builder", "^1.0.0") is None
+    assert _test_overlap("invalid-version", "another-invalid") is None
 
 
 def _write_rspack(ext_path: Path, node_range: str) -> None:

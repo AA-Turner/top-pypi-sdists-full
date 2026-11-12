@@ -1,8 +1,12 @@
-"""refuse an argument the chosen browse mode does not read."""
+"""refuse an argument the chosen browse mode does not read; turn its `project` / `experiment` scope into the internal `ref`."""
 
 from __future__ import annotations
+import re
+import uuid
+from collections.abc import Callable
 from typing import Any
 from mcp.server.fastmcp.exceptions import ToolError
+from ...sdk.client.ids import _BARE_ID
 from ...shared.reads.search_contract import BrowseMode
 
 
@@ -21,9 +25,11 @@ from ...shared.reads.search_contract import BrowseMode
 # The cursor is every mode's (delivery owns it) and is not listed. `limit` is
 # every mode's too, with a mode-specific meaning the schema states.
 _BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
-    BrowseMode.TREE: frozenset(
+    BrowseMode.PROJECTS: frozenset(
         {
             "ref",
+            "project",
+            "experiment",
             "depth",
             "status",
             "tags",
@@ -36,7 +42,20 @@ _BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
     # `status` and `tags` are the runs list's own server filters, so they mean
     # the same here as on the tree's run level. `workspace_id` is NOT: GET
     # /v1/runs has no workspace filter, and accepting it would list every run.
-    BrowseMode.RUNS: frozenset({"ref", "status", "tags", "active", "limit"}),
+    BrowseMode.RUNS: frozenset(
+        {
+            "ref",
+            "project",
+            "experiment",
+            "status",
+            "tags",
+            "active",
+            "filter",
+            "order",
+            "latest_metrics",
+            "limit",
+        }
+    ),
     # GET /v1/workspaces takes no parameters; `limit` pages the delivered list.
     BrowseMode.WORKSPACES: frozenset({"limit"}),
     # No `ref`: the catalog's parent branch is the dashboard explorer's lazy tree
@@ -110,3 +129,61 @@ def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
         + "Re-issue the call in the mode that reads it; passing it here would return a "
         "listing that ignored it."
     )
+
+
+# -- browse: the scope, in the words callers use --------------------------------
+#
+# mode=projects / runs take `project` or `experiment` (a slug or a uuid) and walk
+# the internal `ref` (`kind:<uuid>`), which browse delivery plans its pages from
+# (`delivery.browse.invoke` reads `ref` before the tool body runs) and the runs
+# list needs as a uuid (`listing._uuid_ref`). So the scope is resolved HERE, once
+# per call, before delivery: the pages it then fetches carry their own internal
+# refs and never pass through this again. `ref` itself still works, undocumented.
+
+#: The modes whose scope `project` / `experiment` name (the catalog modes read them as their own filters).
+_SCOPED_MODES = frozenset({BrowseMode.PROJECTS, BrowseMode.RUNS})
+_SCOPE_KINDS = ("project", "experiment")
+
+
+#: What may be looked up as a slug: one path segment of the route `entity` reads with, never a `/`, `?`,
+#: `#`, `%`, `..` or space that would steer the GET elsewhere.
+_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def normalize_browse_scope(arguments: dict[str, Any], find_id: Callable[[str, str], str]) -> dict[str, Any]:
+    """The caller's browse arguments with `project` / `experiment` (or a slug in `ref`) turned into
+    the internal `ref` = `kind:<uuid>`. `find_id(kind, slug)` is the tenant's own lookup (the one
+    `entity` reads with); a uuid is used as given. Refuses two scopes at once, naming the one to keep."""
+    if BrowseMode(arguments.get("mode") or BrowseMode.PROJECTS) not in _SCOPED_MODES:
+        return arguments
+    given = {kind: arguments.get(kind) for kind in _SCOPE_KINDS if arguments.get(kind)}
+    ref = arguments.get("ref")
+    if len(given) == 2:
+        raise ToolError(
+            "browse: pass `experiment` alone -- it already names its project; `project` and "
+            "`experiment` together are two scopes."
+        )
+    if given and ref:
+        (kind,) = given
+        raise ToolError(f"browse: pass `{kind}` alone -- `ref` is an older spelling of the same scope.")
+    if given:
+        ((kind, value),) = given.items()
+    elif isinstance(ref, str) and ref.partition(":")[0] in _SCOPE_KINDS and ref.partition(":")[2]:
+        kind, _, value = ref.partition(":")
+    else:
+        return arguments
+    value = str(value).strip()
+    prefix = f"{kind}:"
+    if value.startswith(prefix):
+        value = value[len(prefix):]
+    if _BARE_ID.fullmatch(value):
+        ident = value
+    elif _SLUG.fullmatch(value) and ".." not in value:
+        ident = find_id(kind, value)
+    else:
+        raise ToolError(f"browse: {kind} {value!r} is neither a slug nor a uuid")
+    try:
+        ident = str(uuid.UUID(str(ident)))
+    except ValueError:
+        raise ToolError(f"browse: the {kind} {value!r} resolved to no usable id") from None
+    return {**arguments, "ref": f"{kind}:{ident}", "project": None, "experiment": None}

@@ -13,6 +13,9 @@ __all__ = [
     "BackupModel",
     "BackupModelBackupModelChoice",
     "GeneralTool",
+    "GeneralToolEscalateChatTool",
+    "GeneralToolEscalateChatToolDestination",
+    "GeneralToolEscalateChatToolDestinationDestination",
     "GeneralToolEndCallTool",
     "GeneralToolTransferCallTool",
     "GeneralToolTransferCallToolTransferDestination",
@@ -82,6 +85,9 @@ __all__ = [
     "StateEdge",
     "StateEdgeParameters",
     "StateTool",
+    "StateToolEscalateChatTool",
+    "StateToolEscalateChatToolDestination",
+    "StateToolEscalateChatToolDestinationDestination",
     "StateToolEndCallTool",
     "StateToolTransferCallTool",
     "StateToolTransferCallToolTransferDestination",
@@ -217,6 +223,7 @@ class LlmCreateParams(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -231,6 +238,7 @@ class LlmCreateParams(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -327,6 +335,7 @@ class BackupModelBackupModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -341,6 +350,7 @@ class BackupModelBackupModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -368,6 +378,45 @@ class BackupModelBackupModelChoice(TypedDict, total=False):
 
 
 BackupModel: TypeAlias = Union[BackupModelBackupModelChoice, Optional[object]]
+
+
+class GeneralToolEscalateChatToolDestinationDestination(TypedDict, total=False):
+    method: Required[Literal["POST", "PUT"]]
+
+    url: Required[str]
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Dict[str, object]
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Dict[str, str]
+
+    max_retry: int
+
+    query_params: Dict[str, str]
+
+    timeout_ms: int
+
+
+class GeneralToolEscalateChatToolDestination(TypedDict, total=False):
+    destination: Required[GeneralToolEscalateChatToolDestinationDestination]
+
+    type: Required[Literal["webhook"]]
+
+
+class GeneralToolEscalateChatTool(TypedDict, total=False):
+    destination: Required[GeneralToolEscalateChatToolDestination]
+
+    name: Required[str]
+
+    type: Required[Literal["escalate_chat"]]
+
+    description: str
 
 
 class GeneralToolEndCallTool(TypedDict, total=False):
@@ -1665,6 +1714,7 @@ class GeneralToolAppTool(TypedDict, total=False):
 
 
 GeneralTool: TypeAlias = Union[
+    GeneralToolEscalateChatTool,
     GeneralToolEndCallTool,
     GeneralToolTransferCallTool,
     GeneralToolAgentSwapTool,
@@ -1735,6 +1785,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(TypedDict, total=False
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1749,6 +1800,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(TypedDict, total=False
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -1796,6 +1848,7 @@ class ModelConfigCascadingModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1810,6 +1863,7 @@ class ModelConfigCascadingModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -1895,6 +1949,7 @@ class ModelConfigDuplexModelConfigBackend(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1909,6 +1964,7 @@ class ModelConfigDuplexModelConfigBackend(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -1950,6 +2006,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1964,6 +2021,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2074,6 +2132,45 @@ class StateEdge(TypedDict, total=False):
     [JSON Schema reference](https://json-schema.org/understanding-json-schema/) for
     documentation about the format.
     """
+
+
+class StateToolEscalateChatToolDestinationDestination(TypedDict, total=False):
+    method: Required[Literal["POST", "PUT"]]
+
+    url: Required[str]
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Dict[str, object]
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Dict[str, str]
+
+    max_retry: int
+
+    query_params: Dict[str, str]
+
+    timeout_ms: int
+
+
+class StateToolEscalateChatToolDestination(TypedDict, total=False):
+    destination: Required[StateToolEscalateChatToolDestinationDestination]
+
+    type: Required[Literal["webhook"]]
+
+
+class StateToolEscalateChatTool(TypedDict, total=False):
+    destination: Required[StateToolEscalateChatToolDestination]
+
+    name: Required[str]
+
+    type: Required[Literal["escalate_chat"]]
+
+    description: str
 
 
 class StateToolEndCallTool(TypedDict, total=False):
@@ -3371,6 +3468,7 @@ class StateToolAppTool(TypedDict, total=False):
 
 
 StateTool: TypeAlias = Union[
+    StateToolEscalateChatTool,
     StateToolEndCallTool,
     StateToolTransferCallTool,
     StateToolAgentSwapTool,

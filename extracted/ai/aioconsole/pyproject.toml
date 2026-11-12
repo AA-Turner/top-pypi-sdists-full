@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 69.5"]
+requires = ["setuptools >= 77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,17 +7,14 @@ name = "aioconsole"
 dynamic = ["version"]
 description = "Asynchronous console and interfaces for asyncio"
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {text = "GPL-3.0-or-later"}
-requires-python = ">=3.8"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10.3"
 authors = [
     { name = "Vincent Michel", email = "vxgmichel@gmail.com" },
 ]
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -26,7 +23,13 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 
-[project.optional-dependencies]
+[project.urls]
+Homepage = "https://github.com/vxgmichel/aioconsole"
+
+[project.scripts]
+apython = "aioconsole:run_apython"
+
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-asyncio",
@@ -41,22 +44,28 @@ packages = ["aioconsole"]
 [tool.setuptools.dynamic]
 version = {attr = "aioconsole.__version__"}
 
-[project.scripts]
-apython = "aioconsole:run_apython"
-
-[project.urls]
-Homepage = "https://github.com/vxgmichel/aioconsole"
-
 [tool.pytest.ini_options]
 addopts = "--strict-markers --cov aioconsole --strict-markers --count 2 -vv"
 testpaths = ["tests"]
 
 [tool.black]
 line-length = 88
-target_version = ["py38", "py39", "py310", "py311", "py312", "py313", "py314"]
+
+[tool.coverage.run]
+# Measure `python -m aioconsole` subprocesses spawned by apython tests
+patch = ["subprocess"]
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "assert False"]
 
-[tool.ruff]
-ignore = ["E501", "F403"]
+[tool.ruff.lint]
+ignore = [
+    "E501",
+    "F403",
+    "BLE",
+    "S",
+    "SIM117",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC230", "SIM115"]

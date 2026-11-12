@@ -48,12 +48,81 @@ FEATURES = (
     "audience",      # M5: audience binding
     "confinement",   # M6: Linux sandbox
     "job_user",      # M8: run jobs as another user
+    # The personal-documents shelter (runner/oracle/
+    # personal_docs_shelter.py): an operator-invoked tool, never a
+    # startup action. The mode gates what the tool may do when the
+    # operator runs it: off refuses, audit plans only, enforce
+    # allows the operator's --apply to move files.
+    "personal_docs_shelter",
+    # The agent-state guard (runner/tools/approvalguard.py): an
+    # operator-invoked tool, never a startup action and never
+    # wired into a hook by the suite. The mode gates what the
+    # tool may do when the operator runs it: off refuses, audit
+    # reports what would be stopped and stops nothing, enforce
+    # lets the guard stop a commit carrying agent permission or
+    # config state (docs/steady/security/privacy-design.md).
+    "agent_state_guard",
+    # The version 2 question gate: whether a version 2 question
+    # may leave the box at the determination decision point.
+    # off disables the remote consult, audit sends the question
+    # and records what enforce would have decided, enforce
+    # applies the posture allowlist (v2_question_postures).
+    "v2_question",
 )
 
 DEFAULT_AUDIT_MAX_LINES = 20000
 AUDIT_FILE = "security-audit.jsonl"
 AUDIT_ROLLED_FILE = "security-audit.jsonl.1"
 COUNTS_FILE = "security-audit-counts.json"
+
+# Tamper-evident audit chain. Every audit record carries "seq" (a
+# monotonic integer, its position in the retained log counting any
+# unchained legacy records before it) and "chain": the SHA-256 hex
+# of the previous record's chain value (its 64 hex characters,
+# utf-8) concatenated with the canonical JSON of this record
+# without the "chain" field -- json.dumps with sort_keys=True,
+# separators=(",", ":"), ensure_ascii=False, encoded utf-8. The
+# first record of a fresh log chains from the genesis value,
+# SHA-256 of the fixed label below. Rollover carries the head
+# across: the first record of the new file chains from the last
+# chain value of the rolled file. A log written before chaining
+# existed keeps its unchained prefix: the first chained record
+# carries "chain_start" naming how many unchained records precede
+# it and chains from a genesis derived from that count
+# (audit_chain_legacy_prev), so the legacy prefix is reported
+# honestly rather than failing verification. On every write the
+# chain head (seq + chain) is also recorded in the counts file
+# under AUDIT_CHAIN_COUNTS_KEY, so a verifier can detect tail
+# truncation while the counts file survives; without that
+# checkpoint a chain alone proves integrity only to the end of
+# the file. Verification lives in runner.ops.auditreport
+# (verify_audit_chain, --audit-verify).
+AUDIT_CHAIN_GENESIS_LABEL = b"homing-pigeon security audit chain v1"
+AUDIT_CHAIN_GENESIS = hashlib.sha256(AUDIT_CHAIN_GENESIS_LABEL).hexdigest()
+AUDIT_CHAIN_COUNTS_KEY = "_audit_chain"
+
+
+def audit_chain_canonical(record) -> bytes:
+    """The canonical bytes a record's chain value covers: the
+    record without its "chain" field, as pinned above."""
+    body = {k: v for k, v in record.items() if k != "chain"}
+    return json.dumps(body, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False).encode("utf-8")
+
+
+def audit_chain_next(prev_chain, record) -> str:
+    """The chain value for `record` following `prev_chain`."""
+    return hashlib.sha256(
+        prev_chain.encode("utf-8") + audit_chain_canonical(record)
+    ).hexdigest()
+
+
+def audit_chain_legacy_prev(legacy_count) -> str:
+    """The prev value the first chained record after an unchained
+    legacy prefix of `legacy_count` records chains from."""
+    label = ("homing-pigeon security audit chain v1 legacy start "
+             "after %d unchained records" % legacy_count)
+    return hashlib.sha256(label.encode("utf-8")).hexdigest()
 
 
 # Hardening M2: env names that subvert execution even when the script
@@ -324,6 +393,89 @@ def effective_modes(cfg):
     return {feature: sec_mode(cfg, feature) for feature in FEATURES}
 
 
+def job_user_configured_user(cfg):
+    """The user security.job_user names, or None when it names none.
+
+    The one reader for the sub-block's shape: a missing block, a
+    block of the wrong shape, and a user that is absent, empty, or
+    not a string all name no user. (A present-but-malformed block
+    is a startup refusal in validate_security_config; this reader
+    serves the surfaces that report posture, which must not raise.)
+    """
+    if not isinstance(cfg, dict):
+        return None
+    sec = cfg.get("security")
+    if not isinstance(sec, dict):
+        return None
+    ju = sec.get("job_user")
+    if not isinstance(ju, dict):
+        return None
+    user = ju.get("user")
+    if isinstance(user, str) and user:
+        return user
+    return None
+
+
+def job_user_not_engaged(cfg):
+    """True when job_user reads enforce but engages nothing.
+
+    The mode promises a demote and no user is configured to demote
+    to, so every job runs as the runner's own account while the
+    mode reads enforce. Startup and the posture report name this
+    state outright (phase 2 of the default-posture work), so the
+    gap is a stated fact of the deployment, never a silent one.
+    """
+    return (sec_mode(cfg, "job_user") == "enforce"
+            and job_user_configured_user(cfg) is None)
+
+
+def require_posture_enabled(cfg):
+    """True when the operator pinned the startup posture assertion.
+
+    The flat key wins when present -- the CLI override writes it
+    (--require-posture / --no-require-posture), and a flag beats the
+    file -- then security.require_posture in the config block. Only
+    boolean True pins it; validate_security_config refuses any other
+    shape in the block at startup, naming the key.
+    """
+    if not isinstance(cfg, dict):
+        return False
+    if "require_posture" in cfg:
+        return cfg["require_posture"] is True
+    sec = cfg.get("security")
+    if isinstance(sec, dict):
+        return sec.get("require_posture") is True
+    return False
+
+
+def lowered_features(cfg):
+    """The features whose effective mode sits below enforce,
+    in FEATURES order."""
+    return [feature for feature in FEATURES
+            if sec_mode(cfg, feature) != "enforce"]
+
+
+def require_posture_problem(cfg):
+    """Why a require-posture-pinned startup must refuse, or None.
+
+    None when the assertion is unpinned (the default, and startup
+    behavior is exactly as it was) and None when every feature is
+    at enforce. Otherwise one sentence naming each lowered feature
+    and its mode, so the refusal itself says what to raise.
+    """
+    if not require_posture_enabled(cfg):
+        return None
+    lowered = lowered_features(cfg)
+    if not lowered:
+        return None
+    return ("require_posture is pinned but security mode(s) sit "
+            "below enforce: "
+            + ", ".join("%s=%s" % (feature, sec_mode(cfg, feature))
+                        for feature in lowered)
+            + ". Refusing to start; raise the mode(s) to enforce, "
+            "or unset require_posture.")
+
+
 def audit_max_lines(cfg):
     """Bound for the audit log. Default 20000."""
     sec = cfg.get("security") if isinstance(cfg, dict) else None
@@ -365,6 +517,12 @@ def validate_security_config(cfg):
             raise RuntimeError(
                 "config error: security.modes.%s must be one of off, audit, "
                 "enforce (got %r)" % (name, mode))
+    require_posture = sec.get("require_posture")
+    if require_posture is not None \
+            and not isinstance(require_posture, bool):
+        raise RuntimeError(
+            "config error: security.require_posture must be a boolean "
+            "(got %r)" % (require_posture,))
     max_lines = sec.get("audit_max_lines", DEFAULT_AUDIT_MAX_LINES)
     if isinstance(max_lines, bool) or not isinstance(max_lines, int):
         raise RuntimeError(
@@ -452,6 +610,102 @@ def _enforce_bound(base_dir, max_lines):
             pass
 
 
+def _audit_last_line(path):
+    """The last non-empty line of a file, as bytes, or None.
+
+    A symlink is not followed. Reads backwards from the end, so
+    the common case costs one small chunk, not a full scan.
+    """
+    if os.path.islink(path):
+        return None
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            pos = fh.tell()
+            if pos == 0:
+                return None
+            buf = b""
+            while pos > 0:
+                step = min(65536, pos)
+                pos -= step
+                fh.seek(pos)
+                buf = fh.read(step) + buf
+                body = buf.rstrip(b"\r\n")
+                if b"\n" in body or pos == 0:
+                    lines = [ln for ln in body.split(b"\n") if ln.strip()]
+                    return lines[-1] if lines else None
+            return None
+    except OSError:
+        return None
+
+
+def _audit_line_count(path):
+    """Non-empty lines in a file. A symlink is not followed."""
+    if os.path.islink(path):
+        return 0
+    try:
+        with open(path, "rb") as fh:
+            return sum(1 for line in fh if line.strip())
+    except OSError:
+        return 0
+
+
+def _audit_chain_state(base_dir):
+    """(prev_chain, next_seq, chain_start) for the next record.
+
+    chain_start is None except at a legacy transition: the number
+    of unchained records already in the retained log, recorded on
+    the first chained record so a verifier can reproduce its prev
+    value. The tail record decides: the live file first, then the
+    rolled file the moment after a rollover, when the live file
+    does not exist yet and the head must carry across.
+    """
+    live = _audit_path(base_dir)
+    rolled = os.path.join(base_dir, AUDIT_ROLLED_FILE)
+    for path in (live, rolled):
+        line = _audit_last_line(path)
+        if line is None:
+            continue
+        try:
+            rec = json.loads(line.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            rec = None
+        if isinstance(rec, dict) and isinstance(rec.get("chain"), str) \
+                and isinstance(rec.get("seq"), int) \
+                and not isinstance(rec.get("seq"), bool):
+            return rec["chain"], rec["seq"] + 1, None
+        # An unchained tail: the chain starts after every retained
+        # unchained record. This full count runs once, at the
+        # transition; chained tails take the tail-read path above.
+        legacy = _audit_line_count(rolled) + _audit_line_count(live)
+        return audit_chain_legacy_prev(legacy), legacy + 1, legacy
+    return AUDIT_CHAIN_GENESIS, 1, None
+
+
+def _record_chain_head_locked(base_dir, seq, chain):
+    """Record the chain head in the counts file. Best effort.
+
+    Same shape as _bump_counts_locked: a symlink at the counts
+    path is not read, and the write goes through the atomic
+    writer. The lock is the caller's (the entry writer's).
+    """
+    try:
+        path = os.path.join(base_dir, COUNTS_FILE)
+        counts = {}
+        if not os.path.islink(path):
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    counts = json.load(fh)
+            except (OSError, ValueError):
+                counts = {}
+        if not isinstance(counts, dict):
+            counts = {}
+        counts[AUDIT_CHAIN_COUNTS_KEY] = {"seq": seq, "chain": chain}
+        _atomicio.write_json(path, counts)
+    except Exception:
+        pass
+
+
 def _bump_counts(base_dir, feature, decision):
     """Maintain security-audit-counts.json. Best effort.
 
@@ -537,6 +791,11 @@ def _write_audit_entry_locked(base_dir, feature, decision, reason,
                 detail = ""
             if detail:
                 entry["detail"] = detail
+        prev_chain, seq, chain_start = _audit_chain_state(base_dir)
+        entry["seq"] = seq
+        if chain_start is not None:
+            entry["chain_start"] = chain_start
+        entry["chain"] = audit_chain_next(prev_chain, entry)
         path = _audit_path(base_dir)
         line = (json.dumps(entry) + "\n").encode("utf-8")
         flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
@@ -555,6 +814,7 @@ def _write_audit_entry_locked(base_dir, feature, decision, reason,
             except OSError:
                 pass
         _bump_counts(base_dir, feature, decision)
+        _record_chain_head_locked(base_dir, seq, entry["chain"])
     except Exception:
         pass
 

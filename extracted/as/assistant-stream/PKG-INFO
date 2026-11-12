@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: assistant-stream
-Version: 0.0.36
+Version: 0.0.37
 Project-URL: Homepage, https://github.com/assistant-ui/assistant-ui
 Project-URL: Issues, https://github.com/assistant-ui/assistant-ui/issues
 Author-email: Simon Farshid <simon@assistant-ui.com>
@@ -9,14 +9,45 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <4.0,>=3.10
+Requires-Dist: anyio>=3.4.0
 Requires-Dist: starlette>=0.37.2
 Provides-Extra: dev
+Requires-Dist: httpx>=0.27; extra == 'dev'
 Requires-Dist: pytest<8; extra == 'dev'
 Requires-Dist: redis>=5; extra == 'dev'
+Requires-Dist: uvicorn>=0.30; extra == 'dev'
 Provides-Extra: langgraph
 Requires-Dist: langchain-core>=0.3.0; extra == 'langgraph'
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary,pool]>=3.2; extra == 'postgres'
+Provides-Extra: pydantic-ai
+Requires-Dist: pydantic-ai-slim[ag-ui]>=2.61.0; (python_version >= '3.11') and extra == 'pydantic-ai'
 Provides-Extra: redis
 Requires-Dist: redis>=5; extra == 'redis'
 Description-Content-Type: text/markdown
 
 ## assistant-stream
+
+### Durable Pydantic AI threads
+
+`assistant_stream.pydantic_ai.DurableAGUI` serves a Pydantic AI agent over AG-UI with runs that keep going when the browser closes, and that a reopened thread rejoins.
+
+```sh
+pip install "assistant-stream[pydantic-ai]"   # Python 3.11+
+```
+
+```python
+from starlette.applications import Starlette
+from assistant_stream.pydantic_ai import DurableAGUI, SqliteThreadStore
+
+durable = DurableAGUI(
+    agent,
+    threads=SqliteThreadStore("threads.db"),
+    owner=current_user,  # request -> user id, or None for 401
+)
+app = Starlette(routes=durable.routes())
+```
+
+Without `owner`, every client can read every thread, so leave it out only for local development.
+
+Guide: https://www.assistant-ui.com/docs/runtimes/ag-ui/durable-threads

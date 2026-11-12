@@ -1,12 +1,13 @@
 """
-`seq robot status` and seq.robot_status: the console's Machines page for one robot, from the command line and from Python.
+`seq robot show` and seq.robot_show: one robot's detail - its live connections, the Machines-page view - from the command
+line and from Python.
 
 
+In one sentence: robot_show reads one robot by its name (GET /v1/robots/{name}), offline ones too: each teleop connection
+from the robot's own row, then what each other connection's worker holds of it, its cameras' newest frames saved as JPEG
+files when asked. Nothing here prints unless asked (`echo`).
 
-In one sentence: robot_status reads one robot connected now (GET /v1/robots/{name}): what each connection's worker holds
-of it, its cameras' newest frames saved as JPEG files when asked. Nothing here prints unless asked (`echo`).
-
-    seq.robot_status("7f2a", out="frames_user")        # one robot's cameras now, as JPEG files
+    seq.robot_show("arm-1", out="frames_user")        # one robot's cameras now, as JPEG files
 """
 from __future__ import annotations
 
@@ -15,12 +16,11 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import quote
 
 from sequence_ai._core.names import segment
-from sequence_ai.errors import InvalidRequest, NotFound
 
 from seq.deployments_cli import _call
+from seq.robot_cli import RECORD_DAYS
 
 Echo = Callable[[str], Any] | None
 
@@ -28,49 +28,20 @@ Echo = Callable[[str], Any] | None
 ACTIONS, PLANS = 8, 5
 
 
+
+
+TELEOP = "teleop"
+
+
 def _say(echo: Echo, line: str) -> None:
     if echo is not None:
         echo(line)
-
-
-def _pages(path: str, base_url: str | None) -> list[dict]:
-    """Every page of a list the platform pages (`next_cursor`)."""
-    rows: list[dict] = []
-    cursor = None
-    while True:
-        page = _call("GET", path + "?limit=200" + (f"&cursor={quote(cursor)}" if cursor else ""), base_url) or {}
-        rows += page.get("data") or []
-        cursor = page.get("next_cursor")
-        if not cursor:
-            return rows
 
 
 def _short(value: Any, most: int = 160) -> str:
     """A value as a line says it: text as it is, anything else as JSON, cut at `most`."""
     said = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     return said if len(said) <= most else said[:most - 1] + "…"
-
-
-def key_line(r: dict) -> str:
-    """A key by what it is and its last four: "robot key …7f2a", "key …0b1c"."""
-    kind = "robot key" if r.get("role") == "act" else "key"
-    return f"{kind} …{r['last_four']}" if r.get("last_four") else kind
-
-
-def _robot_ref(key: str, base_url: str | None) -> str:
-    """The id of the robot connected now that `key` names: its key's name, its id, its last four, or the key itself
-    (named by its last four, never sent)."""
-    ref = str(key).lstrip("…").strip()
-    if ref.startswith("seq_"):
-        ref = ref[-4:]
-    rows = _pages("/v1/robots", base_url)
-    hits = ([r for r in rows if ref in (r.get("name"), str(r.get("api_key_id")))]
-            or [r for r in rows if r.get("last_four") == ref])
-    if not hits:
-        raise NotFound(f"no robot {key} is connected now", hint="seq robot list lists your robots' keys")
-    if len(hits) > 1:
-        raise InvalidRequest(f"{key} names {len(hits)} keys connected now: name one by its id (seq robot list)")
-    return str(hits[0].get("api_key_id") or hits[0].get("name"))
 
 
 def _file_name(text: str) -> str:
@@ -137,22 +108,38 @@ def _link_said(link: Any) -> str:
     return said + " (to a proxy in front of the machine)" if said and link.get("peer_private") is True else said
 
 
-def robot_status(key: str, *, out: str | None = None, base_url: str | None = None, echo: Echo = None) -> dict:
-    """`seq robot status <key> [-o DIR]`: one robot connected now - its key's name, its id, its last four or the key -
-    as the Machines page's side panel shows it: what the worker of each of its connections holds of it now, its
-    cameras' newest frames (saved to `out` as JPEG files, <session>-<camera>.jpg), its episode, its step, its link over
-    its recent acts (_link_said) and its latest actions and plans. Returns what the platform answered: {robot, live}."""
-    detail = _call("GET", f"/v1/robots/{segment(_robot_ref(key, base_url), 'robot')}", base_url) or {}
+def robot_show(name: str, *, out: str | None = None, base_url: str | None = None, echo: Echo = None) -> dict:
+    """`seq robot show <name> [-o DIR]`: one robot by its name, offline ones too - its live connections as the Machines
+    page's side panel shows them: each teleop connection by its line alone (no worker holds it, so `live` never says it;
+    read from `live` alone, a robot on teleop alone read "no connection"), then what the worker of each other connection
+    holds of it now, its cameras' newest frames (saved
+    to `out` as JPEG files, <session>-<camera>.jpg), its episode, its step, its link over its recent acts (_link_said)
+    and its latest actions and plans; its header says whether it records and, when it does, for how many days what it keeps
+    stays. Returns what the platform answered: {robot, live}."""
+    detail = _call("GET", f"/v1/robots/{segment(name, 'robot')}", base_url) or {}
     robot = detail.get("robot") or {}
-    policies = sorted({str(c.get("policy")) for c in robot.get("connections") or [] if c.get("policy")})
-    _say(echo, f"{robot.get('name') or key}  {key_line(robot)} · "
-               + (", ".join(policies) or str(robot.get("deployment") or "—")))
+    policies = robot.get("policies") or sorted(
+        {str(c.get("policy")) for c in robot.get("connections") or [] if c.get("policy")})
+
+    record = "off"
+    if robot.get("record"):
+        days = robot.get("record_retention_days")
+        record = f"on, kept {days if days is not None else RECORD_DAYS} days"
+    _say(echo, f"{robot.get('name') or name} · {', '.join(policies) if policies else 'no policy'} · record {record}")
     live = [c for c in detail.get("live") or [] if isinstance(c, dict)]
-    if not live:
+
+
+
+
+    links = [{"policy": TELEOP, "session": c.get("session")} for c in robot.get("connections") or []
+             if isinstance(c, dict) and c.get("policy") == TELEOP]
+    if not links and not live:
         _say(echo, "no connection of this robot is acting now")
     folder = Path(out) if out else None
-    for c in live:
-        _say(echo, " · ".join([f"connection {c.get('session')}"]
+    for c in links + live:
+
+
+        _say(echo, " · ".join(([str(c["policy"])] if c.get("policy") else []) + [f"connection {c.get('session')}"]
                               + ([f"episode {str(c['episode'])[:8]}"] if c.get("episode") else [])
                               + ([f"step {c['step']}"] if c.get("step") is not None else [])))
         link = _link_said(c.get("link"))

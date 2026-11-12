@@ -142,15 +142,19 @@ def packed(conn: Any, inputs: Any, episode_id: str, squeeze: Any = None) -> "tup
         episode = _worker_side(conn, episode_id)
     encoded, video, epoch = marks.encode(episode, inputs)
     return (_observe.packed(encoded if squeeze is None else squeeze.apply(encoded)),
-            _Pending(marks, inputs, episode, video, epoch, squeeze))
+            _Pending(marks, inputs, episode, video, epoch, squeeze, encoded))
 
 
 class _Pending:
     """A marked observation encoded outside the connection's lock, settled under it once numbered (settle)."""
 
-    def __init__(self, marks: Marked, inputs: Any, episode: str, video: bool, epoch: int, squeeze: Any = None) -> None:
+    def __init__(self, marks: Marked, inputs: Any, episode: str, video: bool, epoch: int, squeeze: Any = None,
+                 encoded: Any = None) -> None:
         self._marks, self._inputs, self._episode, self._video, self._epoch = marks, inputs, episode, video, epoch
         self._squeeze = squeeze
+
+
+        self.encoded = encoded
 
     def settle(self, conn: Any, episode_id: str, number: int, packed_frame: bytes) -> bytes:
         """Under the connection's lock: the frame as it goes - encoded again when its episode moved on to another id or
@@ -159,6 +163,7 @@ class _Pending:
         episode = _worker_side(conn, episode_id)
         if episode != self._episode or not self._marks.current(episode, self._epoch):
             encoded, self._video, _ = self._marks.encode(episode, self._inputs)
+            self.encoded = encoded
             packed_frame = _observe.packed(encoded if self._squeeze is None else self._squeeze.apply(encoded))
         self._marks.note(episode, number, self._video)
         return packed_frame

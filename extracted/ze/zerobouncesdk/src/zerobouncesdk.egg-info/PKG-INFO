@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zerobouncesdk
-Version: 2.3.0
+Version: 3.0.0
 Summary: ZeroBounce Python API - https://www.zerobounce.net.
 Author-email: ZeroBounce <support@zerobounce.net>
 License-Expression: MIT
@@ -13,18 +13,21 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-Requires-Dist: requests>=2.33.0; python_version >= "3.10"
-Requires-Dist: requests>=2.32.4; python_version >= "3.8" and python_version < "3.10"
-Requires-Dist: requests>=2.31.0; python_version < "3.8"
-Requires-Dist: urllib3>=2.8.0; python_version >= "3.10"
-Requires-Dist: idna>=3.15; python_version >= "3.8"
+License-File: LICENSE
+Requires-Dist: requests>=2.33.0
+Requires-Dist: urllib3>=2.8.0
+Requires-Dist: idna>=3.15
 Requires-Dist: certifi>=2026.10.19
 Provides-Extra: test
-Requires-Dist: pytest>=9.0.3; python_version >= "3.10" and extra == "test"
-Requires-Dist: pytest>=7.0.0; python_version < "3.10" and extra == "test"
+Requires-Dist: pytest>=9.0.3; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Dynamic: license-file
 
@@ -45,7 +48,7 @@ More information about ZeroBounce you can find in the [official documentation](h
 pip install zerobouncesdk
 ```
 
-Python 3.10 or newer is recommended: on 3.9 and older, the newest `requests` and `urllib3` releases (with their security fixes) cannot be installed.
+Requires Python 3.10 or newer. The `requests` and `urllib3` releases with current security fixes need 3.10, so 2.4.0 dropped 3.7 to 3.9; on those versions pip installs `zerobouncesdk` 2.3.0, the last release that supports them.
 
 ## USAGE
 Import the sdk in your file:
@@ -89,7 +92,7 @@ zero_bounce = ZeroBounce("<YOUR_API_KEY>", base_url="https://custom-api.example.
 
 The region applies to the single-request API. File-based APIs always use `bulkapi.zerobounce.net` (see [Other hosts](#other-hosts)).
 
-**Errors:** a method raises `ZBClientException` when it rejects an argument before sending anything, and `ZBApiException` when the API returns an error; both inherit from `ZBException`. `ZBApiException.status_code` holds the HTTP status when it is known (for example 429 from the Warmup API). An unknown status, sub-status or confidence value in a response becomes `None` with a `UserWarning` instead of an error.
+**Errors:** a method raises `ZBClientException` when it rejects an argument before sending anything, and `ZBApiException` when the API returns an error; both inherit from `ZBException`. `ZBApiException.status_code` holds the HTTP status when it is known (for example 429 from the Warmup API). An error the API reports on an HTTP 200 (a dead key's `error`, `Error` or `error_message`, `"success": false`) has `status_code` 200. An unknown status, sub-status or confidence value in a response becomes `None` with a `UserWarning` instead of an error; a validate response keeps the API's text in `raw_status` and `raw_sub_status`. Boolean options accept `True`/`False`, `"true"`/`"false"` and `1`/`0`; anything else raises `ZBClientException`. The greylist answer `{"Message": "Greylist validation still in progress..."}` is a result: its text is in `ZBValidateResponse.message`.
 
 ## Examples
 Then you can use any of the SDK methods, for example:
@@ -644,7 +647,7 @@ except ZBException as e:
 
 ### Local setup
 ```bash
-python -m venv venv   # Python 3.10+ recommended
+python -m venv venv   # Python 3.10 or newer
 source venv/bin/activate
 pip install -e ".[test]"
 pip install ruff==0.17.2
@@ -699,3 +702,7 @@ From the **`sdk-docs/`** folder in the SDKs monorepo, `docker compose build pyth
 Registry: [zerobouncesdk on PyPI](https://pypi.org/project/zerobouncesdk/)
 
 The workflow publishes with [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/); no PyPI token is stored anywhere. The `zerobouncesdk` project on PyPI trusts this repository's `.github/workflows/publish.yml` running in the `release` environment, and the publish job (which has `id-token: write`) exchanges its GitHub OIDC token for a short-lived upload token. Each release also gets signed attestations. Renaming the workflow file or the environment breaks publishing until the trusted publisher on PyPI (project → Publishing) is updated to match.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

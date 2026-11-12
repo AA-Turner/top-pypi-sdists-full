@@ -33,7 +33,7 @@ from ibm_watsonx_orchestrate.client.tools.tempus_client import TempusClient
 from ibm_watsonx_orchestrate.client.utils import instantiate_client
 from ibm_watsonx_orchestrate.utils.file_manager import safe_open
 from ..types import (
-    Dimensions, DocProcKVPSchema, Assignment, Conditions, EndNodeSpec, Expression, ForeachPolicy, ForeachSpec, LoopSpec, BranchNodeSpec, MatchPolicy,
+    Dimensions, DocProcKVPSchema, Assignment, Conditions, EndNodeSpec, Expression, ForeachPolicy, ForeachSpec, LoopSpec, BranchNodeSpec, MatchPolicy, TransferEndNodeSpec, ChannelConfig, TransferChannelSpec, ConversationSummarySpec, TransferChannelType, CustomerCareEscalationInput,
     NodeIdCondition, PageRange, ParallelSpec, PlainTextReadingOrder, Position, PromptExample, PromptLLMParameters, AITaskLLMParameters, PromptNodeSpec, ScriptNodeSpec, TextExtractionObjectResponse, TimerNodeSpec,
     NodeErrorHandlerConfig, NodeIdCondition, PlainTextReadingOrder, PromptExample, PromptLLMParameters, AITaskLLMParameters, PromptNodeSpec,
     StartNodeSpec, ToolSpec, JsonSchemaObject, ToolRequestBody, ToolResponseBody, UserAssignmentPolicy, UserFieldKind, UserFieldOption, UserFlowSpec, UserNodeSpec, WaitPolicy, WaitNodeSpec,
@@ -43,7 +43,7 @@ from ..types import (
 from ..masking_utils import MaskingPolicy, InputPolicy, ChannelOverride
 from .constants import CURRENT_USER, START, END, ANY_USER
 from ..node import (
-    EndNode, Node, PromptNode, ScriptNode, StartNode, TimerNode, UserNode, AgentNode, DataMap, ToolNode, DocProcNode, DecisionsNode, DocExtNode, DocClassifierNode
+    EndNode, Node, PromptNode, ScriptNode, StartNode, TimerNode, UserNode, AgentNode, DataMap, ToolNode, DocProcNode, DecisionsNode, DocExtNode, DocClassifierNode, TransferEndNode
 )
 from ..types import (
     AgentNodeSpec, ThreadControlPolicy, extract_node_spec, FlowContext, FlowEventType, FlowEvent, FlowSpec,
@@ -91,7 +91,7 @@ class Flow(Node):
     schemas: dict[str, Union[JsonSchemaObject, SchemaRef]] = {}
     compiled: bool = False
     validated: bool = False
-    metadata: dict[str, str] = {}
+    metadata: dict[str, Any] = {}
     parent: Any = None
     _sequence_id: int = 0 # internal-id
     _tool_client: ToolClient = None
@@ -117,8 +117,13 @@ class Flow(Node):
         
         # set agent_conversation_memory_turns_limit for the flow if any
         agent_conversation_memory_turns_limit = kwargs.get("agent_conversation_memory_turns_limit")
-        if agent_conversation_memory_turns_limit:
+        if isinstance(agent_conversation_memory_turns_limit, int):
             self.metadata["agent_conversation_memory_turns_limit"] = agent_conversation_memory_turns_limit
+
+        is_customercare_escalation = kwargs.get("is_customercare_escalation")
+        if is_customercare_escalation is not None:
+            if is_customercare_escalation:
+                self.metadata["is_customercare_escalation"] = True
 
     def _find_topmost_flow(self) -> Self:
         if self.parent:
@@ -972,6 +977,54 @@ class Flow(Node):
         
         end_node: Node = self._add_node(EndNode(spec=EndNodeSpec(name=name, display_name=display_name)))
         return cast(EndNode, end_node)
+
+    def transfer_end(self,
+                     name: str,
+                     display_name: str | None = None,
+                     channels: list[TransferChannelSpec | ChannelConfig | TransferChannelType | str | dict[str, Any]] | None = None,
+                     conversation_summary: ConversationSummarySpec | None = None) -> TransferEndNode:
+        '''
+        Create an end node that will trigger an immediate transfer to a live agent.
+        Only applies when this workflow is invoked from the context of an agent.
+        '''
+        channel_specs: list[TransferChannelSpec] = []
+        channel_configs: dict[str, ChannelConfig] = {}
+        if channels:
+            for ch in channels:
+                if isinstance(ch, TransferChannelSpec):
+                    channel_specs.append(ch)
+                    channel_configs[ch.name] = ChannelConfig(
+                        name=ch.name,
+                        agent_available=ch.agent_available,
+                        agent_unavailable=ch.agent_unavailable
+                    )
+                elif isinstance(ch, ChannelConfig):
+                    channel_specs.append(ch.to_channel_spec())
+                    channel_configs[ch.name] = ch
+                elif isinstance(ch, (TransferChannelType, str)):
+                    ch_name = ch.value if isinstance(ch, TransferChannelType) else str(ch)
+                    ch_spec = TransferChannelSpec(name=ch_name)
+                    channel_specs.append(ch_spec)
+                    channel_configs[ch_name] = ChannelConfig(name=ch_name)
+                elif isinstance(ch, dict):
+                    ch_spec = TransferChannelSpec(**ch)
+                    channel_specs.append(ch_spec)
+                    channel_configs[ch_spec.name] = ChannelConfig(
+                        name=ch_spec.name,
+                        agent_available=ch_spec.agent_available,
+                        agent_unavailable=ch_spec.agent_unavailable
+                    )
+
+        spec = TransferEndNodeSpec(
+            name=name,
+            display_name=display_name,
+            channels=channel_specs,
+            channel_configs=channel_configs,
+            conversation_summary=conversation_summary,
+        )
+        node = TransferEndNode(spec=spec)
+        added_node = self._add_node(node)
+        return cast(TransferEndNode, added_node)
 
 
     def _add_node(self, node: Node) -> Node:
@@ -2215,6 +2268,11 @@ class Flow(Node):
         
         return self
 
+    def is_customercare_escalation(self) -> Self:
+        '''Mark this flow as a customer care escalation flow.'''
+        self.metadata["is_customercare_escalation"] = True
+        return self
+
 class FlowRunStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -2415,6 +2473,7 @@ class FlowFactory(BaseModel):
                     schedulable: bool=False,
                     schedulable_by_role: UserRole|None=None,
                     suppress_agent_summarization: bool|None=None,
+                    is_customercare_escalation: bool|None=None,
                     llm_model: str|ListVirtualModel|None=None,
                     agent_conversation_memory_turns_limit: int|None = None,
                     context_window: FlowContextWindow|None=None) -> Flow:
@@ -2447,7 +2506,7 @@ class FlowFactory(BaseModel):
             context_window=context_window,
         )
 
-        return Flow(spec = flow_spec, llm_model=llm_model, agent_conversation_memory_turns_limit=agent_conversation_memory_turns_limit)
+        return Flow(spec = flow_spec, llm_model=llm_model, agent_conversation_memory_turns_limit=agent_conversation_memory_turns_limit, is_customercare_escalation=is_customercare_escalation)
 
 
 class FlowControl(Node):

@@ -21,8 +21,8 @@ import re
 
 from .errors import SchemaError
 
-#: 段头：行首（允许前导空白）的 ``[section]``；不匹配 ``[[array.of.tables]]``。
-_SECTION_RE = re.compile(r"^[ \t]*\[[ \t]*([^\[\]]+?)[ \t]*\][ \t]*(?:#.*)?$")
+#: Both ordinary and array-table headers end the preceding table.
+_SECTION_RE = re.compile(r"^[ \t]*\[[ \t]*(\[?[^\[\]]+?\]?)[ \t]*\][ \t]*(?:#.*)?$")
 #: ``docker_image = "..."``（含单引号、裸值与行尾注释）。
 _KEY_RE = re.compile(
     r"""^(?P<lead>[ \t]*)(?P<key>docker_image)(?P<mid>[ \t]*=[ \t]*)(?P<val>.*?)(?P<trail>[ \t]*(?:\#.*)?)$"""

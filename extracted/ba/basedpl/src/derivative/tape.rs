@@ -31,9 +31,8 @@ pub(crate) struct Linearized { argument: Value, parts: Vec<Value>, pub(crate) va
 /// `f` linearised at `right`, with `left` as its left argument. The tape level begins before the `∂` call's, so each seed is a tape value inside a dual.
 pub(crate) fn linearized(f: &Function, left: Option<&Value>, right: &Value, span: &Span) -> Result<Linearized, Error> {
     let tracer = Arc::new(Tracer::default());
-    let (parts, value, result) = session().with_level(Kind::Tape, |level| {
-        session().with_level(Kind::Derivative, |tag| linearize(f, left, right, tag, level, &tracer, span))
-    })?;
+    let (parts, value, result) =
+        session().with_level(Kind::Tape, |level| session().with_level(Kind::Derivative, |tag| linearize(f, left, right, tag, level, &tracer, span)))?;
     Ok(Linearized { argument: right.clone(), parts, value, tape: result.map(|read| tracer.program(read)) })
 }
 
@@ -96,7 +95,7 @@ fn linearize(
     numeric(&primal)?;
     let read = match tangent {
         Some(t) if tape_of(&t).is_some() => { let laid = expand(&t, primal.layout()); tape_of(&laid).map(|t| t.read.clone()) }
-        // A tangent with no tape value anywhere in it came only from constants, as when `c∩⍵` draws its items from `c`. The result then doesn't depend on the argument.
+        // A tangent with no tape value anywhere in it came only from constants, as when `c∩ω` draws its items from `c`. The result then doesn't depend on the argument.
         Some(t) if !t.carried() => None,
         Some(_) => return Err(Error::new(ErrorKind::Unsupported, "∂ can't differentiate this result in reverse mode")),
         None => None,
@@ -154,11 +153,12 @@ fn transpose(tape: &Program, u: Value, seeds: usize, span: &Span) -> Result<Vec<
     let mut values = vec![None; nodes.len()];
     for (j, node) in nodes.iter().enumerate() {
         values[j] = match &node.origin {
-            Origin::Input(_) => None, Origin::Held(v) => Some(v.clone()), Origin::Step(step) if step.reads().any(|i| values[i].is_none()) => None,
+            Origin::Input(_) => None,
+            Origin::Held(v) => Some(v.clone()),
+            Origin::Step(step) if step.reads().any(|i| values[i].is_none()) => None,
             Origin::Step(step) => {
                 let value = |i: usize| values[i].as_ref().expect("a coefficient's operands have their values");
-                Some(run::copy_read(step, &value, &node.desc, span)
-                    .unwrap_or_else(|| run::run(step, nodes, &value, None, &node.desc, span))?)
+                Some(run::copy_read(step, &value, &node.desc, span).unwrap_or_else(|| run::run(step, nodes, &value, None, &node.desc, span))?)
             }
         };
     }
@@ -232,6 +232,8 @@ impl Back<'_> {
     /// Adds `u` at the walk `base`, `steps` of the node that `read` reads. A broadcast's cotangent sums along the axes it repeats over (step 0) first, and only the remaining axes write back. A repeated axis reads one offset of its source, its start, which joins the base.
     fn add_walked(&mut self, read: &Read, base: usize, steps: &[Steps], u: Value) -> Result<(), Error> {
         if !self.live(read.of) { return Ok(()); }
+        // A read may split one logical result axis into several walk axes, as replicate does. Fold repeats in that walk's shape.
+        let u = u.with_shape(steps.iter().map(Steps::len).collect::<Vec<_>>()).described("a cotangent has its read's walk shape")?;
         let starts: Vec<(usize, usize)> = steps.iter().enumerate().filter_map(|(a, s)| match *s {
             Steps::Stride { start, len, step: 0 } if len > 1 => Some((a, start)), _ => None
         }).collect();
@@ -251,7 +253,6 @@ impl Back<'_> {
             }
         self.add_at(read, Places::Walk { base, steps: &kept }, &u)
     }
-
 
     fn walked(&self, j: usize) -> Option<(Read, Mapping)> { crate::program::positional_source(self.nodes, j) }
 
@@ -471,7 +472,7 @@ fn spread(u: &Value, along: usize, layout: &Layout, span: &Span) -> Result<Value
 
 /// The cotangent of a running `+` along `axis` from `u`, its cotangent: the running sum from the far end.
 fn reversed_scan(kind: FoldKind, axis: usize, u: &Value, span: &Span) -> Result<Value, Error> {
-    let flip = |v: &Value| Primitive::Reverse(false).call_axis(None, v, Some(axis), span);
+    let flip = |v: &Value| Primitive::Reverse.call_axis(None, v, Some(axis), span);
     flip(&Operation::Fold(PLUS, kind).call(Pairing::Axis(Some(axis)), None, &flip(u)?, span)?)
 }
 

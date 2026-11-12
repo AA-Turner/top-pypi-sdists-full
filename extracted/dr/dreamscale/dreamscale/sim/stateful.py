@@ -35,6 +35,8 @@ def run_stateful_episode(
     drain_pending=False,
     pause_for_inference=False,
     count_holds=True,
+    on_executed=None,
+    min_chunk_size=None,
 ):
     """Execute every model action; preserve full post-action camera history.
 
@@ -46,6 +48,11 @@ def run_stateful_episode(
     Without count_holds, max_steps budgets the policy's actions only, as a synchronous
     evaluation's does; the ticks held while a request is in flight run outside it, up to
     TICK_CEILING times max_steps in all, so a stalled session still ends.
+    ``on_executed(obs, executed, more)``: after each policy action, the observation it led to,
+    the actions executed so far and whether more of the plan remain (an episode the server
+    keeps sends that step's frames ahead). ``min_chunk_size``: a chunk may hold fewer real rows
+    than expected, down to this many (Praxis-1 answers 21 rows when a call starts its context,
+    24 after); all of them run.
     """
     metrics = metrics or SimMetrics(
         max_steps=max_steps,
@@ -73,7 +80,9 @@ def run_stateful_episode(
         nonlocal first
         value = np.asarray(future.result(), dtype=np.float32)
         expected = initial_chunk_size if first else chunk_size
-        if value.shape != (expected, action_dim) or not np.isfinite(value).all():
+        fewest = expected if min_chunk_size is None else min(min_chunk_size, expected)
+        if (value.ndim != 2 or value.shape[1] != action_dim
+                or not fewest <= value.shape[0] <= expected or not np.isfinite(value).all()):
             raise ValueError("Policy returned an invalid complete action chunk")
         actions.extend(value.tolist())
         first = False
@@ -115,6 +124,8 @@ def run_stateful_episode(
                 metrics.note_action_underrun()
             obs, done = env.step(action)
             result.steps += 1
+            if policy_action and on_executed is not None:
+                on_executed(obs, executed, bool(actions))
             if policy_action and request_input is None:
                 feedback.append(cameras(obs))
             if on_frame:

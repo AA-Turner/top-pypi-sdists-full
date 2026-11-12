@@ -8,6 +8,7 @@ import inspect
 import json
 import warnings
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, TypeVar, Union, cast
 
 import google.protobuf.message
@@ -102,6 +103,19 @@ _logger = get_logger(__name__)
 
 _CHALK_ANON_SQL_SOURCE_PREFIX = "__chalk_anon_sql_source_"
 _CHALK_ANON_STREAM_SOURCE_PREFIX = "__chalk_anon_stream_source_"
+
+
+def source_reference_filename(filename: str, source_root: Path | None) -> str:
+    """Record bundle-relative metadata while preserving references to external source files."""
+    if source_root is None:
+        return filename
+    path = Path(filename)
+    if ".." in path.parts:
+        return filename
+    for root in (source_root.absolute(), source_root.resolve()):
+        if path.is_relative_to(root):
+            return path.relative_to(root).as_posix()
+    return filename
 
 
 @dataclasses.dataclass
@@ -345,7 +359,9 @@ class ToProtoConverter:
             raise ValueError(f"Could not convert SQL source group '{group.name}'") from e
 
     @staticmethod
-    def convert_cron_filter(cron: Union[CronTab, Duration, Cron]) -> Optional[pb.CronFilterWithFeatureArgs]:
+    def convert_cron_filter(
+        cron: Union[CronTab, Duration, Cron], *, source_root: Path | None = None
+    ) -> Optional[pb.CronFilterWithFeatureArgs]:
         if isinstance(cron, Cron) and cron.filter is not None:
             sig = inspect.signature(cron.filter)
             features: list[pb.FeatureReference] = []
@@ -358,7 +374,7 @@ class ToProtoConverter:
                     raise ValueError("Cron filters must be scalars or feature time features")
                 features.append(ToProtoConverter.create_feature_reference(feature))
             return pb.CronFilterWithFeatureArgs(
-                filter=ToProtoConverter.create_function_reference(cron.filter),
+                filter=ToProtoConverter.create_function_reference(cron.filter, source_root=source_root),
                 args=features,
             )
         return None
@@ -502,6 +518,7 @@ class ToProtoConverter:
     def create_function_reference(
         fn: Callable,
         *,
+        source_root: Path | None = None,
         definition: Optional[str] = None,
         filename: Optional[str] = None,
         source_line: Optional[int] = None,
@@ -517,7 +534,7 @@ class ToProtoConverter:
         return pb.FunctionReference(
             name=fn.__name__,
             module=module.__name__ if module else "",
-            file_name=inspect.getfile(fn) if filename is None else filename,
+            file_name=source_reference_filename(inspect.getfile(fn) if filename is None else filename, source_root),
             function_definition=definition,
             source_line=source_line,
             captured_globals=(
@@ -1327,6 +1344,8 @@ class ToProtoConverter:
         cls,
         r: Union[OnlineResolver, OfflineResolver],
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> pb.Resolver:
         if r.output is None:
             raise ValueError("Resolver missing `output` attribute")
@@ -1350,13 +1369,21 @@ class ToProtoConverter:
                 else:
                     raise TypeError(f"Unknown cron schedule type: {type(r.cron.schedule).__name__}")
 
-                cron_filter = ToProtoConverter.convert_cron_filter(r.cron) if r.cron.filter else None
+                cron_filter = (
+                    ToProtoConverter.convert_cron_filter(r.cron, source_root=source_root) if r.cron.filter else None
+                )
 
                 schedule = pb.Schedule(
                     filter=(
-                        ToProtoConverter.create_function_reference(r.cron.filter) if r.cron.filter is not None else None
+                        ToProtoConverter.create_function_reference(r.cron.filter, source_root=source_root)
+                        if r.cron.filter is not None
+                        else None
                     ),
-                    sample=ToProtoConverter.create_function_reference(r.cron.sample) if r.cron.sample else None,
+                    sample=(
+                        ToProtoConverter.create_function_reference(r.cron.sample, source_root=source_root)
+                        if r.cron.sample
+                        else None
+                    ),
                     duration=duration,
                     crontab=crontab,
                 )
@@ -1409,6 +1436,7 @@ class ToProtoConverter:
             filename=r.filename,
             source_line=r.source_line,
             captured_global_deduper=captured_global_deduper,
+            source_root=source_root,
         )
         postprocessing_underscore_expr: expr_pb.LogicalExprNode | None = None
         if isinstance(r.postprocessing, Underscore):
@@ -1556,6 +1584,8 @@ class ToProtoConverter:
         cls,
         info: ParseInfo,
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> pb.ParseInfo:
         try:
             maybe_input_type = ToProtoConverter.convert_rich_type_to_protobuf(info.input_type)
@@ -1584,6 +1614,7 @@ class ToProtoConverter:
                 info.fn,
                 captured_globals=info.parse_function_captured_globals,
                 captured_global_deduper=captured_global_deduper,
+                source_root=source_root,
             ),
             is_parse_function_output_optional=info.output_is_optional,
             parse_function_input_type_name=info.input_type.__name__,
@@ -1596,6 +1627,8 @@ class ToProtoConverter:
         cls,
         r: StreamResolver,
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> pb.StreamResolver:
         mode: pb.WindowMode | None = None
         if r.mode:
@@ -1678,8 +1711,7 @@ class ToProtoConverter:
             source_full=ToProtoConverter._convert_stream_source(r.source),
             parse_info=(
                 ToProtoConverter.convert_parse_info(
-                    r.parse,
-                    captured_global_deduper=captured_global_deduper,
+                    r.parse, captured_global_deduper=captured_global_deduper, source_root=source_root
                 )
                 if r.parse
                 else None
@@ -1698,6 +1730,7 @@ class ToProtoConverter:
                 source_line=r.source_line,
                 captured_globals=r.function_captured_globals,
                 captured_global_deduper=captured_global_deduper,
+                source_root=source_root,
             ),
             feature_expressions=feature_expressions,
             message_producer=message_producer,
@@ -1728,6 +1761,8 @@ class ToProtoConverter:
     def convert_sink_resolver(
         r: SinkResolver,
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> pb.SinkResolver:
         stream_source = None
         database_source = None
@@ -1759,6 +1794,7 @@ class ToProtoConverter:
                 source_line=r.source_line,
                 captured_globals=r.function_captured_globals,
                 captured_global_deduper=captured_global_deduper,
+                source_root=source_root,
             ),
         )
         if stream_source is not None:
@@ -1771,21 +1807,20 @@ class ToProtoConverter:
     def _convert_resolver(
         r: Resolver,
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
         if isinstance(r, (OnlineResolver, OfflineResolver)):
             return ToProtoConverter.convert_online_or_offline_resolver(
-                r,
-                captured_global_deduper=captured_global_deduper,
+                r, captured_global_deduper=captured_global_deduper, source_root=source_root
             )
         elif isinstance(r, StreamResolver):
             return ToProtoConverter.convert_stream_resolver(
-                r,
-                captured_global_deduper=captured_global_deduper,
+                r, captured_global_deduper=captured_global_deduper, source_root=source_root
             )
         elif isinstance(r, SinkResolver):
             return ToProtoConverter.convert_sink_resolver(
-                r,
-                captured_global_deduper=captured_global_deduper,
+                r, captured_global_deduper=captured_global_deduper, source_root=source_root
             )
         else:
             raise TypeError(f"Unknown resolver type: {type(r).__name__}")
@@ -1794,11 +1829,12 @@ class ToProtoConverter:
     def convert_resolver(
         r: Resolver,
         captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+        *,
+        source_root: Path | None = None,
     ) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
         try:
             return ToProtoConverter._convert_resolver(
-                r,
-                captured_global_deduper=captured_global_deduper,
+                r, captured_global_deduper=captured_global_deduper, source_root=source_root
             )
         except Exception as e:
             raise ValueError(f"Error converting resolver '{r.fqn}'") from e
@@ -1882,7 +1918,9 @@ class ToProtoConverter:
         return pb.MaterializedFeatureView(**kwargs)
 
     @staticmethod
-    def convert_feature_set_source_reference(feature_set: type[Features]) -> pb.SourceFileReference | None:
+    def convert_feature_set_source_reference(
+        feature_set: type[Features], *, source_root: Path | None = None
+    ) -> pb.SourceFileReference | None:
         filename = feature_set.__chalk_filename__
         feature_class_ast = feature_set.__chalk_feature_class_ast__
         if filename is None or feature_class_ast is None:
@@ -1890,7 +1928,7 @@ class ToProtoConverter:
 
         start_line, start_character, end_line, end_character = feature_class_ast.class_definition_location
         source_reference = pb.SourceFileReference(
-            file_name=filename,
+            file_name=source_reference_filename(filename, source_root),
             range=Range(
                 start=Position(line=start_line, character=start_character),
                 end=Position(line=end_line, character=end_character),
@@ -1911,6 +1949,8 @@ class ToProtoConverter:
         model_reference_registry: dict[tuple[str, str], ModelReference],
         online_store_config_registry: dict[str, OnlineStoreConfig],
         materialized_feature_view_registry: "dict[str, MaterializedFeatureView]",
+        *,
+        source_root: Path | None = None,
     ) -> pb.Graph:
         feature_sets = []
         for feature_set in features_registry.values():
@@ -1929,7 +1969,9 @@ class ToProtoConverter:
                     doc=feature_set.__chalk_description__ or feature_set.__doc__,
                     etl_offline_to_online=feature_set.__chalk_etl_offline_to_online__,
                     class_path=paths.get_classpath_or_name(feature_set),
-                    source_file_reference=ToProtoConverter.convert_feature_set_source_reference(feature_set),
+                    source_file_reference=ToProtoConverter.convert_feature_set_source_reference(
+                        feature_set, source_root=source_root
+                    ),
                 )
             )
 
@@ -1941,8 +1983,7 @@ class ToProtoConverter:
 
         for resolver in resolver_registry:
             converted = ToProtoConverter.convert_resolver(
-                resolver,
-                captured_global_deduper=captured_global_deduper,
+                resolver, captured_global_deduper=captured_global_deduper, source_root=source_root
             )
             if isinstance(converted, pb.Resolver):
                 resolvers.append(converted)

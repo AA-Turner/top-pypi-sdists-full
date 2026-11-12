@@ -10,20 +10,16 @@ asks whether a page that should exist does.
 For every public class (a ``class`` in its package's sources or stubs that
 the package exports through ``__all__``):
 
-``api``
-    A real entry on a ``docs/api/*.md`` page: a ``::: doppler.<mod>...Cls``
-    directive, or a ``## `Cls` `` heading on a hand-written page. A bare
-    mention in prose is not an entry.
 ``guide``
     At least one ``docs/guide/**`` page names it in a backtick span or a
-    link's text, the scope ``gen_related_pages.py`` uses (the same scanner,
-    so the two cannot disagree on what a mention is).
+    link's text (``_mentioned_tokens``).
 ``example``
     At least one ``src/doppler/examples/*.py`` uses the name in code.
 
 A record type (a ``record_name`` in the jm manifests: ``ToneMetrics``,
-``SyncHit``, ...) owes ``api`` only. It is what a method returns, so its
-story is the story of the class that returns it.
+``SyncHit``, ...) owes neither. It is what a method returns, so its story
+is the story of the class that returns it, and its reference entry is the
+generated one every public name gets (``check_surface.py``, #3000).
 
 For every example script:
 
@@ -32,12 +28,6 @@ For every example script:
     ``make user-docs-check``), or ``src/doppler/examples/.no-figure`` says
     why it has no figure. That list is a decision, so it may grow; a
     reason is mandatory and an entry naming no script fails.
-
-The domain tree is held here too (``gen_domains.gate``): every module has a
-title and an area in ``docs/domains.toml``, every guide, gallery and design
-page names a ``domain:`` that exists, and a module with classes has a guide
-page filed under it (today's gaps in ``docs/.domain-guides-exempt``, which
-only shrinks).
 
 Today's gaps sit in ``docs/.user-docs-exempt``, one ``<key> <rule>: <why>``
 per line. It is a RATCHET: compared with the merge base, it may only
@@ -65,7 +55,26 @@ from typing import TYPE_CHECKING
 
 from _gitbase import BaseUnreadableError, added_since_base, in_git_repo
 from _pydocs import kinds
-from gen_related_pages import DIRECTIVE_RE, _mentioned_tokens
+
+# What a guide "mentions": an identifier inside a backtick span or a link's
+# text -- deliberately narrow, so prose that happens to say "correlator" is
+# not a mention of ``Correlator``.
+BACKTICK_RE = re.compile(r"`([^`\n]+)`")
+# A link's text, inline `[text](url)` or a cross-reference `[text][id]`:
+# the generated reference is reached by the second (#3000).
+LINK_TEXT_RE = re.compile(r"\[([^\]\n]+)\](?:\([^)\n]+\)|\[[^\]\n]*\])")
+TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _mentioned_tokens(path: str) -> set[str]:
+    """Every identifier in a backtick span or a link's text on this page."""
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    tokens: set[str] = set()
+    for span in BACKTICK_RE.findall(text) + LINK_TEXT_RE.findall(text):
+        tokens.update(TOKEN_RE.findall(span))
+    return tokens
+
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -76,12 +85,9 @@ NO_FIGURE = "src/doppler/examples/.no-figure"
 EXAMPLES = "src/doppler/examples"
 SELF = "scripts/check_user_docs.py"
 
-CLASS_RULES = ("api", "guide", "example")
-RECORD_RULES = ("api",)
-ENTRY_RE = re.compile(r"^(\S+)\s+(api|guide|example|gallery):\s*(\S.*)$")
+ENTRY_RE = re.compile(r"^(\S+)\s+(guide|example|gallery):\s*(\S.*)$")
 
 FIX = {
-    "api": "add a `::: {key}` directive to its docs/api/ page",
     "guide": "name it in backticks in the docs/guide/ page for its task",
     "example": "use it in a src/doppler/examples/ script",
     "gallery": (
@@ -140,72 +146,6 @@ def record_names(root: Path) -> set[str]:
             "refusing to check every record type as a class"
         )
     return out
-
-
-HEAD_LINE_RE = re.compile(r"^#{2,3} (.*)$", re.MULTILINE)
-MEMBER_RE = re.compile(r"^\s+- (\w+)\s*$")
-
-
-def _directive_members(text: str) -> set[str]:
-    """Dotted names a ``::: doppler.<mod>`` MODULE directive renders.
-
-    mkdocstrings renders the ``members:`` list under ``options:`` when one
-    is given; each becomes ``<mod>.<member>``. A module directive with no
-    list renders every public member, which ``has_api`` answers from the
-    bare module path instead.
-    """
-    out: set[str] = set()
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        m = DIRECTIVE_RE.match(line)
-        if not m:
-            continue
-        in_members = False
-        for nxt in lines[i + 1 :]:
-            if nxt.strip() and not nxt.startswith(" "):
-                break
-            if nxt.strip() == "members:":
-                in_members = True
-                continue
-            mm = MEMBER_RE.match(nxt)
-            if in_members and mm:
-                out.add(f"{m[1]}.{mm[1]}")
-            elif nxt.strip().endswith(":"):
-                in_members = False
-    return out
-
-
-def api_entries(root: Path) -> tuple[set[str], set[str]]:
-    """(directive dotted paths, names in a heading's backticks) in docs/api.
-
-    A heading counts for every name in its backticks, so
-    "## `Capture` and `MemoryCapture`" is an entry for both, and for its
-    leading word, so a hand-written "## MpskReceiver — ..." section is one.
-    """
-    dotted: set[str] = set()
-    heads: set[str] = set()
-    for p in sorted((root / "docs" / "api").glob("*.md")):
-        text = p.read_text(encoding="utf-8")
-        dotted.update(DIRECTIVE_RE.findall(text))
-        dotted |= _directive_members(text)
-        for h in HEAD_LINE_RE.findall(text):
-            heads.update(re.findall(r"`(\w+)`", h))
-            lead = re.match(r"(\w+)\b", h)
-            if lead:
-                heads.add(lead[1])
-    return dotted, heads
-
-
-def has_api(key: str, bare: str, dotted: set[str], heads: set[str]) -> bool:
-    """A directive for this class (at its path, or a deeper re-export of
-    the same module), or a heading naming it."""
-    mod = key.rsplit(".", 1)[0]
-    if bare in heads:
-        return True
-    return any(
-        d == key or (d.startswith(mod + ".") and d.rsplit(".", 1)[1] == bare)
-        for d in dotted
-    )
 
 
 def guide_tokens(root: Path) -> set[str]:
@@ -276,19 +216,17 @@ def gaps(
     """Every (key, rule) owed and missing, plus .no-figure's own errors."""
     classes = public_classes(root)
     records = record_names(root)
-    dotted, heads = api_entries(root)
     guide = guide_tokens(root)
     examples = example_names(root)
     used = set().union(*examples.values()) if examples else set()
 
     found: set[tuple[str, str]] = set()
     for key, bare in classes.items():
-        rules = RECORD_RULES if bare in records else CLASS_RULES
-        if "api" in rules and not has_api(key, bare, dotted, heads):
-            found.add((key, "api"))
-        if "guide" in rules and bare not in guide:
+        if bare in records:
+            continue
+        if bare not in guide:
             found.add((key, "guide"))
-        if "example" in rules and bare not in used:
+        if bare not in used:
             found.add((key, "example"))
 
     errors: list[str] = []
@@ -368,10 +306,6 @@ def main() -> int:
                 f"{EXEMPT}: '{key} {rule}' is new; the list only shrinks. "
                 f"Do the work instead: {FIX[rule].format(key=key)}"
             )
-
-    import gen_domains
-
-    errors += gen_domains.gate(root, a.base, not a.no_ratchet)
 
     if errors:
         print("user-docs-check: FAILED", file=sys.stderr)

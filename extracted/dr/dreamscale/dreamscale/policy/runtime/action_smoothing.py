@@ -15,7 +15,7 @@ Action = tuple[float, ...]
 @dataclass(frozen=True)
 class ResolvedActionSmoothing:
     requested_mode: ActionSmoothingMode
-    mode: Literal["output", "motion", "motion_handover", "motion_speed"]
+    mode: Literal["output", "motion", "motion_handover", "motion_speed", "continuation"]
     new_weight: float
     correction_steps: int | None
     normalized_gripper_indices: tuple[int, ...] = ()
@@ -48,7 +48,9 @@ def resolve_action_smoothing(
         "raw_absolute_joint",
     }
     if requested_mode == "auto":
-        mode = "motion" if absolute_action_space else "output"
+        # The model's own join where it names one (Praxis-1: continuation), else motion.
+        own = contract.default_smoothing
+        mode = (own or "motion") if absolute_action_space else "output"
     else:
         mode = requested_mode
     if mode != "output" and not absolute_action_space:
@@ -66,6 +68,13 @@ def resolve_action_smoothing(
         raise ValueError(
             "experimental adaptive smoothing requires an absolute joint layout in radians"
         )
+    if mode == "continuation" and not contract.joint_groups:
+        raise ValueError("continuation joins need the model's joint layout (its grippers)")
+    if mode == "continuation" and (
+        strategy.smoothing_new_weight is not None
+        or strategy.smoothing_correction_steps is not None
+    ):
+        raise ValueError("continuation takes no smoothing_new_weight or correction steps")
     if strategy.smoothing_reference_speed is not None and not adaptive:
         raise ValueError("smoothing_reference_speed requires an adaptive smoothing mode")
     if mode == "motion_handover" and strategy.smoothing_new_weight is not None:
@@ -78,7 +87,7 @@ def resolve_action_smoothing(
     if new_weight is None:
         new_weight = 0.7 if mode == "output" else 0.85
     correction_steps = strategy.smoothing_correction_steps
-    if mode != "output" and correction_steps is None:
+    if mode not in ("output", "continuation") and correction_steps is None:
         correction_steps = max(3, (contract.execution_chunk_size + 4) // 5)
     return ResolvedActionSmoothing(
         requested_mode=requested_mode,

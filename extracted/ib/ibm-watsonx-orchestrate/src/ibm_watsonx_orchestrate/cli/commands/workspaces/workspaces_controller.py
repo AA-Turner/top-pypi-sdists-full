@@ -638,7 +638,7 @@ class WorkspacesController:
                         
                         # Get all tools from the target workspace (not active workspace)
                         tool_client = tools_controller.get_client()
-                        response = tool_client.get(workspace_id=workspace_id, include_global=False)
+                        response = tool_client.get(workspace_id=workspace_id, include_global=False, include_escalation=True)
                         
                         for tool_spec in (response or []):
                             tool_name = tool_spec.get('name')

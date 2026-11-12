@@ -1,6 +1,6 @@
 [project]
 name = "trame-server"
-version = "4.1.0"
+version = "4.1.1"
 description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
@@ -73,6 +73,7 @@ xfail_strict = true
 minversion = "6.0"
 addopts = ["-ra", "--strict-config", "--strict-markers"]
 filterwarnings = ["error"]
+asyncio_default_fixture_loop_scope = "function"
 testpaths = [
     "tests",
 ]

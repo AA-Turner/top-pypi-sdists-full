@@ -16,7 +16,7 @@ T = TypeVar("T", bound="AiDecision")
 @_attrs_define
 class AiDecision:
     """AI decision step: one call to a decision model (TypeSafe's Jev, Cloudflare's
-    Jev-compatible Clef, or OpenAI's Decisions API) that answers typed questions about a
+    Jev-compatible Clef, or OpenAI's or Gemini's Decisions API) that answers typed questions about a
     state with calibrated probabilities, instead of generating text.
     Prefer it over an AI agent to classify, route, score or check something: it is fast,
     cheap and its answers are structured. Its result is { output: { <question name>: answer },

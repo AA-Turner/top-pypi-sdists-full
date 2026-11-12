@@ -1,15 +1,25 @@
+import warnings
+
 import numpy as np
 from numpy.testing import assert_allclose
 import pytest
 from statsmodels.iolib.summary import Summary
 
 from arch._typing import Float64Array, UnitRootTrend
+from arch.covariance.kernel import KERNELS
+from arch.unitroot import _phillips_ouliaris as po_module
 from arch.unitroot._phillips_ouliaris import (
     CriticalValueWarning,
     phillips_ouliaris_cv,
     phillips_ouliaris_pval,
 )
 from arch.unitroot.cointegration import phillips_ouliaris
+from arch.unitroot.critical_values.dickey_fuller import (
+    adf_z_large_p,
+    adf_z_small_p,
+    adf_z_star,
+)
+from arch.unitroot.unitroot import mackinnonp
 from arch.utility.timeseries import add_trend
 
 
@@ -68,7 +78,7 @@ def p_tests(z: Float64Array, lag: int, trend: UnitRootTrend) -> tuple[float, flo
 
 
 @pytest.mark.parametrize("trend", ["n", "c", "ct", "ctt"])
-@pytest.mark.parametrize("test_type", ["Za", "Zt", "Pu", "Pz"])
+@pytest.mark.parametrize("test_type", ["za", "zt", "pu", "pz"])
 @pytest.mark.parametrize("kernel", ["bartlett", "parzen", "quadratic-spectral"])
 @pytest.mark.parametrize("bandwidth", [None, 10])
 @pytest.mark.parametrize("force_int", [True, False])
@@ -88,9 +98,11 @@ def test_smoke(trivariate_data, trend, test_type, kernel, bandwidth, force_int):
 
 def test_errors(trivariate_data):
     y, x = trivariate_data
-    with pytest.raises(ValueError, match=r"kernel is not a known estimator."):
+    with pytest.raises(ValueError, match=r"kernel must be one of "):
         phillips_ouliaris(y, x, kernel="fancy-kernel")
-    with pytest.raises(ValueError, match=r"Unknown test_type: z-alpha."):
+    with pytest.raises(
+        ValueError, match=r"test_type must be one of 'za', 'zt', 'pu' or 'pz'"
+    ):
         phillips_ouliaris(y, x, test_type="z-alpha")
 
 
@@ -102,8 +114,8 @@ def test_z_test_direct(trivariate_data, trend, bandwidth):
     x = np.asarray(x)
     z = np.column_stack([y, x])
     ref_z_a, ref_z_t = z_tests(z, bandwidth, trend)
-    z_a = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="Za")
-    z_t = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="Zt")
+    z_a = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="za")
+    z_t = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="zt")
     assert_allclose(z_a.stat, ref_z_a)
     assert_allclose(z_t.stat, ref_z_t)
     assert isinstance(z_a.summary(), Summary)
@@ -118,8 +130,8 @@ def test_p_test_direct(trivariate_data, trend, bandwidth):
     x = np.asarray(x)
     z = np.column_stack([y, x])
     ref_p_u, ref_p_z = p_tests(z, bandwidth, trend)
-    p_u = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="Pu")
-    p_z = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="Pz")
+    p_u = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="pu")
+    p_z = phillips_ouliaris(y, x, trend=trend, bandwidth=bandwidth, test_type="pz")
     assert_allclose(p_u.stat, ref_p_u)
     assert_allclose(p_z.stat, ref_p_z)
     assert isinstance(p_u.summary(), Summary)
@@ -129,33 +141,69 @@ def test_p_test_direct(trivariate_data, trend, bandwidth):
 def test_cv_exceptions():
     with pytest.raises(ValueError, match=r"test_type must be one of"):
         phillips_ouliaris_cv("unknown", "c", 2, 500)
-    with pytest.raises(ValueError, match=r"trend must by one of:"):
-        phillips_ouliaris_cv("Pu", "unknown", 2, 500)
+    with pytest.raises(ValueError, match=r"trend must be one of "):
+        phillips_ouliaris_cv("pu", "unknown", 2, 500)
     with pytest.raises(ValueError, match=r"The number of stochastic trends must"):
-        phillips_ouliaris_cv("Pu", "ct", 25, 500)
+        phillips_ouliaris_cv("pu", "ct", 25, 500)
     with pytest.warns(
         CriticalValueWarning, match=r"The sample size is smaller than the smallest"
     ):
-        phillips_ouliaris_cv("Pu", "ct", 2, 10)
+        phillips_ouliaris_cv("pu", "ct", 2, 10)
 
 
 def test_pval_exceptions():
     with pytest.raises(ValueError, match=r"test_type must be one of"):
         phillips_ouliaris_pval(3.0, "unknown", "c", 2)
-    with pytest.raises(ValueError, match=r"trend must by one of:"):
-        phillips_ouliaris_pval(3.0, "Pu", "unknown", 2)
+    with pytest.raises(ValueError, match=r"trend must be one of "):
+        phillips_ouliaris_pval(3.0, "pu", "unknown", 2)
     with pytest.raises(ValueError, match=r"The number of stochastic trends must"):
-        phillips_ouliaris_pval(3.0, "Pu", "ct", 25)
+        phillips_ouliaris_pval(3.0, "pu", "ct", 25)
 
 
 def test_pval_extremes():
-    assert phillips_ouliaris_pval(3.0, "Zt", "n", 2) == 1.0
-    np.testing.assert_allclose(phillips_ouliaris_pval(2.1, "Zt", "n", 2), 0.996850543)
-    assert phillips_ouliaris_pval(-3000.0, "Zt", "n", 2) == 0.0
+    assert phillips_ouliaris_pval(3.0, "zt", "n", 2) == 1.0
+    np.testing.assert_allclose(phillips_ouliaris_pval(2.1, "zt", "n", 2), 0.996850543)
+    assert phillips_ouliaris_pval(-3000.0, "zt", "n", 2) == 0.0
     # Above and below tau-star
-    above = phillips_ouliaris_pval(1.0, "Zt", "n", 2)
-    below = phillips_ouliaris_pval(0.0, "Zt", "n", 2)
+    above = phillips_ouliaris_pval(1.0, "zt", "n", 2)
+    below = phillips_ouliaris_pval(0.0, "zt", "n", 2)
     assert above > below
+
+
+def test_pval_small_p_in_log(monkeypatch):
+    # The ADF-Z table has a small p polynomial in log|stat|, and mackinnonp
+    # evaluates it independently
+    key = ("Za", "c", 3)
+    monkeypatch.setitem(po_module.PVAL_SMALL_P, key, adf_z_small_p["c"])
+    monkeypatch.setitem(po_module.PVAL_LARGE_P, key, adf_z_large_p["c"])
+    monkeypatch.setitem(po_module.PVAL_TAU_STAR, key, adf_z_star["c"])
+    monkeypatch.setitem(po_module.PVAL_TAU_MIN, key, -np.inf)
+    monkeypatch.setitem(po_module.PVAL_TAU_MAX, key, np.inf)
+    monkeypatch.setitem(po_module.PVAL_SMALL_P_LOG, "Za", True)
+    star = adf_z_star["c"]
+    for stat in (-1e6, -50.0, -20.0, star - 1e-6, star, star + 1e-6, -1.0, 3.0):
+        expected = mackinnonp(stat, regression="c", dist_type="adf-z")
+        assert_allclose(phillips_ouliaris_pval(stat, "za", "c", 3), expected)
+
+
+@pytest.mark.parametrize("test_type", ["za", "zt", "pu", "pz"])
+@pytest.mark.parametrize("trend", ["n", "c", "ct", "ctt"])
+def test_pval_infinite_and_huge(test_type, trend):
+    # Some tables have infinite bounds, and then the polynomials are evaluated at
+    # the statistic, which overflows when it is huge
+    for num in range(2, 14):
+        for stat in (np.inf, 1e300, 1e200, 1e12):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                large = phillips_ouliaris_pval(stat, test_type, trend, num)
+                small = phillips_ouliaris_pval(-stat, test_type, trend, num)
+            assert isinstance(large, float)
+            assert isinstance(small, float)
+            if test_type in ("pu", "pz"):
+                # Large values reject
+                large, small = small, large
+            assert large == 1.0
+            assert small == 0.0
 
 
 def test_auto_bandwidth(trivariate_data):
@@ -165,3 +213,41 @@ def test_auto_bandwidth(trivariate_data):
     assert int(res.bandwidth) != res.bandwidth
     res = phillips_ouliaris(y, x, force_int=True)
     assert int(res.bandwidth) == res.bandwidth
+
+
+@pytest.mark.parametrize("test_type", ["za", "zt", "pu", "pz"])
+@pytest.mark.parametrize("kernel", ["bartlett", "parzen", "quadratic-spectral"])
+def test_bandwidth_method(trivariate_data, test_type, kernel):
+    y, x = trivariate_data
+    nw = phillips_ouliaris(y, x, test_type=test_type, kernel=kernel)
+    default = phillips_ouliaris(
+        y, x, test_type=test_type, kernel=kernel, bandwidth_method="Newey_West"
+    )
+    assert_allclose(default.stat, nw.stat, rtol=1e-12)
+    andrews = phillips_ouliaris(
+        y, x, test_type=test_type, kernel=kernel, bandwidth_method="andrews"
+    )
+    assert andrews.bandwidth != nw.bandwidth
+    # The statistic is the one with the bandwidth that the method selected
+    direct = phillips_ouliaris(
+        y, x, test_type=test_type, kernel=kernel, bandwidth=andrews.bandwidth
+    )
+    assert_allclose(andrews.stat, direct.stat, rtol=1e-12)
+    # bandwidth_method is ignored when bandwidth is given
+    fixed = phillips_ouliaris(
+        y,
+        x,
+        test_type=test_type,
+        kernel=kernel,
+        bandwidth=5,
+        bandwidth_method="andrews",
+    )
+    assert fixed.bandwidth == 5
+
+
+@pytest.mark.parametrize("kernel", KERNELS)
+def test_all_kernels(trivariate_data, kernel):
+    y, x = trivariate_data
+    res = phillips_ouliaris(y, x, kernel=kernel)
+    # The names of the kernels are the names of the classes
+    assert res.kernel == kernel

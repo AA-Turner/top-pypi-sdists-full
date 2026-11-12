@@ -376,7 +376,7 @@ class _ChemDescriptorDumper(Dumper):
                 "_ihm_chemical_component_descriptor",
                 ["id", "auth_name", "chemical_name",
                  "common_name", "smiles", "smiles_canonical", "inchi",
-                 "inchi_key"]) as lp:
+                 "inchi_key", "details"]) as lp:
             # note that we don't write out chem_comp_id; this is no longer
             # present in the dictionary
             for d in self._descriptor_by_id:
@@ -384,7 +384,7 @@ class _ChemDescriptorDumper(Dumper):
                          chemical_name=d.chemical_name,
                          common_name=d.common_name, smiles=d.smiles,
                          smiles_canonical=d.smiles_canonical, inchi=d.inchi,
-                         inchi_key=d.inchi_key)
+                         inchi_key=d.inchi_key, details=d.details)
 
 
 class _EntityDumper(Dumper):
@@ -682,6 +682,10 @@ class _StructRefDumper(Dumper):
         entity_rng, db_rng = self._get_ranges(entity, fullrefseq, align)
         check_rng(entity_rng, entseq, "entity_begin,entity_end", entity)
         check_rng(db_rng, fullrefseq, "db_begin,db_end", ref)
+        if db_rng[1] < db_rng[0]:
+            # Alignment to the negative strand (e.g. of a genome); we don't
+            # currently check these against the reference sequence
+            return
 
         entseq, refseq = self._get_gapped_alignment(
             entity_rng, db_rng, entseq, fullrefseq, insertions, deletions)
@@ -713,14 +717,15 @@ class _StructRefDumper(Dumper):
         with writer.loop(
                 "_struct_ref",
                 ["id", "entity_id", "db_name", "db_code", "pdbx_db_accession",
-                 "pdbx_align_begin", "pdbx_seq_one_letter_code",
-                 "details"]) as lp:
+                 "pdbx_db_isoform", "pdbx_align_begin",
+                 "pdbx_seq_one_letter_code", "details"]) as lp:
             for e, r in self._refs_by_id:
                 if self._check:
                     self._check_reference_sequence(e, r)
                 db_begin = min(a.db_begin for a in r._get_alignments())
                 lp.write(id=r._id, entity_id=e._id, db_name=r.db_name,
                          db_code=r.db_code, pdbx_db_accession=r.accession,
+                         pdbx_db_isoform=r.isoform,
                          pdbx_align_begin=db_begin, details=r.details,
                          pdbx_seq_one_letter_code=self._get_sequence(r))
         self.dump_seq(system, writer)
@@ -738,13 +743,15 @@ class _StructRefDumper(Dumper):
             for e, r, a in _all_alignments():
                 fullrefseq = list(util._get_codes(r.sequence))
                 entity_rng, db_rng = self._get_ranges(e, fullrefseq, a)
+                # db_end < db_begin denotes the negative strand
+                db_dir = -1 if db_rng[1] < db_rng[0] else 1
                 matchlen = min(entity_rng[1] - entity_rng[0],
-                               db_rng[1] - db_rng[0])
+                               abs(db_rng[1] - db_rng[0]))
                 lp.write(align_id=a._id, ref_id=r._id,
                          seq_align_beg=entity_rng[0],
                          seq_align_end=entity_rng[0] + matchlen,
                          db_align_beg=db_rng[0],
-                         db_align_end=db_rng[0] + matchlen)
+                         db_align_end=db_rng[0] + db_dir * matchlen)
 
     def dump_seq_dif(self, system, writer):
         ordinal = itertools.count(1)
@@ -1273,8 +1280,8 @@ class _ExternalReferenceDumper(Dumper):
                           "file_format", "file_size_bytes", "details"]) as lp:
             for r in self._ref_by_id:
                 repo = r.repo or self._local_files
-                if r.path is None:
-                    file_path = None
+                if r.path in (None, ihm.unknown):
+                    file_path = r.path
                 else:
                     file_path = self._posix_path(repo._get_full_path(r.path))
                 lp.write(id=r._id, reference_id=repo._id,
@@ -1540,7 +1547,7 @@ class _StartingModelDumper(Dumper):
                  "template_seq_id_end", "template_sequence_identity",
                  "template_sequence_identity_denominator",
                  "template_dataset_list_id",
-                 "alignment_file_id"]) as lp:
+                 "alignment_file_id", "details"]) as lp:
             ordinal = itertools.count(1)
             for sm in self._starting_models_by_id:
                 for template in sm.templates:
@@ -1571,7 +1578,8 @@ class _StartingModelDumper(Dumper):
                  template_dataset_list_id=template.dataset._id
                  if template.dataset else None,
                  alignment_file_id=template.alignment_file._id
-                 if template.alignment_file else None)
+                 if template.alignment_file else None,
+                 details=template.details)
 
     def dump_coords(self, system, writer):
         """Write out coordinate information"""
@@ -1662,7 +1670,9 @@ class _ProtocolDumper(Dumper):
                     lp.write(
                         id=next(ordinal), protocol_id=p._id,
                         step_id=s._id,
-                        struct_assembly_id=s.assembly._id,
+                        struct_assembly_id=s.assembly
+                        if s.assembly in (None, ihm.unknown)
+                        else s.assembly._id,
                         dataset_group_id=s.dataset_group._id
                         if s.dataset_group else None,
                         step_name=s.name, step_method=s.method,
@@ -1687,10 +1697,11 @@ class _PostProcessDumper(Dumper):
         for p in system._all_protocols():
             for na, a in enumerate(p.analyses):
                 a._id = na + 1
-                for ns, s in enumerate(a.steps):
-                    s._id = ns + 1
-                    # Assign globally unique postproc id
-                    s._post_proc_id = next(pp_id)
+                for s in a.steps:
+                    # Assign globally unique postproc id. This (not the
+                    # number of the step within its analysis) is what
+                    # _ihm_ensemble_info.post_process_id refers to
+                    s._id = next(pp_id)
 
     def dump(self, system, writer):
         with writer.loop("_ihm_modeling_post_process",
@@ -1701,10 +1712,10 @@ class _PostProcessDumper(Dumper):
                           "script_file_id", "details"]) as lp:
             for p in system._all_protocols():
                 for a in p.analyses:
-                    for s in a.steps:
+                    for ns, s in enumerate(a.steps):
                         lp.write(
-                            id=s._post_proc_id, protocol_id=p._id,
-                            analysis_id=a._id, step_id=s._id, type=s.type,
+                            id=s._id, protocol_id=p._id,
+                            analysis_id=a._id, step_id=ns + 1, type=s.type,
                             feature=s.feature,
                             num_models_begin=s.num_models_begin,
                             num_models_end=s.num_models_end,
@@ -2096,7 +2107,8 @@ class _NotModeledResidueRangeDumper(Dumper):
         with writer.loop("_ihm_residues_not_modeled",
                          ["id", "model_id", "entity_description",
                           "entity_id", "asym_id", "seq_id_begin", "seq_id_end",
-                          "comp_id_begin", "comp_id_end", "reason"]) as lp:
+                          "comp_id_begin", "comp_id_end", "reason",
+                          "details"]) as lp:
             for group, model in system._all_models():
                 for rr in model.not_modeled_residue_ranges:
                     e = rr.asym_unit.entity
@@ -2111,7 +2123,7 @@ class _NotModeledResidueRangeDumper(Dumper):
                              seq_id_end=rr.seq_id_end,
                              comp_id_begin=_get_comp_id(e, rr.seq_id_begin),
                              comp_id_end=_get_comp_id(e, rr.seq_id_end),
-                             reason=rr.reason)
+                             reason=rr.reason, details=rr.details)
 
 
 class _EnsembleDumper(Dumper):
@@ -2218,13 +2230,16 @@ class _MultiStateDumper(Dumper):
     def dump_summary(self, system, writer):
         with writer.loop("_ihm_multi_state_modeling",
                          ["state_id", "state_group_id",
-                          "population_fraction", "state_type", "state_name",
+                          "population_fraction", "population_fraction_sd",
+                          "state_type", "state_name",
                           "experiment_type", "details"]) as lp:
             for state_group in system.state_groups:
                 for state in state_group:
+                    pop_frac_sd = state.population_fraction_sd
                     lp.write(state_id=state._id,
                              state_group_id=state_group._id,
                              population_fraction=state.population_fraction,
+                             population_fraction_sd=pop_frac_sd,
                              state_type=state.type,
                              state_name=state.name,
                              experiment_type=state.experiment_type,
@@ -2760,12 +2775,14 @@ class _GeometricRestraintDumper(Dumper):
             r._id = nr + 1
 
     def dump(self, system, writer):
-        condmap = {True: 'ALL', False: 'ANY', None: None}
+        condmap = {True: 'ALL', False: 'ANY', None: None,
+                   ihm.unknown: ihm.unknown}
         with writer.loop("_ihm_geometric_object_distance_restraint",
                          ["id", "object_id", "feature_id",
                           "object_characteristic", "restraint_type",
                           "harmonic_force_constant",
-                          "distance_lower_limit", "distance_upper_limit",
+                          "distance_lower_limit", "distance_lower_limit_esd",
+                          "distance_upper_limit", "distance_upper_limit_esd",
                           "group_conditionality", "dataset_list_id"]) as lp:
             for r in self._all_restraints(system):
                 lp.write(id=r._id, object_id=r.geometric_object._id,
@@ -2773,7 +2790,11 @@ class _GeometricRestraintDumper(Dumper):
                          object_characteristic=r.object_characteristic,
                          restraint_type=r.distance.restraint_type,
                          distance_lower_limit=r.distance.distance_lower_limit,
+                         distance_lower_limit_esd=(
+                             r.distance.distance_lower_limit_esd),
                          distance_upper_limit=r.distance.distance_upper_limit,
+                         distance_upper_limit_esd=(
+                             r.distance.distance_upper_limit_esd),
                          harmonic_force_constant=r.harmonic_force_constant,
                          group_conditionality=condmap[r.restrain_all],
                          dataset_list_id=r.dataset._id if r.dataset else None)
@@ -2815,11 +2836,16 @@ class _DerivedDistanceRestraintDumper(Dumper):
             system, restraint.DerivedDistanceRestraint)
 
     def dump(self, system, writer):
-        condmap = {True: 'ALL', False: 'ANY', None: None}
+        condmap = {True: 'ALL', False: 'ANY', None: None,
+                   ihm.unknown: ihm.unknown}
         with writer.loop("_ihm_derived_distance_restraint",
                          ["id", "group_id", "feature_id_1", "feature_id_2",
                           "restraint_type", "distance_lower_limit",
-                          "distance_upper_limit", "probability", "mic_value",
+                          "distance_upper_limit", "distance_lower_limit_esd",
+                          "distance_upper_limit_esd",
+                          "distance_threshold_mean", "distance_threshold_esd",
+                          "probability", "mic_value",
+                          "random_exclusion_fraction",
                           "group_conditionality", "dataset_list_id"]) as lp:
             for r in self._restraints_by_id:
                 lp.write(id=r._id, feature_id_1=r.feature1._id,
@@ -2828,7 +2854,16 @@ class _DerivedDistanceRestraintDumper(Dumper):
                          restraint_type=r.distance.restraint_type,
                          distance_lower_limit=r.distance.distance_lower_limit,
                          distance_upper_limit=r.distance.distance_upper_limit,
+                         distance_lower_limit_esd=(
+                             r.distance.distance_lower_limit_esd),
+                         distance_upper_limit_esd=(
+                             r.distance.distance_upper_limit_esd),
+                         distance_threshold_mean=(
+                             r.distance.distance_threshold_mean),
+                         distance_threshold_esd=(
+                             r.distance.distance_threshold_esd),
                          probability=r.probability, mic_value=r.mic_value,
+                         random_exclusion_fraction=r.random_exclusion_fraction,
                          group_conditionality=condmap[r.restrain_all],
                          dataset_list_id=r.dataset._id if r.dataset else None)
 

@@ -13,13 +13,14 @@ import json
 import logging
 import math
 import os
+import random
 import threading
 import time
 import weakref
 from collections.abc import Callable
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple, TypeVar, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -58,6 +59,7 @@ from bitfab.transport_types import (
     CarrierMeta,
     CarrierRef,
     DeliveryError,
+    DeliveryReceipt,
     TraceTransport,
 )
 from bitfab.warn_once import warn_once
@@ -290,11 +292,9 @@ class DeliveryReport(NamedTuple):
     span_count: int
     # A closing carrier was submitted, so the expected set is final.
     closed: bool
-    # Every carrier submitted under this trace came back accepted.
     delivered: bool
-    # The server's assigned traces.id, read back off the OTLP ingest response.
-    # None when the server predates this field or nothing was acked yet.
     server_trace_id: str | None = None
+    queued: bool = False
 
 
 class _TraceDelivery:
@@ -303,6 +303,7 @@ class _TraceDelivery:
         self.acked_span_ids: set[str] = set()
         self.closed = False
         self.closing_acked = False
+        self.queued = False
         self.server_trace_id: str | None = None
 
 
@@ -329,6 +330,72 @@ def _raise_for_status(response: requests.Response) -> None:
         raise requests.exceptions.HTTPError(
             f"{error}: {reason}", response=error.response, request=error.request
         ) from error
+
+
+_T = TypeVar("_T")
+
+TRANSIENT_RETRY_DEADLINE_SECONDS = 300.0
+_TRANSIENT_RETRY_BASE_DELAY_SECONDS = 1.0
+_TRANSIENT_RETRY_MAX_DELAY_SECONDS = 30.0
+
+
+def _is_transient_failure(error: Exception) -> bool:
+    if isinstance(error, requests.exceptions.HTTPError):
+        response = error.response
+        return response is not None and response.status_code >= 500
+    return isinstance(
+        error, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+    )
+
+
+def _transient_retry_delay(retry_number: int) -> float:
+    ceiling = min(
+        _TRANSIENT_RETRY_MAX_DELAY_SECONDS,
+        _TRANSIENT_RETRY_BASE_DELAY_SECONDS * 2 ** (retry_number - 1),
+    )
+    return ceiling * random.uniform(0.5, 1.0)
+
+
+def _requested_retry_seconds(error: Exception) -> float | None:
+    response = getattr(error, "response", None)
+    if response is None:
+        return None
+    requested_ms = _parse_retry_after_ms(response.headers.get("Retry-After"))
+    return None if requested_ms is None else requested_ms / 1_000
+
+
+def retry_transient_failures(
+    send: Callable[[], _T],
+    description: str,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> _T:
+    started = clock()
+    retry_number = 0
+    while True:
+        try:
+            return send()
+        except Exception as error:
+            if not _is_transient_failure(error):
+                raise
+            retry_number += 1
+            requested = _requested_retry_seconds(error)
+            delay = (
+                requested
+                if requested is not None
+                else _transient_retry_delay(retry_number)
+            )
+            if clock() + delay - started > TRANSIENT_RETRY_DEADLINE_SECONDS:
+                raise
+            logger.debug(
+                "Bitfab: %s failed (%s), retry %d in %.1fs",
+                description,
+                error,
+                retry_number,
+                delay,
+            )
+            sleep(delay)
 
 
 def _parse_retry_after_ms(header: str | None) -> float | None:
@@ -597,7 +664,9 @@ class HttpClient:
                 )
             return self._trace_transport
 
-    def _deliver_carriers(self, request: PreparedRequest, timeout: float) -> None:
+    def _deliver_carriers(
+        self, request: PreparedRequest, timeout: float
+    ) -> DeliveryReceipt:
         """Post one encoded batch and decide what the server's answer means, so
         the transport never reads a response. Rejections and permanent statuses
         come back as a non-retryable DeliveryError; anything the server might
@@ -652,6 +721,7 @@ class HttpClient:
                 f"OTLP ingestion rejected {rejected} span(s): "
                 f"{partial_success.get('errorMessage', 'no reason provided')}"
             )
+        return DeliveryReceipt(queued=response.get("accepted") is True)
 
     def track_trace_deliveries(self, trace_ids: list[str]) -> None:
         """Start tracking delivery for trace_ids. Nothing is recorded for a
@@ -688,9 +758,11 @@ class HttpClient:
                 reports[trace_id] = DeliveryReport(
                     len(delivery.submitted_span_ids),
                     delivery.closed,
-                    delivery.closing_acked
+                    not delivery.queued
+                    and delivery.closing_acked
                     and delivery.submitted_span_ids.issubset(delivery.acked_span_ids),
                     delivery.server_trace_id,
+                    delivery.queued,
                 )
         return reports
 
@@ -731,18 +803,13 @@ class HttpClient:
             else:
                 delivery.submitted_span_ids.add(ref.span_id)
 
-    def _record_delivered_carriers(self, refs: list[CarrierRef]) -> None:
-        """Ingestion commits every carrier in a request before it answers, so a
-        delivered ref is proof its row exists: the same fact the replay status
-        endpoint would report, already in hand.
-
-        Called on exporter threads, hence the lock.
-        """
+    def _record_delivered_carriers(self, refs: list[CarrierRef], queued: bool) -> None:
         with self._delivery_lock:
             for ref in refs:
                 delivery = self._trace_deliveries.get(ref.trace_id)
                 if delivery is None:
                     continue
+                delivery.queued = delivery.queued or queued
                 if ref.span_id is None:
                     delivery.closing_acked = True
                 else:
@@ -848,6 +915,7 @@ class HttpClient:
         request_timeout = timeout if timeout is not None else self.timeout
         if prepared.content_encoding is not None:
             headers["Content-Encoding"] = prepared.content_encoding
+        headers.update(prepared.headers or {})
 
         last_exception: Exception | None = None
 
@@ -1239,7 +1307,9 @@ class HttpClient:
     ) -> dict[str, Any]:
         """Fetch one span as recorded, by its Bitfab span ID.
 
-        Blocking call using GET request.
+        Blocking call using GET request. A 5xx, connection error, or timeout is retried for up to five
+        minutes, waiting as long as the server's ``Retry-After`` asks or
+        backing off otherwise; a 4xx is raised at once.
 
         Args:
             span_id: The Bitfab span ID
@@ -1252,9 +1322,9 @@ class HttpClient:
             that predate the rename).
         """
         query = "?view=replay" if replay_view else ""
-        return self.get(
-            f"/api/sdk/spans/{span_id}/raw{query}",
-            timeout=30,
+        return retry_transient_failures(
+            lambda: self.get(f"/api/sdk/spans/{span_id}/raw{query}", timeout=30),
+            f"fetching span {span_id}",
         )
 
     def get_span_tree(
@@ -1300,7 +1370,10 @@ class HttpClient:
     def complete_replay(self, experiment_id: str) -> dict[str, Any]:
         """Mark a replay experiment as completed.
 
-        Blocking call.
+        Blocking call. A 5xx, connection error, or timeout is retried for up to five
+        minutes, waiting as long as the server's ``Retry-After`` asks or
+        backing off otherwise; a 4xx is raised at once. Completing twice is
+        safe, so a retry after a lost response does no harm.
 
         Args:
             experiment_id: The experiment ID to complete
@@ -1308,10 +1381,14 @@ class HttpClient:
         Returns:
             The parsed JSON response
         """
-        return self.request(
-            "/api/sdk/replay/complete",
-            {"experimentId": experiment_id, "testRunId": experiment_id},
-            timeout=_REPLAY_COMPLETE_REQUEST_TIMEOUT_SECONDS,
+        return retry_transient_failures(
+            lambda: self.request(
+                "/api/sdk/replay/complete",
+                {"experimentId": experiment_id, "testRunId": experiment_id},
+                timeout=_REPLAY_COMPLETE_REQUEST_TIMEOUT_SECONDS,
+                log_errors=False,
+            ),
+            f"completing replay experiment {experiment_id}",
         )
 
     def interrupt_replay(self, experiment_id: str) -> bool:

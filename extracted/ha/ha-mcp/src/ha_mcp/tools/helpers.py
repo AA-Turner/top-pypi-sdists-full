@@ -5,7 +5,6 @@ Centralized utilities that can be shared across multiple tool implementations.
 """
 
 import functools
-import inspect
 import json
 import logging
 import re
@@ -68,7 +67,12 @@ def raise_tool_error(error_response: dict[str, Any]) -> NoReturn:
         ... )
         >>> raise_tool_error(error)  # Raises ToolError with isError=true
     """
-    raise ToolError(
+    raise tool_error_from_response(error_response)
+
+
+def tool_error_from_response(error_response: dict[str, Any]) -> ToolError:
+    """Build the ``ToolError`` that :func:`raise_tool_error` raises."""
+    return ToolError(
         json.dumps(error_response, indent=2, default=str),
         log_level=TOOL_ERROR_LOG_LEVEL,
     )
@@ -149,7 +153,8 @@ def extract_structured_error_reason(exc: BaseException) -> str | None:
         else error.get("suggestion")
     )
     if isinstance(first, str) and first:
-        return f"{message} {first}"
+        separator = " " if message[-1] in ".!?:" else ". "
+        return f"{message}{separator}{first}"
     return message
 
 
@@ -422,7 +427,9 @@ def _classify_exception(
                 error_msg,
                 suggestions=[
                     "Use a long-lived access token from an administrator's profile",
-                    "Or use the in-process server, which provisions its own admin token",
+                    "Or, on the in-process server, use a token issued in the "
+                    + "integration's forms from the login of a local-only "
+                    + "administrator account",
                 ],
                 context=context,
             )
@@ -813,46 +820,18 @@ def clear_or_keep(value: str | None, param_name: str) -> str | None:
     return None if value is None else clearable_value(value, param_name) or ""
 
 
-class _HiddenParam:
-    """Annotated marker for a parameter left out of the published input schema."""
-
-
-# Argument validation runs on the function signature, not the published schema,
-# so a hidden parameter is still accepted from callers that pass it.
-HIDDEN_PARAM = _HiddenParam()
-
-
-def hidden_param_names(fn: Any) -> frozenset[str]:
-    """Names of ``fn``'s parameters annotated with ``HIDDEN_PARAM``."""
-    try:
-        signature = inspect.signature(fn, eval_str=True)
-    except NameError:
-        # A string annotation naming a TYPE_CHECKING-only import can't resolve.
-        signature = inspect.signature(fn)
-    return frozenset(
-        name
-        for name, param in signature.parameters.items()
-        if HIDDEN_PARAM in getattr(param.annotation, "__metadata__", ())
-    )
-
-
 def register_tool_methods(mcp: Any, instance: Any) -> None:
     """Register all @tool-decorated methods from a class instance with the MCP server.
 
     Discovers methods bearing a ``__fastmcp__`` attribute (set by the outermost
     ``@tool`` decorator — must be listed above ``@log_tool_usage``) and registers
-    them via ``mcp.add_tool()``, dropping ``HIDDEN_PARAM`` parameters from the
-    published schema.
+    them via ``mcp.add_tool()``.
     """
     count = 0
     for attr in dir(instance):
         method = getattr(instance, attr)
         if callable(method) and hasattr(method, "__fastmcp__"):
-            registered = mcp.add_tool(method)
-            properties = getattr(registered, "parameters", {}).get("properties")
-            if isinstance(properties, dict):
-                for name in hidden_param_names(method):
-                    properties.pop(name, None)
+            mcp.add_tool(method)
             count += 1
     if count == 0:
         logger.warning(f"No @tool-decorated methods found on {type(instance).__name__}")

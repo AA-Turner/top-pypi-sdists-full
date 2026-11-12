@@ -19,11 +19,14 @@ Adaptive Parameter-Free Learner" (https://arxiv.org/abs/2306.06101) by
 Konstantin Mishchenko and Aaron Defazio. A new variant of D-Adapt Adam that
 adapts the learning rate faster.
 """
-from typing import NamedTuple, Optional
+from collections.abc import Callable
+from typing import Any, NamedTuple, Optional, Union
+
 import jax
 import jax.numpy as jnp
 from optax._src import base
 from optax._src import numerics
+from optax.transforms import _adding
 import optax.tree
 
 
@@ -51,6 +54,8 @@ def prodigy(
     estim_lr_coef: jax.typing.ArrayLike = 1.0,
     weight_decay: jax.typing.ArrayLike = 0.0,
     safeguard_warmup: bool = False,
+    weight_decay_mask: Optional[
+        Union[Any, Callable[[base.Params], Any]]] = None,
 ) -> base.GradientTransformationExtraArgs:
   """Learning rate free AdamW with Prodigy.
 
@@ -74,6 +79,12 @@ def prodigy(
       with add_decayed_weights.
     safeguard_warmup: Remove lr from the denominator of D estimate to avoid
       issues during warm-up stage. Off by default.
+    weight_decay_mask: A tree with same structure as (or a prefix of) the params
+      PyTree, or a Callable that returns such a pytree given the params/updates.
+      The leaves should be booleans, ``True`` for leaves/subtrees you want to
+      apply the weight decay to, and ``False`` for those you want to skip. The
+      mask must be static for the gradient transformation to be jit-compilable.
+      Passed through to :func:`optax.add_decayed_weights`.
 
   Returns:
     A :class:`optax.GradientTransformation` object.
@@ -85,6 +96,10 @@ def prodigy(
   beta1, beta2 = betas
   if beta3 is None:
     beta3 = beta2**0.5
+  # Applies (masked) decoupled weight decay. This is stateless, so it can be
+  # applied inline within `update_fn`.
+  # pyrefly: ignore[bad-argument-type]
+  decay_tx = _adding.add_decayed_weights(weight_decay, weight_decay_mask)
 
   def init_fn(params: base.Params) -> ProdigyState:
     # Define state parameters with the lowest dtype of the parameters to avoid
@@ -127,7 +142,8 @@ def prodigy(
     estim_lr = state.estim_lr
     numerator_weighted = state.numerator_weighted
     bc = ((1 - beta2**count_inc) ** 0.5) / (1 - beta1**count_inc)
-    dlr = jnp.asarray(estim_lr * sched * bc, dtype=estim_lr.dtype)  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+    # pyrefly: ignore [missing-attribute]
+    dlr = jnp.asarray(estim_lr * sched * bc, dtype=estim_lr.dtype)
     dg = jax.tree.map(lambda g: estim_lr * g, updates)
     param_diff = jax.tree.map(lambda p0, p: p0 - p, params0, params)
     numerator_acum = optax.tree.vdot(updates, param_diff)
@@ -152,13 +168,17 @@ def prodigy(
     denominator = optax.tree.sum(jax.tree.map(jnp.abs, grad_sum))
     lr_estimate = estim_lr_coef * numerator_weighted / denominator
     estim_lr = jnp.maximum(state.estim_lr, lr_estimate)
-    p_update = jax.tree.map(
-        lambda ea, eas, p: -weight_decay * dlr * p
-        - dlr * ea / (jnp.sqrt(eas) + estim_lr * eps),
+
+    # Factor out `-dlr` so that the decay scale is the plain `weight_decay`,
+    # letting us reuse `add_decayed_weights` (which also handles the masking).
+    ascent_dir = jax.tree.map(
+        lambda ea, eas: ea / (jnp.sqrt(eas) + estim_lr * eps),
         exp_avg,
         exp_avg_sq,
-        params,
     )
+    ascent_dir, _ = decay_tx.update(ascent_dir, decay_tx.init(params), params)
+    p_update = optax.tree.scale(-dlr, ascent_dir)
+
     new_state = ProdigyState(
         exp_avg,
         exp_avg_sq,
@@ -170,4 +190,5 @@ def prodigy(
     )
     return p_update, new_state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformationExtraArgs(init_fn, update_fn)

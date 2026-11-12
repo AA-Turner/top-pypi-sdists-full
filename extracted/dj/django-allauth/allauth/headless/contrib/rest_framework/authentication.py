@@ -4,9 +4,19 @@ from django.http import HttpRequest
 
 from rest_framework import authentication
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.request import Request
 
+from allauth.core import context
 from allauth.headless import app_settings
+from allauth.headless.adapter import get_adapter
 from allauth.headless.internal.sessionkit import authenticate_by_x_session_token
+from allauth.usersessions.internal import usersessionkit
+
+
+def _get_http_request(request: HttpRequest | Request) -> HttpRequest:
+    if isinstance(request, Request):
+        return request._request
+    return request
 
 
 class XSessionTokenAuthentication(authentication.BaseAuthentication):
@@ -15,10 +25,33 @@ class XSessionTokenAuthentication(authentication.BaseAuthentication):
     is using for authentication purposes.
     """
 
+    # These defaults match DRF's SessionAuthentication which also never returns
+    # a 401/403, but relies on permission classes to do so.
+    allow_anonymous_users = True
+    allow_invalid_session_tokens = True
+
     def authenticate(self, request: HttpRequest):
         token = self.get_session_token(request)
         if token:
-            return authenticate_by_x_session_token(token)
+            result = authenticate_by_x_session_token(token)
+            if result is None:
+                if not self.allow_invalid_session_tokens:
+                    message = get_adapter().error_messages["invalid_token"]
+                    raise AuthenticationFailed(message)
+                return None
+            if result.user is None:
+                if not self.allow_anonymous_users:
+                    raise AuthenticationFailed()
+                return None
+            usersessionkit.track_activity(
+                _get_http_request(request), user=result.user, session=result.session
+            )
+            return result.user, result.session
+        return None
+
+    def authenticate_header(self, request: HttpRequest) -> str | None:
+        if not self.allow_anonymous_users or not self.allow_invalid_session_tokens:
+            return "X-Session-Token"
         return None
 
     def get_session_token(self, request: HttpRequest) -> str | None:
@@ -42,11 +75,13 @@ class JWTTokenAuthentication(authentication.TokenAuthentication):
         """
         Validates the given access token.
         """
-        from allauth.headless.tokens.strategies.jwt.internal import (
-            validate_access_token,
-        )
+        from allauth.headless.tokens.strategies.jwt import internal
 
-        user_payload = validate_access_token(key)
-        if user_payload is None:
-            raise AuthenticationFailed("Invalid token.")
-        return user_payload
+        result = internal.validate_access_token(key)
+        if result is None:
+            message = get_adapter().error_messages["invalid_token"]
+            raise AuthenticationFailed(message)
+        usersessionkit.track_activity(
+            context.request, user=result.user, session=result.session
+        )
+        return result.user, result.payload

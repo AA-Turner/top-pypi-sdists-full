@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-opamp-client
-Version: 0.5b0
+Version: 0.6b0
 Summary: OpenTelemetry OpAMP client
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/opamp/opentelemetry-opamp-client
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib

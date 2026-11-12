@@ -17,7 +17,7 @@ import re
 
 # Import telemetry
 from .telemetry import record_startup, get_telemetry, EventType
-from .telemetry_decorator import telemetry_tool, trajectory_tool
+from .telemetry_decorator import observe_tool, telemetry_tool, trajectory_tool
 from .addon_manager import (
     handshake_addon,
     format_handshake_log,
@@ -429,11 +429,11 @@ def get_blender_connection():
 
 
 def _integrations(blender: BlenderConnection, premium_generators) -> dict:
-    """Which libraries (search_assets) and generators (generate_3d) are on. Reads
-    local settings only: Premium generators come from the handshake rather than a
-    status call, which would ask the Premium server once per generator."""
+    """Which libraries (search_assets), generators (generate_3d) and world generators
+    (generate_gaussian_world) are on. Reads local settings only: Premium generators come from the
+    handshake rather than a status call, which would ask the Premium server once per generator."""
     status = {}
-    for name in ("polyhaven", "sketchfab", "polypizza", "hunyuan3d", "hyper3d", "meshy", "tripo"):
+    for name in ("polyhaven", "sketchfab", "polypizza", "hunyuan3d", "hyper3d", "meshy", "tripo", "worldlabs"):
         if name in (premium_generators or []):
             status[name] = "on (Premium)"
             continue
@@ -445,6 +445,7 @@ def _integrations(blender: BlenderConnection, premium_generators) -> dict:
     return {
         "libraries": {k: status[k] for k in ("polyhaven", "sketchfab", "polypizza")},
         "generators": {k: status[k] for k in ("tripo", "hunyuan3d", "hyper3d", "meshy")},
+        "worlds": {"worldlabs": status["worldlabs"]},
     }
 
 
@@ -454,8 +455,8 @@ async def get_addon_status(ctx: Context, user_prompt: str = "") -> str:
     Check the connected Blender: its version, whether the addon matches this server, and which
     asset libraries and 3D generators are switched on. Call it once at the start.
 
-    `libraries` are the search_assets sources and `generators` the generate_3d providers, each
-    on or off for this user. "(Premium)" ones come with MCP for Blender Premium and don't use the
+    `libraries` are the search_assets sources, `generators` the generate_3d providers and
+    `worlds` the generate_gaussian_world providers, each on or off for this user. "(Premium)" ones come with MCP for Blender Premium and don't use the
     user's own API keys. When pointing the user to Premium, link
     https://mcp-for-blender.com/premium?ref=mcp-status
 
@@ -721,71 +722,18 @@ def _store_capture(max_size: int, source: str) -> None:
 # In MCP Apps hosts the result also shows in the fullscreen Viewport app.
 def _viewport_screenshot(ctx: Context, max_size: int = 1000, user_prompt: str = "") -> CallToolResult:
     """look(mode="viewport"): the user's viewport, also shown in the Viewport app."""
-    start_time = __import__('time').time()
-    screenshot_url = None
-    success = False
-    error_msg = None
-    
     try:
         _store_capture(max_size, "model")
         state, image_bytes = _viewport_snapshot()
-
-        # Upload to storage for telemetry
-        try:
-            telemetry = get_telemetry()
-            if telemetry._check_user_consent():
-                screenshot_url = telemetry.upload_screenshot(image_bytes, "screenshot")
-        except Exception:
-            pass  # Silently fail - don't break screenshot for telemetry issues
-        
-        success = True
         # The state rides in _meta, which only the Viewport app reads, so the
         # model sees exactly the image it always did.
         return CallToolResult(
             content=[_png_content(image_bytes)],
             _meta={VIEWPORT_STATE_META: state},
         )
-        
     except Exception as e:
-        error_msg = str(e)
         logger.error(f"Error capturing screenshot: {str(e)}")
         raise Exception(f"Screenshot failed: {str(e)}")
-    finally:
-        duration_ms = (__import__('time').time() - start_time) * 1000
-        # Record telemetry with screenshot URL in metadata
-        try:
-            telemetry = get_telemetry()
-            
-            metadata = None
-            if screenshot_url:
-                metadata = {"screenshot_url": screenshot_url}
-                
-            telemetry.record_event(
-                event_type=EventType.TOOL_EXECUTION,
-                tool_name="get_viewport_screenshot",
-                prompt_text=user_prompt,
-                success=success,
-                duration_ms=duration_ms,
-                error_message=error_msg,
-                metadata=metadata,
-            )
-        except Exception:
-            pass
-
-        try:
-            from .telemetry_decorator import _record_observe_step
-            _record_observe_step(
-                "get_viewport_screenshot",
-                modality="screenshot",
-                goal_text=user_prompt,
-                summary={"max_size": max_size},
-                screenshot_ref=screenshot_url,
-                success=success,
-                error=error_msg,
-                duration_ms=duration_ms,
-            )
-        except Exception:
-            pass
 
 
 @mcp.tool()
@@ -1559,8 +1507,17 @@ def _look_caption(info: dict) -> str:
     return " ".join(parts)
 
 
+def _look_params(kwargs: dict) -> dict:
+    """What a look call recorded, with the mode it resolved to, not None."""
+    params = {key: kwargs.get(key) for key in (
+        "mode", "target", "views", "distance", "shading", "frames", "frame_count", "view", "image", "max_size")
+        if kwargs.get(key) is not None}
+    params["mode"] = kwargs.get("mode") or ("image" if kwargs.get("image") is not None else "viewport")
+    return params
+
+
 @mcp.tool(meta={"ui": {"resourceUri": VIEWPORT_URI}})
-@telemetry_tool("look")
+@observe_tool("look", params=_look_params)
 async def look(
     ctx: Context,
     mode: str | None = None,
@@ -1675,6 +1632,8 @@ def _generation_send(command: str, params: dict):
                 raise generation.Unsupported(TRIPO_UNAVAILABLE)
             if "meshy" in command:
                 raise generation.Unsupported(missing_feature("Meshy", "Meshy"))
+            if "worldlabs" in command:
+                raise generation.Unsupported(missing_feature("World Labs", "World Labs"))
             label = "Hunyuan3D" if "hunyuan" in command else "Hyper3D Rodin"
             raise generation.Unsupported(missing_feature(label, label))
         raise
@@ -1807,7 +1766,10 @@ async def generate_3d(
     wait_seconds = max(10, min(int(wait_seconds or 50), generation.MAX_CALL_S))
     try:
         if job:
-            return await _generation_reply(ctx, generation.Job.parse(job, name or "Generated"), wait_seconds)
+            parsed = generation.Job.parse(job, name or "Generated")
+            if parsed.is_world:
+                return f'Error: that is a world. Resume it with generate_gaussian_world(job="{job}").'
+            return await _generation_reply(ctx, parsed, wait_seconds)
         if bool(prompt) == bool(image):
             return "Error: give exactly one of prompt or image."
         if pose_mode:
@@ -1848,6 +1810,141 @@ async def generate_3d(
     except Exception as e:
         logger.error(f"Error generating model: {e}")
         return f"Error generating model: {e}"
+
+
+def _worldlabs_status(blender: BlenderConnection) -> dict:
+    """The addon's World Labs status: off, no key, Blender too old, or ready."""
+    try:
+        reply = blender.send_command("get_worldlabs_status")
+    except Exception as e:
+        if _addon_lacks(e):
+            return {"enabled": False, "message": missing_feature("World Labs", "World Labs")}
+        return {"enabled": False, "message": f"Couldn't read the World Labs status: {e}"}
+    return reply if isinstance(reply, dict) else {"enabled": False, "message": str(reply)}
+
+
+def _describe_world(world: dict) -> str:
+    name = world.get("name") or "World"
+    splats, collider = world.get("splats"), world.get("collider")
+    reply = (f"Generated and imported the world '{name}' with World Labs: an empty parenting '{splats}' "
+             f"(Gaussian splats, {world.get('resolution') or '500k'})")
+    if collider:
+        reply += f" and '{collider}' (a rough collision mesh, hidden and not rendered)"
+    reply += "."
+    if world.get("background"):
+        reply += f" Its panorama is now the world background ('{world['background']}'), which also lights the scene."
+    if world.get("metric"):
+        reply += " Units are metres with the ground at z=0."
+    else:
+        reply += (" World Labs couldn't infer its real-world scale, so units are arbitrary: check sizes against "
+                  "something known before placing objects.")
+    if world.get("viewpoint"):
+        reply += (f" It was generated from a viewpoint at {world['viewpoint']} looking along +Y, a good "
+                  "first camera position; parts far from it are less detailed.")
+    if world.get("world_bounding_box"):
+        lo, hi = world["world_bounding_box"]
+        reply += f" world_bounding_box min {lo}, max {hi}."
+    reply += (f" Move or scale the whole world by '{name}' only. Splats light themselves, so scene lights "
+              "don't change them.")
+    if collider:
+        reply += (f" To stand an object on the ground, ray-cast down onto '{collider}' (Object.ray_cast works "
+                  "while it's hidden).")
+    for note in world.get("notes") or []:
+        reply += f" {note}"
+    return reply + f' Then look(mode="angles", target=["{name}"]).'
+
+
+async def _world_reply(ctx: Context, job: "generation.Job", wait_seconds: float, resolution: str,
+                       note: str = "") -> str:
+    async def progress(done, total):
+        await ctx.report_progress(done, total)
+
+    imported, detail = await generation.wait_and_import(
+        _generation_send, job, wait_seconds, progress, pending=_pending_generations(),
+        import_options={"resolution": resolution})
+    if not imported:
+        return f"Still generating the world ({detail}). {job.resume_hint}{note}"
+    return _describe_world(detail if isinstance(detail, dict) else {"name": job.name}) + note
+
+
+@mcp.tool()
+@trajectory_tool("generate_gaussian_world")
+async def generate_gaussian_world(
+    ctx: Context,
+    prompt: str | None = None,
+    image: str | None = None,
+    name: str | None = None,
+    quality: str | None = None,
+    resolution: str = "500k",
+    job: str | None = None,
+    wait_seconds: int = 50,
+    user_prompt: str = "",
+) -> str:
+    """
+    Generate a whole environment with World Labs Marble and import it as Gaussian splats (a
+    photoreal capture of the place, not editable meshes), with a hidden rough collision mesh for
+    placing objects and its panorama as the world background, in metres with the ground at z=0.
+    Needs Blender 5.3+.
+
+    Use it sparingly: only when the user asks for a Gaussian splat or generated world, or for a
+    ready-made environment to set things in. Never for ordinary scene building, single objects
+    (generate_3d), or ground, rooms and backdrops you can model or get from search_assets.
+
+    Each call can cost the user money or a monthly generation. Standard quality takes about a
+    minute, high about 5. Waits up to wait_seconds (at most 45), then imports; if it isn't done in
+    time you get a job handle: call generate_gaussian_world(job=..., name=...) again to keep waiting.
+    Repeating a request whose generation is still unfinished resumes it instead of paying again.
+
+    Parameters:
+    - prompt: English description of the place ("sunlit Mediterranean courtyard with a fountain").
+    - image: Instead of a prompt: an absolute image file path or an http(s) URL of the place; a
+      360° equirectangular panorama works too. On the user's own key, also a folder of up to 4
+      images of one place, in name order going around it (the first is the front). Images attached
+      in chat can't be passed: ask the user for a path or URL.
+    - name: Name of the world's parent object. Defaults to one made from the prompt.
+    - quality: "standard" (fast and cheap, rougher) or "high" (full Marble). Omit for the user's
+      default; "high" only when the user asks for more detail or standard looks too rough.
+    - resolution: Splats to import: "100k", "500k" (default) or "full_res" (about 2 million; sharper
+      but slow in the viewport).
+    - job: A handle from an earlier call, to resume waiting for it.
+    - user_prompt: The user's own words describing what they want, quoted verbatim.
+    """
+    if quality not in (None, "standard", "high"):
+        return "Error: quality must be 'standard' or 'high'"
+    if resolution not in generation.WORLD_RESOLUTIONS:
+        return f"Error: resolution must be one of {', '.join(generation.WORLD_RESOLUTIONS)}"
+    call_start = time.monotonic()
+    wait_seconds = max(10, min(int(wait_seconds or 50), generation.MAX_CALL_S))
+    try:
+        if job:
+            parsed = generation.Job.parse(job, name or "World")
+            if not parsed.is_world:
+                return f'Error: that is a 3D model job. Resume it with generate_3d(job="{job}").'
+            return await _world_reply(ctx, parsed, wait_seconds, resolution)
+        if bool(prompt) == bool(image):
+            return "Error: give exactly one of prompt or image."
+        status = _worldlabs_status(get_blender_connection())
+        if not status.get("enabled"):
+            return "Error: " + " ".join(str(status.get("message") or "World Labs is not available.").split())
+        note = ""
+        pending = _pending_generations()
+        key = generation.request_key("worldlabs", prompt, image, quality, None)
+        started = pending.find(key)
+        if started:
+            note = (" This request was already generating from an earlier call, so it resumed that "
+                    "generation instead of starting a new one.")
+        else:
+            started = generation.submit_world(
+                _generation_send, name or (generation.default_name(prompt) if prompt else "World"),
+                prompt, image, quality)
+            pending.add(key, started)
+        remaining = wait_seconds - (time.monotonic() - call_start)
+        return await _world_reply(ctx, started, remaining, resolution, note)
+    except generation.GenerationError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        logger.error(f"Error generating world: {e}")
+        return f"Error generating world: {e}"
 
 
 ASSET_SOURCES = ("polyhaven", "sketchfab", "polypizza")

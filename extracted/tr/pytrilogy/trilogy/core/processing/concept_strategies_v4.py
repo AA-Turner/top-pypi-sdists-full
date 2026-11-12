@@ -28,7 +28,7 @@ from contextlib import nullcontext
 
 from trilogy.constants import logger
 from trilogy.core import graph as nx
-from trilogy.core.enums import Derivation
+from trilogy.core.enums import Derivation, Granularity
 from trilogy.core.exceptions import UnbuiltGroupException
 from trilogy.core.graph_models import ReferenceGraph
 from trilogy.core.models.build import (
@@ -50,6 +50,7 @@ from trilogy.core.processing.aggregate_rollup import (
     _datasource_has_matching_rollup_aggregate,
     _is_rollable_aggregate,
     at_own_grain,
+    coarse_gate,
     filter_finer_row_args,
     holds_every_kept_row,
     joinable_property,
@@ -850,7 +851,14 @@ def _rollup_sources(
     summaries read."""
     out: list[BuildDatasource] = []
     sources: list[BuildDatasource | BuildUnionDatasource] = [*datasources, *unions]
+    gated = _coarse_gate_beside_row_columns(where, target_grain)
     for source in sources:
+        if (
+            gated
+            and isinstance(source, BuildDatasource)
+            and _coarse_gate(where, source, environment)
+        ):
+            continue
         if not holds_every_kept_row(source, where):
             continue
         if isinstance(source, BuildDatasource) and not (
@@ -881,6 +889,33 @@ def _rollup_sources(
                 else [source]
             )
     return out
+
+
+def _coarse_gate(
+    where: BuildWhereClause | None,
+    source: BuildDatasource,
+    environment: BuildEnvironment,
+) -> bool:
+    """The WHERE reads an aggregate coarser than `source`'s grain (`sum(x) by
+    city` beside `(city, species)`): its value is a re-sum the joined plan
+    computes in its own group."""
+    return where is not None and any(
+        coarse_gate(c, source, environment.concepts) for c in where.row_arguments
+    )
+
+
+def _coarse_gate_beside_row_columns(
+    where: BuildWhereClause | None, target_grain: BuildGrain
+) -> bool:
+    """A row column beside the gate that the target does not group by
+    (`species != 'Tilia'` at `tree_form`) widens the pinned request past the
+    target, and the search that takes over re-aggregates the gate at it."""
+    return where is not None and any(
+        not c.is_aggregate
+        and c.granularity != Granularity.SINGLE_ROW
+        and c.address not in target_grain.components
+        for c in where.row_arguments
+    )
 
 
 def _nested_rollup_roots(

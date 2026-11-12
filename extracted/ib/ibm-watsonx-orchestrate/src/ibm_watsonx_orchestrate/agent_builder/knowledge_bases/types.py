@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 from enum import Enum
 
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, ConfigDict
 
 
 class SpecVersion(str, Enum):
@@ -336,6 +336,10 @@ class QuerySource(str, Enum):
     Agent = "Agent"
 
 
+class AclRetrieval(BaseModel):
+    enabled: bool = False
+
+
 class ConversationalSearchConfig(BaseModel):
     language: Optional[str] = None
     index_config: list[IndexConnection] = None
@@ -347,7 +351,8 @@ class ConversationalSearchConfig(BaseModel):
     query_source: QuerySource = QuerySource.Agent
     agent_query_description: str = "The query to search for in the knowledge base"
     supports_full_document: Optional[bool] = None
-    
+    acl_retrieval: Optional[AclRetrieval] = None
+
     # Dynamic input schema support
     input_schema: Optional[Dict[str, Any]] = None
 
@@ -407,6 +412,8 @@ class ContentSourceType(str, Enum):
 
 class ContentSourceConfig(BaseModel):
     """Configuration for the external content source of a knowledge base."""
+    model_config = ConfigDict(extra="ignore")
+
     type: ContentSourceType = Field(
         ...,
         description="Type of external source (box, sharepoint, google_drive, etc.)"

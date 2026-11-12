@@ -574,6 +574,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         workspace_model = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
         )
+        command = self._in_default_dir(workspace_model.id, command)
         host_name, config_file = self.generate_ssh_config_file(id=workspace_model.id)
 
         # Prefer the HTTPS tunnel (legacy port-22 SSH is unreachable on k8s);
@@ -610,6 +611,28 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             ["ssh"] + ANYSCALE_WORKSPACES_SSH_OPTIONS + ["-F", config_file, host_name, command],
             check=kwargs.pop("check", False),
             **kwargs,
+        )
+
+    def _in_default_dir(self, workspace_id: str, command: str) -> str:
+        """Prefix ``command`` with a cd into the workspace's default directory.
+
+        On the Kubernetes stack the sshd inside the Ray container starts the session in
+        $HOME, not the working dir, so a command would run in /home/ray and a file it
+        writes would never reach `workspace_v2 pull`. The VM stack's shell wrapper and
+        KubeRay's ssh_setup.sh already cd there, so on those the cd is a no-op.
+
+        Follows `workspace_v2 ssh`: a failed directory lookup raises (as it does for
+        `ssh` and `pull`), and a failed cd prints a warning to stderr and runs the
+        command where the session started, like `_create_directory_setup_command`.
+        """
+        default_dir_name = self.get_default_dir_name(id=workspace_id)
+        if not default_dir_name:
+            raise ValueError(f"Workspace '{workspace_id}' has no default directory.")
+        return (
+            f"cd ~/{shlex.quote(default_dir_name)} 2>/dev/null"
+            ' || echo "Warning: could not cd into the workspace directory;'
+            ' running in $PWD." >&2'
+            f"; {command}"
         )
 
     def get_default_dir_name(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instance-repo"
-version = "1.4.7"
+version = "1.7.0"
 description = "InstanceRepo SDK — 评测 Instance 统一存储客户端（SDK-only；控制面由 apiserver 承载）"
 requires-python = ">=3.10"
 readme = "README.md"

@@ -155,6 +155,10 @@ class OpenApiToolBinding(BaseModel):
     plugin_hook: Optional[str] = None
     context_request_body_path: Optional[str] = None # Sourced from x-ibm-orchestrate-inject-context.request_body_path in the OpenAPI spec.
     context_response_body_path: Optional[str] = None # Sourced from x-ibm-orchestrate-inject-context.response_body_path in the OpenAPI spec.
+    meta_response_header: Optional[bool] = None # Sourced from x-ibm-orchestrate-meta.response_header: read _meta from the X-IBM-Orchestrate-Meta response header.
+    meta_response_body_path: Optional[str] = None # Sourced from x-ibm-orchestrate-meta.response_body_path: read _meta from this response body key.
+    audience_response_header: Optional[bool] = None # Sourced from x-ibm-orchestrate-audience.response_header: read audience from the X-IBM-Orchestrate-Audience response header.
+    audience_response_body_path: Optional[str] = None # Sourced from x-ibm-orchestrate-audience.response_body_path: read audience from this response body key.
 
 
 class PythonToolBinding(BaseModel):
@@ -254,6 +258,7 @@ class ToolSpec(BaseModel):
     response_format: ToolResponseFormat = ToolResponseFormat.CONTENT
     workspace: Optional[str] = Field(None, description="Workspace name (will be resolved to workspace_id)")
     category: Optional[str] = None
+    supported_channels: Optional[List[str]] = None
     # Catalog-only fields (partner-native-tool.schema.json)
     kind: Optional[str] = None
     version: Optional[str] = None

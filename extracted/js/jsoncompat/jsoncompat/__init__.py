@@ -11,11 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, NoReturn, Protocol, TypedDict, cast
 
-if TYPE_CHECKING:
-    from jsoncompat._native import (
-        JSONCOMPAT_MISSING as JSONCOMPAT_MISSING,
-        JsoncompatMissingType as JsoncompatMissingType,
-    )
+from ._missing import MISSING as MISSING, MissingType as MissingType, is_missing as is_missing
 
 RoleLiteral = Literal["serializer", "deserializer", "both"]
 type JsonValue = (
@@ -76,6 +72,14 @@ class Validator(Protocol):
 
 
 class ModelRuntime(Protocol):
+    def _serialize_json_field(
+        self, instance: Any, name: str
+    ) -> tuple[dict[str, JsonValue], bytes | None]: ...
+
+    def _deserialize_json_field(
+        self, fields: dict[str, JsonValue], name: str, payload: bytes
+    ) -> Any | None: ...
+
     def construct_kwargs(
         self,
         kwargs: dict[str, Any],
@@ -112,11 +116,16 @@ class ModelRuntime(Protocol):
     ) -> str: ...
 
 
+class PreparedPattern(Protocol):
+    """Opaque immutable handle to a safely loaded, precompiled regular expression."""
+
+    @property
+    def identifier(self) -> str: ...
+
+
 class NativeModule(Protocol):
     ValidationError: type[ValueError]
     def prepare_schema(self, schema_json: str, options_json: str) -> str: ...
-    JSONCOMPAT_MISSING: Any
-    JsoncompatMissingType: type[Any]
 
     def check_compat(
         self,
@@ -136,6 +145,8 @@ class NativeModule(Protocol):
     def deserialize_json(self, payload: str | bytes) -> JsonValue: ...
 
     def serialize_json(self, value: JsonValue) -> str: ...
+
+    def load_prepared_pattern(self, data: bytes) -> PreparedPattern: ...
 
     def bind_prepared_model_runtimes(
         self,
@@ -219,7 +230,8 @@ def _load_repo_native() -> NativeModule:
     package_dir = Path(__file__).resolve().parent
     repo_root = package_dir.parent.parent
     target_roots = [repo_root / "target"]
-    if cargo_target_dir := os.environ.get("CARGO_TARGET_DIR"):
+    cargo_target_dir = os.environ.get("CARGO_TARGET_DIR")
+    if cargo_target_dir not in (None, ""):
         target_roots.insert(0, Path(cargo_target_dir).expanduser())
 
     native_profile = os.environ.get("JSONCOMPAT_NATIVE_PROFILE")
@@ -270,8 +282,9 @@ def _has_reusable_schema_api(module: object) -> bool:
         and hasattr(module, "deserialize_json")
         and hasattr(module, "serialize_json")
         and hasattr(module, "bind_prepared_model_runtimes")
-        and hasattr(module, "JSONCOMPAT_MISSING")
-        and hasattr(module, "JsoncompatMissingType")
+        and hasattr(module, "load_prepared_pattern")
+        and hasattr(module, "MISSING")
+        and hasattr(module, "MissingType")
         and hasattr(validator, "is_valid_json")
         and hasattr(validator, "is_valid_value")
         and hasattr(validator, "_is_valid_borrowed_value")
@@ -331,18 +344,6 @@ else:
     _deserialize_json_native = _native_module.deserialize_json
     _serialize_json_native = _native_module.serialize_json
     _is_valid_native = _native_module.is_valid
-
-
-if not TYPE_CHECKING:
-    if _native_symbols is None:
-        # Ellipsis is Python's native, unforgeable singleton. It keeps source-only
-        # imports usable without maintaining a second missing-value implementation;
-        # installed wheels replace both names with the native jsoncompat singleton.
-        JsoncompatMissingType = type(Ellipsis)
-        JSONCOMPAT_MISSING = Ellipsis
-    else:
-        JsoncompatMissingType = _native_symbols.JsoncompatMissingType
-        JSONCOMPAT_MISSING = _native_symbols.JSONCOMPAT_MISSING
 
 
 # A ValueError subclass with kind, instance_path, schema_path, and keyword on
@@ -469,6 +470,13 @@ def serialize_json_value(value: JsonValue) -> str:
     return serialize_json_native(value)
 
 
+def load_prepared_pattern(data: bytes) -> PreparedPattern:
+    """Load and validate portable automata; never compile source expressions."""
+    if _native_symbols is None:
+        raise ModuleNotFoundError("jsoncompat._native is required to load prepared patterns")
+    return _native_symbols.load_prepared_pattern(data)
+
+
 def bind_prepared_model_runtimes(
     model_roots: list[tuple[type[Any], int]],
     descriptors: list[tuple[Any, ...]],
@@ -502,8 +510,8 @@ __all__ = [
     "RoleLiteral",
     "JsonValue",
     "Generator",
-    "JSONCOMPAT_MISSING",
-    "JsoncompatMissingType",
+    "MISSING",
+    "MissingType",
     "Validator",
     "check_compat",
     "analyze_compat",
@@ -515,6 +523,7 @@ __all__ = [
     "Unknown",
     "generate_value",
     "generator_for",
+    "is_missing",
     "is_valid",
     "validator_for",
 ]

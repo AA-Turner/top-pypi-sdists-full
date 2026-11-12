@@ -17,7 +17,7 @@ Config (handed over by the runner):
         or IPv6 address) is a startup config error: the
         extension refuses to start and names the key. An
         address is never substituted
-        (docs/design/present-but-invalid-config.md, the
+        (docs/steady/present-but-invalid-config.md, the
         refuse class).
     dtls_greeting (top-level runner key, handed over for this
     extension): the platform disclosure tier --
@@ -79,6 +79,7 @@ from runner.wire import subject as _subject  # noqa: E402
 from runner.guard import security as _security  # noqa: E402
 from runner.guard import confval as _confval  # noqa: E402
 from runner.transport_extensions import channel as ch  # noqa: E402
+from runner._version import __version__  # noqa: E402
 
 DEFAULT_PORT = 20220
 GREETING_TIERS = _platformcard.TIERS
@@ -93,13 +94,16 @@ def build_platform_payload(tier, cfg=None):
     `platform`. It does not carry the old greeting members
     (`type`, `transport`, `v`) and it has no trailing newline.
     The card is the one a ping's result carries
-    (runner/wire/platformcard.py), so the two bindings
-    describe the box the same way."""
+    (runner/wire/platformcard.py), built with the runner's own
+    release number so the `standard` and `full` tiers carry
+    `runner_version` here as they do on a ping, and the two
+    bindings describe the box the same way."""
     obj = {"disclosure": tier}
     versions = [1]
     if isinstance(cfg, dict) and cfg.get("protocol_v2") is True:
         versions.append(2)
-    card = _platformcard.build_card(tier, cfg, protocol_versions=versions)
+    card = _platformcard.build_card(tier, cfg, protocol_versions=versions,
+                                    runner_version=__version__)
     if card:
         card = dict(card)
         card.pop("disclosure", None)
@@ -244,12 +248,12 @@ class DtlsPipe:
     def __init__(self, cfg, channel_dir):
         self.cfg = cfg
         self.channel = channel_dir
-        # docs/oracle/configuring-oracle.md: dtls_greeting default family
+        # docs/infrastructure-documents/oracle/configuring-oracle.md: dtls_greeting default family
         # (a value that is not a tier reads as the default), and
         # transport_dtls.port default 20220, bind default 0.0.0.0
         # when the key is absent. The port and the bind address are
         # addressing values, the refuse class of
-        # docs/design/present-but-invalid-config.md: present but not
+        # docs/steady/present-but-invalid-config.md: present but not
         # usable is a config error that names the key, never a
         # substituted address ("2O220" must not listen on 20220).
         # Port 0 is usable: it asks the kernel for a free port. An

@@ -151,6 +151,14 @@ PLANNERS_GONE = ('@seq.planner is gone: planning is part of the policy now. Put 
                  'connect("<policy>").')
 
 
+
+TELEOP_NAMED = ('connect(teleop=True) is gone: "teleop" is one of the names a robot connects to now, with the robot\'s own '
+                'key: sequence_ai.connect("my_policy_user", "teleop", api_key=ROBOT_KEY_user), or "teleop" alone for a '
+                'robot with no policy')
+TELEOP_BY_KEY = ('teleop() takes no policy now: the key says which robot: sequence_ai.teleop(key=ROBOT_KEY_user, '
+                 'operator="alice_user")')
+
+
 class Gone(SequencesError):
     """410. The name existed and was retired on purpose; it will not come back. `.replacement` names
     what to use instead (a model id, or `template:<name>` to deploy as your own), `.hint` how."""
@@ -283,6 +291,18 @@ def _number(v: Any) -> Optional[float]:
         return None
 
 
+def _on_the_list(details: Mapping[str, Any]) -> Optional[str]:
+    """The command that puts a name a robot was refused on its list. The platform's words name no client's command: it
+    hands over the robot, the name and the list as it stands. `seq robot set` replaces the whole list, so the command
+    carries what is on it now and this one; a refusal with no list (one the platform could not read, or a key of no
+    robot's) names none, because without the list it would take the rest off.
+"""
+    robot, name, listed = details.get("robot"), details.get("name"), details.get("policies")
+    if details.get("reason") != "key_bound" or not robot or not name or not isinstance(listed, list):
+        return None
+    return f"run `seq robot set {robot} policies={','.join(map(str, [*listed, name]))}`, then connect again"
+
+
 def from_response(status: int, body: Any = None, *, text: Optional[str] = None,
                   headers: Optional[Mapping[str, str]] = None) -> BaseException:
     """
@@ -317,7 +337,8 @@ def from_response(status: int, body: Any = None, *, text: Optional[str] = None,
         message = explain(details, retry_after_s=retry) or message
     retryable = b.get("retryable") if isinstance(b.get("retryable"), bool) else None
     common: Dict[str, Any] = dict(status=status, code=code, retryable=retryable, retry_after_s=retry,
-                                  request_id=rid, hint=b.get("hint"), details=details, body=text)
+                                  request_id=rid, hint=b.get("hint") or _on_the_list(details), details=details,
+                                  body=text)
 
     if code == "policy_error":
         return _policy_exception(message, common)

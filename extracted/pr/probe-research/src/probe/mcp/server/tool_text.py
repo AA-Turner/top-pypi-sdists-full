@@ -16,24 +16,30 @@ _BR_STATUS_DOC = """Filter runs by status: `created` (never started), `running` 
 
 _BR_TAGS_DOC = """Filter runs by tag; repeatable, and a run must carry ALL of them. An empty filtered result never proves absence - list without it to check what exists."""
 
-_BR_REF_DOC = """Where to look, UUID only (slugs go to `entity`). Omit -> every project, flat. `project:<id>` -> its experiments, direct runs and its parts (projects linked `part_of` it). `experiment:<id>` -> its runs. mode=runs: `project:<id>` or `experiment:<id>` narrows the run list."""
+_BR_REF_DOC = """Prefer `project` / `experiment`. `project:<uuid>` or `experiment:<uuid>`, the scope as browse hands it back."""
 
-_BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is rejected."""
+_BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is read as 2."""
 
-_BR_LIMIT_DOC = """tree: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
+_BR_LIMIT_DOC = """projects: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
 
-_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs). `branches`: a workspace's lines of work, ranked per metric (needs `workspace_id`)."""
+_BR_MODE_DOC = """What to list. `projects` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs). `branches`: a workspace's lines of work, ranked per metric (needs `workspace_id`)."""
 
 _BR_BRANCH_DOC = """mode=branches: one branch in full, by its `ref` from a branches page."""
 
 _BR_ACTIVE_DOC = """mode=runs only: just the runs live right now (status running AND a fresh heartbeat)."""
 
+_BR_FILTER_DOC = """mode=runs only: clauses, ANDed: `{"config.lr": {"$gt": 0.001}, "metric.loss": {"$lt": 0.5}, "status": "completed"}`. Fields config.<path>, metric.<key> (the run's final value), created_at, updated_at, name, status, tags, group_id, experiment_id; ops $eq $ne $gt $gte $lt $lte $in $nin $exists $contains, $or: [...]. A bad filter's error names the problem."""
+
+_BR_ORDER_DOC = """mode=runs only: sort by created_at, updated_at, name, config.<path> or metric.<key>; a leading - is descending ("-metric.acc" = best acc first); runs without a value last. Any order but -created_at answers ONE page of `limit` runs (the top N) with no next_cursor."""
+
+_BR_LATEST_METRICS_DOC = """mode=runs only: metric keys (at most 50); each run row gains `latest_metrics` {key: {last, min, max, last_step}}, the values `metric.<key>` filters and sorts on. `latest_metrics_partial`: a W&B run whose values are not known here; `latest_metrics_locked`: past the plan's retention window."""
+
 _BR_QUERY_DOC = """mode=notes: literal text to find in note bodies, titles and project/experiment/run titles -- not a wildcard, not ranked. Omit (or "") to list every note. mode=datasets / sources: matches a name, key, uri or title."""
 
 # -- the data catalog modes' filters (the routes' own query parameters) --------
-_BR_PROJECT_DOC = """mode=datasets / checkpoints: one project's (`project:<uuid>` or slug)."""
+_BR_PROJECT_DOC = """One project, by slug or uuid. mode=projects: its experiments, direct runs and its parts (projects linked `part_of` it). mode=runs / datasets / checkpoints: only its."""
 
-_BR_EXPERIMENT_DOC = """mode=checkpoints: one experiment's."""
+_BR_EXPERIMENT_DOC = """One experiment, by slug or uuid. mode=projects: its runs. mode=runs / checkpoints: only its. Not with `project`."""
 
 _BR_RUN_DOC = """mode=checkpoints: one run's saves."""
 
@@ -54,11 +60,11 @@ def _none_as_empty(value: Any) -> Any:
 
 _BR_PREFIX_DOC = """mode=files only: a FOLDER path -- everything inside it, at any depth. Not a match on the file's name: `checkpoints` finds checkpoints/step-2000.pt, `checkpoints/step` finds nothing."""
 
-_RESP_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. Raise it for a read you intend to walk in full."""
+_RESP_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000; a value outside is capped), for the WHOLE response. Raise it for a read you intend to walk in full."""
 
 _RESP_CURSOR_DOC = """Continue a response that has a `next_cursor`: pass it back, with the SAME other arguments."""
 
-_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `ref`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`. mode=files: whose files to list (omit for the team's Shared folder). mode=branches: the workspace (required)."""
+_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `project` / `experiment`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`. mode=files: whose files to list (omit for the team's Shared folder). mode=branches: the workspace (required)."""
 
 _BR_CURSOR_DOC = """Continue the top-level listing from a prior response's `next_cursor`."""
 
@@ -117,7 +123,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   branch         branches on a project or experiment: one branch in full, by its `ref`.
   field          record: a dotted field ("metadata.summary"), or a path list."""
 
-_TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
+_TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000; a value outside is capped), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
 
 _CURSOR_DOC = """Continue a read that has a `next_cursor`: pass it back with the same `refs`. An argument you leave out is taken from the cursor; one you change is refused."""
 
@@ -216,7 +222,7 @@ _SK_PROJECT_DOC = """Scope BOTH channels server-side to one project. NOT transcr
 
 _SK_WORKSPACE_DOC = """Scope BOTH channels server-side to one workspace."""
 
-_SK_COLLAPSE_DOC = """Dedupe: one row per experiment (the default). Pass null to keep every hit."""
+_SK_COLLAPSE_DOC = """Dedupe: `experiment` keeps one row per experiment (the default); `none` keeps every hit."""
 
 _SK_CURSOR_DOC = """Continue a prior search from its `next_cursor`."""
 

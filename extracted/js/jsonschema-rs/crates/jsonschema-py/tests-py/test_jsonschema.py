@@ -181,6 +181,41 @@ def test_recursive_dict_reports_nested_error():
     assert not is_valid(schema, instance)
 
 
+@pytest.mark.parametrize("length", (2, 1000))
+def test_cycle_through_several_levels_stays_valid(length):
+    instance = {}
+    innermost = instance
+    for _ in range(length - 1):
+        innermost["next"] = {}
+        innermost = innermost["next"]
+    innermost["next"] = instance
+    assert is_valid(RECURSIVE_OBJECT_SCHEMA, instance)
+
+
+# A deep sibling switches the cycle guard to counting before the cycle is entered
+@pytest.mark.parametrize("prefix", (40, 100))
+def test_cycle_after_a_deep_sibling_stays_valid(prefix):
+    instance = {}
+    node = instance
+    for _ in range(prefix):
+        node["next"] = {}
+        node = node["next"]
+    deep = node["a"] = {}
+    for _ in range(100):
+        deep["next"] = {}
+        deep = deep["next"]
+    target = node["b"] = {}
+    for _ in range(10):
+        target["next"] = {}
+        target = target["next"]
+    innermost = target
+    for _ in range(10):
+        innermost["next"] = {}
+        innermost = innermost["next"]
+    innermost["next"] = target
+    assert is_valid(RECURSIVE_OBJECT_SCHEMA, instance)
+
+
 def cyclic_dict():
     instance = {}
     instance["foo"] = instance
@@ -883,6 +918,21 @@ def test_enums(backend, type_, value, expected):
     schema = {"properties": {"foo": {"type": type_}}}
     instance = {"foo": value}
     assert backend.is_valid(schema, instance) is expected
+
+
+class RaisingEqualityKey:
+    # Hashes like "name", so a lookup for "name" compares against it.
+    def __hash__(self):
+        return hash("name")
+
+    def __eq__(self, other):
+        raise RuntimeError("comparison failed")
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnraisableExceptionWarning")
+def test_lookup_through_raising_key_comparison_is_a_miss():
+    validator = validator_for({"properties": {"inner": {"required": ["name"]}}})
+    assert validator.is_valid({"inner": {RaisingEqualityKey(): 1}}) is False
 
 
 def test_dict_with_non_str_keys(backend):

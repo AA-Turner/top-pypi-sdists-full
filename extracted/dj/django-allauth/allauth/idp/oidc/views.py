@@ -30,7 +30,7 @@ from django.views.generic.edit import FormView
 
 from oauthlib.common import Request
 from oauthlib.oauth2.rfc6749 import errors
-from oauthlib.oauth2.rfc6749.errors import InvalidScopeError, OAuth2Error
+from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 
 from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
@@ -231,11 +231,13 @@ class AuthorizationView(FormView):
             next_url = del_query_params(next_url, "prompt")
         params = {}
         params[REDIRECT_FIELD_NAME] = next_url
-        path = reverse(
-            "account_reauthenticate"
-            if request.user.is_authenticated
-            else "account_login"
-        )
+        if request.user.is_authenticated:
+            methods = get_account_adapter().get_reauthentication_methods(request.user)
+            if not methods:
+                raise PermissionDenied("Reauthentication not available")
+            path = methods[0]["url"]
+        else:
+            path = reverse("account_login")
         return HttpResponseRedirect(add_query_params(path, params))
 
     def _skip_consent(self) -> HttpResponse:
@@ -320,19 +322,15 @@ class DeviceCodeView(View):
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         orequest = extract_params(request)
         try:
-            get_validator_context().requested_resources = get_resources(request)
+            resources = get_resources(request)
+            get_validator_context().requested_resources = resources
             headers, data, status = (
                 get_device_server().create_device_authorization_response(*orequest)
             )
             if status == HTTPStatus.OK:
                 client_id = request.POST["client_id"]
-                scope: list[str] | None = None
-                if "scope" in request.POST:
-                    scope = request.POST["scope"].split()
-                    client = Client.objects.get(id=client_id)
-                    if not set(scope).issubset(set(client.get_scopes())):
-                        raise InvalidScopeError()
-                device_codes.create(client_id, scope, data)
+                scope = data.get("scope", "").split()
+                device_codes.create(client_id, scope, data, resources=resources)
         except OAuth2Error as e:
             return HttpResponse(
                 e.json, content_type="application/json", status=e.status_code
@@ -439,8 +437,7 @@ class TokenView(View):
         if orequest.grant_type == Client.GrantType.DEVICE_CODE:
             assert user is not None  # nosec
             assert data is not None  # nosec
-            if scope := data.get("scope"):
-                orequest.scope = scope
+            orequest.scopes = data.get("scope") or []
             orequest.user = user
 
     def _post_device_token(self, request: HttpRequest) -> HttpResponse:

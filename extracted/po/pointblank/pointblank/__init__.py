@@ -91,8 +91,14 @@ from pointblank.metadata import (
     validate_sdtmig,
 )
 from pointblank.pipeline import ContractViolationError, Pipeline, PipelineResult
+from pointblank.preprocessing import row_preserving
+from pointblank.ablation import Ablation, AblationVariant
+from pointblank import scorers
+from pointblank import rag
 from pointblank.schema import Schema, generate_dataset, schema_from_tbl
 from pointblank.segments import seg_group
+from pointblank.splits import SplitCheck, check_splits
+from pointblank.synthetic import SyntheticCheck, check_synthetic
 from pointblank.thresholds import Actions, FinalActions, Thresholds
 from pointblank.validate import (
     Validate,
@@ -112,6 +118,7 @@ from pointblank.validate import (
 )
 from pointblank.yaml import (
     validate_yaml,
+    yaml_ablation,
     yaml_interrogate,
     yaml_to_python,
 )
@@ -162,6 +169,15 @@ __all__ = [
     "get_column_count",
     "get_row_count",
     "seg_group",
+    "row_preserving",
+    "Ablation",
+    "AblationVariant",
+    "scorers",
+    "rag",
+    "check_splits",
+    "SplitCheck",
+    "check_synthetic",
+    "SyntheticCheck",
     "send_slack_notification",
     "emit_otel",
     # Data generation - Field classes
@@ -196,6 +212,7 @@ __all__ = [
     "yaml_interrogate",
     "validate_yaml",
     "yaml_to_python",
+    "yaml_ablation",
     # Contract import/export
     "ContractAdapter",
     "ContractImport",

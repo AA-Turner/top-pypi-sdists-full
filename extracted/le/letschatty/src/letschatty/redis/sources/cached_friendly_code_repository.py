@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 from ...models.analytics.smart_messages.friendly_code_for_source import FriendlyCodeForSource
 from ...models.cache import CacheProtocol
 from ...models.utils.types import StrObjectId
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ..asset_cache import AssetCache
 
 # The legacy service's logger: the line stays as it was (searches read it).

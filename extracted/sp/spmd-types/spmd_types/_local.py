@@ -62,7 +62,8 @@ def _build_rank_to_group_local(pg) -> dict[int, int]:
       - Groups are [0,1] and [2,3]
       - Returns {0: 0, 1: 1, 2: 0, 3: 1}
     """
-    ranks, group_offsets, _offset = _prepare_collective_groups(pg)
+    # Older torch also returns the group's base offset as a third element.
+    ranks, group_offsets = _prepare_collective_groups(pg)[:2]
     mapping = {}
     for group_offset in group_offsets:
         for local_rank, r in enumerate(ranks):
@@ -402,7 +403,7 @@ def reinterpret(  # noqa: C901
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
         async_op=async_op,
-        input_is_leaf=x.requires_grad and x.grad_fn is None,
+        input_is_leaf=x.requires_grad and x.is_leaf,
     )
 
     if src is R and dst is V:
@@ -1099,7 +1100,7 @@ def convert(  # noqa: C901
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
         async_op=async_op,
-        input_is_leaf=x.requires_grad and x.grad_fn is None,
+        input_is_leaf=x.requires_grad and x.is_leaf,
     )
 
     if src_base is R and dst_base is V:
@@ -1184,6 +1185,7 @@ def shard(
     )
 
 
+@api_boundary
 def invariant_to_replicate(
     x,
     axis: DeviceMeshAxis,
@@ -1245,6 +1247,6 @@ def invariant_to_replicate(
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
         async_op=async_op,
-        input_is_leaf=x.requires_grad and x.grad_fn is None,
+        input_is_leaf=x.requires_grad and x.is_leaf,
     )
     return _InvariantToReplicate.apply(x, axis, dtype_options)

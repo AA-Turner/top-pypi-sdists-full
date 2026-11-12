@@ -5,13 +5,13 @@ import enum
 import re
 from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 from typing import Any, TypeAlias, TypeVar
 
 from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.resolver import Resolver
-from schemathesis.core.jsonschema.types import JsonSchema
+from schemathesis.core.jsonschema.types import ALL_TYPES, JsonSchema, JsonSchemaObject
 from schemathesis.core.parameters import ParameterLocation, iter_path_parameters
 from schemathesis.core.text import to_pascal_case
 from schemathesis.core.transforms import (
@@ -27,6 +27,7 @@ from schemathesis.specs.openapi.stateful.dependencies.naming import (
     from_path,
     item_collection,
     key_kind,
+    named_collection,
     normalize_for_matching,
     owning_resource,
     parameter_names_source,
@@ -63,10 +64,15 @@ class DependencyGraph:
                 del input["body_path"]
                 del input["item_fields"]
                 del input["is_inline_item"]
+                del input["takes_uuid"]
+                del input["value_types"]
+                del input["item_schemas"]
             for output in operation["outputs"]:
                 output["resource"] = output["resource"]["name"]
                 del output["response_fields"]
                 del output["named_after_path"]
+                del output["value_types"]
+                del output["field_types"]
                 if output.get("identifier_pointer") is None:
                     output.pop("identifier_pointer", None)
                 if output.get("path_parameter") is None:
@@ -80,6 +86,7 @@ class DependencyGraph:
             del resource["inherited_fields"]
             for fk_field in [*resource["fk_fields"], *resource["nested_fk_fields"]]:
                 del fk_field["holds_array"]
+                del fk_field["value_types"]
             # Simplify FK fields for readability
             if not resource["fk_fields"]:
                 del resource["fk_fields"]
@@ -102,6 +109,7 @@ class DependencyGraph:
         # All string work happens once here rather than inside the hot inner loop.
         path_resource_names, stripped_paths, id_collection_paths = _scope_guard_paths(self.operations.values())
         qualifiers = _collection_qualifiers(list(self.operations.values()))
+        item_keys = _item_keys(self.operations.values(), stripped_paths)
 
         # Index consumers by resource
         consumers_by_resource: dict[int, dict[int, tuple[OperationNode, list[InputSlot]]]] = defaultdict(dict)
@@ -157,6 +165,8 @@ class DependencyGraph:
                             or output_slot.is_primitive_identifier
                         ):
                             continue
+                        if not _keys_same_collection(input_slot, producer, consumer, stripped_paths, item_keys):
+                            continue
                         # Scope guard: skip bare {id} links where the producer is from a
                         # different namespace. Triggered only when the resource name matches the
                         # producer's path-derived name — i.e., the collision is path-based, not
@@ -179,15 +189,20 @@ class DependencyGraph:
                                     foreign_keys.add(input_slot.parameter_name)
                                     continue
 
+                        # Types of the value sent; any type when unknown
+                        value_types: Collection[str] = ANY_VALUE_TYPES
                         if output_slot.path_parameter is not None:
                             # Path-keyed producer: the resource value lives in the producer's
                             # request URL, not the response body (e.g. POST /products/{productName}).
                             value_expr = f"$request.path.{output_slot.path_parameter}"
+                            value_types = _request_value_types(confirmed, input_slot)
                         elif output_slot.body_field is not None:
                             # Body-keyed producer: the resource value lives in the producer's
                             # request body (e.g. POST /sessions with body {sessionId: ...}).
                             value_expr = f"$request.body#/{output_slot.body_field}"
+                            value_types = _request_value_types(confirmed, input_slot)
                         elif output_slot.is_primitive_identifier:
+                            value_types = output_slot.value_types
                             # A bare id (POST's created slug, GET's list of ids) fills only identifier fields.
                             identifiers = path_identifiers.get(output_slot.resource.name)
                             field = input_slot.resource_field
@@ -248,6 +263,11 @@ class DependencyGraph:
                                     output_slot.pointer, input_slot.resource_field, output_slot.cardinality
                                 )
                                 value_expr = f"$response.body#{body_pointer}"
+                                # An array sent whole fills an array input with whatever items it holds.
+                                if not input_slot.takes_array or _sends_one_value(input_slot, output_slot, confirmed):
+                                    value_types = output_slot.field_types.get(
+                                        input_slot.resource_field, ANY_VALUE_TYPES
+                                    )
                         else:
                             if input_slot.item_fields is not None:
                                 source_fields = (
@@ -277,6 +297,8 @@ class DependencyGraph:
                             value_expr = f"$response.body#{item_pointer(output_slot.pointer, output_slot.cardinality)}"
                         if value_expr.startswith("$response.body") and output_slot.status_code in ("204", "205"):
                             # These statuses forbid a body, whatever the schema declares.
+                            continue
+                        if not input_slot.takes(value_types):
                             continue
                         link_name = _link_name(consumer.method, input_slot, path_resource_names[consumer_id])
                         parameters, request_body = _link_values(input_slot, output_slot, confirmed, value_expr)
@@ -412,8 +434,7 @@ class DependencyGraph:
                         consumer_path = encoded_paths[consumer_id]
 
                         for input_slot in input_slots:
-                            # A whole array of identifiers fits only a parameter taking an array.
-                            if fk_field.holds_array and not input_slot.takes_array:
+                            if not input_slot.takes_foreign_key(fk_field):
                                 continue
                             # Build the body pointer to the FK field
                             if fk_field.is_array:
@@ -463,7 +484,7 @@ class DependencyGraph:
                         consumer_path = encoded_paths[consumer_id]
 
                         for input_slot in input_slots:
-                            if nested_fk.holds_array and not input_slot.takes_array:
+                            if not input_slot.takes_foreign_key(nested_fk):
                                 continue
                             # Build pointer: output_slot.pointer + nested_fk.pointer
                             if output_slot.cardinality == Cardinality.MANY:
@@ -635,6 +656,14 @@ def iter_all_of_chain(
 
     `resolve` follows a `$ref` from the scope it appears in to the target and the target's scope.
     """
+    for _, node in _iter_scoped_all_of_chain(schema, scope, resolve):
+        yield node
+
+
+def _iter_scoped_all_of_chain(
+    schema: object, scope: Scope, resolve: Callable[[dict[str, Any], Scope], tuple[Scope, object] | None]
+) -> Iterator[tuple[Scope, dict[str, Any]]]:
+    """Each schema of the `allOf` chain of `schema` with the scope its own references resolve from."""
     pending: list[tuple[Scope, object]] = [(scope, schema)]
     # `allOf` chains may be recursive.
     seen: set[int] = set()
@@ -643,7 +672,7 @@ def iter_all_of_chain(
         if not isinstance(node, dict) or id(node) in seen:
             continue
         seen.add(id(node))
-        yield node
+        yield current_scope, node
         if "$ref" in node:
             target = resolve(node, current_scope)
             if target is not None:
@@ -651,6 +680,33 @@ def iter_all_of_chain(
         branches = node.get("allOf")
         if isinstance(branches, list):
             pending.extend((current_scope, branch) for branch in branches)
+
+
+def holds_only_array_values(
+    schema: object, scope: Scope, resolve: Callable[[dict[str, Any], Scope], tuple[Scope, object] | None]
+) -> bool:
+    """Whether `schema` holds arrays and maybe `null`, nothing else: `type: [array, null]`, `anyOf: [array, null]`."""
+    chain = list(_iter_scoped_all_of_chain(schema, scope, resolve))
+    return holds_only_arrays(node for _, node in chain) or any(
+        # Branch references resolve from the file the alternatives are written in.
+        _alternatives_hold_only_arrays(node[keyword], node_scope, resolve)
+        for node_scope, node in chain
+        for keyword in ("anyOf", "oneOf")
+        if isinstance(node.get(keyword), list)
+    )
+
+
+NULL_ONLY = frozenset({"null"})
+
+
+def _alternatives_hold_only_arrays(
+    branches: list[JsonSchema], scope: Scope, resolve: Callable[[dict[str, Any], Scope], tuple[Scope, object] | None]
+) -> bool:
+    """Whether one of `branches` holds only arrays and every other one holds only arrays or only `null`."""
+    chains = [list(iter_all_of_chain(branch, scope, resolve)) for branch in branches]
+    return any(map(holds_only_arrays, chains)) and all(
+        holds_only_arrays(chain) or NULL_ONLY in map(declared_types, chain) for chain in chains
+    )
 
 
 def _resolve_reference(schema: dict[str, Any], resolver: Resolver) -> tuple[Resolver, Mapping[str, Any]] | None:
@@ -661,6 +717,110 @@ def _resolve_reference(schema: dict[str, Any], resolver: Resolver) -> tuple[Reso
         return None
 
 
+ANY_VALUE_TYPES = frozenset(ALL_TYPES)
+
+
+def _foreign_key_values(schema: JsonSchema, resolver: Resolver, *, is_array: bool) -> tuple[bool, frozenset[str]]:
+    """Whether a singular foreign key holds a whole array of identifiers, and the types of those identifiers."""
+    holds_array = not is_array and holds_only_array_values(schema, resolver, _resolve_reference)
+    return holds_array, field_value_types(schema, resolver, _resolve_reference, holds_many=is_array or holds_array)
+
+
+def field_value_types(
+    schema: object,
+    scope: Scope,
+    resolve: Callable[[JsonSchemaObject, Scope], tuple[Scope, object] | None],
+    *,
+    holds_many: bool,
+) -> frozenset[str]:
+    """Types of the values a field holds, read from its items when it holds many; any type when undeclared.
+
+    Every `type` on the `$ref`/`allOf` chain applies; items may sit in the array alternative of `anyOf: [array, null]`.
+    """
+    if holds_many:
+        items_types = [
+            _value_types(items, items_scope, resolve, frozenset())
+            for items_scope, items in iter_array_items(schema, scope, resolve)
+        ]
+        return frozenset().union(*items_types) or ANY_VALUE_TYPES
+    return _value_types(schema, scope, resolve, frozenset())
+
+
+def _value_types(
+    schema: object,
+    scope: Scope,
+    resolve: Callable[[JsonSchemaObject, Scope], tuple[Scope, object] | None],
+    expanding: frozenset[int],
+) -> frozenset[str]:
+    """Types of one value `schema` holds; `expanding` holds the schemas whose alternatives are being read."""
+    if not isinstance(schema, dict):
+        return ANY_VALUE_TYPES
+    # Most fields declare their type in place.
+    chain = (
+        list(_iter_scoped_all_of_chain(schema, scope, resolve))
+        if "$ref" in schema or "allOf" in schema
+        else [(scope, schema)]
+    )
+    constraints = [_with_integers(types) for _, node in chain if (types := declared_types(node)) is not None]
+    # Declared fields describe an object, even when its `type` is left out.
+    if not constraints and any(isinstance(node.get("properties"), dict) for _, node in chain):
+        constraints.append(_OBJECT)
+    for node_scope, node in chain:
+        # A recursive alternative adds nothing to what its first visit reads.
+        if id(node) in expanding:
+            continue
+        for keyword in ("anyOf", "oneOf"):
+            branches = node.get(keyword)
+            if isinstance(branches, list) and branches:
+                nested = expanding | {id(node)}
+                constraints.append(
+                    frozenset().union(*(_value_types(branch, node_scope, resolve, nested) for branch in branches))
+                )
+    return frozenset.intersection(*constraints) if constraints else ANY_VALUE_TYPES
+
+
+_OBJECT = frozenset(("object",))
+
+
+def iter_array_items(
+    schema: object, scope: Scope, resolve: Callable[[JsonSchemaObject, Scope], tuple[Scope, object] | None]
+) -> Iterator[tuple[Scope, JsonSchemaObject]]:
+    """`items` along the `$ref`/`allOf` chain of an array, and those of its `anyOf`/`oneOf` alternatives holding arrays."""
+    for node_scope, node in _iter_scoped_all_of_chain(schema, scope, resolve):
+        items = node.get("items")
+        if isinstance(items, dict):
+            yield node_scope, items
+        for keyword in ("anyOf", "oneOf"):
+            branches = node.get(keyword)
+            if not isinstance(branches, list):
+                continue
+            for branch in branches:
+                branch_chain = list(_iter_scoped_all_of_chain(branch, node_scope, resolve))
+                if holds_only_arrays(branch_node for _, branch_node in branch_chain):
+                    yield from (
+                        (branch_scope, branch_node["items"])
+                        for branch_scope, branch_node in branch_chain
+                        if isinstance(branch_node.get("items"), dict)
+                    )
+
+
+def types_overlap(left: Collection[str], right: Collection[str]) -> bool:
+    """Whether some value has one of `left` types and one of `right` types; every integer is a number."""
+    return not _with_integers(left).isdisjoint(_with_integers(right))
+
+
+def _with_integers(types: Collection[str]) -> frozenset[str]:
+    return frozenset((*types, "integer")) if "number" in types else frozenset(types)
+
+
+def declared_field_types(properties: Mapping[str, tuple[Resolver, JsonSchema]]) -> dict[str, frozenset[str]]:
+    """Types of the values each of `properties` holds."""
+    return {
+        name: field_value_types(subschema, resolver, _resolve_reference, holds_many=False)
+        for name, (resolver, subschema) in properties.items()
+    }
+
+
 def extract_fk_fields(properties: Mapping[str, tuple[Resolver, JsonSchema]]) -> list[FKField]:
     """Extract FK fields from the properties of a resource schema.
 
@@ -668,19 +828,20 @@ def extract_fk_fields(properties: Mapping[str, tuple[Resolver, JsonSchema]]) -> 
     to avoid repeated inference during link generation.
     """
     result = []
-    for field in sorted(properties):
-        fk_info = infer_fk_target(field)
+    for name in sorted(properties):
+        fk_info = infer_fk_target(name)
         if fk_info is not None:
             target_resource, target_field, is_array = fk_info
-            field_resolver, subschema = properties[field]
+            field_resolver, subschema = properties[name]
+            holds_array, value_types = _foreign_key_values(subschema, field_resolver, is_array=is_array)
             result.append(
                 FKField(
-                    field_name=field,
+                    field_name=name,
                     target_resource=target_resource,
                     target_field=target_field,
                     is_array=is_array,
-                    holds_array=not is_array
-                    and holds_only_arrays(iter_all_of_chain(subschema, field_resolver, _resolve_reference)),
+                    value_types=value_types,
+                    holds_array=holds_array,
                 )
             )
     return result
@@ -726,6 +887,7 @@ def extract_nested_fk_fields(
             # Skip top-level FK fields - they're already captured in fk_fields
             if pointer:
                 target_resource, target_field, is_array = fk_info
+                holds_array, value_types = _foreign_key_values(field_schema, resolver, is_array=is_array)
                 result.append(
                     NestedFKField(
                         pointer=field_pointer,
@@ -733,8 +895,8 @@ def extract_nested_fk_fields(
                         target_resource=target_resource,
                         target_field=target_field,
                         is_array=is_array,
-                        holds_array=not is_array
-                        and holds_only_arrays(iter_all_of_chain(field_schema, resolver, _resolve_reference)),
+                        value_types=value_types,
+                        holds_array=holds_array,
                     )
                 )
             continue  # Don't recurse into FK fields
@@ -813,6 +975,19 @@ def _link_body(
     if input_slot.takes_array and _sends_one_value(input_slot, output_slot, confirmed):
         path = (*path, 0)
     return build_nested_body(path, value)
+
+
+def _request_value_types(confirmed: InputSlot | None, input_slot: InputSlot) -> Collection[str]:
+    """Types of the request value a producer was called with, as `input_slot` receives it."""
+    if confirmed is None:
+        return ANY_VALUE_TYPES
+    # A request array is sent whole: its items fill an array input, and the array itself any other one.
+    if confirmed.takes_array and not input_slot.takes_array:
+        return _ARRAY
+    return confirmed.value_types
+
+
+_ARRAY = frozenset(("array",))
 
 
 def _sends_one_value(input_slot: InputSlot, output_slot: OutputSlot, confirmed: InputSlot | None) -> bool:
@@ -1068,6 +1243,27 @@ class InputSlot:
     item_fields: frozenset[str] | None = None
     # Whether this input is a top-level array item declared inline rather than as a named schema
     is_inline_item: bool = False
+    # Whether a parameter takes UUIDs (`format: uuid`), alone or as array items
+    takes_uuid: bool = False
+    # Types of one value this input takes, its items' for an array; any type for a form field or when undeclared
+    value_types: frozenset[str] = ANY_VALUE_TYPES
+    # Schemas of the object a body key sits in when that object is named after the key's resource (`{option: {option_id}}`);
+    # `None` for other inputs
+    item_schemas: frozenset[str] | None = None
+
+    def takes(self, value_types: Collection[str]) -> bool:
+        """Whether this input accepts values of `value_types`: a UUID parameter takes only strings."""
+        if self.takes_uuid and "string" not in value_types:
+            return False
+        # Parameters travel as text, so only a body field tells a number from a string or an object.
+        # A link sends an existing identifier, which is never `null`.
+        return self.parameter_location != ParameterLocation.BODY or types_overlap(
+            value_types, self.value_types - NULL_ONLY
+        )
+
+    def takes_foreign_key(self, field: FKField | NestedFKField) -> bool:
+        """Whether the values of a foreign key fit: a whole array of identifiers only fits a parameter taking one."""
+        return (self.takes_array or not field.holds_array) and self.takes(field.value_types)
 
 
 class OpenFields(frozenset[str]):
@@ -1109,6 +1305,10 @@ class OutputSlot:
     identifier_pointer: str | None = None
     # Whether only the operation path names the resource, as no `$ref` declares it
     named_after_path: bool = False
+    # Types a bare identifier declares (`integer` for a created id); empty for other outputs
+    value_types: frozenset[str] = frozenset()
+    # Types of the fields the response declares at `pointer`, apart from those only its alternatives declare
+    field_types: dict[str, frozenset[str]] = field(default_factory=dict)
 
     @property
     def declared_fields(self) -> Collection[str]:
@@ -1145,6 +1345,8 @@ class FKField:
     target_field: str
     # Whether the FK field is an array (e.g., site_ids)
     is_array: bool
+    # Types of the identifiers the field holds, e.g. `integer` for `customer_id: 3` or `site_ids: [1, 2]`
+    value_types: frozenset[str]
     # Whether a singular name holds a whole array of identifiers, e.g. `site_id: [1, 2]`
     holds_array: bool = False
 
@@ -1163,6 +1365,8 @@ class NestedFKField:
     target_field: str
     # Whether the FK field is an array (e.g., site_ids)
     is_array: bool
+    # Types of the identifiers the field holds, e.g. `integer` for `warehouse_id: 3` or `product_ids: [1, 2]`
+    value_types: frozenset[str]
     # Whether a singular name holds a whole array of identifiers, e.g. `site_id: [1, 2]`
     holds_array: bool = False
 
@@ -1332,6 +1536,85 @@ def _keys_different_collections(producer: OperationNode, consumer: OperationNode
         and consumer_owner is not None
         and normalize_for_matching(producer_owner) != normalize_for_matching(consumer_owner)
     )
+
+
+def _keys_same_collection(
+    input_slot: InputSlot,
+    producer: OperationNode,
+    consumer: OperationNode,
+    stripped_paths: Mapping[int, str],
+    item_keys: Mapping[int, list[tuple[str, InputSlot]]],
+) -> bool:
+    """Whether a producer may hold the item a key identifies, when only paths name that item's resource.
+
+    `{option: {option_id}}` sent to `/kits/options/add` identifies a kit option, so it takes keys from `/kits/options`
+    or `/options`, but options listed under `/variants/{sku}/options` share only a name with kit options. So does
+    `{optionId}` in `/kits/options/{optionId}`, as operations on kit options send them as such objects.
+    """
+    resource = input_slot.resource
+    if (
+        (input_slot.parameter_location == ParameterLocation.BODY and input_slot.item_schemas is None)
+        or input_slot.resource_field is None
+        or resource.source != DefinitionSource.PARAMETER_INFERENCE
+        or id(resource) not in item_keys
+    ):
+        return True
+    consumer_collection = named_collection(stripped_paths[id(consumer)], resource.name)
+    if consumer_collection is None:
+        return True
+    if input_slot.item_schemas is not None:
+        keys = [input_slot]
+    else:
+        # Only body keys of the collection's items tell which items a parameter identifies
+        keys = [
+            slot for collection, slot in item_keys[id(resource)] if _same_collection(collection, consumer_collection)
+        ]
+        if not keys:
+            return True
+    producer_path = stripped_paths[id(producer)]
+    producer_collection = named_collection(producer_path, resource.name)
+    if producer_collection is not None:
+        if _same_collection(producer_collection, consumer_collection):
+            return True
+    else:
+        # Only a parameter names the item, so it fits when one collection holds such items or it is under that one's parent
+        parent = consumer_collection.rsplit("/", 1)[0]
+        if f"{path_shape(producer_path)}/".startswith(f"{parent}/") or all(
+            other is None or _same_collection(other, consumer_collection)
+            for other in (named_collection(path, resource.name) for path in stripped_paths.values())
+        ):
+            return True
+    # Collections elsewhere hold the same items when the producer writes an object of the same schema
+    return any(
+        slot.body_path == key.body_path
+        and slot.item_schemas
+        and key.item_schemas
+        and not slot.item_schemas.isdisjoint(key.item_schemas)
+        for key in keys
+        for slot in producer.inputs
+    )
+
+
+def _item_keys(
+    operations: Iterable[OperationNode], stripped_paths: Mapping[int, str]
+) -> dict[int, list[tuple[str, InputSlot]]]:
+    """Body keys inside an object named after their resource, by resource, with the collection their operation names."""
+    keys: dict[int, list[tuple[str, InputSlot]]] = {}
+    for operation in operations:
+        for slot in operation.inputs:
+            if slot.item_schemas is not None:
+                collection = named_collection(stripped_paths[id(operation)], slot.resource.name)
+                if collection is not None:
+                    keys.setdefault(id(slot.resource), []).append((collection, slot))
+    return keys
+
+
+def _same_collection(left: str, right: str) -> bool:
+    # A collection, the same one under a parent, and `/kits/{}/options` beside `/kits/options` hold the same items.
+    # Both end in a segment naming one resource, `option` or `options`, so only what precedes it tells them apart.
+    left = left.replace("/{}", "").rsplit("/", 1)[0]
+    right = right.replace("/{}", "").rsplit("/", 1)[0]
+    return left.endswith(right) or right.endswith(left)
 
 
 def _same_parents(producer_path: str, consumer_path: str) -> bool:

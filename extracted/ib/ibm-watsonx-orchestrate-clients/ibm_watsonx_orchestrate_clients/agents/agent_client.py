@@ -271,6 +271,10 @@ class AgentClient(BaseWXOClient):
         self._post(f"{self.base_endpoint}/{agent_id}/releases/{version}/undeploy")
         return self.poll_release_status(agent_id, environment_id, mode=ReleaseMode.UNDEPLOY)
     
+    def get_escalation_prompt(self, agent_id: str) -> dict:
+        """Return the agent's escalation prompt: {default, effective, is_override, unavailable_reason}."""
+        return self._get(f"{self.base_endpoint}/{agent_id}/escalation/prompt")
+
     def get_environments_for_agent(self, agent_id: str):
         return self._get(f"{self.base_endpoint}/{agent_id}/environment")
 

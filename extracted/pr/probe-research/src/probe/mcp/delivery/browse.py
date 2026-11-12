@@ -16,7 +16,7 @@ from uuid import UUID
 
 from ...shared.reads.search_contract import BrowseMode, EnvelopeState, MissingMarker
 
-_TREE = BrowseMode.TREE
+_TREE = BrowseMode.PROJECTS
 
 _FIELDS = (
     "entity_type",
@@ -155,7 +155,7 @@ def _smaller(row: dict):
 
 
 def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
-    """Deliver a FLAT listing (every browse mode but `tree`) in whole rows.
+    """Deliver a FLAT listing (every browse mode but `projects`) in whole rows.
 
     The service answers one backend page and names, per row, the cursor that
     resumes AFTER it (`_list_after`) plus the cursor after the whole page

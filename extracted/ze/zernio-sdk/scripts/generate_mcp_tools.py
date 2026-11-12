@@ -56,6 +56,27 @@ BOUNDED_LISTING_LIMITS = {
     "listProfiles": "limit if limit is not None else 100",
 }
 
+LISTING_PAGE_SIZES = {
+    "listAds": (10, 20),
+    "listAdSets": (20, 40),
+    "getAdTree": (10, 20),
+    "listPosts": (10, 40),
+    "getAnalytics": (20, 40),
+}
+
+AGENT_VIEWS = {
+    "getAnalytics": "summary",
+    "listAds": "summary",
+    "listAdSets": "summary",
+    "listPosts": "summary",
+    "getInboxPostComments": "summary",
+    "listInboxComments": "summary",
+}
+
+AGENT_DEPTHS = {
+    "getAdTree": "campaign",
+}
+
 SAME_ARGUMENTS_IDEMPOTENT_OPERATIONS = {
     "createCallAd",
     "createCtwaAd",
@@ -399,6 +420,67 @@ def _with_bounded_limit(operation_id: str, params: list[dict[str, Any]]) -> list
     ]
 
 
+def _page_size_description(description: str, default: int, maximum: int) -> str:
+    base = re.sub(r"\s*\(default \d+\)", "", description or "")
+    base = re.sub(r"\s*[^.]*above the maximum[^.]*\.", "", base).strip().rstrip(".")
+    sizing = f"Default {default}, at most {maximum} per call; page through for more."
+    return f"{base}. {sizing}" if base else sizing
+
+
+def _with_page_size(operation_id: str, params: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    page_size = LISTING_PAGE_SIZES.get(operation_id)
+    if page_size is None:
+        return params
+    default, maximum = page_size
+    return [
+        {
+            **p,
+            "type": "int",
+            "default": str(default),
+            "sdk_value": f"max(1, min(limit, {maximum}))",
+            "description": _page_size_description(p["description"], default, maximum),
+        }
+        if p["name"] == "limit"
+        else p
+        for p in params
+    ]
+
+
+def _with_agent_default(
+    operation_id: str,
+    params: list[dict[str, Any]],
+    *,
+    name: str,
+    value: str | None,
+    hint: str,
+) -> list[dict[str, Any]]:
+    if value is None:
+        return params
+    if not any(p["name"] == name for p in params):
+        print(f"Warning: {operation_id} has no `{name}` parameter; its agent default is not applied.", file=sys.stderr)
+    return [
+        {
+            **p,
+            "default": f'"{value}"',
+            "description": f"{p['description'].strip()} Defaults to {value} here; {hint}".strip(),
+        }
+        if p["name"] == name
+        else p
+        for p in params
+    ]
+
+
+def _with_agent_view(operation_id: str, params: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    params = _with_agent_default(operation_id, params, name="view", value=AGENT_VIEWS.get(operation_id), hint="pass full for everything.")
+    return _with_agent_default(
+        operation_id,
+        params,
+        name="depth",
+        value=AGENT_DEPTHS.get(operation_id),
+        hint="pass adset with campaign_id for one campaign's ad sets, or ad for everything.",
+    )
+
+
 def extract_parameters(
     operation: dict[str, Any],
     spec: dict[str, Any] | None = None,
@@ -706,7 +788,10 @@ def main() -> int:
                 # Human-readable title for the annotation. First line of the
                 # OpenAPI summary, capped so it stays a short label.
                 "title": summary.split("\n")[0].strip()[:80],
-                "params": _with_bounded_limit(operation_id, extract_parameters(operation, spec)),
+                "params": _with_agent_view(
+                    operation_id,
+                    _with_page_size(operation_id, _with_bounded_limit(operation_id, extract_parameters(operation, spec))),
+                ),
                 "idempotency_scope": tool_name if operation_id in SAME_ARGUMENTS_IDEMPOTENT_OPERATIONS else None,
             })
 
@@ -727,6 +812,7 @@ def main() -> int:
         "from mcp.types import ToolAnnotations",
         "",
         "from .idempotency import same_arguments_key",
+        "from .response_format import format_payload",
         "",
         "",
         "def _decode_base64(value: str) -> bytes:",
@@ -771,7 +857,7 @@ def main() -> int:
         "            # generic 'accounts' branch (which would print only 'platform: username' and",
         "            # drop currentFollowers/growth and the daily series). 'stats' attr is unique",
         "            # to FollowerStatsResponse, so no other tool's response matches.",
-        "            return response.model_dump_json(by_alias=True, exclude_none=True)",
+        "            return format_payload(response)",
         "        if hasattr(response, 'accounts') and response.accounts:",
         "            accs = response.accounts",
         '            lines = [f"Found {len(accs)} account(s):"]',
@@ -793,7 +879,7 @@ def main() -> int:
         "        if hasattr(response, 'profile') and response.profile:",
         "            p = response.profile",
         '            return f"Profile: {getattr(p, \'name\', \'N/A\')} (ID: {getattr(p, \'field_id\', \'N/A\')})"',
-        "    return str(response)",
+        "    return format_payload(response)",
         "",
         "",
         "def register_generated_tools(mcp, _get_client):",

@@ -1262,12 +1262,15 @@ class Argument:
         return self.names[0]
 
     @property
+    def positives(self) -> tuple[str, ...]:
+        """Names the argument goes by, excluding :attr:`negatives`."""
+        assert isinstance(self.parameter.name, tuple)
+        return self.parameter.name
+
+    @property
     def names(self) -> tuple[str, ...]:
         """Names the argument goes by (both positive and negative)."""
-        import itertools
-
-        assert isinstance(self.parameter.name, tuple)
-        return tuple(itertools.chain(self.parameter.name, self.negatives))
+        return self.positives + self.negatives
 
     def env_var_split(self, value: str, delimiter: str | None = None) -> list[str]:
         """Split a given value with :meth:`.Parameter.env_var_split`."""

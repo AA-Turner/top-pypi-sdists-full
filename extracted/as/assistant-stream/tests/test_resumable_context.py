@@ -2,14 +2,54 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from typing import Literal
 
 import pytest
 
 from assistant_stream.resumable import (
+    CancellationSignal,
+    ResumableStreamEntry,
     ResumableStreamError,
+    ResumableStreamRole,
+    ResumableStreamStatus,
+    ResumableStreamStore,
     create_in_memory_resumable_stream_store,
     create_resumable_stream_context,
 )
+
+
+class LegacyResumableStreamStore:
+    def __init__(self, store: ResumableStreamStore) -> None:
+        self.store = store
+        self.acquired: list[str] = []
+
+    async def acquire(
+        self, stream_id: str, *, ttl_ms: int | None = None
+    ) -> ResumableStreamRole:
+        self.acquired.append(stream_id)
+        return await self.store.acquire(stream_id, ttl_ms=ttl_ms)
+
+    async def append(self, stream_id: str, chunk: bytes) -> None:
+        await self.store.append(stream_id, chunk)
+
+    async def finalize(
+        self,
+        stream_id: str,
+        status: Literal["done", "error"],
+        error: str | None = None,
+    ) -> None:
+        await self.store.finalize(stream_id, status, error)
+
+    def read(
+        self, stream_id: str, cursor: str, signal: CancellationSignal
+    ) -> AsyncIterator[ResumableStreamEntry]:
+        return self.store.read(stream_id, cursor, signal)
+
+    async def status(self, stream_id: str) -> ResumableStreamStatus:
+        return await self.store.status(stream_id)
+
+    async def delete(self, stream_id: str) -> None:
+        await self.store.delete(stream_id)
 
 
 def _bytes(s: str) -> bytes:
@@ -166,6 +206,129 @@ async def test_producer_keeps_writing_after_consumer_closes_early() -> None:
 
 
 @pytest.mark.anyio
+async def test_runs_a_producer_through_acquire_when_acquire_lease_is_absent() -> None:
+    store = LegacyResumableStreamStore(create_in_memory_resumable_stream_store())
+    finalizes: list[tuple[str, str, str | None]] = []
+    ctx = create_resumable_stream_context(
+        store=store,
+        on_finalize=lambda stream_id, status, error: finalizes.append(
+            (stream_id, status, error)
+        ),
+    )
+    stream = await ctx.run("a", lambda: _make_string_stream(["leg", "acy"]))
+    assert await asyncio.wait_for(_collect(stream), timeout=1) == "legacy"
+    assert await ctx.status("a") == "done"
+    assert store.acquired == ["a"]
+    assert finalizes == [("a", "done", None)]
+
+
+async def _run_fenced_stale_producer(
+    ending: Literal["chunk", "done", "error", "cancelled"],
+) -> tuple[list[object], list[tuple[str, str, str | None]], ResumableStreamStatus]:
+    now = [1_000.0]
+    stale_release = asyncio.Event()
+    fresh_release = asyncio.Event()
+    producer_tasks: list[asyncio.Task[None]] = []
+    errors: list[object] = []
+    finalizes: list[tuple[str, str, str | None]] = []
+
+    def clock() -> float:
+        return now[0]
+
+    async def stale() -> AsyncIterator[bytes]:
+        yield _bytes("old")
+        await stale_release.wait()
+        if ending == "chunk":
+            yield _bytes("late")
+        elif ending == "error":
+            raise RuntimeError("boom")
+        elif ending == "cancelled":
+            raise asyncio.CancelledError("producer stopped")
+
+    async def fresh() -> AsyncIterator[bytes]:
+        yield _bytes("new")
+        await fresh_release.wait()
+        yield _bytes("tail")
+
+    store = create_in_memory_resumable_stream_store(
+        default_ttl_ms=100,
+        now=clock,
+    )
+    ctx = create_resumable_stream_context(
+        store=store,
+        wait_until=producer_tasks.append,
+        on_error=lambda _id, error: errors.append(error),
+        on_finalize=lambda stream_id, status, error: finalizes.append(
+            (stream_id, status, error)
+        ),
+    )
+
+    stale_reader = await ctx.run("a", lambda: stale())
+    assert await asyncio.wait_for(anext(stale_reader), timeout=1) == _bytes("old")
+    await asyncio.wait_for(stale_reader.aclose(), timeout=1)
+
+    now[0] += 101
+    fresh_reader = await ctx.run("a", lambda: fresh())
+    assert await asyncio.wait_for(anext(fresh_reader), timeout=1) == _bytes("new")
+
+    stale_release.set()
+    if ending == "cancelled":
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(producer_tasks[0], timeout=1)
+    else:
+        await asyncio.wait_for(producer_tasks[0], timeout=1)
+    status = await ctx.status("a")
+    stale_finalizes = finalizes.copy()
+
+    fresh_release.set()
+    assert await asyncio.wait_for(_collect(fresh_reader), timeout=1) == "tail"
+    await asyncio.wait_for(producer_tasks[1], timeout=1)
+    return errors, stale_finalizes, status
+
+
+@pytest.mark.anyio
+async def test_stale_chunk_reports_store_supersession_without_finalizing() -> None:
+    errors, finalizes, status = await _run_fenced_stale_producer("chunk")
+    assert status == "streaming"
+    assert finalizes == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], ResumableStreamError)
+    assert errors[0].code == "missing"
+    assert str(errors[0]) == "Stream superseded by a new acquisition: a"
+
+
+@pytest.mark.anyio
+async def test_stale_completion_reports_lost_ownership_without_finalizing() -> None:
+    errors, finalizes, status = await _run_fenced_stale_producer("done")
+    assert status == "streaming"
+    assert finalizes == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], ResumableStreamError)
+    assert errors[0].code == "missing"
+    assert str(errors[0]) == "Stream no longer owned by this producer: a"
+
+
+@pytest.mark.anyio
+async def test_stale_error_does_not_finalize_reacquired_stream() -> None:
+    errors, finalizes, status = await _run_fenced_stale_producer("error")
+    assert status == "streaming"
+    assert finalizes == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], RuntimeError)
+    assert str(errors[0]) == "boom"
+
+
+@pytest.mark.anyio
+async def test_stale_cancellation_does_not_finalize_reacquired_stream() -> None:
+    errors, finalizes, status = await _run_fenced_stale_producer("cancelled")
+    assert status == "streaming"
+    assert finalizes == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], asyncio.CancelledError)
+    assert str(errors[0]) == "producer stopped"
+
+
+@pytest.mark.anyio
 async def test_propagates_producer_errors_to_consumers() -> None:
     ctx = create_resumable_stream_context(
         store=create_in_memory_resumable_stream_store()
@@ -179,6 +342,87 @@ async def test_propagates_producer_errors_to_consumers() -> None:
     with pytest.raises(Exception, match="oops"):
         await _collect(stream)
     assert await ctx.status("a") == "error"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("cancel_from_source", [False, True])
+@pytest.mark.parametrize("reason", [None, "producer stopped"])
+async def test_cancelled_producer_finalizes_error_for_live_and_resumed_readers(
+    cancel_from_source: bool, reason: str | None,
+) -> None:
+    tasks: list[asyncio.Task[None]] = []
+    release = asyncio.Event()
+    errors: list[object] = []
+    finalizes: list[tuple[str, str, str | None]] = []
+    ctx = create_resumable_stream_context(
+        store=create_in_memory_resumable_stream_store(),
+        wait_until=tasks.append,
+        on_error=lambda _id, error: errors.append(error),
+        on_finalize=lambda stream_id, status, error: finalizes.append(
+            (stream_id, status, error)
+        ),
+    )
+
+    async def source() -> AsyncIterator[bytes]:
+        yield b"partial;"
+        await release.wait()
+        if reason is None:
+            raise asyncio.CancelledError()
+        raise asyncio.CancelledError(reason)
+
+    stream = await ctx.run("a", source)
+    assert await asyncio.wait_for(anext(stream), timeout=1) == b"partial;"
+    if cancel_from_source:
+        release.set()
+    else:
+        tasks[0].cancel(reason)
+    with pytest.raises(asyncio.CancelledError):
+        await tasks[0]
+
+    message = reason if reason is not None else "CancelledError()"
+    assert tasks[0].cancelled()
+    assert await ctx.status("a") == "error"
+    with pytest.raises(RuntimeError) as exc:
+        await asyncio.wait_for(anext(stream), timeout=1)
+    assert str(exc.value) == message
+
+    replay = await ctx.require_resume("a")
+    assert await asyncio.wait_for(anext(replay), timeout=1) == b"partial;"
+    with pytest.raises(RuntimeError) as exc:
+        await asyncio.wait_for(anext(replay), timeout=1)
+    assert str(exc.value) == message
+    assert len(errors) == 1
+    assert isinstance(errors[0], asyncio.CancelledError)
+    assert finalizes == [("a", "error", message)]
+
+
+@pytest.mark.anyio
+async def test_cancelled_producer_remains_cancelled_when_finalization_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    now = [1_000.0]
+    tasks: list[asyncio.Task[None]] = []
+    ctx = create_resumable_stream_context(
+        store=create_in_memory_resumable_stream_store(
+            default_ttl_ms=100, now=lambda: now[0]
+        ),
+        wait_until=tasks.append,
+    )
+
+    async def source() -> AsyncIterator[bytes]:
+        yield b"partial;"
+        await asyncio.Event().wait()
+
+    stream = await ctx.run("a", source)
+    assert await asyncio.wait_for(anext(stream), timeout=1) == b"partial;"
+    now[0] += 101
+    tasks[0].cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await tasks[0]
+    assert tasks[0].cancelled()
+    assert await ctx.status("a") == "missing"
+    assert "resumable stream finalize failed: Stream not found: a" in caplog.text
+    await stream.aclose()
 
 
 @pytest.mark.anyio

@@ -4,14 +4,22 @@
 //! Generators accept one schema document at a time and optionally use
 //! `x-jsoncompat` metadata emitted by `jsoncompat stamp` to preserve declaration
 //! names and writer/reader wrapper roles.
+//!
+//! The optional `arbitrary-precision` Cargo feature preserves JSON numeric
+//! lexemes through schema parsing and validation. It is off by default: numbers
+//! then use serde_json's `i64`/`u64`/`f64` representation and may be rounded.
 
 mod dataclasses;
 pub mod model_plan;
 pub mod prepared_schema;
+pub mod python_names;
 
 pub use dataclasses::{
-    DataclassError, DataclassModule, generate_dataclass_declarations, generate_dataclass_models,
-    generate_dataclass_models_from_document, generate_dataclass_module_from_document,
+    DataclassError, DataclassMetadata, DataclassModule, DataclassPackage,
+    generate_dataclass_declarations, generate_dataclass_declarations_with_metadata,
+    generate_dataclass_models, generate_dataclass_models_from_document,
+    generate_dataclass_module_from_document, generate_dataclass_package_declarations_with_metadata,
+    generate_dataclass_resource_package_with_metadata,
 };
 use serde::{Deserialize, Serialize};
 

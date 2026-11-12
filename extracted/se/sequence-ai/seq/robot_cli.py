@@ -1,174 +1,194 @@
 """
-`seq robot add | list | revoke` and seq.robot_add / robot_list / robot_revoke: each robot's own key to a policy, issued from the command line or a company's own provisioning script, and revoked.
+`seq robot create | list | show | set | rm | key` and seq.robot_create / robot_list / robot_set / robot_rm / robot_key:
+a robot as a thing of its own - a record on the gateway, not a machine, one key to a robot - made, listed, given a list
+of policies it may connect to, deleted, its key replaced.
 
 
-In one sentence: robot_add asks the platform for a new key to the policy and returns it as the string the robot connects
-with - shown this once, how it reaches the robot is the company's - → robot_list says every robot key issued and not
-revoked, offline ones too, each by its id and last four with its connections now, never the key → robot_revoke stops
-one, named by its id, its last four or the key itself: its robots are cut off at once. Nothing here prints unless asked
-(`echo`), so a key never lands in a CI log.
+In one sentence: robot_create makes a robot and returns its key as the string it connects with - shown this once, how it
+reaches the robot is the company's - → robot_list says every robot the account has, offline ones too, each by its name,
+whether it is connected now, the policies on its list and when it was last seen, with the account's robot count against
+its limit → robot_set replaces a robot's whole list of policies → robot_rm deletes a robot and its key → robot_key
+issues a new key for a robot, the old one failing at once. Nothing here prints unless asked (`echo`), so a key never
+lands in a CI log.
 
-    key = seq.robot_add(policy="kitchen_user")        # a new robot's own key, for its provisioning to write
+    key = seq.robot_create("kitchen-left")                       # a new robot's own key, for its provisioning to write
+    seq.robot_set("kitchen-left", {"policies": "pick_user,place_user"})   # the policies it may connect to
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import quote
 
 from sequence_ai._core.names import segment
-from sequence_ai.errors import Conflict, InvalidRequest
+from sequence_ai.errors import InvalidRequest
 
 from seq import clock
 from seq.deployments_cli import _call
 
 Echo = Callable[[str], Any] | None
-_KEEP: Any = object()
 
 
-PERIOD_DAYS = {"7d": 7, "1m": 30, "3m": 91, "6m": 182, "1y": 365}
-_SLACK_DAYS = 3
-NO_LIMIT_ZERO = "a limit is an amount above $0 - none lifts it, and a key with no limit given has none"
+ADD_GONE = ("seq robot add is gone: a robot is its own thing now, made before any policy. Make one with "
+            "`seq robot create <name>`, then give it a list of policies with `seq robot set <name> policies=<p1>,<p2>`.")
+
+
+REVOKE_GONE = ("seq robot revoke is gone: a robot has one key now. Replace it with `seq robot key <name>` - the old "
+               "one fails at once - or delete the robot and its key with `seq robot rm <name>`.")
+
 
 def _say(echo: Echo, line: str) -> None:
     if echo is not None:
         echo(line)
 
 
-def _terms(robot: dict) -> str:
-    """A key's expiry and spending limit as it carries them: "no spending cap · never expires", "$10 spending cap ·
-    expires 2026-11-05"."""
-    cap = robot.get("credit_limit_usd")
-    at = robot.get("expires_at")
-    return (("no spending cap" if cap is None else f"${float(cap):g} spending cap") + " · "
-            + ("never expires" if at is None else f"expires {clock.day_of(at)}"))
-
-
-def _not_applied(robot: dict, expires: str | None, limit_usd: float | None) -> str:
-    """What of the limit and the expiry asked the new key does not carry - a platform that dropped them (its add took
-    no body) issues a key without them - said; "" when it carries both as asked."""
-    wrong = []
-    cap = robot.get("credit_limit_usd")
-    if limit_usd is not None and not (isinstance(cap, (int, float)) and abs(float(cap) - float(limit_usd)) < 0.005):
-        wrong.append(f"--limit {limit_usd:g} (it has {'no spending cap' if cap is None else f'a ${float(cap):g} one'})")
-    at = robot.get("expires_at")
-    if expires is not None:
-        t = clock.instant(at) if at else None
-        days = None if t is None else (t - datetime.now(timezone.utc)).total_seconds() / 86400
-        ok = (t is None) if expires == "never" else (
-            days is not None and abs(days - PERIOD_DAYS.get(expires, days)) <= _SLACK_DAYS)
-        if not ok:
-            wrong.append(f"--expires {expires} (it {'never expires' if t is None else f'expires {clock.day_of(at)}'})")
-    return " and ".join(wrong)
-
-
-def robot_add(policy: str, *, expires: str | None = None, limit_usd: float | None = None,
-              base_url: str | None = None, echo: Echo = None) -> str:
-    """A new robot key to `policy`: the robot's own identity, returned as the string it connects with. It is shown this
-    once; how it reaches the robot is its owner's. `expires` is one of 7d / 1m / 3m / 6m / 1y / never (the key never
-    expires without one, as before); `limit_usd` (above $0) caps what its robot may spend. Both only narrow the key - so
-    a key that came back without them is revoked at once and Conflict raised, never handed out wider than asked; one
-    that has them says its limit and expiry.
-"""
-    if limit_usd is not None and float(limit_usd) <= 0:
-        raise InvalidRequest(NO_LIMIT_ZERO)
-    body: dict = {}
-    if expires is not None:
-        body["expires"] = expires
-    if limit_usd is not None:
-        body["credit_limit_usd"] = limit_usd
-    robot = (_call("POST", f"/v1/deployments/{segment(policy)}/robots", base_url, body or None) or {}).get("robot") or {}
-    wrong = _not_applied(robot, expires, limit_usd)
-    if wrong:
-        ref = robot.get("key_id") or robot.get("last_four") or ""
-        try:
-            _call("DELETE", f"/v1/robots/{segment(ref, 'robot key')}", base_url)
-            then = "so it was revoked at once and no key is issued"
-        except Exception:
-            then = f"and it could not be revoked: `seq robot revoke {robot.get('last_four')}` revokes it"
-        raise Conflict(f"the new robot key to {policy} came back without {wrong}, {then} - this platform may not set "
-                       "them yet")
-    _say(echo, f"a robot key to {policy}, shown this once - its robot connects with it:")
-    _say(echo, robot["key"])
-    if "credit_limit_usd" in robot or "expires_at" in robot:
-        _say(echo, f"  {_terms(robot)}")
-    return robot["key"]
-
-
-def _pages(path: str, base_url: str | None) -> list[dict]:
-    """Every page of a list the platform pages (`next_cursor`)."""
+def _pages(path: str, base_url: str | None) -> tuple[list[dict], dict]:
+    """Every page of a list the platform pages (`next_cursor`), and the first page's whole body (for its `quota`)."""
     rows: list[dict] = []
+    first: dict = {}
     cursor = None
     while True:
-        page = _call("GET", path + "?limit=200" + (f"&cursor={quote(cursor)}" if cursor else ""), base_url) or {}
+        page = _call("GET", path + ("&" if "?" in path else "?") + "limit=200"
+                     + (f"&cursor={quote(cursor)}" if cursor else ""), base_url) or {}
+        first = first or page
         rows += page.get("data") or []
         cursor = page.get("next_cursor")
         if not cursor:
-            return rows
+            return rows, first
+
+
+def _key_out(echo: Echo, out: dict, lead: str) -> str:
+    """Say a robot's new key once and return it: the plaintext string. `out` is {robot, key} - `key` the plaintext
+    string (or a record holding it)."""
+    key = out.get("key")
+    key = key.get("key") if isinstance(key, dict) else key
+    _say(echo, lead)
+    if key:
+        _say(echo, str(key))
+    return str(key or "")
+
+
+def robot_create(name: str, *, base_url: str | None = None, echo: Echo = None) -> dict:
+    """A new robot and its key: the robot's own identity, returned as the string it connects with. It is shown this
+    once; how it reaches the robot is its owner's. Make a robot before any policy, then give it a list of policies with
+    `seq robot set <name> policies=<p1>,<p2>`. {121 §154, §107 create_robot}"""
+    out = _call("POST", "/v1/robots", base_url, {"name": name}) or {}
+    _key_out(echo, out, f"the robot {name} is made, and its key is shown this once - it connects with it:")
+    _say(echo, f"  give it policies with `seq robot set {name} policies=<p1>,<p2>`, then connect with a policy's name")
+    return out
 
 
 def robot_list(*, base_url: str | None = None, echo: Echo = None) -> list[dict]:
-    """Every robot key the account issued and has not revoked - offline ones too, so a robot that is off, or stolen,
-    can be named to revoke - each by its id and last four, its policy, and its connections now (0: offline).
-    Never a key itself.
-"""
-    rows = [{**k, "api_key_id": k.get("key_id"), "deployment": k.get("policy")}
-            for k in _pages("/v1/robot-keys", base_url)]
+    """Every robot the account has - offline ones too - each by its name, whether it is connected now, the policies on
+    its list, its Record and when it was last seen; with the account's robot count against its limit. Never a key itself.
+    """
+    rows, first = _pages("/v1/robots", base_url)
     for r in rows:
         n = r.get("connections")
-        said = "offline" if n == 0 else "connections not read" if n is None else f"{n} connection{'' if n == 1 else 's'}"
-        exp = clock.day_of(r["expires_at"]) if r.get("expires_at") else "never"
-        lim = f"${r['credit_limit_usd']:g}" if r.get("credit_limit_usd") is not None else "no cap"
-        spent = f"${float(r.get('spent_usd') or 0):.2f}"
-        used = clock.stamp(r["last_used_at"]) if r.get("last_used_at") else "never used"
-        said += f"  expires {exp}  spent {spent} of {lim}  used {used}"
-        _say(echo, f"  …{r.get('last_four')}  {str(r.get('api_key_id') or '')[:8]}  {r.get('deployment') or '-'}  "
-                   + said)
+        online = r.get("status") or ("offline" if n == 0 else "online" if n else "—")
+        policies = ", ".join(r.get("policies") or []) or "—"
+        record = "record on" if r.get("record") else "record off"
+
+
+        seen = clock.stamp(r["last_seen_at"]) if r.get("last_seen_at") else "never"
+        _say(echo, f"  {str(r.get('name') or '-'):20}  {str(online):8}  {policies:28}  {record:10}  last seen {seen}")
+    quota = first.get("quota") if isinstance(first.get("quota"), dict) else {}
+    if quota.get("max") is not None:
+        _say(echo, f"{quota.get('used', len(rows))} / {quota['max']} robots")
     if not rows:
-        _say(echo, "no robot key is issued")
+        _say(echo, "no robot yet - make one with `seq robot create <name>`")
     return rows
 
 
-def robot_revoke(key: str, *, base_url: str | None = None, echo: Echo = None) -> dict:
-    """Revoke a robot key - its id, its last four when that names one key of the account, or the key itself (named by
-    its last four, never sent): its robots connected now are cut off at once - each one's next act refused - and it
-    connects no more."""
-    ref = str(key).lstrip("…").strip()
-    if ref.startswith("seq_"):
-        ref = ref[-4:]
-    out = _call("DELETE", f"/v1/robots/{segment(ref, 'robot key')}", base_url)
-    gone = (out or {}).get("revoked") or {}
-    cut = ((out or {}).get("cut_off") or {}).get("connections")
-    _say(echo, f"the robot key …{gone.get('last_four') or ref[-4:]} is revoked: its robot is cut off now and "
-               "connects no more" + (f" ({cut} connection{'' if cut == 1 else 's'} cut)" if cut else ""))
-    return out or {}
 
 
-def robot_set(key: str, *, expires: str | None = None, limit_usd: Any = _KEEP,
-              base_url: str | None = None, echo: Echo = None) -> dict:
-    """Change a robot key's expiry or credit limit, named as revoke names one (its id, its last four, or the key
-    itself). `expires` is one of 7d / 1m / 3m / 6m / 1y / never ('never' lifts the expiry); `limit_usd` an amount above
-    $0, or None to lift the limit - as `seq key set` takes them; 0 is refused, never read as no limit. Only what is given
-    is changed; giving neither is refused.
+RECORD_DAYS = 30
+
+
+def parse_pairs(pairs: list[str]) -> dict:
+    """`seq robot set NAME key=value ...` as {key: value}: each value kept as text, an empty value (`policies=`) clearing
+    the list. robot_set says which settings there are."""
+    out: dict = {}
+    for pair in pairs:
+        key, eq, text = pair.partition("=")
+        if not eq or not key.strip():
+            raise InvalidRequest(f"write each change as KEY=VALUE, e.g. policies=pick_user,place_user; got {pair!r}")
+        out[key.strip()] = text
+    return out
+
+
+def _days(text: str) -> int | None:
+    """`record.retention_days=`'s value as a number of days, None for empty: back to the 30 it starts with."""
+    text = text.strip()
+    if not text:
+        return None
+    if not text.isdigit() or not 1 <= int(text) <= 365:
+        raise InvalidRequest(f"record.retention_days takes a whole number from 1 to 365 days; got {text}")
+    return int(text)
+
+
+def robot_set(name: str, changes: dict, *, base_url: str | None = None, echo: Echo = None) -> dict:
+    """A robot's settings: `policies=<p1>,<p2>` replaces its whole list (an empty value, `policies=`, clears it) - what the
+    robot may connect to, `teleop` one of the names, a name off it refused - `record=on|off` is whether it keeps what it
+    does, and `record.retention_days=<days>` how long (1 to 365, empty for the 30 days it starts with).
 """
-    if limit_usd is not _KEEP and limit_usd is not None and float(limit_usd) <= 0:
-        raise InvalidRequest(NO_LIMIT_ZERO)
-    ref = str(key).lstrip("…").strip()
-    if ref.startswith("seq_"):
-        ref = ref[-4:]
-    body: dict = {}
-    if expires is not None:
-        body["expires"] = expires
-    if limit_usd is not _KEEP:
-        body["credit_limit_usd"] = limit_usd
-    robot = (_call("PATCH", f"/v1/robots/{segment(ref, 'robot key')}", base_url, body) or {}).get("robot") or {}
-    bits = []
-    if "expires_at" in robot:
-        bits.append("never expires" if robot.get("expires_at") is None
-                    else f"expires {clock.day_of(robot['expires_at'])}")
-    if "credit_limit_usd" in robot:
-        bits.append("no spending cap" if robot.get("credit_limit_usd") is None
-                    else f"${float(robot.get('spent_usd') or 0):.2f} spent of ${robot['credit_limit_usd']:g}")
-    _say(echo, f"the robot key …{robot.get('last_four') or ref[-4:]}"
-               + (": " + ", ".join(bits) if bits else " is unchanged"))
+    unknown = [k for k in changes if k not in ("policies", "record", "record.retention_days")]
+    if unknown:
+        raise InvalidRequest(f"{', '.join(unknown)}: a robot's settings are policies=, record= and record.retention_days=. "
+                             "`seq robot set <name> policies=<p1>,<p2> record=on`")
+    if not changes:
+        raise InvalidRequest("nothing to change: `seq robot set <name> policies=<p1>,<p2>` (or policies= to clear it), "
+                             "`seq robot set <name> record=on`")
+    body: dict[str, Any] = {}
+    if "policies" in changes:
+        body["policies"] = [p.strip() for p in changes["policies"].split(",") if p.strip()]
+    if "record" in changes:
+        said = changes["record"].strip().lower()
+        if said not in ("on", "off"):
+            raise InvalidRequest(f"record is on or off; got {changes['record']!r}")
+        body["record"] = said == "on"
+    if "record.retention_days" in changes:
+        body["record_retention_days"] = _days(changes["record.retention_days"])
+    out = _call("PATCH", f"/v1/robots/{segment(name, 'robot')}", base_url, body) or {}
+    robot = out.get("robot") or {}
+    shown = robot.get("name") or name
+    if "policies" in body:
+        on = robot.get("policies") or []
+        _say(echo, f"the robot {shown} connects to " + (", ".join(on) if on else "no policy"))
+    if body.get("record"):
+        _say(echo, f"the robot {shown} keeps what it does, as capture:robot.{shown}: `seq volume ls`")
+    elif "record" in body:
+        _say(echo, f"the robot {shown} keeps nothing more; what it has kept stays until its retention ends")
+    if "record_retention_days" in body:
+        days = body["record_retention_days"]
+        _say(echo, f"what the robot {shown} keeps stays for {days if days is not None else RECORD_DAYS} days")
+    if out.get("notice"):
+        _say(echo, out["notice"])
     return {"robot": robot}
+
+
+def robot_rm(name: str, *, base_url: str | None = None, echo: Echo = None) -> dict:
+    """Delete a robot and its key: it connects no more, and its name is free again. {121 §160, §107 delete_robot}"""
+    out = _call("DELETE", f"/v1/robots/{segment(name, 'robot')}", base_url) or {}
+    gone = out.get("deleted") or {}
+    cut = (out.get("cut_off") or {}).get("connections")
+    _say(echo, f"the robot {gone.get('name') or name} is deleted: its key connects no more"
+               + (f" ({cut} connection{'' if cut == 1 else 's'} cut)" if cut else ""))
+    return out
+
+
+def robot_key(name: str, *, base_url: str | None = None, echo: Echo = None) -> dict:
+    """A new key for a robot, shown once - its old key fails at once, so a robot keeps one key at a time. There is no
+    revoke of its own: a new key replaces the old. {121 §159, §170, §107 rotate_robot_key}"""
+    out = _call("POST", f"/v1/robots/{segment(name, 'robot')}/key", base_url) or {}
+    _key_out(echo, out, f"a new key for {name}, shown this once - its old key no longer connects:")
+    return out
+
+
+def robot_add(*_args: Any, **_kwargs: Any) -> Any:
+    """Gone: a robot is made before any policy now (robot_create, then robot_set)."""
+    raise InvalidRequest(ADD_GONE)
+
+
+def robot_revoke(*_args: Any, **_kwargs: Any) -> Any:
+    """Gone: a robot's one key is replaced (robot_key) or goes with its robot (robot_rm)."""
+    raise InvalidRequest(REVOKE_GONE)

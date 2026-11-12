@@ -1,7 +1,7 @@
 """AI Component Collection - Pre-configured AssetCollection for AI Components"""
 
 from typing import Any
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.base_models.ai_agent_component import AiAgentComponent, AiAgentComponentPreview
 from ....models.data_base.mongo_connection import MongoConnection
 from ....services.ai_components_service import AiComponentsService

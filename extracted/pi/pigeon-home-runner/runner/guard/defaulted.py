@@ -1,6 +1,6 @@
 """Which present settings read as their documented default.
 
-Decision 1 (docs/design/present-but-invalid-config.md): an unusable
+Decision 1 (docs/steady/present-but-invalid-config.md): an unusable
 value reads as the documented default, and the runner says so
 instead of doing it silently. This module is the one place that
 knows which top-level settings are default-class and what usable
@@ -33,6 +33,7 @@ NUMERIC = {
     "poll_interval_sec": (20, 0, None),
     "result_stash_retention_sec": (86400, 1, None),
     "result_resend_backoff_sec": (60, 1, None),
+    "work_retention_sec": (604800, 0, None),
 }
 ENUM = {
     "dtls_greeting": ("family", ("none", "family", "standard", "full")),

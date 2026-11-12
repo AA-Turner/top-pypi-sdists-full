@@ -151,18 +151,21 @@ def normalize_storage_env(storage_env: str | None) -> str:
     return (storage_env or "").strip().lower()
 
 
-def business_metadata_model(metadata_model: str | None) -> str:
-    """Normalize a normal business entry to the only supported model.
+def business_metadata_model(metadata_model: str | None, *,
+                            allow_version_first: bool = False) -> str:
+    """Normalize a business model, optionally allowing explicit legacy reads.
 
     ``None``, the empty compatibility value, and ``split_first`` are accepted.
-    ``version_first`` remains available only through low-level ``Layout`` and
-    legacy discovery helpers, never through Repo/client business I/O.
+    ``version_first`` remains rejected by normal business I/O unless the caller
+    explicitly opts into legacy metadata addressing.
     """
     from ..errors import SchemaError
 
     if metadata_model is not None and not isinstance(metadata_model, str):
         raise SchemaError("metadata_model must be a string or None")
     requested = (metadata_model or "").strip()
+    if allow_version_first and requested == "version_first":
+        return requested
     if requested not in ("", "split_first"):
         if requested == "version_first":
             raise SchemaError(

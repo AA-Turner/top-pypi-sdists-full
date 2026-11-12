@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-simplejson"
-version = "4.2.0.20261104"
+version = "4.3.0.20261112"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for simplejson"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`simplejson`](https://github.com/simplejson/simplejson) package. It can be used by type checkers
 to check code that uses `simplejson`. This version of
 `types-simplejson` aims to provide accurate annotations for
-`simplejson==4.2.*`.
+`simplejson==4.3.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.92
+* [ty](https://docs.astral.sh/ty/) 0.0.95
 
 It was generated from typeshed commit
-[`62a7ba1fef5f6bbcb513cc1fb80011d75199a240`](https://github.com/python/typeshed/commit/62a7ba1fef5f6bbcb513cc1fb80011d75199a240).
+[`98ab14707e0d52deabd05161328f4cfce3869d34`](https://github.com/python/typeshed/commit/98ab14707e0d52deabd05161328f4cfce3869d34).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

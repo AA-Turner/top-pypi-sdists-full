@@ -579,12 +579,13 @@ class ToolsController:
             yield tool
 
 
-    def list_tools(self, verbose=False, format: ListFormats| None = None) -> List[dict[str, Any]] | str | None:
+    def list_tools(self, verbose=False, format: ListFormats| None = None, include_escalation: bool = False) -> List[dict[str, Any]] | str | None:
         if verbose and format:
             logger.error("For tools list, `--verbose` and `--format` are mutually exclusive options")
             sys.exit(1)
 
-        response = self.get_client().get()
+        # Escalation workflows are hidden from the listing unless explicitly requested
+        response = self.get_client().get(include_escalation=include_escalation)
         tool_specs = []
         parse_errors = []
 
@@ -722,7 +723,7 @@ class ToolsController:
                 existing_tool_workspace_id = None
                 cross_workspace_update = False
 
-                existing_tools = self.get_client().get_draft_by_name(tool.__tool_spec__.name)
+                existing_tools = self.get_client().get_draft_by_name(tool.__tool_spec__.name, include_escalation=True)
                 if len(existing_tools) > 1:
                     logger.error(f"Multiple existing tools found with name '{tool.__tool_spec__.name}'. Failed to update tool")
                     sys.exit(1)
@@ -909,7 +910,7 @@ class ToolsController:
     def remove_tool(self, name: str):
         try:
             client = self.get_client()
-            draft_tools = client.get_draft_by_name(tool_name=name)
+            draft_tools = client.get_draft_by_name(tool_name=name, include_escalation=True)
             if len(draft_tools) > 1:
                 logger.error(f"Multiple existing tools found with name '{name}'. Failed to remove tool")
                 sys.exit(1)
@@ -950,7 +951,7 @@ class ToolsController:
             tool_id = tool_id or draft_tool.get("id")
         else:
             # Otherwise, look up the tool by name (uses active workspace context)
-            draft_tools = tool_client.get_draft_by_name(tool_name=name)
+            draft_tools = tool_client.get_draft_by_name(tool_name=name, include_escalation=True)
             if len(draft_tools) > 1:
                 logger.error(f"Multiple existing tools found with name '{name}'. Failed to get tool")
                 sys.exit(1)
@@ -1029,7 +1030,7 @@ class ToolsController:
 
         if not spec:
             client = self.get_client()
-            specs = client.get_draft_by_name(name)
+            specs = client.get_draft_by_name(name, include_escalation=True)
             if len(specs):
                 spec = specs[0]
             else:
@@ -1201,7 +1202,7 @@ class ToolsController:
         Raises:
             typer.BadParameter: If tool not found, multiple tools found, or tool has no ID
         """
-        existing_tools = self.get_client().get_draft_by_name(name)
+        existing_tools = self.get_client().get_draft_by_name(name, include_escalation=True)
         
         if len(existing_tools) == 0:
             raise typer.BadParameter(f"No tool found with name '{name}'")

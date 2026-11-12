@@ -80,6 +80,12 @@ One JSON object per line, in CARLA's (left-handed) frame, metres/degrees
 * ``{"type": "despawn", "frame", "t", "label", "entity", "id", "reason"}``
   -- a ``DespawnAction`` (``reason: "action"``), or the run for a walker
   lying fallen (``"fallen"``), took an entity out of the world.
+* ``{"type": "metric", "frame", "t", "values": {key: value}}`` -- after the
+  last tick, a run judged on a ``MetricCondition``: the metrics computed once
+  the run was over for each frame they were computed for (a number, a
+  boolean for a yes/no metric, a string for one that names its state, or
+  null), the values unrounded; then each metric condition's ``condition``
+  records, from its first frame again.
 * ``{"type": "result", "passed", "message", "elapsed_seconds",
   "conditions"}`` -- last, the verdict.
 
@@ -111,6 +117,7 @@ from .constants import EGO_ROLES
 from .adversity_event import AdversityEvent
 from .coordinate.map_manager import MapManager, run_carla_map
 from .ego_plan import PlanMarkers
+from .maps.source import redacted_url
 from .kinematics.walker_motion import WalkerVelocities, is_walker
 from .utils.traffic_light import traffic_light_state_name
 from .utils.turn_indicator import turn_indicator_state
@@ -298,8 +305,10 @@ class TrajectoryRecorder:
 
     Args:
         path: The ``.jsonl`` file to write.
-        map_source: Where the map came from (the run's ``map.source``), for
-            the ``map`` record.
+        map_source: Where the map came from (the run's ``map.directory``,
+            else its ``map.source``), for
+            the ``map`` record, which holds it with any credentials in it
+            redacted (:func:`~.maps.source.redacted_url`).
         lanelet2_path: The Lanelet2 map the run read.
         opendrive_path: The OpenDRIVE the run read.
         projector_type: The projection the config overrode the Lanelet2
@@ -321,7 +330,8 @@ class TrajectoryRecorder:
         projector_type: Optional[str] = None,
     ) -> None:
         self.path = path
-        self._map_source = map_source
+        # A log is shared and archived; a token in the source URL is not.
+        self._map_source = None if map_source is None else redacted_url(map_source)
         self._lanelet2_path = lanelet2_path
         self._opendrive_path = opendrive_path
         self._projector_type = projector_type

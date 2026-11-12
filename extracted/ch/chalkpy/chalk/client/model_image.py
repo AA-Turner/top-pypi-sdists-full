@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import builtins
 import inspect
 import os
 import re
@@ -9,11 +11,11 @@ import textwrap
 import types
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH
 from chalk.ml.utils import ModelEncoding, ModelType, model_encoding_from_proto, model_type_from_proto
-from chalk.utils._ast_extract import find_relative_imports, is_module_level_definition
+from chalk.utils._ast_extract import find_free_names, find_relative_imports, is_module_level_definition, names_bound_by
 from chalk.utils.collections import FrozenOrderedSet
 
 _DEFAULT_PACKAGES: Dict[ModelType, List[str]] = {
@@ -436,6 +438,27 @@ def _write_temp(content: str, suffix: str = ".py") -> str:
     return fh.name
 
 
+def _reads_unbound(
+    node: ast.Assign | ast.AnnAssign,
+    targets: Sequence[ast.expr],
+    bound: set[str],
+    dropped: set[str],
+    has_star_import: bool,
+    annotations_are_deferred: bool,
+) -> bool:
+    free_names = find_free_names(node.value) if node.value is not None else set()
+    if isinstance(node, ast.AnnAssign) and not annotations_are_deferred:
+        free_names.update(find_free_names(node.annotation))
+    for target in targets:
+        free_names.update(find_free_names(target))
+
+    if free_names & dropped:
+        return True
+    if has_star_import:
+        return False
+    return not free_names.issubset(bound)
+
+
 def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
     """Extract the module-level *definitions* from a script — imports, helpers,
     constants, sibling classes, and the target class.
@@ -445,6 +468,15 @@ def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
     class body but also any names it references at module scope: decorators,
     type annotations, parent classes, module-level helper functions, and
     module-level constants.
+
+    Module-level assignment values, eager annotations, and non-name targets are
+    checked for unbound names; class bodies, bases, decorators, and defaults are
+    not checked.
+
+    The unbound-name check drops a module-level statement only if shipping it
+    would raise ``NameError`` on import. Otherwise the output matches the
+    ``is_module_level_definition`` filter alone, including stale values left
+    behind when a reassignment is dropped.
 
     Kept node types:
       * ``Import``, ``ImportFrom`` — module-level imports
@@ -466,8 +498,6 @@ def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
     Returns ``None`` if the file can't be parsed or the target class isn't
     found at module scope; caller falls back to ``inspect.getsource(cls)``.
     """
-    import ast
-
     try:
         with open(src_file) as f:
             src = f.read()
@@ -475,11 +505,54 @@ def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
     except (OSError, SyntaxError):
         return None
 
+    bound = set(dir(builtins))
+    bound.update(
+        {
+            "__name__",
+            "__file__",
+            "__doc__",
+            "__spec__",
+            "__package__",
+            "__loader__",
+            "__builtins__",
+            "__annotations__",
+        }
+    )
     kept: List[ast.stmt] = []
     found_class = False
+    has_star_import = False
+    annotations_are_deferred = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
+    dropped: set[str] = set()
     for node in tree.body:
-        if not is_module_level_definition(node):
+        node_bound = names_bound_by(node)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if not is_module_level_definition(node) or _reads_unbound(
+                node, targets, bound, dropped, has_star_import, annotations_are_deferred
+            ):
+                dropped.update(node_bound - bound)
+                continue
+            if node.value is not None or not annotations_are_deferred:
+                bound.update(node_bound)
+                dropped.difference_update(node_bound)
+            kept.append(node)
             continue
+
+        if not is_module_level_definition(node):
+            dropped.update(node_bound - bound)
+            continue
+
+        if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names):
+            has_star_import = True
+            dropped.clear()
+        bound.update(node_bound)
+        dropped.difference_update(node_bound)
+
         kept.append(node)
         if isinstance(node, ast.ClassDef) and node.name == class_name:
             found_class = True

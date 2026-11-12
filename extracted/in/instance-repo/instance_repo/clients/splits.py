@@ -310,8 +310,11 @@ class SplitsClient:
                         dataset, v.version, "default",
                         instance_count=v.default_instance_count))
                 for s in v.splits:
+                    # 其它-1：命名 split 的实例计数来自 probe 的同一 LIST
+                    # 往返（缺失时保持 0，best-effort），不再一律报 0。
                     splits.append(build_synthetic_split(
-                        dataset, v.version, s))
+                        dataset, v.version, s,
+                        instance_count=v.split_instance_counts.get(s, 0)))
         if (status or "").strip():
             splits = [s for s in splits if s.status == status.strip()]
         return _in_memory_paged(splits, int(page), int(page_size))
@@ -340,7 +343,8 @@ class SplitsClient:
                     instance_count=v.default_instance_count)
             if split_name in v.splits:
                 return build_synthetic_split(
-                    dataset, v.version, split_name)
+                    dataset, v.version, split_name,
+                    instance_count=v.split_instance_counts.get(split_name, 0))
         return None
 
     def _discovery_mm(self) -> str:

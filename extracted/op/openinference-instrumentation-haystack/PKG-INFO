@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-haystack
-Version: 0.1.50
+Version: 0.1.53
 Summary: OpenInference Haystack Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-haystack
 Author-email: OpenInference Authors <oss@arize.com>
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <3.16,>=3.10
-Requires-Dist: openinference-instrumentation>=0.1.75
-Requires-Dist: openinference-semantic-conventions>=0.1.42
+Requires-Dist: openinference-instrumentation>=0.1.77
+Requires-Dist: openinference-semantic-conventions>=0.1.44
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions

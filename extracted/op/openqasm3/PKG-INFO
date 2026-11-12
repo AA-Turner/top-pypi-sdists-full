@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: openqasm3
-Version: 1.0.1
+Version: 1.0.2
 Summary: Reference OpenQASM AST in Python
 Home-page: https://github.com/openqasm/openqasm
 Author: OpenQASM Contributors
@@ -27,6 +27,7 @@ Requires-Dist: antlr4_python3_runtime<4.14,>=4.7; extra == "all"
 Requires-Dist: importlib_metadata; python_version < "3.10" and extra == "all"
 Requires-Dist: pytest>=6.0; extra == "all"
 Requires-Dist: pyyaml; extra == "all"
+Dynamic: license-file
 
 # OpenQASM 3 Python Reference
 

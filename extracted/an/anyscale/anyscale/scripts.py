@@ -5,6 +5,7 @@ from typing import Any
 import click
 
 from anyscale.cli_logger import BlockLogger
+from anyscale.commands.actor_commands import actor_cli
 from anyscale.commands.aggregated_instance_usage_commands import (
     aggregated_instance_usage_cli,
 )
@@ -56,6 +57,7 @@ from anyscale.commands.service_account_commands import service_account_cli
 from anyscale.commands.service_commands import service_cli
 from anyscale.commands.session_commands_hidden import session_cli
 from anyscale.commands.skills_commands import skills_cli
+from anyscale.commands.task_commands import task_cli
 from anyscale.commands.user_commands import user_cli
 from anyscale.commands.user_group_commands import user_group_cli
 from anyscale.commands.util import AnyscaleCommand
@@ -211,6 +213,8 @@ cli.add_command(log_cli)
 cli.add_command(metrics_cli)
 cli.add_command(node_cli)
 cli.add_command(gpu_cli)
+cli.add_command(task_cli)
+cli.add_command(actor_cli)
 cli.add_command(anyscale_login)
 cli.add_command(anyscale_logout)
 cli.add_command(machine_pool_cli)

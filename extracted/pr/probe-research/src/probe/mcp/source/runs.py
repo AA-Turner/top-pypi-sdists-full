@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 import base64
+from dataclasses import dataclass
 from typing import Any
 from ...sdk.reads import nonfinite
 from ...sdk.values.run_command_words import CommandListPart
 from ...sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
-from ...sdk.values.tags import canonical_tags
+
+
+@dataclass(frozen=True)
+class RunListQuery:
+    """browse(mode=runs)'s `filter`, `order` and `latest_metrics`, passed to `GET /v1/runs` as they are (the server
+    validates them and names a bad one in its 422)."""
+
+    run_filter: dict | None = None
+    order: str | None = None
+    latest_metrics: list[str] | None = None
+
+    @property
+    def is_ordered(self) -> bool:
+        """Sorted other than newest first: one top-N page, never continued."""
+        return self.order not in (None, "", "-created_at")
 
 
 class RunReadsMixin:
@@ -154,21 +169,23 @@ class RunReadsMixin:
         cursor: str | None = None,
         limit: int,
         exclude_origin_session: str | None = None,
+        query: RunListQuery = RunListQuery(),
     ) -> tuple[list[dict], str | None]:
-        """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST, and the
-        keyset cursor past it. ``active`` is the server's liveness filter
-        (status running AND a heartbeat inside the window), not a status."""
-        parameters: dict[str, Any] = {"limit": limit}
-        if status:
-            parameters["status"] = status
-        if active:
-            parameters["active"] = "true"
-        if cursor:
-            parameters["cursor"] = cursor
-        if exclude_origin_session is not None:
-            parameters["exclude_origin_session"] = exclude_origin_session
+        """``GET /v1/runs``: one page of the lab's runs, NEWEST FIRST (or in ``query.order``, one top-N page and no
+        cursor), and the keyset cursor past it. ``active`` is the server's liveness filter (status running AND a
+        heartbeat inside the window), not a status."""
         page = self.client.list_runs(
-            project_id=project_id, experiment_id=experiment_id, tags=tags, **parameters
+            project_id=project_id,
+            experiment_id=experiment_id,
+            tags=tags,
+            status=status or None,
+            active=active,
+            exclude_origin_session=exclude_origin_session,
+            filter=query.run_filter,
+            order=query.order,
+            latest_metrics=query.latest_metrics,
+            limit=limit,
+            cursor=cursor,
         )
         return list(page.items), page.next_cursor
 
@@ -181,24 +198,20 @@ class RunReadsMixin:
         tags: list[str] | None = None,
         is_active: bool = False,
         exclude_origin_session: str | None = None,
+        run_filter: dict | None = None,
     ) -> dict:
-        """``GET /v1/runs/counts``: `{total, by_status}` for the same filter as `run_list`. Raises on
-        an API without the route (404) or a count past its bound (503); the caller marks it."""
-        parameters: dict[str, Any] = {}
-        for key, value in (
-            ("project_id", project_id),
-            ("experiment_id", experiment_id),
-            ("status", status),
-            ("exclude_origin_session", exclude_origin_session),
-        ):
-            if value is not None:
-                parameters[key] = value
-        if tags:
-            # The page's own canonical form (`list_runs`), so both filter the same rows.
-            parameters["tags"] = canonical_tags(tags)
-        if is_active:
-            parameters["active"] = "true"
-        return self.client.transport.get("/v1/runs/counts", params=parameters)
+        """``GET /v1/runs/counts``: `{total, by_status}` for the same filter as `run_list` (the client's own
+        query builder, so both count one set). Raises on an API without the route (404) or a count past its
+        bound (503); the caller marks it."""
+        return self.client.count_runs(
+            project_id=project_id,
+            experiment_id=experiment_id,
+            status=status,
+            tags=tags,
+            active=is_active,
+            exclude_origin_session=exclude_origin_session,
+            filter=run_filter,
+        )
 
     def run_failures(self, run_ids: list[str]) -> list[dict]:
         """``GET /v1/runs/failures``: why each named failed/crashed run failed (at most 20)."""

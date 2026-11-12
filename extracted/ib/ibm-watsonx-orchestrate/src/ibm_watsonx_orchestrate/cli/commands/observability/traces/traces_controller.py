@@ -1,4 +1,5 @@
 import logging
+import re
 import typer
 import rich
 
@@ -58,7 +59,9 @@ class TracesController:
         trace_id: str,
         page_size: int = 100,
         fetch_all: bool = True,
-        show_progress: bool = False
+        show_progress: bool = False,
+        from_start_time=None,
+        to_start_time=None,
     ) -> ObservationsExportResponse:
         """
         Fetch all observations for a given trace ID.
@@ -68,6 +71,8 @@ class TracesController:
             page_size: Number of observations per page (1-1000)
             fetch_all: If True, automatically fetches all pages
             show_progress: If True, log progress (for CLI use)
+            from_start_time: Lower bound of the observation time window (ISO 8601 or datetime).
+            to_start_time: Upper bound of the observation time window (ISO 8601 or datetime).
 
         Returns:
             ObservationsExportResponse containing observations and pagination info
@@ -90,7 +95,9 @@ class TracesController:
         obs_response = client.get_observations(
             trace_id=trace_id,
             page_size=page_size,
-            fetch_all=fetch_all
+            fetch_all=fetch_all,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
         )
 
         if show_progress:
@@ -104,7 +111,9 @@ class TracesController:
         trace_id: str,
         output_file: Optional[str] = None,
         pretty: bool = True,
-        page_size: int = 50
+        page_size: int = 50,
+        from_start_time=None,
+        to_start_time=None,
     ) -> tuple[ObservationsExportResponse, str]:
         """
         Fetch trace observations and export to JSON format.
@@ -114,6 +123,8 @@ class TracesController:
             output_file: Optional file path to write to
             pretty: If True, format with indentation
             page_size: Number of observations per page
+            from_start_time: Lower bound of the observation time window (ISO 8601 or datetime).
+            to_start_time: Upper bound of the observation time window (ISO 8601 or datetime).
 
         Returns:
             Tuple of (ObservationsExportResponse, json_string)
@@ -134,7 +145,9 @@ class TracesController:
         obs_response = self.fetch_trace_observations(
             trace_id=trace_id,
             page_size=page_size,
-            fetch_all=True
+            fetch_all=True,
+            from_start_time=from_start_time,
+            to_start_time=to_start_time,
         )
 
         exporter = TraceExporter()
@@ -336,11 +349,16 @@ def trace_search(start_time: Optional[datetime] = None,
             logger.error(f"Unexpected error during trace search: {str(e)}")
             raise typer.Exit(1)
 
-def traces_export(trace_id: str, output: Optional[str] = None, pretty: bool = True):
+def traces_export(trace_id: str, output: Optional[str] = None, pretty: bool = True,
+                  from_start_time=None, to_start_time=None):
 
     try:
         if not trace_id or not trace_id.strip():
             logger.error("Error: trace_id must be a non-empty string")
+            raise typer.Exit(1)
+
+        if not re.fullmatch(r'[0-9a-fA-F]{32}', trace_id.strip()):
+            logger.error("Error: Invalid trace_id. Must be a 32-character hexadecimal string.")
             raise typer.Exit(1)
 
         if output and not output.lower().endswith('.json'):
@@ -363,6 +381,8 @@ def traces_export(trace_id: str, output: Optional[str] = None, pretty: bool = Tr
                     trace_id=trace_id,
                     output_file=output,
                     pretty=pretty,
+                    from_start_time=from_start_time,
+                    to_start_time=to_start_time,
                 )
                 if obs_response.observations:
                     progress.update(task, description=f"Fetched {len(obs_response.observations)} observations")
@@ -371,6 +391,8 @@ def traces_export(trace_id: str, output: Optional[str] = None, pretty: bool = Tr
                 trace_id=trace_id,
                 output_file=output,
                 pretty=pretty,
+                from_start_time=from_start_time,
+                to_start_time=to_start_time,
             )
 
         if not obs_response.observations:

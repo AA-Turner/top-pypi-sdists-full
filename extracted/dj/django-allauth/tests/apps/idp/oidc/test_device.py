@@ -103,6 +103,7 @@ def test_device_flow(
         "user_code": ANY,
         "device_code": ANY,
         "interval": 5,
+        "scope": "openid email" if with_scope else "profile",
     }
     assert (
         data["verification_uri_complete"]
@@ -342,6 +343,11 @@ def test_device_flow_requested_vs_granted_resources(
         token = Token.objects.lookup(
             Token.Type.ACCESS_TOKEN, resp.json()["access_token"]
         )
+        refresh_token = Token.objects.lookup(
+            Token.Type.REFRESH_TOKEN, resp.json()["refresh_token"]
+        )
+        assert token.get_grant_id() == refresh_token.get_grant_id()
+        assert token.get_grant_id() is not None
         assert set(token.get_resources()) == set(requested_resources)
     else:
         assert resp.status_code == HTTPStatus.BAD_REQUEST

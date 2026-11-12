@@ -14,7 +14,6 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING
 
-from doppler.tests._docs_fixture import domain_line
 from doppler.tests._repo import repo_root
 
 if TYPE_CHECKING:
@@ -25,7 +24,6 @@ SCRIPT = REPO / "scripts" / "check_user_docs.py"
 EX = "src/doppler/examples"
 EXEMPT = "docs/.user-docs-exempt"
 NO_FIGURE = f"{EX}/.no-figure"
-FM = domain_line("sig")  # the guide page's first line
 
 
 def _w(root: Path, rel: str, text: str) -> None:
@@ -55,13 +53,7 @@ def _fixture(root: Path) -> Path:
     _w(
         root,
         "docs/guide/widgets.md",
-        FM + "# Widgets\n\nUse `Widget` to ...\n",
-    )
-    _w(
-        root,
-        "docs/domains.toml",
-        '[domain.sig]\ntitle = "Signal widgets (sig)"\narea = "sources"\n'
-        'summary = "Widgets."\n',
+        "# Widgets\n\nUse `Widget` to ...\n",
     )
     _w(
         root,
@@ -93,11 +85,25 @@ def test_no_guide_mention_fails(tmp_path: Path) -> None:
     _w(
         root,
         "docs/guide/widgets.md",
-        FM + "# Widgets\n\nNothing named here.\n",
+        "# Widgets\n\nNothing named here.\n",
     )
     r = _run(root, "widget_demo.py")
     assert r.returncode == 1
     assert "doppler.sig.Widget: no guide" in r.stderr
+
+
+def test_a_cross_reference_is_a_guide_mention(tmp_path: Path) -> None:
+    """`[the widget][doppler.sig.Widget]` names the class as surely as
+    `[the widget](api.md)` does; it is how a guide reaches the generated
+    reference (#3000), and a link converted to one lost its mention."""
+    root = _fixture(tmp_path)
+    _w(
+        root,
+        "docs/guide/widgets.md",
+        "# Widgets\n\nSee [Widget][doppler.sig.Widget] for the knobs.\n",
+    )
+    r = _run(root, "widget_demo.py")
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
 def test_no_example_fails(tmp_path: Path) -> None:
@@ -108,38 +114,23 @@ def test_no_example_fails(tmp_path: Path) -> None:
     assert "doppler.sig.Widget: no example" in r.stderr
 
 
-def test_a_bare_api_mention_is_not_an_entry(tmp_path: Path) -> None:
+def test_no_api_page_is_owed(tmp_path: Path) -> None:
+    """The API entry is the generated reference, which check_surface.py
+    holds (#3000): a class with a guide and an example passes with no
+    docs/api/ page at all."""
     root = _fixture(tmp_path)
-    _w(
-        root,
-        "docs/api/python-sig.md",
-        "# sig\n\n`Widget` is mentioned.\n\n::: doppler.sig.WidgetStats\n",
-    )
-    r = _run(root, "widget_demo.py")
-    assert r.returncode == 1
-    assert "doppler.sig.Widget: no api" in r.stderr
-
-
-def test_a_heading_or_member_list_is_an_entry(tmp_path: Path) -> None:
-    root = _fixture(tmp_path)
-    _w(
-        root,
-        "docs/api/python-sig.md",
-        "# sig\n\n## Widget — the thing\n\n::: doppler.sig\n"
-        "    options:\n      members:\n        - WidgetStats\n",
-    )
+    (root / "docs" / "api" / "python-sig.md").unlink()
     r = _run(root, "widget_demo.py")
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_a_record_type_owes_only_its_api_entry(tmp_path: Path) -> None:
+def test_a_record_type_owes_no_guide_or_example(tmp_path: Path) -> None:
+    """WidgetStats is a record: the fixture names it in no guide and uses
+    it in no example, and that is not a gap."""
     root = _fixture(tmp_path)
-    _w(root, "docs/api/python-sig.md", "# sig\n\n::: doppler.sig.Widget\n")
     r = _run(root, "widget_demo.py")
-    assert r.returncode == 1
-    assert "doppler.sig.WidgetStats: no api" in r.stderr
-    assert "WidgetStats: no guide" not in r.stderr
-    assert "WidgetStats: no example" not in r.stderr
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "WidgetStats" not in r.stderr
 
 
 def test_a_record_name_in_a_fragment_is_a_record(tmp_path: Path) -> None:
@@ -206,11 +197,11 @@ def test_an_exemption_covers_a_gap_and_a_closed_one_is_stale(
     tmp_path: Path,
 ) -> None:
     root = _fixture(tmp_path)
-    _w(root, "docs/guide/widgets.md", FM + "# Widgets\n")
+    _w(root, "docs/guide/widgets.md", "# Widgets\n")
     _w(root, EXEMPT, "doppler.sig.Widget guide: predates the gate\n")
     r = _run(root, "widget_demo.py")
     assert r.returncode == 0, r.stdout + r.stderr
-    _w(root, "docs/guide/widgets.md", FM + "# Widgets\n\nUse `Widget`.\n")
+    _w(root, "docs/guide/widgets.md", "# Widgets\n\nUse `Widget`.\n")
     r = _run(root, "widget_demo.py")
     assert r.returncode == 1
     assert "is stale" in r.stderr
@@ -232,7 +223,7 @@ def test_the_exempt_list_only_shrinks(tmp_path: Path) -> None:
     _git(root, "init", "-q")
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "base")
-    _w(root, "docs/guide/widgets.md", FM + "# Widgets\n")
+    _w(root, "docs/guide/widgets.md", "# Widgets\n")
     _w(root, EXEMPT, "doppler.sig.Widget guide: I would rather not\n")
     r = _run(root, "widget_demo.py")
     assert r.returncode == 1
@@ -247,7 +238,7 @@ def test_no_ratchet_skips_only_the_base_comparison(tmp_path: Path) -> None:
     _git(root, "init", "-q")
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "base")
-    _w(root, "docs/guide/widgets.md", FM + "# Widgets\n")
+    _w(root, "docs/guide/widgets.md", "# Widgets\n")
     _w(root, EXEMPT, "doppler.sig.Widget guide: I would rather not\n")
     r = subprocess.run(
         [

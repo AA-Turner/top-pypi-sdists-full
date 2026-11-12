@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.58.3"
+version = "0.59.4"
 description = "The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,24 +32,29 @@ classifiers = [
 dependencies = [
     "httpx>=0.24,<1",
     "pydantic>=2; python_version >= '3.10'",
-    "sequence-base>=0.8.10,<0.9; python_version >= '3.10'",
+    "sequence-base>=0.8.11,<0.9; python_version >= '3.10'",
     "pillow>=10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7",
-    "sequence-base>=0.8.10,<0.9; python_version >= '3.10'",
+    "sequence-base>=0.8.11,<0.9; python_version >= '3.10'",
     "pillow>=10",
     "numpy>=1.24",
     "pyarrow>=14",
     "av>=17; python_version >= '3.10'",
     "zstandard>=0.22",
+    "aiortc>=1.16,<1.17; python_version >= '3.10'",
+    "opencv-python-headless>=4.8",
 ]
 
 data = ["pyarrow>=14", "numpy>=1.24", "av>=17; python_version >= '3.10'", "zstandard>=0.22"]
 
 observe = ["numpy>=1.24", "av>=17; python_version >= '3.10'", "zstandard>=0.22"]
+
+teleop = ["aiortc>=1.16,<1.17; python_version >= '3.10'", "av>=17; python_version >= '3.10'",
+          "numpy>=1.24; python_version >= '3.10'"]
 
 port = [
     "mujoco==3.15.0; python_version >= '3.10'",

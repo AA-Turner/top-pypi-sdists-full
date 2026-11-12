@@ -554,6 +554,13 @@ CREATION_POLL_MAX_DELAY = 10.0
 CREATION_POLL_BACKOFF_FACTOR = 1.5
 # Fraction of the computed delay applied as +/- jitter.
 CREATION_POLL_JITTER = 0.25
+
+# Checkpoint-wait pacing. Checkpoint uploads and volume merges are short
+# server phases (a small merge runs ~4s end to end), so waiting clients poll
+# at a fixed fast cadence for the first seconds of a phase and only then fall
+# back to the creation backoff law.
+CHECKPOINT_POLL_FAST_DELAY = 1.0
+CHECKPOINT_POLL_FAST_WINDOW = 10.0
 # Legacy fixed schedule (1s for the first 5 polls, then 2s) that `max_attempts`
 # used to describe. Retained only to derive the same wall-clock budget.
 _LEGACY_FAST_POLLS = 5
@@ -1628,14 +1635,19 @@ class _AsyncBackgroundJobOutputCoordinator:
             raise
 
 
+def _jittered_poll_delay(delay: float) -> float:
+    """Apply the poll jitter law to a base delay."""
+    jitter = delay * CREATION_POLL_JITTER
+    return max(0.0, delay + random.uniform(-jitter, jitter))
+
+
 def _creation_poll_delay(poll_index: int) -> float:
     """Jittered exponential backoff delay for the Nth creation status poll."""
     delay = min(
         CREATION_POLL_INITIAL_DELAY * (CREATION_POLL_BACKOFF_FACTOR**poll_index),
         CREATION_POLL_MAX_DELAY,
     )
-    jitter = delay * CREATION_POLL_JITTER
-    return max(0.0, delay + random.uniform(-jitter, jitter))
+    return _jittered_poll_delay(delay)
 
 
 def _creation_timeout_seconds(max_attempts: int) -> float:
@@ -2508,22 +2520,22 @@ class SandboxClient:
         )
         return self._accept_created(request, response)
 
-    def create_bundle(
+    def create_gang(
         self, requests: List[CreateSandboxRequest], idempotency_key: Optional[str] = None
     ) -> List[Sandbox]:
         """Create up to 12 sandboxes together on one node, all or nothing.
 
         Members must share team, architecture, and GPU type; totals are capped
         at 48 CPU cores, 48 GB memory, 1000 GB disk, and 8 GPUs. Each member
-        boots independently: wait with ``wait_for_bundle``, which deletes the
-        whole bundle if any member fails to start."""
+        boots independently: wait with ``wait_for_gang``, which deletes the
+        whole gang if any member fails to start."""
         payload = {
             "sandboxes": [_create_payload(r, self.client.config.team_id) for r in requests],
             "idempotency_key": idempotency_key or uuid.uuid4().hex,
         }
         response = self.client.request(
             "POST",
-            "/sandbox/bundle",
+            "/sandbox/gang",
             json=payload,
             idempotent_post=True,
         )
@@ -2532,15 +2544,15 @@ class SandboxClient:
             for r, created in zip(requests, response["sandboxes"], strict=True)
         ]
 
-    def wait_for_bundle(
+    def wait_for_gang(
         self,
         sandbox_ids: List[str],
         max_attempts: int = 60,
         image_build_timeout_seconds: int = 3000,
     ) -> Dict[str, str]:
-        """Wait until every sandbox of a bundle is running.
+        """Wait until every sandbox of a gang is running.
 
-        A bundle is all or nothing: if any member fails or the wait times out,
+        A gang is all or nothing: if any member fails or the wait times out,
         every member is deleted, including those already running, and the
         error is raised with the cleanup outcome."""
         try:
@@ -2554,10 +2566,10 @@ class SandboxClient:
                 self.bulk_delete(sandbox_ids=sandbox_ids)
             except Exception as cleanup:
                 raise RuntimeError(
-                    f"Bundle did not start ({error}); deleting its sandboxes also failed "
+                    f"Gang did not start ({error}); deleting its sandboxes also failed "
                     f"({cleanup}): delete {sandbox_ids} yourself"
                 ) from error
-            raise RuntimeError(f"Bundle did not start and was deleted: {error}") from error
+            raise RuntimeError(f"Gang did not start and was deleted: {error}") from error
 
     def _accept_created(self, request: CreateSandboxRequest, response: Dict[str, Any]) -> Sandbox:
         sandbox = Sandbox.model_validate(response)
@@ -2750,32 +2762,64 @@ class SandboxClient:
     def wait_for_checkpoint(
         self, checkpoint_id: str, timeout_seconds: float = 300
     ) -> SandboxCheckpoint:
-        """Wait for a filesystem checkpoint to become DURABLE.
+        """Wait for a filesystem checkpoint to become DURABLE, then for its
+        volume merge to leave "pending" when the checkpoint reports one.
 
         Concurrent waits share cross-sandbox batches of up to 100 checkpoints.
-        Polls with backoff until timeout_seconds elapse, returning the durable
-        checkpoint. Raises RuntimeError on FAILED or DELETING and TimeoutError
-        on expiry.
+        Polls at a fixed fast cadence for the first seconds of each wait
+        phase, then with exponential backoff until timeout_seconds elapses,
+        returning the durable checkpoint; checkpoints without a merge field
+        (older servers, plain checkpoints) return at DURABLE. The fast
+        cadence re-arms once when the checkpoint first reports a pending
+        volume merge. Raises RuntimeError on FAILED,
+        DELETING, or a failed merge (merge_error in the message) and
+        TimeoutError on expiry.
         In-flight requests follow the API client's timeout and retry policy.
         """
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be finite and greater than zero")
-        deadline = time.monotonic() + timeout_seconds
-        poll_index = 0
+        now = time.monotonic()
+        deadline = now + timeout_seconds
+        phase_start = now
+        slow_index = 0
+        merge_phase = False
+        merge_pending = False
         while time.monotonic() < deadline:
             checkpoint = self._checkpoint_batcher.get(checkpoint_id)
             if checkpoint.state == "DURABLE":
-                return checkpoint
-            if checkpoint.state in ("FAILED", "DELETING"):
+                if checkpoint.merge == "failed":
+                    raise RuntimeError(
+                        f"Checkpoint {checkpoint_id}'s volume merge failed: "
+                        f"{checkpoint.merge_error or 'no error details'}"
+                    )
+                if checkpoint.merge != "pending":
+                    return checkpoint
+                if not merge_phase:
+                    # The volume merge is a fresh server phase with its own
+                    # short budget, so re-arm the fast cadence for it once.
+                    merge_phase = True
+                    phase_start = time.monotonic()
+                    slow_index = 0
+                merge_pending = True
+            elif checkpoint.state in ("FAILED", "DELETING"):
                 raise RuntimeError(
-                    f"Checkpoint {checkpoint_id} cannot become durable (state={checkpoint.state}): "
+                    f"Checkpoint {checkpoint_id} cannot become durable "
+                    f"(state={checkpoint.state}): "
                     f"{checkpoint.error or 'no error details'}"
                 )
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            time.sleep(min(_creation_poll_delay(poll_index), remaining))
-            poll_index += 1
+            if time.monotonic() - phase_start >= CHECKPOINT_POLL_FAST_WINDOW:
+                time.sleep(min(_creation_poll_delay(slow_index), remaining))
+                slow_index += 1
+            else:
+                time.sleep(min(_jittered_poll_delay(CHECKPOINT_POLL_FAST_DELAY), remaining))
+        if merge_pending:
+            raise TimeoutError(
+                f"Checkpoint {checkpoint_id} did not finish its volume merge "
+                f"within {timeout_seconds:g}s (merge=pending)"
+            )
         raise TimeoutError(
             f"Checkpoint {checkpoint_id} did not become DURABLE within {timeout_seconds:g}s"
         )
@@ -4326,22 +4370,22 @@ class AsyncSandboxClient:
         )
         return await self._accept_created(request, response)
 
-    async def create_bundle(
+    async def create_gang(
         self, requests: List[CreateSandboxRequest], idempotency_key: Optional[str] = None
     ) -> List[Sandbox]:
         """Create up to 12 sandboxes together on one node, all or nothing.
 
         Members must share team, architecture, and GPU type; totals are capped
         at 48 CPU cores, 48 GB memory, 1000 GB disk, and 8 GPUs. Each member
-        boots independently: wait with ``wait_for_bundle``, which deletes the
-        whole bundle if any member fails to start."""
+        boots independently: wait with ``wait_for_gang``, which deletes the
+        whole gang if any member fails to start."""
         payload = {
             "sandboxes": [_create_payload(r, self.client.config.team_id) for r in requests],
             "idempotency_key": idempotency_key or uuid.uuid4().hex,
         }
         response = await self.client.request(
             "POST",
-            "/sandbox/bundle",
+            "/sandbox/gang",
             json=payload,
             idempotent_post=True,
         )
@@ -4350,15 +4394,15 @@ class AsyncSandboxClient:
             for r, created in zip(requests, response["sandboxes"], strict=True)
         ]
 
-    async def wait_for_bundle(
+    async def wait_for_gang(
         self,
         sandbox_ids: List[str],
         max_attempts: int = 60,
         image_build_timeout_seconds: int = 3000,
     ) -> Dict[str, str]:
-        """Wait until every sandbox of a bundle is running.
+        """Wait until every sandbox of a gang is running.
 
-        A bundle is all or nothing: if any member fails or the wait times out,
+        A gang is all or nothing: if any member fails or the wait times out,
         every member is deleted, including those already running, and the
         error is raised with the cleanup outcome."""
         try:
@@ -4372,10 +4416,10 @@ class AsyncSandboxClient:
                 await self.bulk_delete(sandbox_ids=sandbox_ids)
             except Exception as cleanup:
                 raise RuntimeError(
-                    f"Bundle did not start ({error}); deleting its sandboxes also failed "
+                    f"Gang did not start ({error}); deleting its sandboxes also failed "
                     f"({cleanup}): delete {sandbox_ids} yourself"
                 ) from error
-            raise RuntimeError(f"Bundle did not start and was deleted: {error}") from error
+            raise RuntimeError(f"Gang did not start and was deleted: {error}") from error
 
     async def _accept_created(
         self, request: CreateSandboxRequest, response: Dict[str, Any]
@@ -4570,29 +4614,59 @@ class AsyncSandboxClient:
         """Wait for a filesystem checkpoint to become DURABLE.
 
         Concurrent waits share cross-sandbox batches of up to 100 checkpoints.
-        Polls with backoff until timeout_seconds elapse, returning the durable
-        checkpoint. Raises RuntimeError on FAILED or DELETING and TimeoutError
-        on expiry.
+        Polls at a fixed fast cadence for the first seconds of each wait
+        phase, then with exponential backoff until timeout_seconds elapses,
+        returning the durable checkpoint; the fast cadence re-arms once when
+        the checkpoint first reports a pending volume merge. Raises
+        RuntimeError on FAILED or DELETING and TimeoutError on expiry.
         In-flight requests follow the API client's timeout and retry policy.
         """
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be finite and greater than zero")
-        deadline = time.monotonic() + timeout_seconds
-        poll_index = 0
+        now = time.monotonic()
+        deadline = now + timeout_seconds
+        phase_start = now
+        slow_index = 0
+        merge_phase = False
+        merge_pending = False
         while time.monotonic() < deadline:
             checkpoint = await self._checkpoint_batcher.get(checkpoint_id)
             if checkpoint.state == "DURABLE":
-                return checkpoint
-            if checkpoint.state in ("FAILED", "DELETING"):
+                if checkpoint.merge == "failed":
+                    raise RuntimeError(
+                        f"Checkpoint {checkpoint_id}'s volume merge failed: "
+                        f"{checkpoint.merge_error or 'no error details'}"
+                    )
+                if checkpoint.merge != "pending":
+                    return checkpoint
+                if not merge_phase:
+                    # The volume merge is a fresh server phase with its own
+                    # short budget, so re-arm the fast cadence for it once.
+                    merge_phase = True
+                    phase_start = time.monotonic()
+                    slow_index = 0
+                merge_pending = True
+            elif checkpoint.state in ("FAILED", "DELETING"):
                 raise RuntimeError(
-                    f"Checkpoint {checkpoint_id} cannot become durable (state={checkpoint.state}): "
+                    f"Checkpoint {checkpoint_id} cannot become durable "
+                    f"(state={checkpoint.state}): "
                     f"{checkpoint.error or 'no error details'}"
                 )
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            await asyncio.sleep(min(_creation_poll_delay(poll_index), remaining))
-            poll_index += 1
+            if time.monotonic() - phase_start >= CHECKPOINT_POLL_FAST_WINDOW:
+                await asyncio.sleep(min(_creation_poll_delay(slow_index), remaining))
+                slow_index += 1
+            else:
+                await asyncio.sleep(
+                    min(_jittered_poll_delay(CHECKPOINT_POLL_FAST_DELAY), remaining)
+                )
+        if merge_pending:
+            raise TimeoutError(
+                f"Checkpoint {checkpoint_id} did not finish its volume merge "
+                f"within {timeout_seconds:g}s (merge=pending)"
+            )
         raise TimeoutError(
             f"Checkpoint {checkpoint_id} did not become DURABLE within {timeout_seconds:g}s"
         )

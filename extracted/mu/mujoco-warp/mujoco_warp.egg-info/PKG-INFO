@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mujoco-warp
-Version: 4.0.0
+Version: 4.0.1
 Summary: MuJoCo Warp (MJWarp)
 Author-email: Newton Developers <mujoco@deepmind.com>
 License-Expression: Apache-2.0
@@ -24,9 +24,12 @@ License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: absl-py
 Requires-Dist: etils[epath]
-Requires-Dist: mujoco>=3.13.0
+Requires-Dist: mujoco-core>=4.0.0
 Requires-Dist: numpy
 Requires-Dist: warp-lang>=1.15
+Provides-Extra: viewer
+Requires-Dist: mujoco-core[rendering]>=4.0.0; extra == "viewer"
+Requires-Dist: pillow; extra == "viewer"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -34,10 +37,9 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pygls<2.0.0,>=1.0.0; extra == "dev"
 Requires-Dist: lsprotocol<2024.0.0,>=2023.0.1; extra == "dev"
-Requires-Dist: mujoco>=3.11.0; extra == "dev"
+Requires-Dist: mujoco-warp[viewer]; extra == "dev"
 Requires-Dist: warp-lang>=1.15; extra == "dev"
 Requires-Dist: mjviser>=0.0.13; extra == "dev"
-Requires-Dist: pillow; extra == "dev"
 Provides-Extra: cpu
 Requires-Dist: jax; extra == "cpu"
 Provides-Extra: cuda
@@ -72,6 +74,12 @@ MJWarp is also available via PyPI:
 
 ```bash
 pip install mujoco-warp
+```
+
+MJWarp depends only on the core MuJoCo bindings (`mujoco-core`). The `mjwarp-viewer` and `mjwarp-record` tools need the `viewer` extra:
+
+```bash
+pip install "mujoco-warp[viewer]"
 ```
 
 # Examples

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from ...models.analytics.sources import SourceBase
 from ...models.cache import CacheProtocol
 from ...models.utils.types import StrObjectId
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ...services.factories.analytics.sources.source_factory import SourceFactory
 from ..asset_cache import AssetCache
 from ..cached_catalog_repository import deleted_through_the_cache

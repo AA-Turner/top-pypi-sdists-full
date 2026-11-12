@@ -19,10 +19,7 @@ if TYPE_CHECKING:
 
 def run_after_run_checks(ctx: EngineContext) -> list[Failure]:
     """Run class-based checks' `after_run` once all testing is done and collect their failures."""
-    checks = ctx.checks.for_run()
-    if not checks:
-        return []
-    return collect_after_run_failures(ctx.config, checks, ctx.get_transport_kwargs())
+    return collect_after_run_failures(ctx.config, ctx.checks, ctx.get_transport_kwargs())
 
 
 @dataclass(slots=True)
@@ -47,7 +44,7 @@ class CheckContextData:
             recorder=recorder,
             response_checks=ctx.checks.for_responses(),
             phase=phase,
-            auth_enforced_operations=ctx.auth_enforced_operations,
+            auth_enforced_operations=ctx.checks.auth_enforced_operations,
         )
 
 

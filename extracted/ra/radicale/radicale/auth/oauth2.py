@@ -24,7 +24,13 @@
 Authentication backend that checks credentials against an oauth2 server auth endpoint
 """
 
-import requests
+try:
+    import requests
+except ImportError as e:
+    raise ImportError(
+        "the 'requests' module is required for [auth] type=oauth2: "
+        "install it with 'pip install radicale[oauth2]' or from your "
+        "distribution packages (e.g. python3-requests)") from e
 
 from radicale import auth
 from radicale.log import logger
@@ -41,10 +47,17 @@ class Auth(auth.BaseAuth):
             raise RuntimeError("OAuth2 token endpoint URL is required")
         logger.info("auth OAuth2 token endpoint: %s", self._endpoint)
 
-    def _login(self, login, password) -> str:
+    def _login(self, login: str, password: str) -> str:
         """Validate credentials.
         Sends login credentials to oauth token endpoint and checks that a token is returned
         """
+        if not login:
+            logger.warning("Login rejected for user+password by backend %r (requires non-empty user): %r", "oauth2", login)
+            return auth.NO_LOGIN
+        elif not password:
+            logger.warning("Login rejected for user+password by backend %r (requires non-empty password): %r", "oauth2", login)
+            return auth.NO_LOGIN
+
         try:
             # authenticate to authentication endpoint and return login if ok, else ""
             req_params = {

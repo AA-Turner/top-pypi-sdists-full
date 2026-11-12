@@ -3,28 +3,10 @@ import pytest
 import strawberry
 
 import schemathesis
+from schemathesis.config import SchemathesisConfig
 from test.apps.catalog.graphql import bookstore
 
 pytestmark = pytest.mark.usefixtures("book_id_scalar")
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_finds_non_id_chain_bug(ctx, cli, snapshot_cli):
-    # A query seeds Project.fullPath; the consuming mutation errors only on a real captured path.
-    api = ctx.graphql.apps.non_id_pool()
-    assert (
-        cli.run(
-            api.schema_url,
-            "--no-shrink",
-            "--max-examples=30",
-            "--phases=stateful",
-            "-m",
-            "positive",
-            "-c",
-            "not_a_server_error",
-        )
-        == snapshot_cli
-    )
 
 
 @pytest.mark.parametrize(
@@ -32,7 +14,6 @@ def test_stateful_finds_non_id_chain_bug(ctx, cli, snapshot_cli):
     [bookstore.bare_slug, bookstore.relay_connection, bookstore.use_after_delete, bookstore.double_delete],
     ids=["bare-slug-arg", "relay-connection-producer", "use-after-delete", "double-delete"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_stateful_finds_captured_value_bug(ctx, cli, snapshot_cli, factory):
     # Bare `slug` resolves via the enclosing return type; tombstones expose reads and deletes of a deleted resource.
     api = ctx.graphql.serve(factory())
@@ -50,6 +31,24 @@ def test_stateful_finds_captured_value_bug(ctx, cli, snapshot_cli, factory):
         )
         == snapshot_cli
     )
+
+
+# Need enough scenarios to exercise the per-operation demote path while other resolvers stay healthy.
+def test_one_slow_resolver_does_not_abort_stateful_phase(ctx, cli):
+    api = ctx.graphql.serve(bookstore.slow_mutation())
+    result = cli.run(
+        api.schema_url,
+        "--phases=stateful",
+        "--max-examples=20",
+        "-m",
+        "positive",
+        "-c",
+        "not_a_server_error",
+        config={"operations": [{"include-name": "Mutation.deleteBook", "request-timeout": 0.5}]},
+    )
+    assert "Unhealthy API" not in result.stdout
+    assert "UnhealthyAPIError" not in result.stdout
+    assert "Stateful" in result.stdout
 
 
 def test_stateful_consumers_mostly_target_created_resources(ctx, cli):
@@ -165,7 +164,7 @@ def test_stateful_feeds_ids_captured_through_mutation_payloads(ctx, cli):
     }
 
 
-def test_hooks_apply_once_to_stateful_cases(ctx):
+def test_hooks_and_config_headers_apply_once_to_stateful_cases(ctx):
     @strawberry.type
     class Book:
         id: strawberry.ID
@@ -183,7 +182,13 @@ def test_hooks_apply_once_to_stateful_cases(ctx):
             return Book(id=strawberry.ID("1"))
 
     api = ctx.graphql.apps.from_schema(strawberry.Schema(Query, Mutation))
-    schema = schemathesis.graphql.from_url(api.schema_url)
+    config = SchemathesisConfig.from_dict(
+        {
+            "headers": {"X-Project": "project"},
+            "operations": [{"include-name": "Mutation.addBook", "headers": {"X-Operation": "operation"}}],
+        }
+    )
+    schema = schemathesis.graphql.from_url(api.schema_url, config=config)
     seen = set()
 
     def increment(name):
@@ -195,7 +200,7 @@ def test_hooks_apply_once_to_stateful_cases(ctx):
         return hook
 
     def before_call(context, case, kwargs):
-        seen.add((case.headers["X-Global"], case.headers["X-Schema"]))
+        seen.add((case.operation.label, *map(case.headers.get, ("X-Global", "X-Schema", "X-Project", "X-Operation"))))
 
     schemathesis.hook(before_call)
     schemathesis.hook("map_headers")(increment("X-Global"))
@@ -209,4 +214,7 @@ def test_hooks_apply_once_to_stateful_cases(ctx):
             suppress_health_check=list(hypothesis.HealthCheck),
         )
     )
-    assert seen == {("1", "1")}
+    assert seen == {
+        ("Mutation.addBook", "1", "1", "project", "operation"),
+        ("Query.book", "1", "1", "project", None),
+    }

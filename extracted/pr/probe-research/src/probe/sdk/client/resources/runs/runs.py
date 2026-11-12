@@ -7,14 +7,21 @@ import builtins
 import os
 import sys
 import warnings
+from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
+
+from pydantic import BaseModel
 from ....values import values as _coerce
 from ....values.times import to_iso_time
 from .....generated.models import (
     RunBundle,
+    RunCountsOut,
     RunDetailOut,
     RunLineage,
+    RunListLightOut,
+    RunListLightRowOut,
+    RunListRowOut,
     RunPageDetailOut,
     RunReproduce,
     SpanOut,
@@ -33,6 +40,8 @@ from ....delivery.transport.deadlines import pause_patience, without_patience
 from ....run.run import Run  # noqa: E402
 from probe.sdk.client.ids import _id_ref, is_new_slug, to_kebab_slug
 from probe.sdk.client.resources.runs.logs import LogsResource
+from probe.sdk.client.resources.runs.ordering import DEFAULT_ORDER, parse_run_order
+from probe.sdk.client.resources.runs.table import RunTable
 from probe.sdk.client.resources.projects.experiment_locator import _walks_once
 from probe.sdk.client.resources.runs.home import (
     ProjectFromEnv,
@@ -444,7 +453,8 @@ class RunsMixin:
 
 
 class RunsResource(Resource):
-    """`client.runs`: typed run reads. `Page.items` are `RunDetailOut`; one run is `RunPageDetailOut`."""
+    """`client.runs`: typed run reads. A listed run is `RunDetailOut` (`RunListRowOut` with `latest_metrics`), or
+    `RunListLightOut` / `RunListLightRowOut` with `view="light"`; one run is `RunPageDetailOut`."""
 
     __slots__ = ()
 
@@ -452,21 +462,27 @@ class RunsResource(Resource):
         """One run as `GET /v1/runs/{run}` serves it (`Client.get_run`)."""
         return self._to_model(RunPageDetailOut, self._client.get_run(run_id))
 
-    def list(
-        self,
-        *,
-        experiment_id: str | None = None,
-        project_id: str | None = None,
-        direct: bool = False,
-        tags: list[str] | None = None,
-        **params: Any,
-    ) -> Page:
-        """A page of runs, filtered as `Client.list_runs` filters them."""
-        page = self._client.list_runs(
-            experiment_id=experiment_id, project_id=project_id, direct=direct, tags=tags,
-            **params,
-        )
-        return self._to_typed_page(RunDetailOut, page)
+    def list(self, **filters: Any) -> Page:
+        """A page of runs: `Client.list_runs`'s keywords (`project_id=`, `filter=`, `order=`, `latest_metrics=`,
+        `view=`, `limit=`, `cursor=`, ...), its items typed by `view` and `latest_metrics`."""
+        page = self._client.list_runs(**filters)
+        return self._to_typed_page(_get_row_model(filters), page)
+
+    def iter(self, **filters: Any) -> Iterator[RunDetailOut | RunListRowOut | RunListLightOut | RunListLightRowOut]:
+        """Every run `list` would list with these filters, walking every page (`Client.iter_runs`). An `order`
+        other than `-created_at` loads every matching row and sorts them locally before the first is yielded."""
+        model = _get_row_model(filters)
+        for row in self._client.iter_runs(**filters):
+            yield self._to_model(model, row)
+
+    def count(self, **filters: Any) -> RunCountsOut:
+        """How many runs `list` would list with these filters, in all and per status (`Client.count_runs`)."""
+        return self._to_model(RunCountsOut, self._client.count_runs(**filters))
+
+    def table(self, **filters: Any) -> RunTable:
+        """Every run `iter` yields with these filters as a `RunTable`: `.rows`, and `.to_pandas()` with columns
+        `id, name, status, created_at, config.<path>..., metric.<key>...` (the keys of `latest_metrics=[...]`)."""
+        return RunTable(rows=builtins.list(self.iter(**filters)))
 
     def list_spans(
         self,
@@ -595,3 +611,15 @@ def _refuse_group_without_experiment(run_kw: dict, who: str) -> None:
             "one. Name the experiment or drop the group."
         )
     run_kw.pop("group_id", None)
+
+
+def _get_row_model(filters: dict) -> type[BaseModel]:
+    """The row model `GET /v1/runs` answers for these keywords: light or full, with `latest_metrics` or not (an
+    ordered `iter` by a metric asks for it)."""
+    order = filters.get("order")
+    has_metrics = bool(filters.get("latest_metrics")) or (
+        order not in (None, "", DEFAULT_ORDER) and parse_run_order(order).metric_key is not None
+    )
+    if filters.get("view") == "light":
+        return RunListLightRowOut if has_metrics else RunListLightOut
+    return RunListRowOut if has_metrics else RunDetailOut

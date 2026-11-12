@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/wolfxl-core", "crates/wolfxl-writer", "crates/wolfxl-rels", "crates/wolfxl-reader", "crates/wolfxl-merger", "crates/wolfxl-formula", "crates/wolfxl-structural", "crates/wolfxl-classify", "crates/wolfxl-pivot", "crates/wolfxl-autofilter"]
+members = ["crates/wolfxl-core", "crates/wolfxl-writer", "crates/wolfxl-rels", "crates/wolfxl-reader", "crates/wolfxl-merger", "crates/wolfxl-formula", "crates/wolfxl-structural", "crates/wolfxl-classify", "crates/wolfxl-pivot", "crates/wolfxl-autofilter", "crates/wolfxl-edit"]
 
 [workspace.package]
 edition = "2021"
@@ -28,7 +28,7 @@ tempfile = "3"
 
 [package]
 name = "wolfxl"
-version = "2.0.36"
+version = "2.0.38"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -53,7 +53,7 @@ crc32fast.workspace = true
 quick-xml.workspace = true
 memchr.workspace = true
 chrono.workspace = true
-wolfxl-core = { path = "crates/wolfxl-core", version = "0.8" }
+wolfxl-core = { path = "crates/wolfxl-core", version = "0.9" }
 wolfxl-writer = { path = "crates/wolfxl-writer", version = "0.1" }
 wolfxl-rels = { path = "crates/wolfxl-rels", version = "0.1" }
 wolfxl-reader = { path = "crates/wolfxl-reader", version = "0.1" }
@@ -63,6 +63,7 @@ wolfxl-structural = { path = "crates/wolfxl-structural", version = "0.1" }
 wolfxl-classify = { path = "crates/wolfxl-classify", version = "0.1" }
 wolfxl-pivot = { path = "crates/wolfxl-pivot", version = "2.0.0" }
 wolfxl-autofilter = { path = "crates/wolfxl-autofilter", version = "2.0.0" }
+wolfxl-edit = { path = "crates/wolfxl-edit", version = "0.1" }
 tempfile.workspace = true
 
 [build-dependencies]

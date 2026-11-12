@@ -3,6 +3,7 @@
 import typing
 
 import typing_extensions
+from .workspace_get_response_alerts import WorkspaceGetResponseAlertsParams
 
 
 class WorkspaceGetResponseParams(typing_extensions.TypedDict):
@@ -14,6 +15,16 @@ class WorkspaceGetResponseParams(typing_extensions.TypedDict):
     max_active_conversations: int
     """
     Maximum number of concurrent conversations allowed for this workspace.
+    """
+
+    active_agents: int
+    """
+    Number of enabled agents in this workspace. Disabled and deleted agents, and agents in deleted projects, are not counted.
+    """
+
+    max_agents: int
+    """
+    Maximum number of enabled agents allowed for this workspace.
     """
 
     logo_url: typing.Optional[str]
@@ -29,4 +40,9 @@ class WorkspaceGetResponseParams(typing_extensions.TypedDict):
     ip_allowlist: typing.Sequence[str]
     """
     IP addresses or CIDR ranges allowed to access the workspace.
+    """
+
+    alerts: WorkspaceGetResponseAlertsParams
+    """
+    Email alert recipients for the workspace, keyed by alert type.
     """

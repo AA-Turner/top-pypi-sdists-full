@@ -3,7 +3,7 @@ from typing import Optional
 
 import click
 
-from anyscale.commands import events_commands
+from anyscale.commands import events_commands, resource_logs_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -277,3 +277,5 @@ def network_debug(cluster_id: Optional[str], skip_tls_no_sni: bool) -> None:
 # `anyscale cluster events` is implemented once for every resource in
 # events_commands.py; only the registration lives here.
 cluster_cli.add_command(events_commands.cluster_events)
+# Same shape for `anyscale cluster logs`: resource_logs_commands.py.
+cluster_cli.add_command(resource_logs_commands.cluster_logs)

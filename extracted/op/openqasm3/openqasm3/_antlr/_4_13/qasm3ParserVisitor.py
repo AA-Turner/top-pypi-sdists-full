@@ -114,6 +114,11 @@ class qasm3ParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by qasm3Parser#nopStatement.
+    def visitNopStatement(self, ctx:qasm3Parser.NopStatementContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by qasm3Parser#gateCallStatement.
     def visitGateCallStatement(self, ctx:qasm3Parser.GateCallStatementContext):
         return self.visitChildren(ctx)
@@ -296,6 +301,11 @@ class qasm3ParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by qasm3Parser#measureExpression.
     def visitMeasureExpression(self, ctx:qasm3Parser.MeasureExpressionContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by qasm3Parser#quantumCallExpression.
+    def visitQuantumCallExpression(self, ctx:qasm3Parser.QuantumCallExpressionContext):
         return self.visitChildren(ctx)
 
 

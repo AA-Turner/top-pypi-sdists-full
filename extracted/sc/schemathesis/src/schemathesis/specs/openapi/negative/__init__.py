@@ -20,6 +20,7 @@ from schemathesis.core.jsonschema import (
     FANCY_REGEX_OPTIONS,
     STANDARD_FORMATS,
     VALIDATED_FORMATS_BY_DRAFT,
+    schema_with_bundle,
 )
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue
 from schemathesis.core.media_types import is_json
@@ -316,7 +317,8 @@ def negative_schema(
             frozenset(custom_formats),
         )
         types_by_parameter = {
-            name: parameter_types(subschema) for name, subschema in container.get("properties", {}).items()
+            name: parameter_types(schema_with_bundle(subschema, container))
+            for name, subschema in container.get("properties", {}).items()
         }
 
     def parameter_reads_as_valid(name: str | int, item: object, validator: jsonschema_rs.Validator) -> bool:
@@ -406,6 +408,7 @@ def negative_schema(
                 schema if isinstance(schema, dict) else {},
                 get_real_validator(validator_cache_key),
                 location,
+                name_to_uri,
             )
         # For JSON bodies, add syntax-level fuzzing with random bytes (~5% of cases)
         if media_type is not None and is_json(media_type):
@@ -445,6 +448,7 @@ def _with_value_channel(
     body_schema: JsonSchemaObject,
     real_validator: jsonschema_rs.Validator,
     location: ParameterLocation,
+    name_to_uri: dict[str, str] | None,
 ) -> st.SearchStrategy:
     """Sometimes break a single value of a valid body instead of mutating the schema."""
 
@@ -453,7 +457,7 @@ def _with_value_channel(
         random = draw(st.randoms())
         if random.random() < VALUE_CHANNEL_PROBABILITY:
             positive = draw(positive_strategy)
-            targets = collect_value_targets(positive, body_schema)
+            targets = collect_value_targets(positive, body_schema, name_to_uri=name_to_uri)
             if not targets:
                 return draw(mutated_strategy)
             target_path, schema_pointer, _value, keyword, schema_at_path = draw(st.sampled_from(targets))

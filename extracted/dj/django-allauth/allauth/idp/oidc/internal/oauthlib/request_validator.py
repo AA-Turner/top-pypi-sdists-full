@@ -7,6 +7,7 @@ from typing import Any
 from django.utils import timezone
 
 from oauthlib.common import Request
+from oauthlib.oauth2.rfc8628.grant_types import DeviceCodeGrant
 from oauthlib.openid import RequestValidator
 
 from allauth.core import context
@@ -30,6 +31,14 @@ from allauth.idp.oidc.models import Client, Token
 
 
 class OAuthLibRequestValidator(RequestValidator):
+    def validate_device_code(
+        self, client_id: str, code: str, request: Request, *args, **kwargs
+    ) -> str | None:
+        authorized_device_code = get_validator_context().authorized_device_code
+        if authorized_device_code != (client_id, code):
+            return None
+        return DeviceCodeGrant.DEVICE_CODE_AUTHORIZED
+
     def validate_client_id(self, client_id: Any, request: Request) -> bool:
         if not isinstance(client_id, str):
             return False
@@ -74,7 +83,24 @@ class OAuthLibRequestValidator(RequestValidator):
         if nonce:
             code = dict(**code, nonce=nonce)
         # (end WORKAROUND)
-        authorization_codes.create(request.client, code, request)
+        ctx = get_validator_context()
+        ctx.grant_id = authorization_codes.create(
+            request.client,
+            code,
+            request,
+            resources=ctx.requested_resources,
+            email=ctx.email,
+        )
+        if ctx.issued_access_token:
+            access_token = ctx.issued_access_token
+            access_token.set_grant_id(ctx.grant_id)
+            # Not just access_token.save() -- as `bulk_create` is not guaranteed
+            # to set `pk`.
+            Token.objects.filter(
+                client=request.client,
+                type=Token.Type.ACCESS_TOKEN,
+                hash=access_token.hash,
+            ).update(data=access_token.data)
 
     def authenticate_client_id(
         self, client_id, request: Request, *args, **kwargs
@@ -223,10 +249,10 @@ class OAuthLibRequestValidator(RequestValidator):
     def confirm_redirect_uri(
         self, client_id, code, redirect_uri, client, request: Request, *args, **kwargs
     ) -> bool:
-        authorization_code = self._lookup_authorization_code(request, client_id, code)
-        if not authorization_code:
+        code_token = self._lookup_authorization_code(request, client_id, code)
+        if not code_token:
             return False
-        return redirect_uri == authorization_code["redirect_uri"]
+        return redirect_uri == code_token.get_redirect_uri()
 
     def save_bearer_token(self, token: dict, request: Request, *args, **kwargs) -> None:
         """
@@ -266,6 +292,7 @@ class OAuthLibRequestValidator(RequestValidator):
             if ctx.email:
                 t.set_scope_email(ctx.email)
         Token.objects.bulk_create(tokens)
+        ctx.issued_access_token = access_token
 
     def _prep_access_token(
         self, ctx: ValidatorContext, token: dict, request: Request
@@ -278,6 +305,8 @@ class OAuthLibRequestValidator(RequestValidator):
             hash=adapter.hash_token(token["access_token"]),
             expires_at=timezone.now() + timedelta(seconds=token["expires_in"]),
         )
+        if ctx.grant_id is not None:
+            access_token.set_grant_id(ctx.grant_id)
         if resources := ctx.requested_resources:
             if not is_resources_subset(resources, ctx.granted_resources):
                 raise InvalidTargetError
@@ -293,7 +322,10 @@ class OAuthLibRequestValidator(RequestValidator):
         adapter = get_adapter()
         refresh_token_hash = adapter.hash_token(refresh_token)
         rt: Token | None = ctx.refresh_token
+        grant_id = ctx.grant_id
         if rt:
+            grant_id = rt.get_grant_id()
+            ctx.grant_id = grant_id
             ctx.granted_resources = rt.get_resources()
             if not ctx.email and "email" in request.scopes:
                 ctx.email = rt.get_scope_email()
@@ -330,13 +362,17 @@ class OAuthLibRequestValidator(RequestValidator):
         )
         if resources:
             new_rt.set_resources(resources)
+        if grant_id is not None:
+            new_rt.set_grant_id(grant_id)
         rt = new_rt
         return rt
 
     def invalidate_authorization_code(
         self, client_id, code, request: Request, *args, **kwargs
     ) -> None:
-        authorization_codes.invalidate(client_id, code)
+        grant_id = get_validator_context().grant_id
+        assert grant_id is not None  # nosec[assert_used]
+        authorization_codes.invalidate(client_id, code, request.user.pk, grant_id)
 
     def validate_user_match(
         self, id_token_hint, scopes, claims, request: Request
@@ -373,38 +409,40 @@ class OAuthLibRequestValidator(RequestValidator):
     ) -> list[str]:
         if not client_id:
             client_id, _ = httpkit.extract_basic_auth(request.headers)
-        authorization_code = self._lookup_authorization_code(request, client_id, code)
-        if not authorization_code:
+        code_token = self._lookup_authorization_code(request, client_id, code)
+        if not code_token:
             return []
-        return authorization_code["scopes"]
+        return code_token.get_scopes()
 
     def get_authorization_code_nonce(
         self, client_id, code, redirect_uri, request
     ) -> str | None:
-        authorization_code = self._lookup_authorization_code(request, client_id, code)
-        if authorization_code is None:
+        code_token = self._lookup_authorization_code(request, client_id, code)
+        if code_token is None:
             return None
-        return authorization_code["code"].get("nonce")
+        return code_token.get_nonce()
 
     def get_code_challenge(self, code, request: Request) -> str | None:
         ret = None
-        authorization_code = self._lookup_authorization_code(
-            request, request.client_id, code
-        )
-        if authorization_code is None:
+        code_token = self._lookup_authorization_code(request, request.client_id, code)
+        if code_token is None:
             return None
-        if pkce := authorization_code.get("pkce"):
+        data = code_token.data
+        if not isinstance(data, dict):
+            return None
+        if pkce := data.get("pkce"):
             ret = pkce["code_challenge"]
         return ret
 
     def get_code_challenge_method(self, code, request: Request) -> str | None:
         ret = None
-        authorization_code = self._lookup_authorization_code(
-            request, request.client_id, code
-        )
-        if authorization_code is None:
+        code_token = self._lookup_authorization_code(request, request.client_id, code)
+        if code_token is None:
             return None
-        if pkce := authorization_code.get("pkce"):
+        data = code_token.data
+        if not isinstance(data, dict):
+            return None
+        if pkce := data.get("pkce"):
             ret = pkce["code_challenge_method"]
         return ret
 
@@ -474,7 +512,23 @@ class OAuthLibRequestValidator(RequestValidator):
             types = [Token.Type.REFRESH_TOKEN]
         else:
             types = [Token.Type.ACCESS_TOKEN, Token.Type.REFRESH_TOKEN]
-        Token.objects.by_value(token).filter(type__in=types).delete()
+        tokens_to_delete = Token.objects.by_value(token).filter(
+            client=request.client,
+            type__in=types,
+        )
+        for instance in tokens_to_delete:
+            if (
+                instance.type == Token.Type.REFRESH_TOKEN
+                and instance.user_id is not None
+                and (grant_id := instance.get_grant_id())
+            ):
+                Token.objects.filter(
+                    client=request.client,
+                    user_id=instance.user_id,
+                    type=Token.Type.ACCESS_TOKEN,
+                    data__grant_id=grant_id,
+                ).delete()
+            instance.delete()
 
     def get_userinfo_claims(self, request: Request) -> dict:
         access_token = get_validator_context().access_token
@@ -577,15 +631,15 @@ class OAuthLibRequestValidator(RequestValidator):
 
     def _lookup_authorization_code(
         self, request: Request, client_id: str, code: str
-    ) -> dict | None:
-        cache = get_validator_context().codes
+    ) -> Token | None:
+        cache = get_validator_context().code_tokens
         key = (client_id, code)
         if key in cache:
-            authorization_code = cache[key]
+            code_token = cache[key]
         else:
-            authorization_code = authorization_codes.lookup(client_id, code)
-            cache[key] = authorization_code
-        return authorization_code
+            code_token = authorization_codes.lookup(client_id, code)
+            cache[key] = code_token
+        return code_token
 
     def is_origin_allowed(
         self, client_id: str, origin: str, request: Request, *args, **kwargs
@@ -611,6 +665,7 @@ class OAuthLibRequestValidator(RequestValidator):
         granted_scopes = set()
         tokens = Token.objects.valid().filter(
             user=context.request.user,
+            client=request.client,
             type__in=[Token.Type.REFRESH_TOKEN, Token.Type.ACCESS_TOKEN],
         )
         for token in tokens.iterator():

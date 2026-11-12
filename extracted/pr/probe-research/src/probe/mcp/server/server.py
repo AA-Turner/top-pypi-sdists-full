@@ -15,13 +15,18 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Annotated, Any, Literal
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult
 from pydantic import BeforeValidator, Field
 from ...sdk import errors
 from ..delivery import delivery as continuation
 from ..generated.sql import QUERY_SQL_DESCRIPTION, SOURCE_ARG_DOC, SQL_ARG_DOC, TABLES_ARG_DOC
+from ...foundation.token_budget.token_budget import MAX_TOKENS, MIN_TOKENS, cap_to_range
 from ...shared.reads.search_contract import (
+    BROWSE_MODE_LEGACY,
+    COLLAPSE_MODE_LEGACY,
+    TOOL_CORPUS_LEGACY,
     BrowseMode,
     CheckpointStored,
     CollapseMode,
@@ -32,12 +37,13 @@ from ...shared.reads.search_contract import (
     SeriesSmoothing,
     SourceKind,
     SourceProvider,
-    ToolCorpus)
+    ToolCorpus,
+    get_current_values)
 from ..generated.views import View
 from ..events import follow_events
 from ..tools.reads.samples import SampleQuery, SampleView
 from ..tools.tools import ResearchReadService
-from probe.mcp.server.browse_args import _browse_args_for_mode
+from probe.mcp.server.browse_args import _browse_args_for_mode, normalize_browse_scope
 from probe.mcp.server.limits import _WEB_MAX_LIMIT, _WEB_QUERY_CHARS
 from probe.mcp.server.metric_mode import _METRIC_ROUTES, _metric_args_for_mode
 from probe.mcp.server.metric_modes.series import _SERIES_BUDGET, _SERIES_OFFSET
@@ -54,9 +60,12 @@ from probe.mcp.server.tool_text import (
     _BR_CURSOR_DOC,
     _BR_DEPTH_DOC,
     _BR_EXPERIMENT_DOC,
+    _BR_FILTER_DOC,
     _BR_KIND_DOC,
+    _BR_LATEST_METRICS_DOC,
     _BR_LIMIT_DOC,
     _BR_MODE_DOC,
+    _BR_ORDER_DOC,
     _BR_PREFIX_DOC,
     _BR_PROJECT_DOC,
     _BR_PROVIDER_DOC,
@@ -133,6 +142,26 @@ from probe.mcp.server.tool_text import (
 )
 
 
+def _clamp(low: int, high: int) -> BeforeValidator:
+    """A before-validator capping a number into [low, high]: an over-ask gets the most there is, not an
+    error (the response's `budget` block says what was used). Not a number: left for the type check."""
+    return BeforeValidator(lambda value: cap_to_range(value, low, high))
+
+
+def _accept_legacy(legacy: dict) -> BeforeValidator:
+    """Map a value's legacy spellings (`search_contract.*_LEGACY`) to the current ones before the enum
+    check. The schema never sees them: a before-validator leaves the JSON schema to the type it wraps."""
+    return BeforeValidator(lambda value: get_current_values(value, legacy))
+
+
+#: Every tool's `token_budget`: the schema keeps its bounds, a value past them is capped.
+#: The bounds come BEFORE the validator: after it, pydantic writes them as raw `ge`/`le` keys, not
+#: `minimum`/`maximum`, and no client (nor the reader's tool list) reads them.
+TokenBudget = Annotated[int, Field(ge=MIN_TOKENS, le=MAX_TOKENS), _clamp(MIN_TOKENS, MAX_TOKENS)]
+#: browse's `depth`: 1 or 2, capped the same way.
+Depth = Annotated[int, Field(ge=1, le=2), _clamp(1, 2)]
+
+
 def create_server(
     service: ResearchReadService | None = None,
     *,
@@ -191,15 +220,38 @@ def create_server(
 
 def _register_browse_and_search(mcp, svc):
     """Register `browse` and `search` on the server, in catalog order."""
+
+    def find_scope_id(kind: str, slug: str) -> str:
+        # The tenant-scoped lookup `entity` reads with: one project or experiment by slug.
+        try:
+            with svc() as service:
+                _, found = service.source.get(f"{kind}:{slug}")
+        except errors.NotFoundError as exc:
+            raise ToolError(f"browse: no {kind} matches {slug!r} (a slug or a uuid): {exc}") from None
+        ident = found.get("id") if isinstance(found, dict) else None
+        if not ident:
+            raise ToolError(f"browse: no {kind} matches {slug!r} (a slug or a uuid)")
+        return str(ident)
+
     @mcp.tool()
-    @_tool
+    @_tool(prepare=lambda arguments: normalize_browse_scope(arguments, find_scope_id))
     def browse(
-        mode: Annotated[BrowseMode, Field(description=_BR_MODE_DOC)] = BrowseMode.TREE,
+        mode: Annotated[
+            BrowseMode, _accept_legacy(BROWSE_MODE_LEGACY), Field(description=_BR_MODE_DOC)
+        ] = BrowseMode.PROJECTS,
         ref: Annotated[str | None, Field(description=_BR_REF_DOC)] = None,
-        depth: Annotated[int, Field(description=_BR_DEPTH_DOC)] = 1,
+        depth: Annotated[Depth, Field(description=_BR_DEPTH_DOC)] = 1,
         status: Annotated[str | None, Field(description=_BR_STATUS_DOC)] = None,
         tags: Annotated[list[str] | None, Field(description=_BR_TAGS_DOC)] = None,
         active: Annotated[bool | None, Field(description=_BR_ACTIVE_DOC)] = None,
+        filter: Annotated[dict[str, Any] | None, Field(description=_BR_FILTER_DOC)] = None,  # noqa: A002
+        # Plain `str` with "" for absent, like `query`: FastMCP JSON-parses any other annotation's string.
+        order: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=300, description=_BR_ORDER_DOC)
+        ] = "",
+        latest_metrics: Annotated[
+            list[str] | None, Field(max_length=50, description=_BR_LATEST_METRICS_DOC)
+        ] = None,
         workspace_id: Annotated[str | None, Field(description=_BR_WORKSPACE_DOC)] = None,
         project: Annotated[str | None, Field(description=_BR_PROJECT_DOC)] = None,
         experiment: Annotated[str | None, Field(description=_BR_EXPERIMENT_DOC)] = None,
@@ -236,7 +288,7 @@ def _register_browse_and_search(mcp, svc):
         cursor: Annotated[str | None, Field(description=_BR_CURSOR_DOC)] = None,
         runs_cursor: Annotated[str | None, Field(description=_BR_SIDE_CURSOR_DOC)] = None,
         subprojects_cursor: Annotated[str | None, Field(description=_BR_SIDE_CURSOR_DOC)] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
     ) -> dict:
         """List what EXISTS in this lab: projects, their experiments, their runs.
 
@@ -244,8 +296,8 @@ def _register_browse_and_search(mcp, svc):
         this tool.
 
         ### `mode`:
-        1. `tree` (default) - projects -> experiments -> runs, walked with `ref`/`depth`
-        2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment
+        1. `projects` (default) - projects -> experiments -> runs; `project` or `experiment` (slug or uuid) opens one, `depth` 2 expands children
+        2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `project` / `experiment` narrows; `filter`, `order` (top N) and `latest_metrics` (final values) find the best runs
         3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
         4. `notes` - the notes catalog: what the team wrote down across every project, experiment and run; `query` matches note text literally (search ranks by meaning instead)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
@@ -267,6 +319,9 @@ def _register_browse_and_search(mcp, svc):
                 "status": status,
                 "tags": tags,
                 "active": active,
+                "filter": filter,
+                "order": order,
+                "latest_metrics": latest_metrics,
                 "workspace_id": workspace_id,
                 "query": query,
                 "prefix": prefix,
@@ -285,7 +340,7 @@ def _register_browse_and_search(mcp, svc):
             },
         )
         with svc() as s:
-            if mode == BrowseMode.TREE:
+            if mode == BrowseMode.PROJECTS:
                 return s.browse_research(
                     scope=ref,
                     depth=depth,
@@ -303,6 +358,9 @@ def _register_browse_and_search(mcp, svc):
                 status=status,
                 tags=tags,
                 active=active,
+                run_filter=filter,
+                order=order or None,
+                latest_metrics=latest_metrics,
                 query=query or None,
                 prefix=prefix or None,
                 branch=branch or None,
@@ -339,17 +397,21 @@ def _register_browse_and_search(mcp, svc):
         # and pydantic's rejection names every valid value for free. The service
         # keeps taking plain strings and keeps its own graceful handling: it is
         # callable directly from Python, where nothing validates for it.
-        search_in: Annotated[list[ToolCorpus] | None, Field(description=_SK_SEARCH_IN_DOC)] = None,
+        search_in: Annotated[
+            list[ToolCorpus] | None,
+            _accept_legacy(TOOL_CORPUS_LEGACY),
+            Field(description=_SK_SEARCH_IN_DOC),
+        ] = None,
         project_id: Annotated[str | None, Field(description=_SK_PROJECT_DOC)] = None,
         workspace_id: Annotated[str | None, Field(description=_SK_WORKSPACE_DOC)] = None,
         top_k: Annotated[int, Field(description=_SK_TOP_K_DOC)] = 8,
         collapse: Annotated[
-            CollapseMode | None, Field(description=_SK_COLLAPSE_DOC)
+            CollapseMode, _accept_legacy(COLLAPSE_MODE_LEGACY), Field(description=_SK_COLLAPSE_DOC)
         ] = CollapseMode.EXPERIMENT,
         verbose: bool = False,
         cursor: Annotated[str | None, Field(description=_SK_CURSOR_DOC)] = None,
         exclude_session: Annotated[str | None, Field(description=_SK_EXCLUDE_DOC)] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         semantic: Annotated[bool, Field(description=_SK_SEMANTIC_DOC)] = True,
     ) -> dict:
         """Search this team's knowledgebase - a semantically indexed store of entities
@@ -364,7 +426,7 @@ def _register_browse_and_search(mcp, svc):
            EXCLUDES the rest; `["docs"]` searches Probe's own docs instead
         3. `top_k` - (default 8) your recall dial, a TOTAL across channels - raise it
            before concluding the lab has nothing
-        4. `collapse` - (default one row per experiment) pass null to keep every hit
+        4. `collapse` - (default one row per experiment) `none` keeps every hit
         5. `project_id` - (optional) scope both channels to one project
         6. `workspace_id` - (optional) scope both channels to one workspace
         7. `exclude_session` - (optional) your own session id, so a search cannot
@@ -416,7 +478,7 @@ def _register_entity_and_metrics(mcp, svc):
             Field(min_length=1, max_length=20, description=_REF_DOC),
         ],
         view: Annotated[View, Field(description=_VIEW_DOC)] = View.CARD,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_TOKEN_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_TOKEN_BUDGET_DOC)] = 2000,
         cursor: Annotated[str | None, Field(description=_CURSOR_DOC)] = None,
         view_options: Annotated[dict[str, Any] | None, Field(description=_VIEW_OPTIONS_DOC)] = None,
         verbose: Annotated[bool, Field(description=_VERBOSE_DOC)] = False,
@@ -582,7 +644,7 @@ def _register_entity_and_metrics(mcp, svc):
         max_points: Annotated[
             int | None, Field(ge=2, le=100_000, description=_MT_MAX_POINTS_DOC)
         ] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         cursor: str | None = None,
     ) -> dict:
         """Read metrics at the GRAIN you need: one run (`run_id`), or several runs compared (`series`).
@@ -683,7 +745,7 @@ def _register_sql_and_papers(mcp, svc):
             list[Annotated[str, Field(min_length=1, max_length=64)]] | None,
             Field(min_length=1, max_length=64, description=TABLES_ARG_DOC),
         ] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         source: Annotated[SqlSource | None, Field(description=SOURCE_ARG_DOC)] = None,
     ) -> dict:
         with svc() as s:
@@ -711,7 +773,7 @@ def _register_sql_and_papers(mcp, svc):
         published_from: Annotated[str | None, Field(description=_FP_PUB_FROM_DOC)] = None,
         published_to: Annotated[str | None, Field(description=_FP_PUB_TO_DOC)] = None,
         expand: Annotated[PaperExpansion | None, Field(description=_FP_EXPAND_DOC)] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         cursor: Annotated[str | None, Field(description=_RESP_CURSOR_DOC)] = None,
     ) -> dict:
         """Search 40M+ research abstracts (arXiv, PubMed, bioRxiv, medRxiv) and read
@@ -771,7 +833,7 @@ def _register_events(mcp, svc):
         since: Annotated[int | None, Field(ge=0, description=_EV_SINCE_DOC)] = None,
         wait: Annotated[float, Field(ge=0, le=25, description=_EV_WAIT_DOC)] = 25,
         limit: Annotated[int, Field(ge=1, le=500, description=_EV_LIMIT_DOC)] = 100,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
     ) -> CallToolResult:
         with svc() as service:
             return await follow_events(
@@ -819,7 +881,7 @@ def _register_samples(mcp, svc):
         hung_after: Annotated[_SampleText, Field(description=_SM_HUNG_AFTER_DOC)] = "",
         after: Annotated[int | None, Field(ge=0, description=_SM_AFTER_DOC)] = None,
         limit: Annotated[int | None, Field(ge=1, le=1000, description=_SM_LIMIT_DOC)] = None,
-        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        token_budget: Annotated[TokenBudget, Field(description=_RESP_BUDGET_DOC)] = 2000,
         cursor: Annotated[str | None, Field(description=_RESP_CURSOR_DOC)] = None,
     ) -> dict:
         query = SampleQuery(

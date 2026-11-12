@@ -180,8 +180,12 @@ class Recorder:
                      "observations": [[step, observation], ...] - each its robot sent since its last act, as it sent
                      it (a Video, Depth or Tactile item as its map, never decoded) - "action" (what the act answered),
                      "params" (the inference parameters it ran with), "driver" ("model", or "human" through teleop,
-                     with "operator"), "at" (the epoch second its worker had it), "worker", "n" (the worker's number
-                     of it)}
+                     with "operator"), "path" (the way its action reached the robot: "worker", or "direct" - a person's
+                     chunk sent straight from their console), "at" (the epoch second its worker had it), "worker", "n"
+                     (the worker's number of it); a person's chunk the robot said what became of also "did" - "played",
+                     or why it never was: "superseded" (a newer one came before any act took it), "old", "stale",
+                     "not_driving" - and "command" (its "id", "sent_us" by its console's clock, "ref_us" and "ref_n"
+                     the step it was made from, "got_us" and "played_us" by the robot's, in microseconds)}
             "label"  how a robot said its episode went (policy.label): {"robot", "episode", "success", "notes", "at"}
             "end"    a robot ended its episode: {"robot", "episode", "at", "observations": those after its last act}
             "driver" who drives a robot from now, through teleop: {"robot", "episode", "driver" ("model", "human" or
@@ -255,7 +259,11 @@ class Recorder:
                 yield {"kind": "step", **base, "step": record.get("step"), "observations": seen,
                        "action": record.get("action"), "params": record.get("params"),
                        "driver": record.get("driver") or "model",
-                       **({"operator": record["operator"]} if record.get("operator") else {})}
+
+                       "path": record.get("path") or "worker",
+                       **({"operator": record["operator"]} if record.get("operator") else {}),
+
+                       **{k: record[k] for k in ("did", "command") if record.get(k) is not None}}
             elif kind == "label":
                 yield {"kind": "label", **base, "success": record.get("success"), "notes": record.get("notes")}
             elif kind == "driver":

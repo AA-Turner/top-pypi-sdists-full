@@ -83,6 +83,13 @@ def test_intcomma(
     assert humanize.intcomma(*test_args) == expected
 
 
+@pytest.mark.parametrize("sign", [1, -1])
+def test_intcomma_large_integer(sign: int) -> None:
+    value = sign * (10**400 + 123)
+    expected = ("-" if sign < 0 else "") + "10" + ",000" * 132 + ",123"
+    assert humanize.intcomma(value) == expected
+
+
 def test_intword_powers() -> None:
     # make sure that powers & human_powers have the same number of items
     assert len(number.powers) == len(number.human_powers)
@@ -141,6 +148,47 @@ def test_intword(test_args: list[str], expected: str) -> None:
     assert humanize.intword(*test_args) == expected
 
 
+def test_intword_rounding_rollover() -> None:
+    """Values that round up to the next power must carry to the next unit.
+
+    Regression: for magnitudes above ~10**22 the carry was checked in floating
+    point (``rounded_value * power == powers[ordinal + 1]``) and no longer
+    matched the exact integer power, so e.g. ``10**24 - 1`` was rendered as
+    "1000.0 sextillion" instead of "1.0 septillion".
+    """
+    units = [
+        "thousand",
+        "million",
+        "billion",
+        "trillion",
+        "quadrillion",
+        "quintillion",
+        "sextillion",
+        "septillion",
+        "octillion",
+        "nonillion",
+        "decillion",
+    ]
+    # value = 10**e - 1 rounds up to 10**e with "%.1f"/"%.0f", i.e. exactly 1.0
+    # of the unit sitting at 10**e (units[i] where 10**e == powers[i]).
+    for i, exponent in enumerate(range(6, 34, 3), start=1):
+        value = 10**exponent - 1
+        assert humanize.intword(value) == f"1.0 {units[i]}"
+        assert humanize.intword(value, "%.0f") == f"1 {units[i]}"
+
+    # The mantissa must never render at or above 1000 for values below a
+    # decillion; a bare "1000.0" is only expected in the sparse gap between
+    # decillion and googol, which has no dedicated unit.
+    for exponent in range(6, 34, 3):
+        rendered = humanize.intword(10**exponent - 1)
+        mantissa = float(rendered.split(" ", 1)[0])
+        assert mantissa < 1000
+
+    # The documented decillion..googol gap must be left untouched.
+    assert humanize.intword(10**36) == "1000.0 decillion"
+    assert humanize.intword(2 * 10**100) == "2.0 googol"
+
+
 @pytest.mark.parametrize(
     "test_input, expected",
     [
@@ -187,6 +235,11 @@ def test_apnumber(test_input: int | str, expected: str) -> None:
         (-1.3, "-1 3/10"),
         (-2.5, "-2 1/2"),
         (-0.5, "-1/2"),
+        (0, "0"),
+        (0.0, "0"),
+        (2.9999999, "3"),
+        (0.9999999, "1"),
+        (-2.9999999, "-3"),
     ],
 )
 def test_fractional(test_input: float | str, expected: str) -> None:
@@ -258,6 +311,15 @@ def test_clamp(test_args: list[typing.Any], expected: str) -> None:
         ([1234.56], "1.23 k"),
         ([12345, "", 6], "12.3450 k"),
         ([200_000], "200 k"),
+        # Rounding that carries the mantissa up a power of ten within a
+        # bucket must not add an extra significant figure (issue: metric
+        # showed one digit too many for e.g. 9999 -> "10.00 k").
+        ([9999], "10.0 k"),
+        ([99999], "100 k"),
+        ([9.99999], "10.0"),
+        ([-9999], "-10.0 k"),
+        ([9.999, "", 2], "10"),
+        ([999.4], "999"),
         ([999.9, "V"], "1.00 kV"),
         ([999.99, "V"], "1.00 kV"),
         ([999_999, "V"], "1.00 MV"),

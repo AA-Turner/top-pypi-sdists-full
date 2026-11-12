@@ -617,7 +617,7 @@ def jackson_typed_planted_bug_ref_bundled() -> OpenAPIApp:
         | {"address": {"$ref": "#/components/schemas/Address"}},
         "required": [field for field, _, _, _ in JACKSON_TYPED_FIELDS],
     }
-    spec = build_schema(
+    return flask_app(
         {
             "/users": {
                 "post": {
@@ -629,11 +629,9 @@ def jackson_typed_planted_bug_ref_bundled() -> OpenAPIApp:
                 }
             }
         },
+        _register_jackson_typed_handler,
         components={"schemas": {"User": user_schema, "Address": address_schema}},
     )
-    app = make_flask_app_from_schema(spec)
-    _register_jackson_typed_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 _INT32_MIN = -2_147_483_648
@@ -945,7 +943,7 @@ def _commit_date_body_schema(*, example: object | None = None, examples: dict[st
 
 def commit_date_with_example() -> OpenAPIApp:
     """POST /events whose body schema carries a single `dd-MM-yyyy` example that fails the date format the server enforces."""
-    spec = build_schema(
+    return flask_app(
         {
             "/events": {
                 "post": {
@@ -953,16 +951,14 @@ def commit_date_with_example() -> OpenAPIApp:
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
                 }
             }
-        }
+        },
+        _register_commit_date_handler,
     )
-    app = make_flask_app_from_schema(spec)
-    _register_commit_date_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def commit_date_with_property_example() -> OpenAPIApp:
     """POST /events whose `commitDate` property carries a per-property `example` that fails the date format."""
-    spec = build_schema(
+    return flask_app(
         {
             "/events": {
                 "post": {
@@ -983,16 +979,14 @@ def commit_date_with_property_example() -> OpenAPIApp:
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
                 }
             }
-        }
+        },
+        _register_commit_date_handler,
     )
-    app = make_flask_app_from_schema(spec)
-    _register_commit_date_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def commit_date_with_examples() -> OpenAPIApp:
     """POST /events with two named examples, both of which fail the server-side date format check."""
-    spec = build_schema(
+    return flask_app(
         {
             "/events": {
                 "post": {
@@ -1005,11 +999,9 @@ def commit_date_with_examples() -> OpenAPIApp:
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
                 }
             }
-        }
+        },
+        _register_commit_date_handler,
     )
-    app = make_flask_app_from_schema(spec)
-    _register_commit_date_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def commit_date_with_link() -> OpenAPIApp:
@@ -1079,7 +1071,7 @@ def _token_query_param(*, example: object | None = None, examples: dict[str, dic
 
 def token_with_example() -> OpenAPIApp:
     """GET /items with a single `NOT_A_UUID` example query parameter that fails server-side UUID parsing."""
-    spec = build_schema(
+    return flask_app(
         {
             "/items": {
                 "get": {
@@ -1087,16 +1079,14 @@ def token_with_example() -> OpenAPIApp:
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
                 }
             }
-        }
+        },
+        _register_token_handler,
     )
-    app = make_flask_app_from_schema(spec)
-    _register_token_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def token_with_examples() -> OpenAPIApp:
     """GET /items with two named query examples, both rejected by the server's UUID parser."""
-    spec = build_schema(
+    return flask_app(
         {
             "/items": {
                 "get": {
@@ -1111,11 +1101,9 @@ def token_with_examples() -> OpenAPIApp:
                     "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
                 }
             }
-        }
+        },
+        _register_token_handler,
     )
-    app = make_flask_app_from_schema(spec)
-    _register_token_handler(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def endlessly_novel_feedback() -> OpenAPIApp:
@@ -1243,5 +1231,45 @@ def restler_planted_bug() -> OpenAPIApp:
         if not isinstance(body, dict) or body.get("subject") is None:
             return jsonify({"error": {"code": 400, "message": "Bad Request: subject field missing"}}), 400
         return "", 500
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def envelope_wrapped_closed_body() -> OpenAPIApp:
+    # Field errors arrive as `{"error": ..., "details": {<field>: [...]}}`; the body is closed and extra keys get a 400.
+    spec = build_schema(
+        {
+            "/api/redeem": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"token": {"type": "string", "minLength": 1}},
+                                    "required": ["token"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+    app = make_flask_app_from_schema(spec)
+
+    @app.route("/api/redeem", methods=["POST"])
+    def redeem() -> Any:
+        body = request.get_json(silent=True)
+        unexpected = {key: ["Unexpected field."] for key in body if key != "token"}
+        if unexpected:
+            return jsonify({"error": "validation_failed", "details": unexpected}), 400
+        if len(body["token"]) < 3:
+            # A rule the schema cannot express, reported with a message the parsers recognize.
+            return jsonify({"error": "validation_failed", "details": {"token": ["This field may not be blank."]}}), 422
+        return jsonify({"ok": True})
 
     return OpenAPIApp(spec=spec, server=app, kind="flask")

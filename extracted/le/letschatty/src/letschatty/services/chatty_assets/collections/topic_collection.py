@@ -1,6 +1,6 @@
 """Topic Collection - Pre-configured AssetCollection for Topics"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.analytics.smart_messages.topic import Topic, TopicPreview
 from ....models.data_base.mongo_connection import MongoConnection
 from ...factories.analytics.smart_messages.topics_factory import TopicFactory

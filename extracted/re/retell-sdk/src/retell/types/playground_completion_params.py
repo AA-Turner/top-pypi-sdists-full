@@ -9,6 +9,7 @@ __all__ = [
     "PlaygroundCompletionParams",
     "Message",
     "MessageMessageBase",
+    "MessageMessageBaseCustomerDefinedMetadata",
     "MessageMessageBaseMultimedia",
     "MessageToolCallInvocationMessageBase",
     "MessageToolCallResultMessageBase",
@@ -61,6 +62,10 @@ class PlaygroundCompletionParams(TypedDict, total=False):
     """
 
 
+class MessageMessageBaseCustomerDefinedMetadata(TypedDict, total=False):
+    transfer_target_name: str
+
+
 class MessageMessageBaseMultimedia(TypedDict, total=False):
     url: Required[str]
     """URL of the multimedia attachment."""
@@ -73,11 +78,13 @@ class MessageMessageBase(TypedDict, total=False):
     content: Required[str]
     """Content of the message"""
 
-    role: Required[Literal["agent", "user"]]
-    """Documents whether this message is sent by agent or user."""
+    role: Required[Literal["agent", "user", "transfer_target"]]
+    """Whether this message is sent by the AI agent, user, or human transfer target."""
 
     created_timestamp: int
     """Create timestamp of the message"""
+
+    customer_defined_metadata: MessageMessageBaseCustomerDefinedMetadata
 
     message_id: str
     """Unique id of the message"""
@@ -287,7 +294,7 @@ ToolMockInputMatchRule: TypeAlias = Union[ToolMockInputMatchRuleType, ToolMockIn
 class ToolMock(TypedDict, total=False):
     """A fake response for one tool.
 
-    During a simulation, when the LLM calls a tool whose name matches `tool_name` and whose arguments satisfy `input_match_rule`, the real tool is not run; `output` is returned to the LLM instead. This keeps runs deterministic and avoids calling live integrations. A tool call that matches no mock falls through to the real tool.
+    During a simulation, when a tool call matches `tool_name`, `node_id` and `input_match_rule`, the real tool is not run; `output` is returned to the LLM instead. This keeps runs deterministic and avoids calling live integrations. A tool call that matches no mock falls through to the real tool.
     """
 
     input_match_rule: Required[ToolMockInputMatchRule]
@@ -299,16 +306,25 @@ class ToolMock(TypedDict, total=False):
     Should be a JSON string, the same shape the real tool would return.
     """
 
-    tool_name: Required[str]
+    node_id: str
+    """Conversation flow agents only.
+
+    The ID of the node the tool runs in. Leave it out to match every node. To mock
+    an SMS or Call Transfer node, set `node_id` and `result`, and leave out
+    `tool_name`.
+    """
+
+    result: Optional[bool]
+    """Whether the call succeeds (`true`) or fails (`false`).
+
+    Required to mock SMS, transfer and escalation calls; for those calls, a mock
+    without `result` is ignored. Not used for other tools.
+    """
+
+    tool_name: str
     """The tool's function name, not the tool ID, i.e.
 
     the name the LLM uses when it calls the tool (for example
     `check_availability_cal`, `book_appointment_cal`, or the name you gave a custom
-    function).
-    """
-
-    result: Optional[bool]
-    """For tool calls like transfer_call that require a boolean result.
-
-    Optional for most tools.
+    function). Leave it out to match every tool.
     """

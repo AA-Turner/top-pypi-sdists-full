@@ -39,7 +39,10 @@ def ensure_molmospaces_runtime(*, renderer="classic", root=RUNTIME_ROOT, on_line
             if not python.exists():
                 subprocess.run([uv, "venv", "--python", "3.11", str(runtime / "venv")], check=True)
             subprocess.run(
-                [uv, "pip", "install", "--python", str(python), f"{source}[mujoco]", "av>=15,<19"],
+                # mujoco-warp is unpinned upstream; releases after 3.6.0 need a newer mujoco than
+                # [mujoco]'s ~=3.5.0 and fail at import (mjDSBL_MULTICCD), so it is pinned here.
+                [uv, "pip", "install", "--python", str(python), f"{source}[mujoco]", "av>=15,<19",
+                 "mujoco-warp==3.6.0"],
                 check=True,
             )
             if renderer == "filament":

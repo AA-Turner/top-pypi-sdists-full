@@ -24,7 +24,7 @@ pub(crate) enum Identity {
 pub(crate) enum Form {
     /// Each result item is a function of the argument items at its position, with the partial derivatives that `derivative::partials` gives.
     Pervasive,
-    /// The result carries no tangent. Its items change in steps, as comparisons and `⌊` give, or depend only on the arguments' shapes or values, as `⍳`, `≢` and monadic `⍷` give.
+    /// The result carries no tangent. Its items change in steps, as comparisons and `⌊` give, or depend only on the arguments' shapes or values, as `ι`, `≢` and monadic `⍷` give.
     Constant,
     /// Moves items to positions that don't depend on their values, as the structural glyphs do. `selects` says how Under and selective assignment write back through the form. A `planned` form copies its right argument through one plan that reads only that argument's layout, so a record copies as one `linear::Op::Copy` (`primitive::copied`), not through ids (`linear::through`).
     Moves { selects: Selects, planned: bool },
@@ -75,8 +75,6 @@ pub(crate) enum Origin { Left, Right, Both }
 pub(crate) enum CellRule {
     /// No rule: Rank calls the form once for each cell.
     No,
-    /// The form along each cell's first axis: monadic `⊖`, and dyadic `⊖` with a scalar left argument.
-    First,
     /// The form along each cell's first axis, with a left argument of any shape that applies along that axis: dyadic `#`.
     Along,
     /// The form along all of each cell's axes, which it joins into one: monadic `,`.
@@ -85,9 +83,9 @@ pub(crate) enum CellRule {
     Leading,
     /// Each cell's length along its first axis, the same for every cell: `≢`.
     Length,
-    /// Each cell's shape, the same for every cell whose axes have no names: monadic `⍴`.
+    /// Each cell's shape, the same for every cell whose axes have no names: monadic `ρ`.
     Shape,
-    /// A view of the whole argument, for a reshape that keeps each cell's items in order: dyadic `⍴`.
+    /// A view of the whole argument, for a reshape that keeps each cell's items in order: dyadic `ρ`.
     Reshape,
     /// Each cell's axes sent to destinations among the cell's own axes: `⍉`, whose left argument gives every cell the same destinations.
     Axes,
@@ -97,7 +95,7 @@ pub(crate) enum CellRule {
     Join { last: bool },
     /// The form ordering each cell's major cells along the cell's first axis: monadic `<`, `>`, `⍋` and `⍒` (`ordered_cells`).
     Orders,
-    /// The form looking up its needles' cells among the major cells of its other argument, the haystack, where the haystack is the same in every cell and each cell holds whole needles: dyadic `⍳` and `⍸`, with the haystack on the left, and `∊`, with it on the right.
+    /// The form looking up its needles' cells among the major cells of its other argument, the haystack, where the haystack is the same in every cell and each cell holds whole needles: dyadic `ι` and `⍸`, with the haystack on the left, and `∊`, with it on the right.
     Searches { haystack_left: bool },
     /// Each pair of cells compared as `≡` compares them, giving one Boolean for each cell: dyadic `≡`, and dyadic `≢` where `not` is true (`matched_cells`).
     Matches { not: bool },
@@ -209,7 +207,7 @@ impl Dyad {
 }
 
 impl Primitive {
-    const ALL: [Self; 61] = {
+    const ALL: [Self; 60] = {
         use {Arithmetic::*, Comparison::*, Math::*};
         [
             Self::Arithmetic(Plus), Self::Arithmetic(Minus), Self::Arithmetic(Times), Self::Arithmetic(Divide), Self::Math(Ceiling), Self::Math(Floor),
@@ -217,9 +215,9 @@ impl Primitive {
             Self::Math(Lcm), Self::Math(Gcd), Self::Math(Nand), Self::Math(Nor), Self::Math(Not), Self::Compare(Equal), Self::Compare(NotEqual),
             Self::Compare(Less), Self::Compare(LessEqual), Self::Compare(Greater), Self::Compare(GreaterEqual), Self::Iota, Self::Range, Self::Keys,
             Self::Shape, Self::Tally, Self::Depth, Self::Ravel, Self::CatenateFirst, Self::Enclose, Self::Mix, Self::Nest, Self::Member, Self::Union,
-            Self::Intersection, Self::Grade(false), Self::Grade(true), Self::Take, Self::Drop, Self::Reverse(false), Self::Reverse(true), Self::Transpose,
-            Self::Encode, Self::Decode, Self::Execute, Self::Format, Self::Index, Self::MatrixDivide, Self::Replicate, Self::Windows, Self::Prime, Self::Factor,
-            Self::Polynomial, Self::Where, Self::Find, Self::Identity(false), Self::Identity(true), Self::Random,
+            Self::Intersection, Self::Grade(false), Self::Grade(true), Self::Take, Self::Drop, Self::Reverse, Self::Transpose, Self::Encode, Self::Decode,
+            Self::Execute, Self::Format, Self::Index, Self::MatrixDivide, Self::Replicate, Self::Windows, Self::Prime, Self::Factor, Self::Polynomial,
+            Self::Where, Self::Find, Self::Identity(false), Self::Identity(true), Self::Random,
         ]
     };
     /// This primitive's row in the glyph table, built once, at compile time.
@@ -286,7 +284,7 @@ impl Primitive {
                 &const { row("*", "star", monad("exponential", 0, PERVASIVE.cost(7)), dyad("exponent", [0, 0], PERVASIVE.axes().cost(25)).identity(Formula)) }
             }
             Self::Math(Log) => {
-                &const { row("⍟", "circle-star", monad("natural-log", 0, PERVASIVE.cost(12)), dyad("logarithm", [0, 0], PERVASIVE.axes().cost(12))) }
+                &const { row("⊛", "circle-star", monad("natural-log", 0, PERVASIVE.cost(12)), dyad("logarithm", [0, 0], PERVASIVE.axes().cost(12))) }
             }
             Self::Math(Circle | Arc) => {
                 &const { row("○", "circle", monad("cis", 0, PERVASIVE.form(Unsupported).cost(12)), dyad("circular", [0, 0], PERVASIVE.axes().cost(8)).code()) }
@@ -346,7 +344,7 @@ impl Primitive {
             Self::Iota => {
                 &const {
                     row(
-                        "⍳", "iota", monad("indices", 1, of(Constant).cellwise().axes()),
+                        "ι", "iota", monad("indices", 1, of(Constant).cellwise().axes()),
                         dyad("index-of", [W, W], of(Constant).cells(CellRule::Searches { haystack_left: true })))
                 }
             }
@@ -355,7 +353,7 @@ impl Primitive {
             Self::Shape => {
                 &const {
                     row(
-                        "⍴", "rho", monad("shape", W, of(Constant).cells(CellRule::Shape)),
+                        "ρ", "rho", monad("shape", W, of(Constant).cells(CellRule::Shape)),
                         dyad("reshape", [1, W], MOVES.cellwise().planned().selects(Part).cells(CellRule::Reshape)))
                 }
             }
@@ -423,18 +421,11 @@ impl Primitive {
                         dyad("drop", [1, W], MOVES.cellwise().axes().planned().selects(Part).cells(CellRule::Leading)))
                 }
             }
-            Self::Reverse(false) => {
+            Self::Reverse => {
                 &const {
                     row(
                         "⌽", "circle-stile", monad("reverse", 1, MOVES.axes().planned().selects(Whole).cells(CellRule::Same)),
                         dyad("rotate", [0, 1], MOVES.axes().planned().selects(Whole)).identity(Identity::Number(0)))
-                }
-            }
-            Self::Reverse(true) => {
-                &const {
-                    row(
-                        "⊖", "circle-bar", monad("reverse-first", W, MOVES.axes().planned().selects(Whole).cells(CellRule::First)),
-                        dyad("rotate-first", [W, W], MOVES.axes().planned().selects(Whole).cells(CellRule::First)).identity(Identity::Number(0)))
                 }
             }
             Self::Transpose => {
@@ -474,7 +465,7 @@ impl Primitive {
             Self::Special(Special::BinomDn) => &const { row("∂!n", "binom_dn", NO_MONAD, dyad("binom_dn", [0, 0], PERVASIVE.axes().cost(900))) },
             Self::Special(Special::BinomDk) => &const { row("∂!k", "binom_dk", NO_MONAD, dyad("binom_dk", [0, 0], PERVASIVE.axes().cost(900))) },
             // Fast combinations, which the form rewriter puts in place of their spellings. `log1p` and `expm1` map their argument. `eval::combined` runs the others, before any running level, which then sees the functions they combine.
-            Self::Special(Special::Log1p) => &const { row("⍟1+", "log1p", monad("log1p", 0, PERVASIVE.cost(12)), NO_DYAD) },
+            Self::Special(Special::Log1p) => &const { row("⊛1+", "log1p", monad("log1p", 0, PERVASIVE.cost(12)), NO_DYAD) },
             Self::Special(Special::Expm1) => &const { row("¯1+*", "expm1", monad("expm1", 0, PERVASIVE.cost(7)), NO_DYAD) },
             Self::Special(Special::LambertW) => &const { row("(×↢*)⁻", "lambertw", monad("lambertw", 0, PERVASIVE.cost(100)), NO_DYAD) },
             Self::Special(Special::Selected(..)) => &const { row("↑⍋", "selected", monad("selected", W, of(Own)), dyad("selected", [W, W], of(Own))) },

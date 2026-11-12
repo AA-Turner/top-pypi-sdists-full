@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pytest-loguru
-Version: 0.4.1
+Version: 0.4.2
 Summary: Pytest Loguru
 Project-URL: Homepage, https://github.com/mcarans/pytest-loguru
 Author: Michael Rans
@@ -24,10 +24,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Requires-Dist: loguru
+Requires-Dist: pytest>=6.2
 Description-Content-Type: text/markdown
 
 [![Build Status](https://github.com/mcarans/pytest-loguru/actions/workflows/run-python-tests.yaml/badge.svg)](https://github.com/mcarans/pytest-loguru/actions/workflows/run-python-tests.yaml)
@@ -52,6 +55,38 @@ and from conda-forge with:
 ```shell
 conda install -c conda-forge pytest-loguru
 ```
+
+## Usage
+
+Once installed, the plugin is registered automatically through pytest's
+`pytest11` entry point, so no import or configuration is needed. Messages
+logged with loguru show up in `caplog` just like standard `logging` records,
+and `caplog.at_level` / `caplog.set_level` filter them as usual:
+
+```python
+import logging
+
+from loguru import logger
+
+
+def test_logs(caplog):
+    logger.warning("something happened")
+    assert "something happened" in caplog.text
+
+
+def test_levels(caplog):
+    with caplog.at_level(logging.ERROR):
+        logger.info("ignored")
+        logger.error("kept")
+    assert caplog.messages == ["kept"]
+```
+
+Loguru records also reach pytest's other log handlers, in every test
+whether or not it requests `caplog`: they appear under "Captured log call"
+when a test fails, and in the live log when `log_cli` is enabled. Each
+handler's level (`log_level`, `log_cli_level`) filters them as it does
+standard `logging` records. Loguru's own sinks, such as the default stderr
+one, are left alone.
 
 Note that coverage is 100% but the coverage tool is confused by the fixture decorator.
 
@@ -114,4 +149,12 @@ Tests can be executed using:
 
 ```shell
 uv run pytest
+```
+
+Coverage must stay at 100%. Measure it with `coverage run` rather than
+pytest-cov, which starts too late to see the plugin's import:
+
+```shell
+uv run coverage run -m pytest
+uv run coverage report
 ```

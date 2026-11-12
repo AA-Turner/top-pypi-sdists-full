@@ -41,7 +41,10 @@ class NodeSDK:
         ray_session: Optional[str] = None,
     ) -> Node:
         """Get one node of a cluster, workspace, job or service: state, IPs, instance type,
-        resources and labels."""
+        resources and labels.
+
+        Needs Ray 2.50.0 or newer; on an older version the node is not found.
+        """
         return self._private_sdk.get(
             node_id,
             cluster_id=cluster_id,
@@ -68,7 +71,10 @@ class NodeSDK:
         max_items: int = DEFAULT_MAX_ITEMS,
     ) -> NodeList:
         """List the nodes of a cluster, workspace, job or service, newest Ray session first,
-        with optional filters."""
+        with optional filters.
+
+        Needs Ray 2.50.0 or newer; on an older version the list is empty.
+        """
         return self._private_sdk.list(
             cluster_id=cluster_id,
             workspace_id=workspace_id,

@@ -900,6 +900,18 @@ class CodeIndex:
                 augment_racket_collection_edges(self.imports, self.source_root, self._source_file_set)
             except Exception:
                 logger.debug("racket collection edges unavailable", exc_info=True)
+        # (#1376) A Kotlin import that names a top-level declaration
+        # (`import a.b.buildSnapshot`, declared in `a/b/SnapshotMapper.kt`)
+        # gains an edge to the declaring file, the same ADDED-edge shape as
+        # Racket's. Derived from the symbols on every construction, so a
+        # declaration that moved files moves its edge.
+        langs = self.languages or {}
+        if self.imports and ("kotlin" in langs or "java" in langs):
+            try:
+                from ..parser.imports import augment_jvm_declaration_edges
+                augment_jvm_declaration_edges(self.imports, self.symbols, self._source_file_set)
+            except Exception:
+                logger.debug("jvm declaration edges unavailable", exc_info=True)
 
     def get_callers_by_name(self) -> dict[tuple[str, str], list[str]]:
         """Lazy reverse lookup: (caller_file, called_name) -> [symbol IDs].
@@ -1209,6 +1221,11 @@ class IndexStore:
 
     def _write_cached_text(self, path: Path, content: str) -> None:
         """Write cached text without newline translation."""
+        # The text is in hand here, so its token count is taken now for the
+        # save to record (storage/token_counts.py).
+        from . import token_counts
+
+        token_counts.note(content)
         with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
 

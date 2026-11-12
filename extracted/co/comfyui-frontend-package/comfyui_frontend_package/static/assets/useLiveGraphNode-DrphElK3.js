@@ -1,1 +1,0 @@
-import"./rolldown-runtime-CM1DJQSe.js";import{P as e,Rt as t}from"./vendor-vue-core-DyDHSBJn.js";import{T as n}from"./vendor-vueuse-nlh-Rjfv.js";import{n as r}from"./app-BrsLkGrc.js";function useLiveGraphNode(i){let a=t(i()??null);return n(()=>r.rootGraphOrUndefined?.events,`configured`,()=>a.value=i()??null),e(()=>a.value)}export{useLiveGraphNode as t};

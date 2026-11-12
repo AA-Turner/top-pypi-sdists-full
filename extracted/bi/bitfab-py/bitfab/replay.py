@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 MockStrategy = Literal["none", "all", "marked"]
 ConcurrencyPrimitive = Literal["async", "process"]
 _REPLAY_PERSISTENCE_TIMEOUT_SECONDS = 30.0
+_QUEUED_REPLAY_PERSISTENCE_TIMEOUT_SECONDS = 120.0
 JUDGE_ASSERTIONS_DEPRECATION = (
     "judge_assertions is deprecated. Assertion judging is on by default; pass "
     "skip_assertion_judging=True (--skip-assertion-judging) to turn it off."
@@ -2053,7 +2054,12 @@ def _wait_for_replay_persistence(
     ):
         return read_back_trace_ids
 
-    deadline = time.monotonic() + timeout
+    poll_budget = (
+        max(timeout, _QUEUED_REPLAY_PERSISTENCE_TIMEOUT_SECONDS)
+        if any(report.queued for report in raw_deliveries.values())
+        else timeout
+    )
+    deadline = time.monotonic() + poll_budget
     missing = set(expected_span_counts)
 
     while missing:
@@ -2072,7 +2078,7 @@ def _wait_for_replay_persistence(
     for trace_id in sorted(missing):
         logger.warning(
             _unconfirmed_replay_warning(
-                (labels or {}).get(trace_id, trace_id), timeout, flushed
+                (labels or {}).get(trace_id, trace_id), poll_budget, flushed
             )
         )
     return read_back_trace_ids

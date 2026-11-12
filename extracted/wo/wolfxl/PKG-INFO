@@ -1,11 +1,16 @@
 Metadata-Version: 2.4
 Name: wolfxl
-Version: 2.0.36
+Version: 2.0.38
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Financial and Insurance Industry
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
@@ -13,13 +18,10 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: defusedxml>=0.7.1,<1.0
 Requires-Dist: formulas>=1.3.3,<2.0 ; extra == 'calc'
 Requires-Dist: msoffcrypto-tool>=5.4,<6.0 ; extra == 'encrypted'
-Requires-Dist: pytest>=7.4 ; python_full_version < '3.10' and extra == 'test'
-Requires-Dist: pytest>=9.0.3 ; python_full_version >= '3.10' and extra == 'test'
+Requires-Dist: pytest>=9.0.3 ; extra == 'test'
 Requires-Dist: pytest-xdist>=3.3 ; extra == 'test'
 Requires-Dist: openpyxl>=3.1 ; extra == 'test'
-Requires-Dist: pillow>=11.3.0 ; python_full_version < '3.10' and extra == 'test'
-Requires-Dist: pillow>=12.3.0 ; python_full_version == '3.10.*' and extra == 'test'
-Requires-Dist: pillow>=13.0.0 ; python_full_version >= '3.11' and extra == 'test'
+Requires-Dist: pillow>=13.0.0 ; extra == 'test'
 Provides-Extra: calc
 Provides-Extra: encrypted
 Provides-Extra: test
@@ -28,7 +30,7 @@ Summary: Openpyxl-compatible Excel library with a Rust backend: speed up openpyx
 Keywords: excel,xlsx,xlsm,openpyxl,openpyxl-alternative,openpyxl-replacement,excel-template,conditional-formatting,data-validation,edit-xlsx-in-place,preserve-formatting,excel-formulas,formula-evaluation,large-excel-files,spreadsheet,rust,financial
 Author: Wolfgang Schoenberger
 License: MIT
-Requires-Python: >=3.9, !=3.9.0, !=3.9.1
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/SynthGL/wolfxl-oss/releases
 Project-URL: Homepage, https://wolfxl.com
@@ -47,13 +49,31 @@ Most openpyxl code runs after a one-line import change, so it is the first
 thing to try when an openpyxl script is too slow. No Excel or LibreOffice
 install is needed: wheels cover Linux (glibc and musl), macOS, and Windows.
 
-WolfXL Community is the maintained, MIT-licensed 2.0 release line for supported workbook creation, reading, writing, streaming exports, and existing-workbook edits. It is a free product, not a trial.
+WolfXL Community is the long-term, MIT-licensed open I/O kernel for supported
+workbook creation, reading, writing, streaming exports, and existing-workbook
+edits. It is a free product, not a trial. The canonical source repository is
+[SynthGL/wolfxl-oss](https://github.com/SynthGL/wolfxl-oss).
+
+Community security support continues through **2028-10-31**. Security fixes for
+shared functionality ship to Community and Commercial in the same release
+window, with immediate security releases alongside the weekly release train
+and `rc` pre-releases. Read the
+[security policy](https://github.com/SynthGL/wolfxl-oss/blob/main/SECURITY.md)
+for supported versions, remediation targets, CVEs, and disclosure. Review the
+[threat model](https://github.com/SynthGL/wolfxl-oss/blob/main/THREAT_MODEL.md)
+for guarantees, default resource limits, non-guarantees, and untrusted-file
+deployment guidance.
 
 ## Install
 
 ```bash
-python -m pip install wolfxl==2.0.36
+python -m pip install wolfxl==2.0.38
 ```
+
+Requires Python 3.11 or newer CPython with a published wheel, or a Rust
+toolchain to build from source. Version 2.0.36 is the last release supporting
+Python 3.9 and 3.10; pip on those versions continues to resolve compatible
+2.0.x releases.
 
 ## When to use WolfXL instead of openpyxl, XlsxWriter, or pandas
 

@@ -214,6 +214,32 @@ class PresetName(str, Enum):
     PracticalPy31420261106 = "practical-py314-20261106"
     PracticalPy31520261106 = "practical-py315-20261106"
 
+    StandardPy31020261111 = "standard-py310-20261111"
+    StandardPy31120261111 = "standard-py311-20261111"
+    StandardPy31220261111 = "standard-py312-20261111"
+    StandardPy31320261111 = "standard-py313-20261111"
+    StandardPy31420261111 = "standard-py314-20261111"
+    StandardPy31520261111 = "standard-py315-20261111"
+    PracticalPy31020261111 = "practical-py310-20261111"
+    PracticalPy31120261111 = "practical-py311-20261111"
+    PracticalPy31220261111 = "practical-py312-20261111"
+    PracticalPy31320261111 = "practical-py313-20261111"
+    PracticalPy31420261111 = "practical-py314-20261111"
+    PracticalPy31520261111 = "practical-py315-20261111"
+
+    StandardPy31020261112 = "standard-py310-20261112"
+    StandardPy31120261112 = "standard-py311-20261112"
+    StandardPy31220261112 = "standard-py312-20261112"
+    StandardPy31320261112 = "standard-py313-20261112"
+    StandardPy31420261112 = "standard-py314-20261112"
+    StandardPy31520261112 = "standard-py315-20261112"
+    PracticalPy31020261112 = "practical-py310-20261112"
+    PracticalPy31120261112 = "practical-py311-20261112"
+    PracticalPy31220261112 = "practical-py312-20261112"
+    PracticalPy31320261112 = "practical-py313-20261112"
+    PracticalPy31420261112 = "practical-py314-20261112"
+    PracticalPy31520261112 = "practical-py315-20261112"
+
 
 @dataclass(frozen=True, slots=True)
 class PresetContext:
@@ -581,6 +607,8 @@ _PRACTICAL_20261104_EXTRA_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
 _PRACTICAL_EXTRA_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]] = {
     "20261104": _PRACTICAL_20261104_EXTRA_OPTION_GROUPS,
     "20261106": _PRACTICAL_20261104_EXTRA_OPTION_GROUPS,
+    "20261111": _PRACTICAL_20261104_EXTRA_OPTION_GROUPS,
+    "20261112": _PRACTICAL_20261104_EXTRA_OPTION_GROUPS,
 }
 """The practical extras of the dates whose extras are not those of 20260619."""
 
@@ -1201,6 +1229,33 @@ _STANDARD_20261106_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
 )
 """The 20261104 groups and the opt-in options of the release after 0.90.0."""
 
+_STANDARD_20261111_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
+    *_STANDARD_20261106_OPTION_GROUPS,
+    PresetOptionGroup(
+        title="Float consts fixed by bounds",
+        config=PresetConfig(use_bounds_for_float_const=True),
+        description=(
+            "Type a finite float const, which no Literal holds, as a float whose minimum and maximum both equal it, "
+            "written as the output writes number bounds, so Pydantic and msgspec reject other numbers instead of "
+            "accepting any float."
+        ),
+    ),
+)
+"""The 20261106 groups and the opt-in options of the release after 0.93.0."""
+
+_STANDARD_20261112_OPTION_GROUPS: tuple[PresetOptionGroup, ...] = (
+    *_STANDARD_20261111_OPTION_GROUPS,
+    PresetOptionGroup(
+        title="Object keywords by type",
+        config=PresetConfig(read_object_keywords_by_type=True),
+        description=(
+            "Read the keywords that constrain objects only beside an anyOf or oneOf for the branches whose type "
+            "admits objects, so a string branch beside patternProperties stays a string."
+        ),
+    ),
+)
+"""The 20261111 groups and the opt-in options added after them."""
+
 _STANDARD_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]] = {
     "20260619": _STANDARD_20260619_OPTION_GROUPS,
     "20260826": _STANDARD_20260826_OPTION_GROUPS,
@@ -1210,6 +1265,8 @@ _STANDARD_OPTION_GROUPS_BY_DATE: dict[str, tuple[PresetOptionGroup, ...]] = {
     "20261027": _STANDARD_20261027_OPTION_GROUPS,
     "20261104": _STANDARD_20261104_OPTION_GROUPS,
     "20261106": _STANDARD_20261106_OPTION_GROUPS,
+    "20261111": _STANDARD_20261111_OPTION_GROUPS,
+    "20261112": _STANDARD_20261112_OPTION_GROUPS,
 }
 
 
@@ -1400,7 +1457,8 @@ def _date_additions_markdown(since: str) -> list[str]:
                 if group not in groups_by_date.get(previous, _PRACTICAL_20260619_EXTRA_OPTION_GROUPS)
             ),
         ]
-        lines.extend((f"The {date} presets keep the {previous} options and add:", "", *added, ""))
+        heading = f"The {date} presets keep the {previous} options{' and add:' if added else '.'}"
+        lines.extend((heading, "", *added, *([""] if added else [])))
     return lines
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 DISABLE_COMPRESSION_ENV = "BITFAB_DISABLE_COMPRESSION"
@@ -21,6 +22,7 @@ class PreparedRequest:
     content_encoding: str | None
     raw_bytes: int
     wire_bytes: int
+    headers: Mapping[str, str] | None = None
 
 
 def prepare_request_body(body: str) -> PreparedRequest:

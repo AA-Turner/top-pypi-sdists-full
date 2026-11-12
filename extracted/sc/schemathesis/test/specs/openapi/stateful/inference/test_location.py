@@ -3,6 +3,7 @@ from urllib.parse import urlsplit
 import pytest
 from flask import jsonify, request
 
+import schemathesis
 from schemathesis.core.transport import Response
 from schemathesis.engine.observations import BodyUrlEntry, LocationHeaderEntry, Observations
 from schemathesis.generation.stateful.state_machine import StepOutput
@@ -242,6 +243,66 @@ def _link_by(key: str, value: str, **parameters):
             "/path~with~tildes/123",
             [link_by_ref("#/paths/~1path~0with~0tildes~1{id}/get", id="/path\\~with\\~tildes/([^/?#]+)")],
         ),
+        # Same path with multiple methods - ALL should be included
+        (
+            {
+                "/users/{userId}": {
+                    "get": {"operationId": "getUserById"},
+                    "put": {"operationId": "updateUser"},
+                    "delete": {"operationId": "deleteUser"},
+                    "patch": {"operationId": "patchUser"},
+                }
+            },
+            "/users/123",
+            [
+                link_by_id("getUserById", userId="/users/([^/?#]+)"),
+                link_by_id("updateUser", userId="/users/([^/?#]+)"),
+                link_by_id("deleteUser", userId="/users/([^/?#]+)"),
+                link_by_id("patchUser", userId="/users/([^/?#]+)"),
+            ],
+        ),
+        # Same path without a GET operation
+        (
+            {
+                "/users/{userId}": {
+                    "delete": {"operationId": "deleteUser"},
+                    "patch": {"operationId": "patchUser"},
+                }
+            },
+            "/users/123",
+            [
+                link_by_id("deleteUser", userId="/users/([^/?#]+)"),
+                link_by_id("patchUser", userId="/users/([^/?#]+)"),
+            ],
+        ),
+        # Prefix matching should find ALL methods on matching paths
+        (
+            {
+                "/users/{userId}": {
+                    "get": {"operationId": "getUser"},
+                    "put": {"operationId": "updateUser"},
+                },
+                "/users/{userId}/posts": {
+                    "get": {"operationId": "getUserPosts"},
+                    "post": {"operationId": "createUserPost"},
+                },
+                "/users/{userId}/posts/{postId}": {
+                    "get": {"operationId": "getUserPost"},
+                    "put": {"operationId": "updateUserPost"},
+                    "delete": {"operationId": "deleteUserPost"},
+                },
+            },
+            "/users/123",
+            [
+                link_by_id("getUser", userId="/users/([^/?#]+)"),
+                link_by_id("updateUser", userId="/users/([^/?#]+)"),
+                link_by_id("getUserPosts", userId="/users/([^/?#]+)"),
+                link_by_id("createUserPost", userId="/users/([^/?#]+)"),
+                link_by_id("getUserPost", userId="/users/([^/?#]+)"),
+                link_by_id("updateUserPost", userId="/users/([^/?#]+)"),
+                link_by_id("deleteUserPost", userId="/users/([^/?#]+)"),
+            ],
+        ),
     ],
 )
 def test_build_location_link(ctx, paths, location, expected, response_factory):
@@ -274,8 +335,9 @@ def test_build_location_link_empty_path(ctx):
     ],
     ids=["missing-trailing-slash", "double-slash", "static-missing-trailing-slash"],
 )
-def test_build_links_location_needing_redirect(ctx, path, location):
-    schema = ctx.openapi.load_schema({path: {"get": {"operationId": "getTeam"}}}, version="3.1.0")
+@pytest.mark.parametrize("method", ["get", "delete"])
+def test_build_links_location_needing_redirect(ctx, path, location, method):
+    schema = ctx.openapi.load_schema({path: {method: {"operationId": "getTeam"}}}, version="3.1.0")
     assert build_links(LinkInferencer.from_schema(schema), location) == []
 
 
@@ -464,67 +526,6 @@ def test_inferred_link_extracts_path_parameters(ctx, response_factory, base_url,
     response = Response.from_requests(response_factory.requests(headers={"Location": location}), True)
     output = StepOutput(response=response, case=None)
     assert {name: expressions.evaluate(expr, output) for name, expr in link["parameters"].items()} == expected
-
-
-@pytest.mark.parametrize(
-    ["paths", "location", "expected"],
-    [
-        # Same path with multiple methods - ALL should be included
-        (
-            {
-                "/users/{userId}": {
-                    "get": {"operationId": "getUserById"},
-                    "put": {"operationId": "updateUser"},
-                    "delete": {"operationId": "deleteUser"},
-                    "patch": {"operationId": "patchUser"},
-                }
-            },
-            "/users/123",
-            [
-                link_by_id("getUserById", userId="/users/([^/?#]+)"),
-                link_by_id("updateUser", userId="/users/([^/?#]+)"),
-                link_by_id("deleteUser", userId="/users/([^/?#]+)"),
-                link_by_id("patchUser", userId="/users/([^/?#]+)"),
-            ],
-        ),
-        # Prefix matching should find ALL methods on matching paths
-        (
-            {
-                "/users/{userId}": {
-                    "get": {"operationId": "getUser"},
-                    "put": {"operationId": "updateUser"},
-                },
-                "/users/{userId}/posts": {
-                    "get": {"operationId": "getUserPosts"},
-                    "post": {"operationId": "createUserPost"},
-                },
-                "/users/{userId}/posts/{postId}": {
-                    "get": {"operationId": "getUserPost"},
-                    "put": {"operationId": "updateUserPost"},
-                    "delete": {"operationId": "deleteUserPost"},
-                },
-            },
-            "/users/123",
-            [
-                link_by_id("getUser", userId="/users/([^/?#]+)"),
-                link_by_id("updateUser", userId="/users/([^/?#]+)"),
-                link_by_id("getUserPosts", userId="/users/([^/?#]+)"),
-                link_by_id("createUserPost", userId="/users/([^/?#]+)"),
-                link_by_id("getUserPost", userId="/users/([^/?#]+)"),
-                link_by_id("updateUserPost", userId="/users/([^/?#]+)"),
-                link_by_id("deleteUserPost", userId="/users/([^/?#]+)"),
-            ],
-        ),
-    ],
-)
-def test_build_links_all_methods(ctx, paths, location, expected, response_factory):
-    schema = ctx.openapi.load_schema(paths, version="3.1.0")
-    inferencer = LinkInferencer.from_schema(schema)
-    results = build_links(inferencer, location)
-    assert results == expected
-
-    if results:
-        assert_links_work(response_factory, location, results, schema)
 
 
 def test_build_links_no_paths_in_schema(ctx):
@@ -757,7 +758,6 @@ def user_api_app(ctx, user_api_schema):
     return app
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_link_inference_discovers_corruption_bug(cli, snapshot_cli, user_api_app):
     assert (
         cli.run_openapi_app(
@@ -771,7 +771,6 @@ def test_link_inference_discovers_corruption_bug(cli, snapshot_cli, user_api_app
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_link_inference_accounts_for_filters(cli, snapshot_cli, user_api_app):
     assert (
         cli.run_openapi_app(
@@ -839,7 +838,6 @@ def test_location_points_to_nonexistent_endpoint(cli, snapshot_cli, ctx):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_location_link_inferred_when_every_response_has_location(cli, snapshot_cli, ctx):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -930,25 +928,27 @@ def test_inferred_link_for_undocumented_response_reaches_state_machine(ctx, resp
 
 @pytest.mark.parametrize(
     "created",
-    [lambda: {"$ref": "#/components/responses/Created"}, lambda: {"description": "Created"}],
-    ids=["shared", "inline"],
+    [{"$ref": "#/components/responses/Created"}, {"description": "Created"}, {"$ref": "responses.json#/Created"}],
+    ids=["shared", "inline", "other-file"],
 )
 def test_learned_link_stays_with_operation_sharing_response(ctx, created):
+    ctx.makefile({"Created": {"description": "Created"}}, filename="responses")
     item = {
         "get": {
             "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
             "responses": {"200": {"description": "OK"}},
         }
     }
-    schema = ctx.openapi.load_schema(
+    path = ctx.openapi.write_schema(
         {
-            "/users": {"post": {"responses": {"201": created()}}},
+            "/users": {"post": {"responses": {"201": created}}},
             "/users/{id}": item,
-            "/admins": {"post": {"responses": {"201": created()}}},
+            "/admins": {"post": {"responses": {"201": created}}},
             "/admins/{id}": item,
         },
         components={"responses": {"Created": {"description": "Created"}}},
     )
+    schema = schemathesis.openapi.from_path(str(path))
     observations = Observations()
     observations.location_headers[schema["/users"]["POST"]] = [LocationHeaderEntry(value="/users/1", status_code=201)]
     observations.body_urls[schema["/admins"]["POST"]] = [

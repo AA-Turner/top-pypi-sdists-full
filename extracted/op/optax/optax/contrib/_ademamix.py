@@ -72,7 +72,7 @@ def scale_by_ademamix(
     b1: Exponential decay rate to track the fast EMA.
     b2: Exponential decay rate to track the second moment of past gradients.
     b3: Exponential decay rate to track the slow EMA.
-    alpha: Mixing coefficient in the linear combination for the fast and slow
+    alpha: Mixing coefficient in the linear combination of the fast and slow
       EMAs.
     eps: A small constant applied to denominator outside of the square root (as
       in the Adam paper) to avoid dividing by zero when rescaling.
@@ -102,6 +102,8 @@ def scale_by_ademamix(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     c_b3 = b3(state.count_m2) if callable(b3) else b3
     c_alpha = alpha(state.count_m2) if callable(alpha) else alpha
     m1 = optax.tree.update_moment(
@@ -264,6 +266,7 @@ def ademamix(
           eps_root=eps_root,
           mu_dtype=mu_dtype,
       ),
+      # pyrefly: ignore[bad-argument-type]
       transform.add_decayed_weights(weight_decay, mask),
       transform.scale_by_learning_rate(learning_rate),
   )
@@ -325,6 +328,8 @@ def scale_by_simplified_ademamix(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.n)
+    numerics.maybe_static_check_eps(eps_root, state.n, name='eps_root')
     c_alpha = alpha(state.t) if callable(alpha) else alpha
 
     g = updates
@@ -457,6 +462,7 @@ def simplified_ademamix(
           eps=eps,
           eps_root=eps_root,
       ),
+      # pyrefly: ignore[bad-argument-type]
       transform.add_decayed_weights(weight_decay, mask),
       transform.scale_by_learning_rate(learning_rate),
   )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Optional, cast
 
@@ -9,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa, utils
 from cryptography.hazmat.primitives.asymmetric.padding import MGF1, PSS, PKCS1v15
 from cryptography.hazmat.primitives.hmac import HMAC
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, load_pem_private_key
-from lxml.etree import Element, QName, SubElement, _Element
+from lxml.etree import Comment, Element, QName, SubElement, _Element, strip_tags
 
 from .algorithms import (
     CanonicalizationMethod,
@@ -19,6 +20,7 @@ from .algorithms import (
     digest_algorithm_implementations,
 )
 from .exceptions import InvalidInput
+from .external import ExternalSigningKey, SigningRequest
 from .processor import XMLSignatureProcessor
 from .util import (
     SigningSettings,
@@ -144,7 +146,13 @@ class XMLSigner(XMLSignatureProcessor):
         self,
         data,
         *,
-        key: str | bytes | rsa.RSAPrivateKey | dsa.DSAPrivateKey | ec.EllipticCurvePrivateKey | None = None,
+        key: str
+        | bytes
+        | rsa.RSAPrivateKey
+        | dsa.DSAPrivateKey
+        | ec.EllipticCurvePrivateKey
+        | ExternalSigningKey
+        | None = None,
         passphrase: bytes | None = None,
         cert: str | list[str] | list[x509.Certificate] | None = None,
         reference_uri: str | list[str] | list[SignatureReference] | None = None,
@@ -166,7 +174,9 @@ class XMLSigner(XMLSignatureProcessor):
             containing a PEM-formatted key, or a :class:`cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey`,
             :class:`cryptography.hazmat.primitives.asymmetric.dsa.DSAPrivateKey`, or
             :class:`cryptography.hazmat.primitives.asymmetric.ec.EllipticCurvePrivateKey` object. When signing with a
-            HMAC, this should be a string containing the shared secret.
+            HMAC, this should be a string containing the shared secret. For a private key held by an external provider,
+            pass an :class:`signxml.ExternalSigningKey`. Its public key must match the first certificate in ``cert``,
+            if supplied. External signing does not use ``passphrase`` and does not support HMAC.
         :param passphrase: Passphrase to use to decrypt the key, if any.
         :param cert:
             X.509 certificate to use for signing. This should be a string containing a PEM-formatted certificate, or an
@@ -221,6 +231,18 @@ class XMLSigner(XMLSignatureProcessor):
             self.id_attributes = (id_attribute,)
 
         cert_chain = self._get_cert_chain(cert)
+        if isinstance(key, ExternalSigningKey):
+            key._check_signature_algorithm(self.sign_alg)
+            if passphrase is not None:
+                raise InvalidInput("passphrase cannot be used with ExternalSigningKey")
+            if cert_chain is not None:
+                certificate = cert_chain[0]
+                if not isinstance(certificate, x509.Certificate):
+                    certificate = x509.load_pem_x509_certificate(add_pem_header(certificate))
+                certificate_key = certificate.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+                external_key = key.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+                if certificate_key != external_key:
+                    raise InvalidInput("The signing certificate does not match the external public key")
 
         input_references = self._preprocess_reference_uri(reference_uri)
 
@@ -274,7 +296,9 @@ class XMLSigner(XMLSignatureProcessor):
             sig_root.append(signature_value_node)
         elif any(self.sign_alg.name.startswith(i) for i in ["DSA_", "RSA_", "ECDSA_", "SHA"]):
             hash_alg = digest_algorithm_implementations[self.sign_alg]()
-            if self.sign_alg.name.startswith("DSA_"):
+            if isinstance(signing_settings.key, ExternalSigningKey):
+                signature = signing_settings.key.sign(SigningRequest(signed_info_c14n, self.sign_alg))
+            elif self.sign_alg.name.startswith("DSA_"):
                 signature = signing_settings.key.sign(signed_info_c14n, algorithm=hash_alg)
             elif self.sign_alg.name.startswith("ECDSA_"):
                 signature = signing_settings.key.sign(
@@ -292,6 +316,10 @@ class XMLSigner(XMLSignatureProcessor):
                 # Note: The output of the DSA and ECDSA signers is a DER-encoded ASN.1 sequence of two DER integers.
                 (r, s) = utils.decode_dss_signature(signature)
                 int_len = bits_to_bytes_unit(signing_settings.key.key_size)
+                if self.sign_alg.name.startswith("DSA_"):
+                    # DSA components are sized to q, not the public-key modulus p.
+                    q = signing_settings.key.public_key().public_numbers().parameter_numbers.q
+                    int_len = bits_to_bytes_unit(q.bit_length())
                 signature = long_to_bytes(r, blocksize=int_len) + long_to_bytes(s, blocksize=int_len)
 
             signature_value_node.text = b64encode(signature).decode()
@@ -379,10 +407,11 @@ class XMLSigner(XMLSignatureProcessor):
             if isinstance(data, (str, bytes)):
                 raise InvalidInput("When using enveloped signature, **data** must be an XML element")
             doc_root = self.get_root(data)
-            c14n_inputs = [self.get_root(data)]
             if references is not None:
                 # Only sign the referenced element(s)
                 c14n_inputs, references = self._get_c14n_inputs_from_references(doc_root, references)
+            else:
+                c14n_inputs = [self.get_root(data)]
 
             signature_placeholders = self._findall(doc_root, "Signature[@Id='placeholder']", xpath=".//")
             if len(signature_placeholders) == 0:
@@ -410,7 +439,6 @@ class XMLSigner(XMLSignatureProcessor):
             if references is None:
                 uri = "#{}".format(data.get("Id", data.get("ID", "object")))
                 references = [SignatureReference(URI=uri)]
-                c14n_inputs = [self.get_root(data)]
             try:
                 c14n_inputs, references = self._get_c14n_inputs_from_references(doc_root, references)
             except InvalidInput:  # Dummy reference URI
@@ -470,8 +498,12 @@ class XMLSigner(XMLSignatureProcessor):
             )
             SubElement(reference_node, self._ds_tag("DigestMethod"), Algorithm=self.digest_alg.value)
             digest_value = SubElement(reference_node, self._ds_tag("DigestValue"))
+            payload = c14n_inputs[i]
+            if (reference.URI == "" or reference.URI.startswith("#")) and list(payload.iter(Comment)):
+                payload = deepcopy(payload)
+                strip_tags(payload, Comment)
             payload_c14n = self._c14n(
-                c14n_inputs[i], algorithm=reference.c14n_method, inclusive_ns_prefixes=reference.inclusive_ns_prefixes
+                payload, algorithm=reference.c14n_method, inclusive_ns_prefixes=reference.inclusive_ns_prefixes
             )
             digest = self._get_digest(payload_c14n, algorithm=self.digest_alg)
             digest_value.text = b64encode(digest).decode()
@@ -499,16 +531,17 @@ class XMLSigner(XMLSignatureProcessor):
         """
         Add the public components of the key to the signature (see https://www.w3.org/TR/xmldsig-core2/#sec-KeyValue).
         """
+        public_key = key.public_key()
         key_value = SubElement(key_info_node, self._ds_tag("KeyValue"))
         if self.sign_alg.name.startswith("RSA_") or self.sign_alg.name.startswith("SHA"):
             rsa_key_value = SubElement(key_value, self._ds_tag("RSAKeyValue"))
             modulus = SubElement(rsa_key_value, self._ds_tag("Modulus"))
-            modulus.text = b64encode(long_to_bytes(key.public_key().public_numbers().n)).decode()
+            modulus.text = b64encode(long_to_bytes(public_key.public_numbers().n)).decode()
             exponent = SubElement(rsa_key_value, self._ds_tag("Exponent"))
-            exponent.text = b64encode(long_to_bytes(key.public_key().public_numbers().e)).decode()
+            exponent.text = b64encode(long_to_bytes(public_key.public_numbers().e)).decode()
         elif self.sign_alg.name.startswith("DSA_"):
             dsa_key_value = SubElement(key_value, self._ds_tag("DSAKeyValue"))
-            public_numbers = key.public_key().public_numbers()
+            public_numbers = public_key.public_numbers()
             parameters = public_numbers.parameter_numbers
             for field, value in (
                 ("p", parameters.p),
@@ -521,9 +554,9 @@ class XMLSigner(XMLSignatureProcessor):
         elif self.sign_alg.name.startswith("ECDSA_"):
             ec_key_value = SubElement(key_value, dsig11_tag("ECKeyValue"), nsmap={"dsig11": namespaces.dsig11})
             named_curve = SubElement(  # noqa:F841
-                ec_key_value, dsig11_tag("NamedCurve"), URI=self.known_ecdsa_curve_oids[key.curve.name]
+                ec_key_value, dsig11_tag("NamedCurve"), URI=self.known_ecdsa_curve_oids[public_key.curve.name]
             )
-            public_key = SubElement(ec_key_value, dsig11_tag("PublicKey"))
-            public_key.text = b64encode(
-                key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+            public_key_node = SubElement(ec_key_value, dsig11_tag("PublicKey"))
+            public_key_node.text = b64encode(
+                public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
             ).decode()

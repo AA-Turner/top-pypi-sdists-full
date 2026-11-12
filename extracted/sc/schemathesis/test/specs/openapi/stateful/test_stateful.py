@@ -12,57 +12,64 @@ from hypothesis.internal.conjecture.data import Status
 from pydantic import BaseModel
 
 import schemathesis
-from schemathesis.config import OperationConfig
+from schemathesis.config import OperationConfig, SchemathesisConfig
 from schemathesis.core.errors import NoLinksFound
 from schemathesis.core.failures import FailureGroup
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import Response
 from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.stateful.state_machine import DEFAULT_STATE_MACHINE_SETTINGS, StepOutput
-from schemathesis.specs.openapi.stateful import (
-    collect_transitions,
-    into_step_input,
-    make_response_filter,
-    match_status_code,
-)
+from schemathesis.specs.openapi.stateful import collect_transitions, into_step_input
 from test.apps.catalog.openapi import users as openapi_users
 from test.apps.catalog.openapi.modifiers.stateful import NoMergeBody, SingleUseBearerTokens
 from test.utils import run_given, saved_example_keys
 
 
 @pytest.mark.parametrize(
-    ("response_status", "filter_value", "matching"),
+    ("linked", "unlinked", "status_code", "expected"),
     [
-        (200, 200, True),
-        (200, 201, False),
-        (200, "20X", True),
+        (("2XX", "201"), (), 201, "POST /items -> 201"),
+        (("201", "2XX"), (), 201, "POST /items -> 201"),
+        (("default", "200"), (), 200, "POST /items -> 200"),
+        (("200", "default"), (), 202, "POST /items -> default"),
+        (("default", "20X"), (), 200, "POST /items -> 20X"),
+        (("20X", "default"), (), 210, "POST /items -> default"),
+        (("2XX",), ("201",), 201, None),
+        (("200", "2XX"), (), 404, None),
+    ],
+    ids=[
+        "range-first",
+        "exact-first",
+        "default-excludes-declared",
+        "default-fallback",
+        "default-excludes-range",
+        "range-miss-default",
+        "exact-without-links",
+        "undeclared",
     ],
 )
-def test_match_status_code(response_status, filter_value, matching, response_factory):
-    # When the response has `response_status` status
-    response = response_factory.requests(status_code=response_status)
-    # And the filter should filter by `filter_value`
-    filter_function = match_status_code(filter_value)
-    assert filter_function.__name__ == f"match_{filter_value}_response"
-    # Then that response should match or not depending on the `matching` value
-    assert filter_function(StepOutput(response, None)) is matching
-
-
-@pytest.mark.parametrize(
-    ("response_status", "status_codes", "matching"),
-    [
-        (202, (200, "default"), True),
-        (200, (200, "default"), False),
-        (200, ("20X", "default"), False),
-        (210, ("20X", "default"), True),
-    ],
-)
-def test_default_status_code(response_status, status_codes, matching, response_factory):
-    response = response_factory.requests(status_code=response_status)
-    filter_function = make_response_filter("default", status_codes)
-    assert filter_function(StepOutput(response, None)) is matching
+def test_response_bundle_for_status_code(ctx, case_factory, response_factory, linked, unlinked, status_code, expected):
+    link = {"operationId": "getItem", "parameters": {"id": "$response.body#/id"}}
+    responses = {code: {"description": "OK", "links": {"GetItem": link}} for code in linked}
+    responses.update({code: {"description": "OK"} for code in unlinked})
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {"post": {"responses": responses}},
+            "/items/{id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    case = case_factory(operation=schema["/items"]["POST"])
+    output = StepOutput(response_factory.core(status_code=status_code), case)
+    assert schema.as_state_machine()()._get_target_for_result(output) == expected
 
 
 def test_custom_rule(ctx, testdir):
@@ -352,6 +359,84 @@ def test_non_object_link_body_is_sent_as_is(link_body, extension, expected):
         )
     )
     assert expected in bodies
+
+
+@pytest.mark.parametrize(
+    ("link_values", "linked"),
+    [
+        ({}, {"owner_id": "owner-1"}),
+        ({"requestBody": {"name": "$response.body#/name"}}, {"owner_id": "owner-1", "name": "Linked"}),
+        ({"x-schemathesis": {"merge_body": False}}, {"owner_id": "owner-1"}),
+    ],
+    ids=["fields", "fields-and-request-body", "replace"],
+)
+def test_body_field_link_parameters_keep_generated_body(ctx, response_factory, link_values, linked):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "UpdateItem": {
+                                    "operationId": "updateItem",
+                                    "parameters": {
+                                        "id": "$response.body#/id",
+                                        "body.owner_id": "$response.body#/owner",
+                                    },
+                                    **link_values,
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "/items/{id}": {
+                "put": {
+                    "operationId": "updateItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "owner_id": {"type": "string"},
+                                        "name": {"type": "string"},
+                                        "quantity": {"type": "integer"},
+                                    },
+                                    "required": ["owner_id", "name", "quantity"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    source = schema["/items"]["POST"]
+    [link] = collect_transitions([source, schema["/items/{id}"]["PUT"]]).operations[source.label].outgoing
+    content = b'{"id": "item-1", "owner": "owner-1", "name": "Linked"}'
+    response = Response.from_requests(response_factory.requests(content=content, status_code=201), True)
+    strategy = into_step_input(target=link.target, link=link, modes=[GenerationMode.POSITIVE])(
+        StepOutput(response=response, case=source.Case())
+    )
+    bodies = []
+
+    @run_given(input=strategy, max_examples=10)
+    def test(input):
+        applied = {name for location, name in input.applied_parameters if location is ParameterLocation.BODY}
+        bodies.append((applied, input.case.body))
+
+    assert [
+        body
+        for applied, body in bodies
+        if set(body) != {"owner_id", "name", "quantity"} or any(body[name] != linked[name] for name in applied)
+    ] == []
 
 
 def test_inferred_body_link_picks_from_every_listed_resource():
@@ -892,6 +977,57 @@ def test_transitions_with_colliding_normalized_names_keep_separate_rules(ctx):
     ]
 
 
+_ITEM_ID_PARAMETER = {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"parameters": [_ITEM_ID_PARAMETER, {"$ref": "#/components/parameters/Missing"}]},
+        {
+            "parameters": [
+                _ITEM_ID_PARAMETER,
+                {"name": "q", "in": "query", "required": True, "schema": {"$ref": "#/components/schemas/Missing"}},
+            ]
+        },
+        {"parameters": [_ITEM_ID_PARAMETER], "requestBody": {"$ref": "#/components/requestBodies/Missing"}},
+    ],
+    ids=["parameter-ref", "parameter-schema-ref", "request-body-ref"],
+)
+def test_links_to_operations_with_unresolvable_references_are_skipped(ctx, broken):
+    links = {
+        "GetItem": {"operationId": "getItem", "parameters": {"id": "$response.body#/id"}},
+        "AddChild": {"operationId": "addChild", "parameters": {"id": "$response.body#/id"}},
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        "201": {"content": {"application/json": {"schema": _ID_OBJECT}}, "links": links},
+                    }
+                }
+            },
+            "/items/{id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [_ITEM_ID_PARAMETER],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/items/{id}/children": {
+                "post": {"operationId": "addChild", "responses": {"201": {"description": "OK"}}, **broken}
+            },
+        }
+    )
+
+    assert [
+        (link.source.label, link.target.label)
+        for transitions in schema.as_state_machine()._transitions.operations.values()
+        for link in transitions.outgoing
+    ] == [("POST /items", "GET /items/{id}")]
+
+
 def test_negative_step_with_link_supplied_parameters_falls_back_to_positive(ctx):
     # The link fills the only parameter that could be negated; the step still has to run.
     operation = ctx.openapi.load_operation(
@@ -1035,14 +1171,35 @@ def test_long_scenarios_follow_links_beyond_default_step_allowance():
 
 
 def test_configured_headers_sent_on_every_step():
-    schema = schemathesis.openapi.from_asgi("/openapi.json", app=_users_api_with_optional_auth_header())
-    schema.config.update(headers={"X-Token": "secret"})
+    schema = schemathesis.openapi.from_asgi(
+        "/openapi.json",
+        app=_users_api_with_optional_auth_header(),
+        config=SchemathesisConfig.from_str(
+            """
+headers = { "X-Token" = "secret" }
+
+[parameters]
+"header.authorization" = "Bearer fixed"
+
+[[operations]]
+include-path = "/users/{userId}"
+headers = { "X-User" = "known" }
+"""
+        ),
+    )
     schema.config.generation.update(modes=list(GenerationMode))
-    headers = []
+    headers = set()
 
     class Workflow(schema.as_state_machine()):
         def validate_response(self, response, case, additional_checks=None, **kwargs):
-            headers.append(case.headers.get("X-Token"))
+            headers.add(
+                (
+                    case.operation.label,
+                    case.headers.get("X-Token"),
+                    case.headers.get("authorization"),
+                    case.headers.get("X-User"),
+                )
+            )
 
     Workflow.run(
         settings=settings(
@@ -1053,7 +1210,12 @@ def test_configured_headers_sent_on_every_step():
             phases=[Phase.generate],
         )
     )
-    assert set(headers) == {"secret"}
+    assert headers == {
+        ("POST /users", "secret", "Bearer fixed", None),
+        ("GET /users/{userId}", "secret", "Bearer fixed", "known"),
+        ("PUT /users/{userId}", "secret", "Bearer fixed", "known"),
+        ("DELETE /users/{userId}", "secret", "Bearer fixed", "known"),
+    }
 
 
 def test_linked_steps_keep_negative_share_of_scenario_starts(ctx, response_factory):
@@ -1097,6 +1259,101 @@ def test_linked_steps_keep_negative_share_of_scenario_starts(ctx, response_facto
         modes[input.case.meta.generation.mode] += 1
 
     assert 0 < modes[GenerationMode.NEGATIVE] / modes.total() < 0.45, modes
+
+
+@pytest.mark.parametrize(
+    ("target", "link_values", "id_location"),
+    [
+        (
+            {
+                "/owners/{owner}/items/{id}": {
+                    "get": {
+                        "operationId": "useItem",
+                        "parameters": [
+                            {"name": "owner", "in": "path", "required": True, "schema": {"type": "string"}},
+                            {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
+                        ],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+            {"parameters": {"owner": "$response.body#/items/*/owner", "id": "$response.body#/items/*/id"}},
+            ParameterLocation.PATH,
+        ),
+        (
+            {
+                "/owners/{owner}/items": {
+                    "put": {
+                        "operationId": "useItem",
+                        "parameters": [
+                            {"name": "owner", "in": "path", "required": True, "schema": {"type": "string"}},
+                        ],
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+            {
+                "parameters": {"owner": "$response.body#/items/*/owner"},
+                "requestBody": {"id": "$response.body#/items/*/id"},
+            },
+            ParameterLocation.BODY,
+        ),
+    ],
+    ids=["parameters", "parameter-and-body"],
+)
+def test_wildcard_link_values_come_from_one_list_item(ctx, response_factory, target, link_values, id_location):
+    schema = ctx.openapi.load_schema(
+        {
+            "/owners": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "UseItem": {
+                                    "operationId": "useItem",
+                                    **link_values,
+                                    "x-schemathesis": {"is_inferred": True},
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            **target,
+        }
+    )
+    source = schema["/owners"]["POST"]
+    [target_path] = target
+    [method] = target[target_path]
+    [link] = collect_transitions([source, schema[target_path][method]]).operations[source.label].outgoing
+    content = b'{"items": [{"owner": "a", "id": 1}, {"owner": "b", "id": 2}, {"owner": "c", "id": 3}]}'
+    response = Response.from_requests(response_factory.requests(content=content, status_code=201), True)
+    strategy = into_step_input(target=link.target, link=link, modes=[GenerationMode.POSITIVE])(
+        StepOutput(response=response, case=source.Case())
+    )
+    pairs = []
+
+    @run_given(input=strategy, max_examples=10)
+    def test(input):
+        if {(ParameterLocation.PATH, "owner"), (id_location, "id")} <= set(input.applied_parameters):
+            ids = input.case.path_parameters if id_location is ParameterLocation.PATH else input.case.body
+            pairs.append((input.case.path_parameters["owner"], ids["id"]))
+
+    assert pairs
+    assert [pair for pair in pairs if pair not in {("a", 1), ("b", 2), ("c", 3)}] == []
 
 
 def test_test_case_runs_in_process(ctx):

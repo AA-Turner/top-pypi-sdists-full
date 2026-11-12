@@ -12,15 +12,24 @@ pub fn python_command() -> Command {
         .arg("--project")
         .arg(repo_pybindings_path())
         .arg("--all-extras")
-        .arg("--locked")
+        .arg("--locked");
+    command
         .arg("python")
-        .env("JSONCOMPAT_NATIVE_PROFILE", "debug");
+        .env("JSONCOMPAT_NATIVE_PROFILE", "debug")
+        .env(
+            "JSONCOMPAT_TEST_ARBITRARY_PRECISION",
+            if cfg!(feature = "arbitrary-precision") {
+                "1"
+            } else {
+                "0"
+            },
+        );
     add_repo_python_path(&mut command);
     command
 }
 
 #[allow(dead_code)]
-pub fn pyright_command() -> Command {
+pub fn ty_command() -> Command {
     let mut command = Command::new("uv");
     configure_uv_environment(&mut command);
     configure_utf8_python_io(&mut command);
@@ -30,10 +39,20 @@ pub fn pyright_command() -> Command {
         .arg("--project")
         .arg(repo_pybindings_path())
         .arg("--all-extras")
-        .arg("--locked")
+        .arg("--locked");
+    command
         .arg("--with")
-        .arg("pyright==1.1.408")
-        .arg("pyright");
+        .arg("ty==0.0.86")
+        .arg("ty")
+        .arg("check")
+        .arg("--python-version")
+        .arg("3.12")
+        .arg("--extra-search-path")
+        .arg(repo_pybindings_path())
+        .arg("--error")
+        .arg("all")
+        .arg("--color")
+        .arg("never");
     add_repo_python_path(&mut command);
     command
 }

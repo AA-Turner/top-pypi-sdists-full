@@ -50,7 +50,8 @@ class Organization(object):
         'endpoints_is_free_credit_used_up': 'bool',
         'metronome_customer_id': 'str',
         'invite_code': 'str',
-        'workos_directory_id': 'str'
+        'workos_directory_id': 'str',
+        'created_at': 'datetime'
     }
 
     attribute_map = {
@@ -71,10 +72,11 @@ class Organization(object):
         'endpoints_is_free_credit_used_up': 'endpoints_is_free_credit_used_up',
         'metronome_customer_id': 'metronome_customer_id',
         'invite_code': 'invite_code',
-        'workos_directory_id': 'workos_directory_id'
+        'workos_directory_id': 'workos_directory_id',
+        'created_at': 'created_at'
     }
 
-    def __init__(self, id=None, name=None, public_identifier=None, default_cloud_id=None, sso_config_id=None, sso_required=False, sso_mode=None, is_general_platform_enabled=None, is_private_endpoints_enabled=None, is_deactivated=False, is_usage_blocked=None, endpoints_user_id=None, endpoints_stripe_customer_id=None, endpoints_metronome_customer_id=None, endpoints_is_free_credit_used_up=None, metronome_customer_id=None, invite_code=None, workos_directory_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, public_identifier=None, default_cloud_id=None, sso_config_id=None, sso_required=False, sso_mode=None, is_general_platform_enabled=None, is_private_endpoints_enabled=None, is_deactivated=False, is_usage_blocked=None, endpoints_user_id=None, endpoints_stripe_customer_id=None, endpoints_metronome_customer_id=None, endpoints_is_free_credit_used_up=None, metronome_customer_id=None, invite_code=None, workos_directory_id=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """Organization - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -98,6 +100,7 @@ class Organization(object):
         self._metronome_customer_id = None
         self._invite_code = None
         self._workos_directory_id = None
+        self._created_at = None
         self.discriminator = None
 
         self.id = id
@@ -130,6 +133,8 @@ class Organization(object):
             self.invite_code = invite_code
         if workos_directory_id is not None:
             self.workos_directory_id = workos_directory_id
+        if created_at is not None:
+            self.created_at = created_at
 
     @property
     def id(self):
@@ -520,6 +525,29 @@ class Organization(object):
         """
 
         self._workos_directory_id = workos_directory_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this Organization.  # noqa: E501
+
+        When the organization was created.  # noqa: E501
+
+        :return: The created_at of this Organization.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this Organization.
+
+        When the organization was created.  # noqa: E501
+
+        :param created_at: The created_at of this Organization.  # noqa: E501
+        :type: datetime
+        """
+
+        self._created_at = created_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

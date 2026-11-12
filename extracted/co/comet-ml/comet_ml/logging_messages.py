@@ -920,11 +920,9 @@ REGISTER_CALLBACK_ONLINE_ONLY_ERROR = (
     "Register callback is only supported for online experiment."
 )
 
-CONFIG_USING_ANONYMOUS_MODE = "Comet is now logging experiments in anonymous mode, they will be publicly accessing by using the experiment url"
+CONFIG_ANONYMOUS_MODE_DISCONTINUED = "Anonymous mode has been discontinued. Sign up for a Comet account and call `comet_ml.login()` with your API key."
 
-CONFIG_CLAIMED_ANONYMOUS_USER = "Could not start anonymous mode. If you would like to log data to your Comet account, call `comet_ml.login()`. If you would like to log data to an anonymous account, delete the Comet config file located at %s and call `comet_ml.init(anonymous=True)."
-
-CONFIG_ANONYMOUS_UNALLOWED_ON_PREM = "Anonymous mode is only available on Comet Cloud, please create an account on your Comet instance and call: comet_ml.init(api_key='...')"
+CONFIG_ANONYMOUS_ARGUMENT_DEPRECATED = "The `anonymous` argument is deprecated and will be removed in a future release, anonymous mode has been discontinued."
 
 PYNVML_FAILED_TO_GET_GPU_DATA = "Failed to get GPU data via pynvml API"
 

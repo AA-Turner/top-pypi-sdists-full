@@ -24,8 +24,12 @@ back. Offload retires the graph before those addresses change; a later call can 
 anew. If the full set cannot be prepared before execution, the call uses Transformers' loop. A
 call's keys and state for its prompt and `max_new_tokens`, sized from the config, and the graphs'
 pool are decided before its prefill (`_Engine._enter`): allocated or mapped then, else it waits for
-decoding rows to leave, else `DoesNotFit` names what would fit; nothing after catches running out.
-Errors after execution starts are final; package code is never restarted. On a CPU, or after a safe
+decoding rows to leave. Running short never ends a call while a lever remains: graphs whose pool
+has no room go (decode runs eagerly, captured again where room allows), a draft head's keys go,
+and slots or a prefill that still do not fit beside the leased weights decode through
+Transformers' loop, its weights streamed and its cache only as long as its tokens. Only slots
+larger than the whole card are `DoesNotFit` up front, naming what would fit. Errors after
+execution starts are final; package code is never restarted. On a CPU, or after a safe
 capture refusal (a run warning), the same step runs eagerly. A model this does not
 serve (a layer type other than full or linear attention, an attention other than SDPA or eager, a
 generation config that adds logits processors) generates through Transformers, said once.
@@ -66,8 +70,8 @@ from cozy_runtime.accel.kernels import KernelsUnavailable, Launch, Plan, TritonK
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._context import CURRENT, Context
 from cozy_runtime.author._errors import Cancelled, DoesNotFit, is_capacity
-from cozy_runtime.author._model import LANDED, PLACED, WARNINGS, Building
-from cozy_runtime.author._services import stage_progress
+from cozy_runtime.author._model import LANDED, PLACED, WARNINGS, Building, recovered
+from cozy_runtime.author._services import counting, stage_tokens
 from cozy_runtime.graphs import (
     BYPASS,
     DECODERS,
@@ -275,7 +279,8 @@ def generate(
     `progress(tokens)` is told the tokens decoded so far (a call's longest row), at most every
     `PROGRESS_S`, for display only; one that raises is dropped, with a run warning (a cancel is
     the decode's own check's to act on). Without one, the running telemetry stage is told them
-    as its fraction of `max_new_tokens`."""
+    as a count of tokens, `max_new_tokens` only their cap. `ctx.progress` called from it counts
+    tokens too, never steps."""
     for named in (draft, _DRAFT.get(), HEADS.get(model)):
         if named is not None:
             draft = named
@@ -284,7 +289,7 @@ def generate(
         raise ValueError(
             f"temperature {temperature}, top_p {top_p}, top_k {top_k}, seed {seed}: out of range"
         )
-    if progress is None and (stage := stage_progress()) is not None:
+    if progress is None and (stage := stage_tokens()) is not None:
         progress = partial(_share, stage, max_new_tokens)
     sampling = _Sampling(float(temperature), float(top_p), int(seed), int(top_k))
     tell = _Tell(progress)
@@ -295,7 +300,7 @@ def generate(
         say(
             type(model).__name__, f"[lm] {type(model).__name__} decodes through Transformers: {why}"
         )
-        row: WarningRow = ("decode ran through Transformers' loop", {"why": why})
+        row: WarningRow = recovered("decode ran through Transformers' loop", why=why)
         if row not in WARNINGS:
             WARNINGS.append(row)
         with contract.owned():  # the Runtime's own use of Transformers' loop and caches
@@ -316,9 +321,9 @@ def generate(
         BYPASS.reset(token)
 
 
-def _share(stage: Callable[[float], None], most: int, tokens: int) -> None:
-    """`tokens` decoded of at most `most`, as the running stage's fraction."""
-    stage(min(tokens / max(most, 1), 1.0))
+def _share(stage: Callable[[int, int], None], most: int, tokens: int) -> None:
+    """`tokens` decoded of at most `most`, as the running stage's count."""
+    stage(tokens, most)
 
 
 def release(model: torch.nn.Module) -> None:
@@ -353,6 +358,7 @@ def _graph_snapshot(
             "active_graphs": len(engine.graphs),
             "capture_attempts": int(engine.captured[0]),
             "captures": engine.recorded,
+            "regrown": [list(pair) for pair in engine.regrown],
             "retired_graphs": engine.retired_graphs,
             "replays": engine.replayed,
             "eager_steps": engine.eager,
@@ -1024,6 +1030,8 @@ class _Tell:
         if now - self.told < PROGRESS_S:
             return
         self.told = now
+        # What it tells counts tokens, though it is a package's `ctx.progress(step, total)`.
+        unit = counting.set("tokens")
         try:
             self.progress(count())
         except Cancelled:  # the decode's own check ends the call
@@ -1031,8 +1039,10 @@ class _Tell:
         except Exception as exc:  # the decode (perhaps other calls' too) outlives its report
             self.progress = None
             WARNINGS.append(
-                ("decode progress stopped: its report failed", {"error": str(exc)[:200]})
+                recovered("decode progress stopped: its report failed", error=str(exc)[:200])
             )
+        finally:
+            counting.reset(unit)
 
 
 def _batch(rows: int) -> int:
@@ -1594,6 +1604,9 @@ class _Engine:
         self.captured = [0, 0.0]
         self.eager = 0
         self.recorded = 0
+        #: of those, each that took more than its warm-up's guess: the guess, and the room it
+        #: was recorded in (`graphs.capture`)
+        self.regrown: list[tuple[int, int]] = []
         self.replayed = 0
         self.retired_graphs = 0
         #: `LANDED` when a capture met a kernel still building (none records until one lands),
@@ -1681,7 +1694,9 @@ class _Engine:
                 f"lm:{type(self.model).__name__}:{request.fallback[:30]}",
                 f"[lm] {request.fallback}",
             )
-            WARNINGS.append(("decode ran through Transformers' loop", {"why": request.fallback}))
+            WARNINGS.append(
+                recovered("decode ran through Transformers' loop", why=request.fallback)
+            )
             return _transformers(
                 self.model,
                 request.inputs,
@@ -2024,7 +2039,7 @@ class _Engine:
         if request.draft is not None and id(request.draft) in self.unfit:
             request.draft = None
             request.warnings.append(
-                ("decoded without drafting", {"why": "the draft head does not fit"})
+                recovered("decoded without drafting", why="the draft head does not fit")
             )
         if request.draft is not None and request.draft is not self.draft:
             if len(free) < len(self.slots):
@@ -2040,7 +2055,18 @@ class _Engine:
         kwargs, mask, position = self._inputs(request)
         if not self._enter(request, position):
             return False
-        fresh = self._prefill(request, kwargs, mask, position, first)
+        if request.fallback:
+            return True
+        try:
+            fresh = self._prefill(request, kwargs, mask, position, first)
+        except Exception as exc:
+            if not is_capacity(exc) or request.inputs["input_ids"].device.type != "cuda":
+                raise
+            # Nothing of the engine's changed: the prompt went into a cache of its own. Its slots
+            # and leased weights go, and Transformers' loop streams the weights beside its prompt.
+            _unwind(exc)
+            self._shed(request, f"its prefill of {request.prompt} tokens", exc)
+            return True
         if why := self._misfit(fresh):
             self.misfit = f"its decode state is not what its config gives ({why})"
             request.error = RuntimeError(f"[lm] {type(self.model).__name__}: {self.misfit}")
@@ -2069,13 +2095,12 @@ class _Engine:
         ):
             try:
                 self._pool(True)
-            except Exhausted as exc:  # no room for the pool to come back: nothing of it ran
-                raise DoesNotFit(
-                    f"{type(self.model).__name__} decode: its graphs' pool cannot come back "
-                    f"beside {_gib(self.held)} of keys and state, and nothing more is free on "
-                    f"this card ({exc}): run it smaller, or rent a larger card: "
-                    "`cozy run … --on new`"
-                ) from exc
+            except Exhausted as exc:  # no row decodes (else the pool is held): nothing ran
+                # The graphs are only speed: they go, the call decodes eagerly, and a later step
+                # captures again where its pool finds room.
+                why = no_room(_set(self.domain).device, "its graphs' pool", 0, exc)
+                safeguard("no_room", f"{type(self.model).__name__}: {why}")
+                self._forget()
             return True
         if occupied + rows > BUCKETS[-1]:
             request.waits = True  # slots free up as rows leave
@@ -2090,6 +2115,8 @@ class _Engine:
         if placed:
             card = self._card(device) + self.held
             if _never(self._need(*alone, position), card):
+                if self._undraft(request, "its keys do not fit on this card"):
+                    return False
                 raise DoesNotFit(self._refused(request, alone, position, card))
         if not occupied:
             self._drop()  # the idle slots go before the new ones come
@@ -2101,21 +2128,48 @@ class _Engine:
             if occupied:
                 request.waits = True  # it is tried again once these rows leave
                 return False
+            _unwind(exc)
+            if self._undraft(request, "its keys do not fit beside the model's"):
+                return False
             need = self._need(size, capacity, stops, position)
-            raise DoesNotFit(
-                f"{type(self.model).__name__} decode: "
-                f"{no_room(device.index or 0, 'its decode state', need, exc)}: run it smaller, "
-                "or rent a larger card: `cozy run … --on new`"
-            ) from exc
+            self._shed(request, f"its decode state ({_gib(need)})", exc)
         return True
 
+    def _undraft(self, request: _Request, why: str) -> bool:
+        """The engine's draft head goes, for its weights and keys: True when it had one (the call
+        is admitted again once the model's own blocks are held alone)."""
+        if self.draft is None:
+            return False
+        say(f"lm:{type(self.model).__name__}:undrafted", f"[lm] drafting stops: {why}")
+        self.unfit.add(id(self.draft))
+        self._drop()
+        self.draft, self.rehold = None, True
+        request.draft = None
+        request.warnings.append(recovered("decoded without drafting", why=why))
+        return True
+
+    def _shed(self, request: _Request, what: str, exc: BaseException) -> None:
+        """`request` decodes through Transformers' loop: `what` was refused beside the weights
+        this engine holds with everything else evictable gone. Its slots go now (no row decodes)
+        and the driver's leases when it hands over, so that loop streams the weights and keeps a
+        cache only as long as its tokens. A refusal there stands, with its numbers."""
+        device = request.inputs["input_ids"].device.index or 0
+        request.fallback = (
+            f"{no_room(device, what, 0, exc)}: decoding through Transformers' loop, its weights "
+            "streamed"
+        )
+        if not self._occupied():
+            self._drop()
+        _answered(exc)
+
     def _card(self, device: torch.device) -> int:
-        """The most this process could ever have for slots: the whole card, less its own live
-        working memory and weights in use. What other processes hold is not counted against it:
-        they give memory back when an allocation asks."""
+        """The most this process could ever have for slots: the whole card less its own live
+        working memory. Weights are not counted against it, even those leased now: beside slots
+        they do not fit with, Transformers' loop streams them (`_shed`). What other processes
+        hold is not either: they give memory back when an allocation asks."""
         room = vt.room(device.index or 0)
         total = int(torch.cuda.get_device_properties(device).total_memory)
-        return max(total - int(room["working_live"]) - int(room["pinned"]), 0)
+        return max(total - int(room["working_live"]), 0)
 
     def _refused(
         self,
@@ -2138,8 +2192,7 @@ class _Engine:
         return (
             f"{type(self.model).__name__} decode: {rows} row{'s' * (rows > 1)} of {prompt} + "
             f"{request.max_new} tokens need {_gib(self._need(*alone, position))} of keys and "
-            f"state, and the whole card has {_gib(room)} beside the weights in use and live "
-            "memory: "
+            f"state, and the whole card has {_gib(room)} beside live memory: "
             f"run it smaller ({smaller}), or rent a larger card: `cozy run … --on new`"
         )
 
@@ -2689,7 +2742,7 @@ class _Engine:
             domain = _set(self.domain)  # a CUDA step's (`_one`)
             if key not in self.warmed:
                 # This is the caller's actual next token, never an extra speculative warmup; its
-                # working peak, as varena measured it, is what its capture's pool takes.
+                # working peak, as varena measured it, is its capture pool's first guess.
                 with self._graph_memory(drafted), _measured(domain.device) as peak:
                     self._advance(size)
                 self.warmed.add(key)
@@ -2715,12 +2768,27 @@ class _Engine:
                             if placed is not None
                             else Pool(torch.cuda.graph_pool_handle())
                         )
+                    pool = self.pool
                     try:
                         graph, why = capture(
-                            torch, lambda: self._advance(size), _set(self.pool), domain, reserve
+                            torch,
+                            lambda: self._advance(size),
+                            pool,
+                            domain,
+                            reserve,
+                            alone=not self.graphs,
                         )
-                    except Exhausted as exc:  # its pool's room, before anything was captured
-                        why = no_room(domain.device, "its pool", reserve, exc)
+                        if graph is not None and pool.prepared > reserve:
+                            self.regrown.append((reserve, pool.prepared))
+                    except Exception as exc:  # no room for its pool, or short outside it
+                        if not is_capacity(exc):
+                            raise
+                        why = no_room(domain.device, "its pool", pool.prepared, exc)
+                        if not isinstance(exc, Exhausted):  # an allocation varena counted refused
+                            from cozy_runtime.internal.execution.catch import CURRENT as REQUEST
+
+                            if (request := REQUEST.get()) is not None:
+                                request.retries += 1  # answered: this token decodes eagerly
             except Building:  # eager until a kernel lands
                 graph, why, self.building = None, "", LANDED[0]
             finally:
@@ -2836,24 +2904,13 @@ class _Engine:
         self.pooled = hold
 
     def _unrecorded(self, key: _Key, why: str, code: str | None = "capture_refused") -> None:
-        """That step runs eagerly from now on, with a warning on the calls it serves, unless
-        `code` is None: a property of the code, in the record alone (`decode.refused`)."""
+        """That step runs eagerly from now on, counted in the record (`safeguard`: said once,
+        quietly) unless `code` is None: a property of the code, in the record alone
+        (`decode.refused`)."""
         self.unrecorded[key] = why
         if code is None:
             return
         safeguard(code, f"{type(self.model).__name__}: {why}")
-        warning: WarningRow = (
-            "a CUDA graph was not used",
-            {"module": type(self.model).__name__, "why": why},
-        )
-        for request in {id(r.request): r.request for r in self.slots if r is not None}.values():
-            if warning not in request.warnings:
-                request.warnings.append(warning)
-        for row in self.slots:
-            if row is not None:
-                row.request.warnings.append(
-                    ("a CUDA graph was not used", {"module": type(self.model).__name__, "why": why})
-                )
 
     def _drafting(self, size: int) -> bool:
         return (
@@ -2871,7 +2928,9 @@ class _Engine:
         """Whether a held row has a constraint: its step reads `allow` and reports its tokens."""
         return any(row is not None and row.request.allowed is not None for row in self.slots)
 
-    def _allowed(self, scores: torch.Tensor, size: int, at: int | slice) -> torch.Tensor:
+    def _allowed(
+        self, scores: torch.Tensor, size: int, at: int | slice[int | None, int | None, int | None]
+    ) -> torch.Tensor:
         """`scores` (`[size, ..., vocab]`) with what a constrained row may not take at -inf: the
         host's bits (`allow`) for position `at` of the step (a slice: `[size, positions, vocab]`);
         as they are where no held row is constrained."""
@@ -3156,6 +3215,25 @@ class _Engine:
         pinned = ("flag", "allow_host", "took", "dtook")
         for name in (*type(self).__annotations__, *pinned, "rows_index", "bit", "dkeys", "dcache"):
             vars(self).pop(name, None)
+
+
+def _unwind(exc: BaseException) -> None:
+    """The refused attempt's frames and tensors go before anything counts room again."""
+    from cozy_runtime.internal.execution import catch
+
+    catch._unwind(exc)
+
+
+def _answered(exc: BaseException) -> None:
+    """A refusal varena counted (`vt.ooms`) that the Runtime answered by running another way, so
+    the package's scope is not judged to have swallowed it. `Exhausted` (a preparation refused
+    before anything ran) is not one it counted."""
+    if isinstance(exc, Exhausted):
+        return
+    from cozy_runtime.internal.execution.catch import CURRENT as SERVING
+
+    if (serving := SERVING.get()) is not None:
+        serving.retries += 1
 
 
 def _never(need: int, card: int) -> bool:

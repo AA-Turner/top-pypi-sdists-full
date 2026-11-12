@@ -19,7 +19,7 @@ __all__ = [
 def create_trace_transport(
     *,
     direct_sender: DirectBatchSender,
-    on_delivered: Callable[[list[CarrierRef]], None] | None = None,
+    on_delivered: Callable[[list[CarrierRef], bool], None] | None = None,
 ) -> TraceTransport:
     return otel.create_otel_transport(
         direct_sender=direct_sender, on_delivered=on_delivered

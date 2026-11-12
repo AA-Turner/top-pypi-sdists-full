@@ -11,7 +11,12 @@ from importlib import import_module
 
 from dreamscale_transport import catalog
 
-from dreamscale.constants import JOINT_NAMES, MODEL_DROID, MODEL_PI05_DROID
+from dreamscale.constants import (
+    JOINT_NAMES,
+    MODEL_DROID,
+    MODEL_PI05_DROID,
+    MODEL_PRAXIS_1_DROID,
+)
 
 
 @dataclass(frozen=True)
@@ -32,7 +37,7 @@ class Embodiment:
     label: str                      # how the operator reads it: "SO-101"
     joints: tuple[str, ...]         # action order labels, for recorders
     arms: tuple[str, ...]           # arm names, in action order
-    arm_size: int                   # values per arm, gripper last
+    arm_size: int                   # values per arm: its joints and one gripper
     unit: str                       # joint unit word: "degrees" or "radians"
     precision: int                  # decimals when printing joint values
     camera_roles: tuple[str, ...]   # observation frames, by role
@@ -58,6 +63,11 @@ class Embodiment:
     # Models that read fewer than all camera_roles, as (model, ModelCameras) pairs.
     # Any other model needs every role.
     model_cameras: tuple[tuple[str, ModelCameras], ...] = ()
+    # Each arm's gripper comes before its joints, not after.
+    gripper_first: bool = False
+    # A rig may be some of the arms, and a recording some of the cameras, in any order
+    # (an Anvil cell: one arm or two, any of its four cameras).
+    partial: bool = False
 
     def trace_layout(self, contract):
         """A contract describing this robot's joint layout, for recorder views, when the
@@ -68,7 +78,10 @@ class Embodiment:
         from dataclasses import replace
 
         size = self.arm_size
-        groups = tuple(tuple(range(a * size, a * size + size - 1)) for a in range(len(self.arms)))
+        groups = tuple(
+            tuple(i for i in range(a * size, a * size + size) if i not in self.gripper_indices)
+            for a in range(len(self.arms))
+        )
         return replace(
             contract,
             # A deployment base declares no width before its session: the robot's.
@@ -76,7 +89,7 @@ class Embodiment:
             action_space="absolute_joint_position",
             hold_behavior="current_position",
             joint_groups=groups,
-            gripper_indices=tuple(a * size + size - 1 for a in range(len(self.arms))),
+            gripper_indices=self.gripper_indices,
             joint_unit={"radians": "rad", "degrees": "deg"}[self.unit],
         )
 
@@ -96,6 +109,37 @@ class Embodiment:
         """Its cameras as a LeRobot recording names them, in role order: the camera keys
         of a π0.5 deployment fine-tuned on that recording."""
         return tuple(f"observation.images.{role}" for role in self.camera_roles)
+
+    def records(self, cameras, width) -> bool:
+        """Whether a recording with these camera keys and this many joint values is one of
+        this robot: its cameras in order and every arm, or for a partial rig any of its
+        cameras and whole arms."""
+        full = len(self.arms) * self.arm_size
+        cameras = tuple(cameras)
+        if not self.partial:
+            return cameras == self.recording_keys and width == full
+        return (
+            0 < len(cameras) == len(set(cameras))
+            and set(cameras) <= set(self.recording_keys)
+            and width in range(self.arm_size, full + 1, self.arm_size)
+        )
+
+    @property
+    def recording_words(self) -> str:
+        """What records() accepts, as an error's fix reads it."""
+        keys, full = ", ".join(self.recording_keys), len(self.arms) * self.arm_size
+        if not self.partial:
+            return f"cameras {keys} (in that order) and {full} joint values"
+        widths = " or ".join(str(w) for w in range(self.arm_size, full + 1, self.arm_size))
+        return f"cameras from {keys} and {widths} joint values"
+
+    def home_for(self, model: str) -> tuple[float, ...] | None:
+        """The pose a run of model starts from when the rig names no home (its catalog entry's
+        ``Client.home``, Praxis-1 YAM's arms raised); None: the rig's."""
+        entry = catalog.entry(model)
+        if entry is None or entry.client.robot != self.name:
+            return None
+        return entry.client.home
 
     def cameras_for(self, model: str) -> ModelCameras:
         return dict(self.model_cameras).get(model, ModelCameras(self.camera_roles))
@@ -150,11 +194,17 @@ class Embodiment:
         return getattr(import_module(module), name)
 
     @property
+    def gripper_indices(self) -> tuple[int, ...]:
+        """Action indices of the grippers, one per arm."""
+        place = 0 if self.gripper_first else self.arm_size - 1
+        return tuple(arm * self.arm_size + place for arm in range(len(self.arms)))
+
+    @property
     def joint_indices(self) -> tuple[int, ...]:
         """Action indices of arm joints, grippers excluded."""
+        grippers = set(self.gripper_indices)
         return tuple(
-            arm * self.arm_size + i
-            for arm in range(len(self.arms)) for i in range(self.arm_size - 1)
+            i for i in range(len(self.arms) * self.arm_size) if i not in grippers
         )
 
     def preview_lines(self, actions, current) -> list[str]:
@@ -167,11 +217,9 @@ class Embodiment:
         first = actions[0]
         for arm, name in enumerate(self.arms):
             offset = arm * self.arm_size
-            joints = tuple(
-                round(float(v), self.precision)
-                for v in first[offset : offset + self.arm_size - 1]
-            )
-            gripper = float(first[offset + self.arm_size - 1])
+            values = list(first[offset : offset + self.arm_size])
+            gripper = float(values.pop(0 if self.gripper_first else -1))
+            joints = tuple(round(float(v), self.precision) for v in values)
             lines.append(
                 f"{name}: joints {joints} {self.unit}; gripper {gripper:.{self.gripper_precision}f}"
             )
@@ -265,6 +313,8 @@ FRANKA = Embodiment(
         # openpi's DroidInputs read the first exterior view and the wrist only.
         (MODEL_PI05_DROID, ModelCameras(("exterior_1", "wrist"))),
         (MODEL_DROID, ModelCameras(("exterior_1", "wrist"), ("exterior_2",))),
+        # Praxis-1 DROID reads the first exterior view and the wrist only.
+        (MODEL_PRAXIS_1_DROID, ModelCameras(("exterior_1", "wrist"))),
     ),
 )
 
@@ -327,7 +377,44 @@ XARM7 = Embodiment(
     "when you're done.",
 )
 
-EMBODIMENTS = {e.name: e for e in (SO101, YAM, FRANKA, UR, XARM7)}
+OPENARM = Embodiment(
+    name="openarm",
+    label="OpenARM",
+    # Anvil's recording layout: left arm then right, each arm's gripper before its joints.
+    joints=tuple(
+        f"{arm}_{value}" for arm in ("left", "right")
+        for value in ("gripper", *(f"joint_{i}" for i in range(1, 8)))
+    ),
+    # An Anvil OpenARM 2.0 cell on its Devbox: one arm or two; a rig file says which.
+    arms=("Left", "Right"),
+    arm_size=8,
+    unit="radians",
+    precision=4,
+    # The cell's four cameras, as its recordings name them; a model reads up to three.
+    camera_roles=("waist", "chest", "wrist_l", "wrist_r"),
+    # No shared models: it runs an organization's own π0.5 deployments (--deployment).
+    policy_models=(),
+    run_policy="dreamscale.hardware.openarm_runner:run_openarm",
+    doctor="dreamscale.hardware.openarm_doctor:run_openarm_doctor",
+    extras="dreamscale.extras:openarm_extras",
+    setup_command="dreamscale robots openarm setup",
+    # Anvil's control stack enforces almost no limits on a program's commands: a 0.1 rad
+    # lunge guard (its own example's clamp) and a speed cap, client-side.
+    max_joint_step=0.1,
+    max_joint_velocity=1.0,
+    rig_config=True,
+    # Gripper openings are metres.
+    gripper_precision=4,
+    # Built against Anvil's documented topics and a simulated stack; first hardware run
+    # pending.
+    experimental=True,
+    docs="https://docs.dreamscalelabs.com/robots/openarm",
+    held_hint="Anvil's control stack keeps holding at the last target; stop the stack to park.",
+    gripper_first=True,
+    partial=True,
+)
+
+EMBODIMENTS = {e.name: e for e in (SO101, YAM, FRANKA, UR, XARM7, OPENARM)}
 
 
 def _role_words(roles) -> str:

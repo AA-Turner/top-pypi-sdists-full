@@ -74,6 +74,7 @@ def scale_by_madgrad(
   def update_fn(updates, state, params=None):
     if params is None:
       raise ValueError(base.NO_PARAMS_MSG)
+    numerics.maybe_static_check_eps(eps, state.grad_sum_sq)
 
     count = state.count
     if callable(learning_rate):
@@ -123,6 +124,7 @@ def scale_by_madgrad(
     final_updates = jax.tree.map(lambda n, o: n - o, x_new, params)
 
     new_state = MadgradState(
+        # pyrefly: ignore[bad-argument-type]
         count=numerics.safe_increment(count),
         grad_sum_sq=grad_sum_sq,
         s=s,

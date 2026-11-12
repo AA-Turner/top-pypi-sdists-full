@@ -27539,6 +27539,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_directory_sync_status_api_v2_organizations_directory_sync_status_get(self, **kwargs):  # noqa: E501
+        """Get Directory Sync Status  # noqa: E501
+
+        Report where the organization's directory sync stands.  Says whether Anyscale has consumed every directory event WorkOS holds for the organization, when its event cursor last advanced, how many events are still pending, and whether a failed event has paused it.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_directory_sync_status_api_v2_organizations_directory_sync_status_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: DirectorysyncstatusResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_directory_sync_status_api_v2_organizations_directory_sync_status_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_directory_sync_status_api_v2_organizations_directory_sync_status_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Directory Sync Status  # noqa: E501
+
+        Report where the organization's directory sync stands.  Says whether Anyscale has consumed every directory event WorkOS holds for the organization, when its event cursor last advanced, how many events are still pending, and whether a failed event has paused it.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_directory_sync_status_api_v2_organizations_directory_sync_status_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(DirectorysyncstatusResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_directory_sync_status_api_v2_organizations_directory_sync_status_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/directory_sync_status', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='DirectorysyncstatusResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_events_api_v2_sessions_session_id_events_get(self, session_id, start_index, end_index, **kwargs):  # noqa: E501
         """Get Events  # noqa: E501
 
@@ -33591,7 +33696,7 @@ class DefaultApi(object):
     def get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """Get Principal  # noqa: E501
 
-        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing, one that is not in the organization, and a user group the caller cannot see all answer with an empty page.  # noqa: E501
+        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing and one that is not in the organization both answer with an empty page.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get(principal_type, principal_id, async_req=True)
@@ -33619,7 +33724,7 @@ class DefaultApi(object):
     def get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get_with_http_info(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """Get Principal  # noqa: E501
 
-        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing, one that is not in the organization, and a user group the caller cannot see all answer with an empty page.  # noqa: E501
+        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing and one that is not in the organization both answer with an empty page.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get_with_http_info(principal_type, principal_id, async_req=True)
@@ -40063,7 +40168,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see every group  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get(group_id, async_req=True)
@@ -40088,7 +40193,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get_with_http_info(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see every group  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get_with_http_info(group_id, async_req=True)
@@ -45680,7 +45785,7 @@ class DefaultApi(object):
     def list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """List Effective Bindings For Principal  # noqa: E501
 
-        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, and not what comes through a group the caller cannot see.  # noqa: E501
+        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, including what comes through a group, and not the bindings on any other resource.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get(principal_type, principal_id, async_req=True)
@@ -45710,7 +45815,7 @@ class DefaultApi(object):
     def list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get_with_http_info(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """List Effective Bindings For Principal  # noqa: E501
 
-        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, and not what comes through a group the caller cannot see.  # noqa: E501
+        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, including what comes through a group, and not the bindings on any other resource.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get_with_http_info(principal_type, principal_id, async_req=True)
@@ -52501,7 +52606,7 @@ class DefaultApi(object):
     def list_user_groups_api_v2_user_groups_get(self, **kwargs):  # noqa: E501
         """List User Groups  # noqa: E501
 
-        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see the groups that reach only resources they manage IAM on  # noqa: E501
+        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see every group  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_groups_api_v2_user_groups_get(async_req=True)
@@ -52527,7 +52632,7 @@ class DefaultApi(object):
     def list_user_groups_api_v2_user_groups_get_with_http_info(self, **kwargs):  # noqa: E501
         """List User Groups  # noqa: E501
 
-        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see the groups that reach only resources they manage IAM on  # noqa: E501
+        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see every group  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_groups_api_v2_user_groups_get_with_http_info(async_req=True)
@@ -67687,6 +67792,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='UpdatemachinepoolresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def update_organization_name_api_v2_organizations_name_put(self, update_organization_name, **kwargs):  # noqa: E501
+        """Update Organization Name  # noqa: E501
+
+        Rename the organization of the authenticated user. Surrounding whitespace is removed from the name. The organization's URL identifier does not change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_organization_name_api_v2_organizations_name_put(update_organization_name, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param UpdateOrganizationName update_organization_name: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_organization_name_api_v2_organizations_name_put_with_http_info(update_organization_name, **kwargs)  # noqa: E501
+
+    def update_organization_name_api_v2_organizations_name_put_with_http_info(self, update_organization_name, **kwargs):  # noqa: E501
+        """Update Organization Name  # noqa: E501
+
+        Rename the organization of the authenticated user. Surrounding whitespace is removed from the name. The organization's URL identifier does not change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_organization_name_api_v2_organizations_name_put_with_http_info(update_organization_name, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param UpdateOrganizationName update_organization_name: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'update_organization_name'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_organization_name_api_v2_organizations_name_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'update_organization_name' is set
+        if self.api_client.client_side_validation and ('update_organization_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['update_organization_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `update_organization_name` when calling `update_organization_name_api_v2_organizations_name_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'update_organization_name' in local_var_params:
+            body_params = local_var_params['update_organization_name']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/name', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from mcp.types import ToolAnnotations
+from windows_mcp.desktop.utils import as_int_list as _as_int_list
 from windows_mcp.infrastructure import with_analytics
 from fastmcp import Context
 
@@ -75,7 +76,7 @@ def register(mcp, *, get_desktop, get_analytics):
             "application, window, foreground, focus, resize. Four modes: 'launch' (opens an application "
             "by Start Menu name), 'launch_executable' (strictly launches one executable path with separated "
             "argv and optional cwd), 'resize' (adjusts a named or active window), and 'switch' (brings a "
-            "specific window into focus)."
+            "specific window into focus). Prefer background execution when supported. If launching an application is known to take focus or disrupt the user, obtain permission first, reusing existing authorization. Relaxed policy does not gate launch modes; this guidance is not server-enforced approval."
         ),
         annotations=ToolAnnotations(
             title="App",
@@ -89,8 +90,8 @@ def register(mcp, *, get_desktop, get_analytics):
     def app_tool(
         mode: Literal["launch", "launch_executable", "resize", "switch"] = "launch",
         name: str | None = None,
-        window_loc: list[int] | None = None,
-        window_size: list[int] | None = None,
+        window_loc: list[int] | str | None = None,
+        window_size: list[int] | str | None = None,
         executable: str | None = None,
         args: list[str] | str | None = None,
         cwd: str | None = None,
@@ -110,4 +111,6 @@ def register(mcp, *, get_desktop, get_analytics):
                 )
             return _launch_executable(executable, args, cwd)
 
+        window_loc = _as_int_list(window_loc, "window_loc")
+        window_size = _as_int_list(window_size, "window_size")
         return get_desktop().app(mode, name, window_loc, window_size)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.12.0
+Version: 1.12.1
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -171,7 +171,7 @@ RF-DETR achieves state-of-the-art results in both object detection and instance 
 
 ### Detection
 
-<img alt="rf_detr_1-4_latency_accuracy_object_detection" src="https://storage.googleapis.com/com-roboflow-marketing/rf-detr/rf_detr_1-4_latency_accuracy_object_detection.png" />
+<img alt="Object detection accuracy vs latency on COCO and RF100-VL: RF-DETR against YOLO11, YOLO26, LW-DETR and D-FINE" src="https://rfdetr.roboflow.com/1.12.1/assets/benchmark-detection.svg" />
 
 <details>
 <summary>See object detection benchmark numbers</summary>
@@ -217,7 +217,7 @@ RF-DETR achieves state-of-the-art results in both object detection and instance 
 
 ### Segmentation
 
-<img alt="rf_detr_1-4_latency_accuracy_instance_segmentation" src="https://storage.googleapis.com/com-roboflow-marketing/rf-detr/rf_detr_1-4_latency_accuracy_instance_segmentation.png" />
+<img alt="Instance segmentation accuracy vs latency on COCO: RF-DETR-Seg against YOLOv8, YOLOv11 and YOLO26" src="https://rfdetr.roboflow.com/1.12.1/assets/benchmark-segmentation.svg" />
 
 <details>
 <summary>See instance segmentation benchmark numbers</summary>
@@ -252,7 +252,7 @@ RF-DETR achieves state-of-the-art results in both object detection and instance 
 
 ### Keypoints
 
-<img alt="RF-DETR Keypoint mAP vs latency chart comparing against YOLO26-pose and YOLO11-pose on MS COCO" src="https://raw.githubusercontent.com/roboflow/rf-detr/develop/docs/assets/keypoints/kp-map-latency.png" />
+<img alt="RF-DETR Keypoint mAP vs latency chart comparing against YOLO26-pose and YOLO11-pose on MS COCO" src="https://rfdetr.roboflow.com/1.12.1/assets/benchmark-keypoints.svg" />
 
 <details>
 <summary>See keypoint detection benchmark numbers</summary>
@@ -429,7 +429,7 @@ RF-DETR is commercially usable. Licensing is split by component:
 
 | Component                                                                                | License                                                                                                 | What it means in practice                                                                                                                                                              |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rfdetr` package (training, inference and export code)                                   | [Apache 2.0](LICENSE)                                                                                   | Commercially usable out of the box: you can ship it in closed-source, commercial products, including self-hosted deployments, without paying a license fee or open-sourcing your code. |
+| `rfdetr` package (training, inference and export code)                                   | [Apache 2.0](https://github.com/roboflow/rf-detr/blob/f29e2a8bbb7cdcb8920bf74a335062f88a35046d/LICENSE)                                                                                   | Commercially usable out of the box: you can ship it in closed-source, commercial products, including self-hosted deployments, without paying a license fee or open-sourcing your code. |
 | RF-DETR Nano, Small, Medium and Large detection                                          | Apache 2.0                                                                                              | Same as above.                                                                                                                                                                         |
 | RF-DETR-Seg, every size (Nano through 2XLarge)                                           | Apache 2.0                                                                                              | Same as above.                                                                                                                                                                         |
 | RF-DETR Keypoint (Preview)                                                               | Apache 2.0                                                                                              | Same as above.                                                                                                                                                                         |

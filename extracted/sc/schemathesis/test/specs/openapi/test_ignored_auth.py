@@ -472,6 +472,70 @@ def test_forbidden_response_counts_as_enforced_auth():
     schema["/"]["GET"].Case().call_and_validate(session=ASGIClient(app), auth=("test", "test"), checks=[ignored_auth])
 
 
+@pytest.mark.hypothesis_nested
+def test_login_redirect_counts_as_enforced_auth(ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/me": {"get": {"security": [{"session": []}], "responses": {"200": {"description": "OK"}}}}},
+        components={"securitySchemes": {"session": {"type": "apiKey", "in": "cookie", "name": "session"}}},
+    )
+
+    @app.route("/me", methods=["GET"])
+    def me():
+        if request.cookies.get("session") != "valid":
+            return redirect("/login")
+        return jsonify({"user": "alice"})
+
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+
+    @schema.auth()
+    class Session:
+        def get(self, case, context):
+            return "valid"
+
+        def set(self, case, data, context):
+            case.cookies = {"session": data}
+
+    @run_given(case=schema["/me"]["GET"].as_strategy(), max_examples=1)
+    def test(case):
+        assert case.call_and_validate(checks=[ignored_auth]).json() == {"user": "alice"}
+
+
+@pytest.mark.hypothesis_nested
+def test_enforced_auth_is_probed_once_per_operation(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/secured": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}}],
+                    "security": [{"bearerAuth": []}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+    )
+    probes = []
+
+    @app.route("/secured")
+    def secured():
+        token = request.headers.get("Authorization")
+        if token != "Bearer good":
+            probes.append(token)
+            return jsonify({"detail": "Unauthorized"}), 401
+        return jsonify({})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    queries = set()
+
+    @run_given(case=schema["/secured"]["GET"].as_strategy(), max_examples=10)
+    def test(case):
+        queries.add(case.query["q"])
+        case.call_and_validate(headers={"Authorization": "Bearer good"}, checks=[ignored_auth])
+
+    assert len(queries) > 1
+    assert probes == [None, "Bearer SCHEMATHESIS-INVALID-VALUE"]
+
+
 def test_server_error_without_auth_is_reported():
     app = _api_with_basic_auth(missing=500, invalid=500)
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
@@ -581,7 +645,6 @@ def test_explicit_auth_cli(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.parametrize("header_name", ["Cookie", "cookie"], ids=["canonical", "lowercase"])
 def test_explicit_cookie_header_cli(ctx, cli, snapshot_cli, header_name):
     app, _ = ctx.openapi.make_flask_app(
@@ -833,7 +896,6 @@ API_KEY_SCHEME = {"securitySchemes": {"apiKey": {"type": "apiKey", "in": "header
 
 
 @pytest.mark.parametrize("enforces_auth", [True, False], ids=["login-redirect", "ignores-auth"])
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_redirect_to_login_page_without_auth(ctx, cli, snapshot_cli, enforces_auth):
     app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
 
@@ -853,7 +915,6 @@ def test_redirect_to_login_page_without_auth(ctx, cli, snapshot_cli, enforces_au
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_invalid_path_parameter_missing_the_route(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
 
@@ -873,7 +934,6 @@ def test_invalid_path_parameter_missing_the_route(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_explicit_api_key_header_in_other_case_cli(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
 

@@ -39,6 +39,7 @@ from ......schema_classes import SearchTemplateRetrievalClass
 from ......schema_classes import SearchTemplateRetrievalBridgeClass
 from ......schema_classes import SearchTemplateRouteClass
 from ......schema_classes import SearchTemplateScoreModeClass
+from ......schema_classes import SearchTemplateSearchTypeClass
 from ......schema_classes import StructuredPropertyClauseClass
 from ......schema_classes import StructuredPropertyOperatorClass
 from ......schema_classes import StructuredPropertyQueryClass
@@ -77,6 +78,7 @@ SearchTemplateRetrieval = SearchTemplateRetrievalClass
 SearchTemplateRetrievalBridge = SearchTemplateRetrievalBridgeClass
 SearchTemplateRoute = SearchTemplateRouteClass
 SearchTemplateScoreMode = SearchTemplateScoreModeClass
+SearchTemplateSearchType = SearchTemplateSearchTypeClass
 StructuredPropertyClause = StructuredPropertyClauseClass
 StructuredPropertyOperator = StructuredPropertyOperatorClass
 StructuredPropertyQuery = StructuredPropertyQueryClass

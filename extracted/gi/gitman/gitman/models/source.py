@@ -98,6 +98,7 @@ class Source:
             self.name = self.repo.split("/")[-1].split(".")[0]
         else:
             self.name = str(self.name)
+        self.rev = self.rev or "main"
         self.type = self.type or "git"
 
     def __repr__(self):
@@ -114,16 +115,6 @@ class Source:
 
     def __lt__(self, other):
         return self.name < other.name
-
-    def clone_params_if_any(self):
-        # sanitize params strings by splitting on spaces
-        if self.params:
-            params_list = []
-            for param in self.params.split(" "):
-                if len(param) > 0:
-                    params_list.append(param)
-            return params_list
-        return None
 
     def update_files(
         self,
@@ -151,7 +142,7 @@ class Source:
                 self.name,
                 sparse_paths=self.sparse_paths,
                 rev=self.rev,
-                user_params=self.clone_params_if_any(),
+                user_params=self._clone_params,
             )
 
         # Enter the working tree
@@ -392,6 +383,16 @@ class Source:
             During install you can rebuild a repo with a missing .git directory using the --force option
             """.format(path)
         return exceptions.InvalidRepository(msg)
+
+    @property
+    def _clone_params(self):
+        if self.params:
+            params_list = []
+            for param in self.params.split(" "):
+                if len(param) > 0:
+                    params_list.append(param)
+            return params_list
+        return None
 
 
 def create_sym_link(source: str, target: str, *, force: bool):

@@ -30,6 +30,57 @@ def canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+def _validate_tag_key(key: str) -> str:
+    if not isinstance(key, str):
+        raise SchemaError("tag keys must be strings")
+    key = key.strip()
+    if not key:
+        raise SchemaError("tag key must not be empty or whitespace-only")
+    if "." in key or "$" in key:
+        raise SchemaError("tag keys must not contain '.' or '$'")
+    return key
+
+
+def _normalize_tag_array(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        raise SchemaError("tag values must be a string array")
+    if len(values) > 64:
+        raise SchemaError("tag values must contain at most 64 raw values")
+    normalized: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            raise SchemaError("tag values must be non-empty strings")
+        value = value.strip()
+        if "," in value:
+            raise SchemaError(f"tag value {value!r} must not contain ','")
+        if value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def normalize_tag_values(tags: Any, *, keep_empty: bool = False) -> dict[str, list[str]]:
+    """Normalize multi-value tags; commas are forbidden in individual values.
+
+    Empty arrays are deletion markers. Partial mutations keep them until merging;
+    whole-map writes omit their keys. Limits apply before trimming/deduplication.
+    """
+    if not isinstance(tags, dict):
+        raise SchemaError("tag_values must be an object")
+    if len(tags) > 64:
+        raise SchemaError("tag_values must contain at most 64 keys")
+    normalized: dict[str, list[str]] = {}
+    seen: set[str] = set()
+    for raw_key, value in tags.items():
+        key = _validate_tag_key(raw_key)
+        if key in seen:
+            raise SchemaError(f"duplicate tag key {key!r} after normalization")
+        seen.add(key)
+        values = _normalize_tag_array([value] if isinstance(value, str) else value)
+        if values or keep_empty:
+            normalized[key] = values
+    return normalized
+
+
 @dataclass
 class OwnerReference:
     """上游数据来源；SDK 可选（若提供则 instance.owner_reference = 本结构的 json）。"""
@@ -231,6 +282,75 @@ class DatasetInstance:
     updated_at: str | None = None
     registered: bool = True
 
+    def __init__(
+        self,
+        instance_id: str,
+        dataset: str,
+        dataset_version: str,
+        owner_reference: str = "",
+        split: str = "default",
+        id: str | None = None,
+        manifest: list[ManifestEntry] | None = None,
+        tags: dict[str, str] | None = None,
+        difficulty: str | None = None,
+        docker_image: str | None = None,
+        extend_meta: dict[str, str] | None = None,
+        instance_status: str | None = None,
+        instance_version: str | None = None,
+        feedbacks: str | None = None,
+        schema_version: str = "1.0",
+        created_at: str | None = None,
+        updated_at: str | None = None,
+        registered: bool = True,
+        tag_values: dict[str, list[str]] | None = None,
+    ):
+        self.instance_id = instance_id
+        self.dataset = dataset
+        self.dataset_version = dataset_version
+        self.owner_reference = owner_reference
+        self.split = split
+        self.id = id
+        self.manifest = list(manifest) if manifest is not None else []
+        self.tags = dict(tags) if tags is not None else {}
+        self.difficulty = difficulty
+        self.docker_image = docker_image
+        self.extend_meta = dict(extend_meta) if extend_meta is not None else {}
+        self.instance_status = instance_status
+        self.instance_version = instance_version
+        self.feedbacks = feedbacks
+        self.schema_version = schema_version
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.registered = registered
+        if tag_values is not None:
+            norm = normalize_tag_values(tag_values)
+            self.tags.update({k: ",".join(v) for k, v in norm.items() if v})
+
+    @property
+    def tag_values(self) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for k, v in self.tags.items():
+            if isinstance(v, str):
+                parts = [p.strip() for p in v.split(",") if p.strip()]
+                seen: set[str] = set()
+                unique_parts: list[str] = []
+                for p in parts:
+                    if p not in seen:
+                        seen.add(p)
+                        unique_parts.append(p)
+                out[k] = unique_parts
+            elif isinstance(v, list):
+                out[k] = [str(p).strip() for p in v if str(p).strip()]
+        return out
+
+    @tag_values.setter
+    def tag_values(self, val: dict[str, list[str]] | None) -> None:
+        if val is None:
+            self.tags = {}
+            return
+        norm = normalize_tag_values(val)
+        self.tags = {k: ",".join(v) for k, v in norm.items() if v}
+
     def validate(self) -> None:
         if not self.instance_id:
             raise SchemaError("instance_id is required")
@@ -277,6 +397,11 @@ class DatasetInstance:
         tags = d.get("tags") or {}
         if isinstance(tags, list):  # 旧口径 []string → 忽略成空 map（兼容读取）
             tags = {}
+        elif not isinstance(tags, dict):
+            tags = {}
+        if not tags and d.get("tag_values"):
+            norm = normalize_tag_values(d["tag_values"])
+            tags = {k: ",".join(v) for k, v in norm.items() if v}
         return cls(
             instance_id=d.get("instance_id", ""),
             dataset=d.get("dataset", ""),
@@ -374,6 +499,29 @@ class PushManyReport:
 
     results: list = field(default_factory=list)
     registration: RegistrationReport = field(default_factory=RegistrationReport)
+
+
+@dataclass
+class InstanceDeleteResult:
+    """``instances.delete()`` 的结果（服务端受限 STS 删除流程）。
+
+    ``content_deleted``：OSS 文件是否被本次流程删除（``delete_files=True``
+    且服务端完成校验后为 True）。
+    ``metadata_deleted``：元数据记录是否已删除（幂等重放 completed 时仍为
+    True；纯元数据删除恒 True——历史行为里删除失败会抛错，不静默）。
+    ``operation_id``：服务端删除操作 ID（``delete_files=True`` 时非空；可
+    用作失败重试的 ``delete_operation_id`` 与排障凭据）。
+    ``state``：服务端操作终态（"completed"；纯元数据删除为 None）。
+    ``stats_state``：服务端统计修复状态（"pending" 表示后台异步修复大小
+    统计；None 表示无该信息）。
+    """
+
+    instance_id: str
+    content_deleted: bool = False
+    metadata_deleted: bool = True
+    operation_id: str | None = None
+    state: str | None = None
+    stats_state: str | None = None
 
 
 # ── RolloutReport（质检 report，服务下游 verl 训练；键名对齐 verl 无下划线口径） ──

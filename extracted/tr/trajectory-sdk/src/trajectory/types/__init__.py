@@ -221,6 +221,7 @@ from trajectory.types.list_checkpoint_exports_response import (
 from trajectory.types.list_deployments_response import (
   ListDeploymentsResponse as ListDeploymentsResponse,
 )
+from trajectory.types.list_supported_models_response import InputModality as InputModality
 from trajectory.types.list_supported_models_response import (
   ListSupportedModelsResponse as ListSupportedModelsResponse,
 )
@@ -474,6 +475,7 @@ __all__ = [
   "InferenceOperationResponse",
   "InferenceOperationState",
   "IngestBenchmarkResponse",
+  "InputModality",
   "ListCheckpointExportFilesResponse",
   "ListCheckpointExportsResponse",
   "ListDeploymentsResponse",

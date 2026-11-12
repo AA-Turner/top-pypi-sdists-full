@@ -7,6 +7,7 @@ everything else is dreamscale.attended.
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 from functools import partial
 from pathlib import Path
@@ -270,12 +271,24 @@ def _note_codec_frame_sizes(config) -> None:
     note_rig_frame_sizes(sizes)
 
 
+def with_model_home(config, model, print_fn=print):
+    """The rig config a run of model homes with: the model's own start pose (its catalog
+    ``Client.home``: Praxis-1 YAM's arms raised) when the rig file names no home_pose; the
+    rig file's otherwise."""
+    start = YAM.home_for(model)
+    if start is None or config.home_pose is not None:
+        return config
+    print_fn(f"{public_model(model)} starts from its training pose: the arms home there, "
+             "shoulders raised. Keep the space in front of them clear.")
+    return dataclasses.replace(config, home_pose=tuple(start))
+
+
 def run_yam(
     *,
     instruction=None,
     config_path=DEFAULT_CONFIG_PATH,
     model=MODEL_BIMANUAL_YAM,
-    mode="async",
+    mode="auto",
     max_actions=None,
     keep_warm=300,
     region="available",
@@ -337,6 +350,7 @@ def run_yam(
     resolve_action_smoothing(strategy, contract)
     # Calibration binds to the saved names above; the rig connects on today's.
     config = resolve_arms(config, discover_can=discover_can)
+    config = with_model_home(config, model, print_fn)
     hud_session = None
     if hud:
         from dreamscale.integrations.hud_recorder import HudJob

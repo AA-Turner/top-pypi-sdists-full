@@ -4,6 +4,7 @@ The display thread owns every HWND. Calls from MCP threads change desired state
 and wait for an acknowledgement, so a screenshot cannot race a visible frame.
 """
 
+from collections.abc import Callable
 from contextlib import contextmanager
 import ctypes
 import logging
@@ -16,17 +17,22 @@ from windows_mcp.desktop.control_overlay_art import (
     _BORDER,
     _CURSOR_SIZE,
     _NOTICE_GLOW_PAD,
+    _RIPPLE_FRAMES,
+    _RIPPLE_SIZE,
     _breath_opacity,
     _cursor_bitmap,
     _edge_bitmap,
     _notice_bitmap,
     _notice_glow_bitmap,
+    _ripple_frames,
 )
 from windows_mcp import uia
 
 logger = logging.getLogger(__name__)
 
 _REFRESH_SECONDS = 0.05
+_ACK_TIMEOUT_SECONDS = 3.0
+_RIPPLE_SECONDS = 0.45
 _SW_HIDE = 0
 _WDA_EXCLUDEFROMCAPTURE = 0x00000011
 _BLUE = (45, 145, 255)
@@ -103,6 +109,11 @@ class _Layer:
         ) or not _user32.IsWindowVisible(self.hwnd):
             raise RuntimeError("AI control indicator window could not be shown")
 
+    def draw(self, bgra: bytes, x: int, y: int) -> None:
+        """Replace the bitmap and position in one update, for animation frames."""
+        flash_overlay._push_bitmap(self.hwnd, x, y, self.width, self.height, bgra)
+        self.x, self.y, self.bgra, self.opacity = x, y, bgra, 255
+
     def hide(self) -> None:
         _user32.ShowWindow(self.hwnd, _SW_HIDE)
         if _user32.IsWindowVisible(self.hwnd):
@@ -135,8 +146,17 @@ def _monitor_rects() -> tuple[tuple[int, int, int, int], ...]:
 
 
 def _build_layers(
-    rects: tuple[tuple[int, int, int, int], ...], pending: bool
+    rects: tuple[tuple[int, int, int, int], ...],
+    pending: bool,
+    beat: Callable[[], None] | None = None,
+    notice: bool = True,
 ) -> tuple[list[_Layer], _Layer]:
+    """Build the indicator layers; *beat* is called after each layer is made.
+
+    Rendering the bitmaps for very wide desktops can take longer than the
+    watchdog's one-second heartbeat window, so the caller passes a heartbeat
+    refresh to show the thread is still making progress.
+    """
     if not rects:
         raise RuntimeError("no display available for AI control indicator")
     color = _AMBER if pending else _BLUE
@@ -162,9 +182,11 @@ def _build_layers(
                     layers.append(
                         _Layer(x, y, w, h, _edge_bitmap(w, h, side, color), f"{index}_{side}")
                     )
-            notice = _notice_bitmap(width)
-            if notice is not None:
-                notice_width, notice_height, bitmap = notice
+                    if beat is not None:
+                        beat()
+            banner = _notice_bitmap(width) if notice else None
+            if banner is not None:
+                notice_width, notice_height, bitmap = banner
                 # Narrow monitors retain the aura without letting its window spill onto a neighbor.
                 glow_pad = min(_NOTICE_GLOW_PAD, (width - notice_width) // 2)
                 if height <= border + notice_height + 2 * glow_pad:
@@ -192,6 +214,8 @@ def _build_layers(
                         breathes=False,
                     )
                 )
+                if beat is not None:
+                    beat()
         point = wintypes.POINT()
         if not _user32.GetCursorPos(ctypes.byref(point)):
             raise RuntimeError("cannot locate cursor for AI control indicator")
@@ -218,12 +242,17 @@ class _Indicator:
         )
         self.active = False
         self.pending = False
+        self.consent = False
+        self.ripple: tuple[int, int] | None = None
         self.suspended = 0
         self.stopping = False
         self.version = 0
         self.applied = 0
         self.generation = -1
         self.error: BaseException | None = None
+        # A missed ack is not a dead thread. Health stays false until a later
+        # apply, but change() may try again instead of failing forever.
+        self.missed_ack = False
         self.heartbeat = 0.0
         self.started = threading.Event()
 
@@ -239,6 +268,7 @@ class _Indicator:
         *,
         active: bool | None = None,
         pending: bool | None = None,
+        consent: bool | None = None,
         suspended: int = 0,
         generation: int | None = None,
     ) -> bool:
@@ -253,12 +283,18 @@ class _Indicator:
                 raise RuntimeError("AI control indicator failed") from self.error
             if not self.thread.is_alive():
                 raise RuntimeError("AI control indicator stopped")
+            prior_active = self.active
+            prior_pending = self.pending
+            prior_consent = self.consent
+            prior_suspended = self.suspended
             if generation is not None:
                 self.generation = generation
             if active is not None:
                 self.active = active
             if pending is not None:
                 self.pending = pending
+            if consent is not None:
+                self.consent = consent
             self.suspended += suspended
             if self.suspended < 0:
                 self.suspended = 0
@@ -273,18 +309,35 @@ class _Indicator:
                     or self.error is not None
                     or not self.thread.is_alive()
                 ),
-                timeout=3.0,
+                timeout=_ACK_TIMEOUT_SECONDS,
             ):
-                # The owner may later recover and apply this hidden state.
-                # Make the failure sticky so health checks can never grant a
-                # new AI lease with an invisible indicator.
-                self.error = RuntimeError("AI control indicator did not acknowledge state change")
+                # This attempt did not ack, so the caller must not grant a lease.
+                # Drop the unacked request if it is still the latest one, and
+                # leave the thread runnable for a later change().
+                requested_active = self.active
+                requested_pending = self.pending
+                requested_generation = self.generation
+                if self.version == version:
+                    self.active = prior_active
+                    self.pending = prior_pending
+                    self.consent = prior_consent
+                    self.suspended = prior_suspended
+                    # Bump the version so the owner redraws the restored state and a late apply
+                    # of the dropped request is never taken as its ack.
+                    self.version += 1
+                self.missed_ack = True
                 self.condition.notify_all()
-                raise self.error
+                raise RuntimeError(
+                    "AI control indicator did not acknowledge state change "
+                    f"(active={requested_active}, pending={requested_pending}, "
+                    f"generation={requested_generation}, version={version})"
+                )
             if self.stopping:
                 raise RuntimeError("AI control indicator is stopping")
             if self.error:
                 raise RuntimeError("AI control indicator failed") from self.error
+            if self.applied >= version:
+                self.missed_ack = False
             return True
 
     def stop(self) -> None:
@@ -296,13 +349,22 @@ class _Indicator:
         if self.thread.is_alive():
             raise RuntimeError("AI control indicator did not stop")
 
+    def _beat(self) -> None:
+        # A float store is atomic; the watchdog only reads it.
+        self.heartbeat = time.monotonic()
+
     def _run(self) -> None:
         layers: list[_Layer] = []
         ring: _Layer | None = None
+        ripple_layer: _Layer | None = None
+        ripple_frames: list[bytes] = []
+        ripple_point = (0, 0)
+        ripple_start: float | None = None
+        ripple_shown = False
         rects: tuple[tuple[int, int, int, int], ...] = ()
-        mode: bool | None = None
+        mode: tuple[bool, bool] | None = None
         visible = False
-        was_active = False
+        was_shown = False
         breath_started = 0.0
         try:
             self.heartbeat = time.monotonic()
@@ -314,19 +376,25 @@ class _Indicator:
                         return
                     active, pending = self.active, self.pending
                     suspended, version = self.suspended, self.version
-                if active:
-                    if not was_active:
+                    # A consent prompt shows amber edges alone; its dialog explains them.
+                    shown = active or self.consent
+                    amber = pending or not active
+                    ripple, self.ripple = self.ripple, None
+                if shown:
+                    if not was_shown:
                         breath_started = time.monotonic()
                     current_rects = _monitor_rects()
-                    if ring is None or current_rects != rects or mode != pending:
+                    if ring is None or current_rects != rects or mode != (amber, active):
                         for layer in reversed(layers):
                             layer.close()
                         layers = []
                         if ring:
                             ring.close()
                             ring = None
-                        layers, ring = _build_layers(current_rects, pending)
-                        rects, mode = current_rects, pending
+                        layers, ring = _build_layers(
+                            current_rects, amber, beat=self._beat, notice=active
+                        )
+                        rects, mode = current_rects, (amber, active)
                         visible = False
                     if suspended:
                         if visible:
@@ -339,15 +407,15 @@ class _Indicator:
                         for layer in layers:
                             if layer.breathes:
                                 layer.set_opacity(opacity)
-                        if not pending:
+                        if not amber:
                             ring.set_opacity(opacity)
                         if not visible:
                             for layer in layers:
                                 layer.show()
-                            if not pending:
+                            if not amber:
                                 ring.show()
                             visible = True
-                        if not pending:
+                        if not amber:
                             point = wintypes.POINT()
                             if _user32.GetCursorPos(ctypes.byref(point)):
                                 ring.move(point.x - _CURSOR_SIZE // 2, point.y - _CURSOR_SIZE // 2)
@@ -359,15 +427,46 @@ class _Indicator:
                     if ring:
                         ring.hide()
                     visible = False
-                was_active = active
+                if ripple is not None:
+                    ripple_point, ripple_start = ripple, time.monotonic()
+                frame = -1
+                if ripple_start is not None and visible and not amber:
+                    elapsed = time.monotonic() - ripple_start
+                    frame = int(elapsed / _RIPPLE_SECONDS * _RIPPLE_FRAMES)
+                if 0 <= frame < _RIPPLE_FRAMES:
+                    if ripple_layer is None:
+                        ripple_frames = _ripple_frames(_BLUE)
+                        ripple_layer = _Layer(
+                            0, 0, _RIPPLE_SIZE, _RIPPLE_SIZE, ripple_frames[0], "ripple"
+                        )
+                    ripple_layer.draw(
+                        ripple_frames[frame],
+                        ripple_point[0] - _RIPPLE_SIZE // 2,
+                        ripple_point[1] - _RIPPLE_SIZE // 2,
+                    )
+                    if not ripple_shown:
+                        ripple_layer.show()
+                        ripple_shown = True
+                else:
+                    ripple_start = None
+                    if ripple_shown:
+                        ripple_layer.hide()
+                        ripple_shown = False
+                was_shown = shown
                 # Pump messages on the owning thread, including display events.
                 for layer in layers:
                     flash_overlay._pump_messages(layer.hwnd)
                 if ring:
                     flash_overlay._pump_messages(ring.hwnd)
+                if ripple_layer:
+                    flash_overlay._pump_messages(ripple_layer.hwnd)
                 with self.condition:
                     self.heartbeat = time.monotonic()
                     self.applied = version
+                    # The timed-out caller already failed. Once the latest state
+                    # is on screen, a later attempt may take a lease again.
+                    if self.missed_ack and version >= self.version:
+                        self.missed_ack = False
                     self.condition.notify_all()
         except BaseException as exc:
             logger.exception("AI control indicator failed")
@@ -380,6 +479,8 @@ class _Indicator:
                 layer.close()
             if ring:
                 ring.close()
+            if ripple_layer:
+                ripple_layer.close()
 
 
 _lock = threading.Lock()
@@ -466,15 +567,38 @@ def set_pending(pending: bool, *, generation: int | None = None) -> bool:
     return True
 
 
+def set_consent(consent: bool) -> bool:
+    """Show amber edges, without notice or cursor glow, while consent is asked."""
+    with _capture_lock:
+        with _lock:
+            indicator = _instance
+        if indicator:
+            return indicator.change(consent=consent)
+    return True
+
+
+def ripple(x: int, y: int) -> None:
+    """Mark an AI click; never waits, and does nothing unless AI control shows."""
+    with _lock:
+        indicator = _instance
+    if indicator:
+        with indicator.condition:
+            indicator.ripple = (x, y)
+            indicator.condition.notify_all()
+
+
 def is_healthy() -> bool:
     """Reject an alive but stalled window owner after one second."""
     with _lock:
         indicator = _instance
+    # missed_ack stays set until the owner applies a later state. A fresh
+    # heartbeat alone must not count as a visible AI lease. Test doubles omit it.
     return bool(
         indicator
         and indicator.thread.is_alive()
         and not indicator.stopping
         and indicator.error is None
+        and not getattr(indicator, "missed_ack", False)
         and 0 <= time.monotonic() - indicator.heartbeat <= 1.0
     )
 

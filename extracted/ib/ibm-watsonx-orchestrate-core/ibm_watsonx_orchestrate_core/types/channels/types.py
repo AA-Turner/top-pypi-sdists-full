@@ -79,6 +79,10 @@ class BaseChannel(BaseModel):
     channel: str = Field(..., description="Channel type identifier")
     spec_version: SpecVersion = SpecVersion.V1
     kind: ChannelKind = ChannelKind.CHANNEL
+    use_v2_chat_completions: Optional[bool] = Field(
+        False,
+        description="Toggle v2 chat completions (Go runtime) for this channel"
+    )
 
     # Response-only fields
     channel_id: Optional[str] = Field(None, description="Channel ID (response only)")

@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: ihm
-Version: 2.12
+Version: 2.13
 Summary: Package for handling IHM mmCIF and BinaryCIF files
-Home-page: https://github.com/ihmwg/python-ihm
-Author: Ben Webb
-Author-email: benmwebb@gmail.com
+Author-email: Ben Webb <benmwebb@gmail.com>
 License: MIT
+Project-URL: homepage, https://github.com/ihmwg/python-ihm
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
@@ -13,16 +12,9 @@ Classifier: Topic :: Scientific/Engineering
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: msgpack
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: summary
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2603378.svg)](https://doi.org/10.5281/zenodo.2603378)
 [![docs](https://readthedocs.org/projects/python-ihm/badge/)](https://python-ihm.readthedocs.org/)

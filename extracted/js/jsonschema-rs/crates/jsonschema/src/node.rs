@@ -369,6 +369,17 @@ impl<F: Json> WeakTarget<F> {
 /// A `Strong` target validates as a direct child. Every `$ref` cycle passes a `Weak` target,
 /// whose guard stops re-entry.
 impl<F: Json> Validate<F> for PendingSchemaNode<F> {
+    fn collect_object_part<'a>(
+        &'a self,
+        part: &mut crate::keywords::all_of::ObjectPart<'a, F>,
+    ) -> bool {
+        match self.target() {
+            PendingTarget::Strong(node) => node.collect_object_part(part),
+            // A cycle: its members recurse into the same branches.
+            PendingTarget::Weak(_) => false,
+        }
+    }
+
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         let target = match self.target() {
             PendingTarget::Strong(node) => return node.is_valid(instance, ctx),
@@ -378,7 +389,7 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
         let identity = instance.identity();
         // The cycle guard comes first: while this node sits on the stack the cycle answer is the
         // one the other modes reach, and a cached value would override it here alone.
-        if ctx.enter(node_id, identity) {
+        if ctx.enter::<F>(node_id, identity) {
             return true; // Cycle detected
         }
         // Check memoization cache (only for arrays/objects)
@@ -396,7 +407,7 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             ctx.cache_result(node_id, container_identity, computed, visit);
             computed
         };
-        ctx.exit(node_id, identity);
+        ctx.exit::<F>(node_id, identity);
         result
     }
 
@@ -412,13 +423,13 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             PendingTarget::Weak(target) => target,
         };
         let identity = instance.identity();
-        if ctx.enter(target.node_id(), identity) {
+        if ctx.enter::<F>(target.node_id(), identity) {
             return Ok(());
         }
         let result = target
             .materialize()
             .validate(instance, location, tracker, ctx);
-        ctx.exit(target.node_id(), identity);
+        ctx.exit::<F>(target.node_id(), identity);
         result
     }
 
@@ -437,13 +448,13 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             PendingTarget::Weak(target) => target,
         };
         let identity = instance.identity();
-        if ctx.enter(target.node_id(), identity) {
+        if ctx.enter::<F>(target.node_id(), identity) {
             return;
         }
         target
             .materialize()
             .collect_errors(instance, location, tracker, ctx, errors);
-        ctx.exit(target.node_id(), identity);
+        ctx.exit::<F>(target.node_id(), identity);
     }
 
     fn evaluate(
@@ -483,7 +494,7 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             PendingTarget::Weak(target) => target,
         };
         let identity = instance.identity();
-        if ctx.enter(target.node_id(), identity) {
+        if ctx.enter::<F>(target.node_id(), identity) {
             return EvaluationResult::valid_empty();
         }
         let result = target.materialize().evaluate_with_location(
@@ -493,7 +504,7 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
             tracker,
             ctx,
         );
-        ctx.exit(target.node_id(), identity);
+        ctx.exit::<F>(target.node_id(), identity);
         result
     }
 }
@@ -903,6 +914,13 @@ fn stamp_absolute_location(errors: &mut [ValidationError<'_>], uri: Option<&Arc<
 }
 
 impl<F: Json> SchemaNode<F> {
+    /// The types this node accepts when it checks nothing but `type`, for loops that decide many
+    /// values by type alone.
+    #[inline]
+    pub(crate) fn shortcut_types(&self) -> Option<JsonTypeSet> {
+        self.inner.accepted_types
+    }
+
     /// The node's only validator, for loops that run the node on many values.
     #[inline]
     pub(crate) fn single_validator(&self) -> Option<&dyn Validate<F>> {
@@ -952,6 +970,14 @@ impl<F: Json> SchemaNode<F> {
 impl<F: Json> Validate<F> for SchemaNode<F> {
     fn as_owned_node(&self) -> Option<&SchemaNode<F>> {
         Some(self)
+    }
+
+    fn collect_object_part<'a>(
+        &'a self,
+        part: &mut crate::keywords::all_of::ObjectPart<'a, F>,
+    ) -> bool {
+        self.validators()
+            .all(|validator| validator.collect_object_part(part))
     }
 
     #[inline]

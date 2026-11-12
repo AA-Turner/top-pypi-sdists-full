@@ -96,33 +96,40 @@ def _describe_option(option) -> str:
     return f"{label}: {value}" if not description.strip() else f"{label}: {value} - {description}"
 
 
+def _print_text_field_header(field: FormField, description: str, required: str) -> None:
+    if field.text_field == HIDDEN:
+        print(f"{field.name} [Hidden Field]")
+        return
+    kind = TEXT_KIND_NAMES.get(field.text_field, str(field.text_field))
+    placeholder = field.placeholder if field.placeholder is not None else ""
+    print(f"<{field.name} [{kind}] [Placeholder: {placeholder}] [{description}] {required}>")
+
+
+def _prompt_field(field: FormField, input_fn: Callable[[str], str], secret_fn: Callable[[str], str]) -> str:
+    required = "REQUIRED" if _required(field) else ""
+    description = field.description if field.description is not None else ""
+    if field.dropdown_options is not None:
+        print(f"<{field.name} [{DROPDOWN_LABEL}] [{description}] {required}>")
+        for option in field.dropdown_options:
+            print(_describe_option(option))
+        return _prompt_allowed(field, [o.value for o in field.dropdown_options], input_fn)
+    if field.toggle:
+        print(f"<{field.name} [{TOGGLE_LABEL}] [true, false] [{description}] {required}>")
+        return _prompt_toggle(field, input_fn)
+    if field.text_field is not None:
+        _print_text_field_header(field, description, required)
+        secret = field.text_field in (form_field.PASSWORD, HIDDEN)
+        return _prompt_required(field, secret_fn if secret else input_fn)
+    raise ConfigurationError(f"Unsupported form parentFormField type: {field.name}")
+
+
 def prompt_for_configuration(fields: List[FormField], input_fn: Callable[[str], str] = input,
                              secret_fn: Callable[[str], str] = getpass.getpass) -> Dict[str, str]:
     print("\nEnter configuration values")
     config: Dict[str, str] = {}
     for field in fields:
         print()
-        required = "REQUIRED" if _required(field) else ""
-        description = field.description if field.description is not None else ""
-        if field.dropdown_options is not None:
-            print(f"<{field.name} [{DROPDOWN_LABEL}] [{description}] {required}>")
-            for option in field.dropdown_options:
-                print(_describe_option(option))
-            config[field.name] = _prompt_allowed(field, [o.value for o in field.dropdown_options], input_fn)
-        elif field.toggle:
-            print(f"<{field.name} [{TOGGLE_LABEL}] [true, false] [{description}] {required}>")
-            config[field.name] = _prompt_toggle(field, input_fn)
-        elif field.text_field is not None:
-            kind = TEXT_KIND_NAMES.get(field.text_field, str(field.text_field))
-            if field.text_field == HIDDEN:
-                print(f"{field.name} [Hidden Field]")
-            else:
-                placeholder = field.placeholder if field.placeholder is not None else ""
-                print(f"<{field.name} [{kind}] [Placeholder: {placeholder}] [{description}] {required}>")
-            secret = field.text_field in (form_field.PASSWORD, HIDDEN)
-            config[field.name] = _prompt_required(field, secret_fn if secret else input_fn)
-        else:
-            raise ConfigurationError(f"Unsupported form parentFormField type: {field.name}")
+        config[field.name] = _prompt_field(field, input_fn, secret_fn)
     return config
 
 

@@ -45,6 +45,13 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Protocol, TypedDict
 
+if sys.version_info >= (3, 14):
+    import string.templatelib
+
+    LoggedStr = Union[str, string.templatelib.Template]
+else:
+    LoggedStr = str
+
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
 ExcInfo = Tuple[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]]
@@ -53,7 +60,7 @@ class _GeneratorContextManager(ContextManager[_T], Generic[_T]):
     def __call__(self, func: _F) -> _F: ...
     def __exit__(
         self,
-        typ: Optional[Type[BaseException]],
+        type: Optional[Type[BaseException]],
         value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> Optional[bool]: ...
@@ -105,6 +112,7 @@ class Record(TypedDict):
     module: str
     name: Optional[str]
     process: RecordProcess
+    template: str
     thread: RecordThread
     time: datetime
 
@@ -112,7 +120,7 @@ class Message(str):
     record: Record
 
 class Writable(Protocol):
-    def write(self, message: Message) -> None: ...
+    def write(self, message: Message) -> Any: ...
 
 FilterDict = Dict[Optional[str], Union[str, int, bool]]
 FilterFunction = Callable[[Record], bool]
@@ -147,7 +155,16 @@ class FileHandlerConfig(TypedDict, total=False):
     diagnose: bool
     enqueue: bool
     catch: bool
-    rotation: Optional[Union[str, int, time, timedelta, RotationFunction]]
+    rotation: Optional[
+        Union[
+            str,
+            int,
+            time,
+            timedelta,
+            RotationFunction,
+            list[Union[str, int, time, timedelta, RotationFunction]],
+        ]
+    ]
     retention: Optional[Union[str, int, timedelta, RetentionFunction]]
     compression: Optional[Union[str, CompressionFunction]]
     delay: bool
@@ -233,7 +250,16 @@ class Logger:
         enqueue: bool = ...,
         context: Optional[Union[str, BaseContext]] = ...,
         catch: bool = ...,
-        rotation: Optional[Union[str, int, time, timedelta, RotationFunction]] = ...,
+        rotation: Optional[
+            Union[
+                str,
+                int,
+                time,
+                timedelta,
+                RotationFunction,
+                list[Union[str, int, time, timedelta, RotationFunction]],
+            ]
+        ] = ...,
         retention: Optional[Union[str, int, timedelta, RetentionFunction]] = ...,
         compression: Optional[Union[str, CompressionFunction]] = ...,
         delay: bool = ...,
@@ -258,7 +284,7 @@ class Logger:
         onerror: Optional[Callable[[BaseException], None]] = ...,
         exclude: Optional[Union[Type[BaseException], Tuple[Type[BaseException], ...]]] = ...,
         default: Any = ...,
-        message: str = ...
+        message: LoggedStr = ...
     ) -> Catcher: ...
     @overload
     def catch(self, function: _F) -> _F: ...
@@ -302,6 +328,7 @@ class Logger:
         patcher: Optional[PatcherFunction] = ...,
         activation: Optional[Sequence[ActivationConfig]] = ...
     ) -> List[int]: ...
+    def reinstall(self) -> None: ...
     # @staticmethod cannot be used with @overload in mypy (python/mypy#7781).
     # However Logger is not exposed and logger is an instance of Logger
     # so for type checkers it is all the same whether it is defined here
@@ -325,40 +352,46 @@ class Logger:
         chunk: int = ...
     ) -> Generator[Dict[str, Any], None, None]: ...
     @overload
-    def trace(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def trace(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def trace(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def debug(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def debug(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def debug(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def info(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def info(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def info(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def success(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def success(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def success(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def warning(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def warning(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def warning(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def error(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def error(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def error(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def critical(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def critical(__self, __message: LoggedStr, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
     @overload
     def critical(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
-    def exception(__self, __message: str, *args: Any, **kwargs: Any) -> None: ...  # noqa: N805
+    def exception(
+        __self, __message: LoggedStr, *args: Any, **kwargs: Any  # noqa: N805
+    ) -> None: ...
     @overload
     def exception(__self, __message: Any) -> None: ...  # noqa: N805
     @overload
     def log(
-        __self, __level: Union[int, str], __message: str, *args: Any, **kwargs: Any  # noqa: N805
+        __self,  # noqa: N805
+        __level: Union[int, str],
+        __message: LoggedStr,
+        *args: Any,
+        **kwargs: Any
     ) -> None: ...
     @overload
     def log(__self, __level: Union[int, str], __message: Any) -> None: ...  # noqa: N805

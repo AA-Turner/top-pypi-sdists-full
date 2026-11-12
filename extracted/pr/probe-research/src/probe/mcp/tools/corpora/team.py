@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any
 from ....shared.reads.search_contract import (
+    BackendCorpus,
     Channel,
     ChannelError,
     EntityType,
@@ -181,6 +182,22 @@ def _chunk_reason(row: dict) -> str | None:
     return None
 
 
+#: The engine's "no author" sentinel; an older server passes it through.
+_UNKNOWN_AUTHOR = "unknown"
+
+
+def _read_github_author(row: dict) -> str | None:
+    """The GitHub login that wrote a GitHub hit, else None. Only GitHub: other
+    sources' author ids are opaque (a Slack uid, a user uuid) and name no one a
+    reader can recognise. A login names a person, never a session."""
+    if BackendCorpus.GITHUB not in (row.get("corpus"), row.get("source_system")):
+        return None
+    author = row.get("author_id")
+    if not isinstance(author, str) or author.strip() in ("", _UNKNOWN_AUTHOR):
+        return None
+    return author.strip()
+
+
 def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
     """A semantic-channel document hit (engine) in the tool's result shape.
 
@@ -234,6 +251,9 @@ def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
         )
         if row.get(key) is not None
     }
+    author = _read_github_author(row)
+    if author:
+        card["author"] = author
     return {
         "entity_type": kind or EntityType.DOCUMENT,
         **({"id": entity_id} if kind else {}),

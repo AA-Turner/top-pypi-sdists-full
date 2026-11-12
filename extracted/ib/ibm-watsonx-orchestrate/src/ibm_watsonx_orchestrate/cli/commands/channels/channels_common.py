@@ -15,6 +15,20 @@ logger = logging.getLogger(__name__)
 F = TypeVar('F', bound=Callable[..., Any])
 
 
+def is_control_plane_only(agent_dict: dict) -> bool:
+    """Return True if the agent raw dict signals control_plane_only.
+
+    The API may return the flag nested under "config" (standard shape) or at
+    the top level (flat legacy shape).  The nested path takes precedence; the
+    flat fallback handles older API responses.  We assume the API never returns
+    contradictory values across both paths simultaneously.
+    """
+    return (
+        agent_dict.get("config", {}).get("control_plane_only", False)
+        or agent_dict.get("control_plane_only", False)
+    )
+
+
 def block_local_dev() -> Callable[[F], F]:
     """Decorator to block operations in local development environment.
 
@@ -132,7 +146,12 @@ def get_agent_id_by_name(agent_client: AgentClient, agent_name: str) -> str | No
         logger.error(f"No agent with the name '{agent_name}' found.")
         sys.exit(1)
 
-    return agent_spec[0].get('id')
+    spec = agent_spec[0]
+    if is_control_plane_only(spec):
+        logger.error(f"Cannot create channel for agent '{agent_name}': agent is registered for control plane only.")
+        sys.exit(1)
+
+    return spec.get('id')
 
 
 def get_agent_name_by_id(agent_client: AgentClient, agent_id: str) -> str | None:
@@ -149,6 +168,10 @@ def get_agent_name_by_id(agent_client: AgentClient, agent_id: str) -> str | None
 
     if not agent_spec or not isinstance(agent_spec, dict):
         logger.error(f"No agent with the ID '{agent_id}' found.")
+        sys.exit(1)
+
+    if is_control_plane_only(agent_spec):
+        logger.error(f"Cannot operate on channel for agent with ID '{agent_id}': agent is registered for control plane only.")
         sys.exit(1)
 
     return agent_spec.get('name')

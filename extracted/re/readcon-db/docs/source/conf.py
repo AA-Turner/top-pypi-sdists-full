@@ -1,8 +1,20 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from crate_version import crate_version
+
 project = "readcon-db"
 copyright = "2026, LODE developers"
 author = "LODE developers"
-release = "0.2.0"
-version = "0.2.0"
+release = crate_version()
+version = release
+
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+}
+autodoc_typehints = "description"
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -31,7 +43,7 @@ html_context = {
     "source_user": "lode-org",
     "source_repo": "readcon-db",
     "source_version": "main",
-    "source_docs_path": "/docs/source/",
+    "source_docs_path": "/docs/orgmode/",
 }
 
 html_sidebars = {
@@ -63,6 +75,16 @@ html_theme_options = {
                     "title": "How-to by language",
                     "url": "howto/howto",
                     "summary": "Rust, Python, C, Fortran recipes",
+                },
+                {
+                    "title": "Streaming append",
+                    "url": "howto/streaming",
+                    "summary": "64-frame commits, StoredFrame, compressed CON",
+                },
+                {
+                    "title": "Migrating to 0.2.1",
+                    "url": "howto/migration",
+                    "summary": "get_frame and append commits",
                 },
                 {
                     "title": "Campaign ops",
@@ -143,5 +165,12 @@ intersphinx_mapping = {
 intersphinx_timeout = 5
 
 
+def _edit_org_source(app, pagename, templatename, context, doctree):
+    # The rst under docs/source is generated and untracked; edits belong in the Org file.
+    if context.get("page_source_suffix"):
+        context["page_source_suffix"] = ".org"
+
+
 def setup(app):
     app.add_css_file("custom.css")
+    app.connect("html-page-context", _edit_org_source)

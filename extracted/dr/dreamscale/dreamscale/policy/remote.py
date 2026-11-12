@@ -100,6 +100,7 @@ from dreamscale.policy.runtime.rtc import (
     build_rtc_estimator_state_from_calibration,
     build_rtc_profile_set,
 )
+from dreamscale.policy.runtime.server_report import record_server_report
 from dreamscale.policy.telemetry import RunTelemetryAccumulator, publish_run_summary
 from dreamscale.policy.types import (
     ActionChunkResult,
@@ -294,7 +295,8 @@ class AsyncRemotePolicy:
                 raise ValueError("this deployment's server takes no history frames; it needs "
                                  "the episode's frames sent ahead")
             self.observation_history = EpisodeTicks(
-                contract.episode_tick_steps, contract.execution_chunk_size)
+                contract.episode_tick_steps, contract.execution_chunk_size,
+                measured_steps=contract.measured_state_steps)
         elif contract.history_ticks:
             # Hy-VLA: the frames 25-5 executed ticks back travel in each request's strips; a
             # server without history frames would read a strip as one wide frame.
@@ -495,6 +497,37 @@ class AsyncRemotePolicy:
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
         history.push(observation, key=key)
+
+    async def episode_window(self, observation: Any, executed: Sequence[Any]) -> Any:
+        """``predict(observation, past_observations=executed)`` on an episode the server keeps
+        with measured states (Praxis-1): ``executed`` holds the observation each action was
+        executed from since the previous ``predict()``, oldest first (its first is that call's
+        own observation). Each later one's frames go ahead keyed by its step, as a run loop sends
+        them; every one's state rides the request. ``[]`` starts a new episode here and on the
+        server."""
+        history = self.observation_history
+        if not isinstance(history, EpisodeTicks) or not history.measured_steps:
+            raise ValueError("episode_window serves an episode the server keeps with states")
+        if not executed:
+            history.clear()
+            return history.window(observation)
+        if not history.requested:
+            raise errors.observation_error(
+                "past_observations", f"{len(executed)} observations before the episode's first "
+                "predict()",
+                "the observation each action was executed from since the last predict(), "
+                "oldest first: [] for an episode's first call",
+            )
+        history.replay_from_request()
+        for index, seen in enumerate(executed):
+            if index:
+                history.executed()
+                await self.push_history(seen)
+            else:
+                # The last request's own step: its frames are on the server already.
+                history.push(seen)
+        history.executed()
+        return history.window(observation)
 
     async def predict(
         self,
@@ -821,7 +854,7 @@ class AsyncRemotePolicy:
         action_history: Sequence[Sequence[float]] = (),
     ) -> ActionChunkResult:
         try:
-            return await self._predict_chunk_locked(
+            result = await self._predict_chunk_locked(
                 observation,
                 instruction=instruction,
                 timeout_s=timeout_s,
@@ -839,6 +872,10 @@ class AsyncRemotePolicy:
             if self.on_request_failure is not None:
                 self.on_request_failure(exc)
             raise
+        if not is_calibration:
+            # Every answer of every path (predict, the run loops, sync) counted once.
+            record_server_report(self, result)
+        return result
 
     async def _predict_chunk_locked(
         self,
@@ -868,7 +905,8 @@ class AsyncRemotePolicy:
                     # predict(): the observation alone, after the chunks before it ran.
                     observation = episode.predict_window(observation)
                 episode_context = EpisodeRequestContext(
-                    step=observation.step, chunk=episode.take_chunk(), seed=episode.seed)
+                    step=observation.step, chunk=episode.take_chunk(observation.step),
+                    seed=episode.seed)
             else:
                 episode_context = None
             observation_id = self._observation_id
@@ -909,13 +947,20 @@ class AsyncRemotePolicy:
                         ]}),
                     )
             if episode_context is not None:
-                # The state one executed step before the request.
-                wire_observation = dataclasses.replace(
-                    wire_observation,
-                    frame=wire_observation.frame.model_copy(update={"state_history": [
-                        [float(value) for value in observation.previous.state]
-                    ]}),
-                )
+                # The state one executed step before the request; with measured states
+                # (Praxis-1), that of every step executed since the last request.
+                if self._runtime_contract.measured_state_steps:
+                    # The joints and grippers of each executed step, as the robot held them.
+                    states = [_hold_vector(seen) for seen in getattr(observation, "executed", ())]
+                else:
+                    states = [observation.previous.state]
+                if states:
+                    wire_observation = dataclasses.replace(
+                        wire_observation,
+                        frame=wire_observation.frame.model_copy(update={"state_history": [
+                            [float(value) for value in state] for state in states
+                        ]}),
+                    )
             if self._runtime_contract.state_history and older:
                 # The states of the older frames, which the window carries as observations.
                 wire_observation = dataclasses.replace(
@@ -1688,7 +1733,9 @@ def _run_sync_policy_loop(
     if max_actions is not None and (type(max_actions) is not int or max_actions < 1):
         raise ValueError("max_actions must be a positive integer or None")
     run_started = time.monotonic()
-    strategy = strategy or RunStrategy()
+    # No strategy given: the policy's mode (connect(mode=), else the model's own: sync for
+    # Praxis-1), as AsyncPolicy.run does.
+    strategy = strategy or RunStrategy(mode=getattr(policy, "mode", None) or "async")
     hooks = hooks or RunHooks()
     contract = resolve_runtime_contract(
         model=policy.model,
@@ -1792,7 +1839,10 @@ def _run_sync_policy_loop(
                     startup_holds += 1
                 if strategy.underrun != "repeat_last_action":
                     if hold_latch is None:
-                        if (
+                        if controller.holds_last_command:
+                            # The last command holds (RuntimeContract.hold_last_command).
+                            hold_latch = step.action
+                        elif (
                             read_hold_action is not None
                             and contract.hold_behavior == "current_position"
                         ):
@@ -2009,6 +2059,17 @@ def _detached(value: Any, depth: int = 0) -> Any:
         raise _NotDetached(type(value).__name__) from exc
     clone.__dict__.update(copied)  # frozen dataclasses too: their fields live in __dict__
     return clone
+
+
+def _hold_vector(observation: Any) -> Sequence[float]:
+    """An observation's measured joints and grippers in the action layout, as the facade's
+    measured hold reads them: ``hold_action``, else ``joint_positions``."""
+    hold = getattr(observation, "hold_action", None)
+    if hold is None:
+        hold = getattr(observation, "joint_positions", None)
+    if hold is None:
+        raise ValueError("this observation has no measured joints to send")
+    return hold
 
 
 def _with_capture_time(wire_observation: Observation, observation: Any) -> Observation:

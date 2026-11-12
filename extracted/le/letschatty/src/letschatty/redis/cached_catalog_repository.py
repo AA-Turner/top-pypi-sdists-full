@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar
 
 from ..models.cache import CacheProtocol
 from ..models.utils.types import StrObjectId
-from ..services.chatty_assets.base_container_with_collection import CacheConfig
+from ..models.cache import CacheConfig
 from .asset_cache import AssetCache
 
 T = TypeVar("T")

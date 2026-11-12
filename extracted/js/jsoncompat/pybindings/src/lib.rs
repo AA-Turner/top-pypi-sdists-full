@@ -5,6 +5,7 @@
 //! strings and report invalid inputs or hard unsupported core-library cases as
 //! `ValueError`.
 
+mod instance;
 mod model_converter;
 mod prepared_schema;
 mod unicode;
@@ -24,8 +25,8 @@ use pyo3::types::{
 };
 
 use ::jsoncompat::{Role, SchemaDocument, check_compat, validate_compatibility_input};
+use instance::InstanceRef as JSONInstanceRef;
 use json_schema_fuzz::{GenerateError, GenerationConfig, ValueGenerator};
-use jsonschema::InstanceRef as JSONInstanceRef;
 
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
@@ -76,14 +77,14 @@ fn validated_python_schema(raw: &JsonValue) -> Result<PythonSchema, String> {
     })
 }
 
-// The Python-optimized backend delegates assertions with exact arithmetic to
+// The upstream backend delegates assertions with exact arithmetic to
 // the shared compiler, preserving identical semantics on every API surface.
 struct SharedAssertion(json_schema_ast::JSONSchema);
-impl jsonschema::Keyword for SharedAssertion {
-    fn is_valid(&self, instance: &JsonValue) -> bool {
+impl<'i> jsonschema::Keyword<'i> for SharedAssertion {
+    fn is_valid(&self, instance: &'i JsonValue) -> bool {
         self.0.is_valid(instance)
     }
-    fn validate<'i>(&self, instance: &'i JsonValue) -> Result<(), jsonschema::ValidationError<'i>> {
+    fn validate(&self, instance: &'i JsonValue) -> Result<(), jsonschema::ValidationError<'i>> {
         if self.is_valid(instance) {
             Ok(())
         } else {
@@ -316,11 +317,17 @@ impl PythonSchema {
     }
 
     fn is_valid_instance(&self, instance: JSONInstanceRef<'_>) -> bool {
-        self.validator.is_valid_instance(instance)
+        instance.is_json() && self.is_valid_instance_assuming_json(instance)
     }
 
     fn is_valid_instance_assuming_json(&self, instance: JSONInstanceRef<'_>) -> bool {
-        self.validator.is_valid_instance_assuming_json(instance)
+        if let Some(value) = instance.as_serde() {
+            self.validator.is_valid(value)
+        } else {
+            instance
+                .try_to_owned()
+                .is_ok_and(|value| self.validator.is_valid(&value))
+        }
     }
 }
 
@@ -329,19 +336,19 @@ struct ValidatorPy {
     schema: Rc<PythonSchema>,
 }
 
-#[pyclass(name = "JsoncompatMissingType", module = "jsoncompat._native", frozen)]
-struct JsoncompatMissingPy;
-
-static JSONCOMPAT_MISSING_SINGLETON: PyOnceLock<Py<JsoncompatMissingPy>> = PyOnceLock::new();
-
-fn typed_jsoncompat_missing(py: Python<'_>) -> PyResult<Py<JsoncompatMissingPy>> {
-    JSONCOMPAT_MISSING_SINGLETON
-        .get_or_try_init(py, || Py::new(py, JsoncompatMissingPy))
-        .map(|missing| missing.clone_ref(py))
-}
+static MISSING_SINGLETON: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 fn jsoncompat_missing(py: Python<'_>) -> PyResult<Py<PyAny>> {
-    typed_jsoncompat_missing(py).map(Py::into_any)
+    MISSING_SINGLETON
+        .get_or_try_init(py, || {
+            // Resolve the enum member, rather than a rebindable public alias.
+            Ok(py
+                .import("jsoncompat._missing")?
+                .getattr("MissingType")?
+                .getattr("MISSING")?
+                .unbind())
+        })
+        .map(|missing| missing.clone_ref(py))
 }
 
 #[pyclass(name = "_ModelPlan", module = "jsoncompat._native")]
@@ -368,30 +375,6 @@ struct GeneratorPy {
 }
 
 #[pymethods]
-impl JsoncompatMissingPy {
-    #[new]
-    fn new(py: Python<'_>) -> PyResult<Py<Self>> {
-        typed_jsoncompat_missing(py)
-    }
-
-    fn __repr__(&self) -> &'static str {
-        "JSONCOMPAT_MISSING"
-    }
-
-    fn __copy__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        jsoncompat_missing(py)
-    }
-
-    fn __deepcopy__(&self, py: Python<'_>, _memo: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        jsoncompat_missing(py)
-    }
-
-    fn __reduce__(&self) -> &'static str {
-        "JSONCOMPAT_MISSING"
-    }
-}
-
-#[pymethods]
 impl ValidatorPy {
     /// Check whether a JSON string satisfies this validator's schema.
     ///
@@ -415,7 +398,8 @@ impl ValidatorPy {
         Ok(self.validate_instance_assuming_json(JSONInstanceRef::from_serde(&instance)))
     }
 
-    /// Check a Python JSON value in place without allocating a serde value tree.
+    /// Check a borrowed Python value with the upstream serde-based validator.
+    /// Generated models separately use allocation-free prepared instance views.
     fn _is_valid_borrowed_value(&self, instance: &Bound<'_, PyAny>) -> bool {
         self.validate_instance(JSONInstanceRef::from_python(instance))
     }
@@ -606,6 +590,78 @@ impl ModelRuntimePy {
         Ok(unicode::from_utf8(py, &payload)?.unbind())
     }
 
+    /// Encode an HTTP envelope, retaining one JSON body as bytes. All fields
+    /// are written and validated together before any wire data is returned.
+    fn _serialize_json_field(
+        &self,
+        py: Python<'_>,
+        instance: &Bound<'_, PyAny>,
+        name: &str,
+    ) -> PyResult<(Py<PyDict>, Option<Py<PyBytes>>)> {
+        let converter = self.converter(py)?;
+        Self::ensure_model_instance(&converter, py, instance)?;
+        let encoded = converter.serialize_fields_checked(py, instance, name)?;
+        if !converter.validate_complete_json(&encoded.json)? {
+            return Self::require_valid(&converter, py, Ok(None), || {
+                let parsed = parse_json(&encoded.json)?;
+                Ok(converter.schema()?.explain(&parsed))
+            });
+        }
+        let body = encoded
+            .body
+            .map(|range| PyBytes::new(py, &encoded.json.as_bytes()[range]).unbind());
+        Ok((encoded.fields, body))
+    }
+
+    /// Parse a JSON body directly into a generated response envelope. A None
+    /// result asks HTTP to use its value decoder for precise diagnostics or
+    /// established Python-number semantics; unexpected runtime errors escape.
+    fn _deserialize_json_field(
+        &self,
+        py: Python<'_>,
+        fields: &Bound<'_, PyDict>,
+        name: &str,
+        payload: &[u8],
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let converter = self.converter(py)?;
+        if converter.schema()?.requires_exact_json_numbers() {
+            return Ok(None);
+        }
+        if fields.contains(name)? {
+            return Err(PyValueError::new_err("JSON body field is already present"));
+        }
+        // Check the body's boundary separately: concatenating unchecked JSON
+        // could otherwise turn trailing data into envelope fields.
+        let mut parser = jiter::Jiter::new(payload);
+        parser
+            .next_skip()
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        parser
+            .finish()
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        let mut envelope = Vec::with_capacity(payload.len() + 256);
+        model_converter::write_ordered_json_value(&mut envelope, fields.as_any())?;
+        envelope.pop();
+        if !fields.is_empty() {
+            envelope.push(b',');
+        }
+        serde_json::to_writer(&mut envelope, name)
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        envelope.push(b':');
+        envelope.extend_from_slice(payload);
+        envelope.push(b'}');
+        if converter.can_validate_while_parsing() {
+            converter.construct_http_stream(py, &envelope)
+        } else {
+            let parsed = JiterJsonValue::parse(&envelope, false)
+                .map_err(|error| map_json_error(&envelope, &error))?;
+            if model_converter::http_number_fallback(&parsed) {
+                return Ok(None);
+            }
+            converter.construct_jiter_checked(py, &parsed)
+        }
+    }
+
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         match &self.state {
             ModelRuntimeState::Live { plan_owner, .. } => visit.call(plan_owner),
@@ -696,6 +752,12 @@ fn construct_model_value(
         CandidateConstruction::Mismatch(conversion_error) => {
             let raw_is_valid = converter.is_valid_raw_python(instance)?;
             if raw_is_valid {
+                // Opaque HTTP bytes have a stricter JSON representation than
+                // their source's unconstrained string: invalid base64 is input
+                // error, not a generated converter/schema disagreement.
+                if conversion_error.is_representation_error() {
+                    return Err(PyValueError::new_err(conversion_error.to_string()));
+                }
                 return Err(PyErr::new::<PyRuntimeError, _>(format!(
                     "schema-valid value cannot be represented by its generated model: {conversion_error}"
                 )));
@@ -727,7 +789,7 @@ fn construct_model_json_bytes_checked(
     payload: &[u8],
     converter: &ModelConverterPy,
 ) -> PyResult<Option<Py<PyAny>>> {
-    // Retain arbitrary-precision JSON numbers for schemas with exact bounds.
+    // Use serde_json's configured precision for schemas with exact bounds.
     // This decision is built into the artifact, never discovered on first use.
     if converter.schema()?.requires_exact_json_numbers() {
         return construct_exact_model_json(py, payload, converter);
@@ -1158,6 +1220,11 @@ fn is_valid_py(schema_json: &str, instance_json: &str) -> PyResult<bool> {
 #[pymodule]
 #[pyo3(name = "_native")]
 fn jsoncompat_native(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<prepared_schema::PreparedPatternPy>()?;
+    m.add_function(wrap_pyfunction!(
+        prepared_schema::load_prepared_pattern_py,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(prepare_schema_py, m)?)?;
     m.add_function(wrap_pyfunction!(check_compat_py, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_compat_py, m)?)?;
@@ -1173,10 +1240,11 @@ fn jsoncompat_native(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py.get_type::<validation_error::ValidationError>(),
     )?;
     m.add_class::<GeneratorPy>()?;
-    m.add_class::<JsoncompatMissingPy>()?;
     m.add_class::<ModelRuntimePy>()?;
     m.add_class::<ValidatorPy>()?;
-    m.add("JSONCOMPAT_MISSING", jsoncompat_missing(py)?)?;
+    let missing = jsoncompat_missing(py)?;
+    m.add("MissingType", missing.bind(py).get_type())?;
+    m.add("MISSING", missing)?;
 
     let role_constants = PyModule::new(py, "Role")?;
     role_constants.add("SERIALIZER", "serializer")?;

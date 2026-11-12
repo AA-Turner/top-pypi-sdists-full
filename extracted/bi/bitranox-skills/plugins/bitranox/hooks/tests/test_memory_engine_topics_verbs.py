@@ -1,0 +1,748 @@
+"""Tests for the topic verbs: the closed list, a fact's topics, a level's TOPICS line.
+
+Topics are data the placement of pointer lines is later computed from, so each write is checked
+whole before anything is written, the tree top's topics have a verb of their own, and a rewritten
+descriptor can neither drop nor change a level's topics. All content ASCII.
+"""
+
+import json
+import tracemalloc
+
+import pytest
+
+import memory_engine as E
+import self_improve_signals as sig
+import topic_placement as tp
+import topic_store
+import uuid_store as us
+
+HOOK = "When a rule is about one stack, bind it to that stack's topic."
+SCOPE = "WHAT: a level\nSTACK: python\nCHILDREN:\n- x/: y\nPLACE-HERE: a\nPLACE-ELSEWHERE: b"
+LIST = {"python": "Python code and its tooling", "rust": "Rust code", "git": "git and GitHub"}
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path, monkeypatch):
+    h = tmp_path / "home"
+    h.mkdir(exist_ok=True)
+    monkeypatch.setenv("HOME", str(h))
+    monkeypatch.setenv("USERPROFILE", str(h))
+    return h
+
+
+def _tree(tmp_path, with_list=True):
+    anchor = tmp_path / "tree"
+    proj = anchor / "proj"
+    proj.mkdir(parents=True)
+    for d in (anchor, proj):
+        (d / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    (anchor / us.STORE_DIRNAME).mkdir()
+    if with_list:
+        topic_store.save_list(anchor, LIST, "jev")
+    return str(anchor), str(proj)
+
+
+def _fact(proj, slug, pin=False):
+    return E.add_or_update_entry(proj, title="T " + slug, hook=HOOK, body="body of " + slug,
+                                 type_="feedback", slug=slug, pin=pin)
+
+
+def _topics(anchor, slug):
+    return E._body_topics(us.body_path(anchor, slug).read_text(encoding="utf-8"))
+
+
+def _scope(level):
+    return us.parse_pointer_index(sig.claude_local_md_path(level).read_text(encoding="utf-8"))[0]
+
+
+def _list_file(tmp_path, topics, tagger="jev"):
+    f = tmp_path / "list.json"
+    f.write_text(json.dumps({"tagger": tagger, "topics": topics}), encoding="utf-8")
+    return str(f)
+
+
+# ---- the list ----------------------------------------------------------------------------------
+
+def test_topics_show_exits_1_without_a_list_and_prints_it_with_one(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path, with_list=False)
+    assert E.main(["topics-show", "--proj", proj]) == 1
+    assert "no topic list" in capsys.readouterr().out
+    assert E.main(["topics-set-list", "--proj", proj, "--from-file", _list_file(tmp_path, LIST)]) == 0
+    capsys.readouterr()
+    assert E.main(["topics-show", "--proj", proj, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"tagger": "jev", "topics": LIST}
+
+
+def test_a_list_that_drops_a_topic_in_use_is_refused_and_names_the_users(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-uses-python")
+    E.set_fact_topics(proj, {"feedback-uses-python": ("python",)})
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    E.set_level_topics(proj, ("rust",))
+    capsys.readouterr()
+    rc = E.main(["topics-set-list", "--proj", proj, "--from-file", _list_file(tmp_path, {"git": "git"})])
+    out = capsys.readouterr().out
+    assert rc == 2 and "feedback-uses-python carries python" in out and "declares rust" in out
+    assert topic_store.load(anchor)["topics"] == LIST
+
+
+def test_a_list_file_that_is_not_the_expected_json_is_a_usage_error(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path, with_list=False)
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"tagger": "jev", "topics": ["python"]}', encoding="utf-8")
+    assert E.main(["topics-set-list", "--proj", proj, "--from-file", str(bad)]) == 2
+    assert "must be an object" in capsys.readouterr().err
+    assert topic_store.load(anchor) is None
+
+
+# ---- a fact's topics ---------------------------------------------------------------------------
+
+def test_set_topics_writes_the_line_and_leaves_the_pointer_block_alone(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-one")
+    before = sig.claude_local_md_path(proj).read_text(encoding="utf-8")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-one", "--topics", "rust,python"]) == 0
+    assert "set topics on 1 fact(s); 0 unchanged" in capsys.readouterr().out
+    assert _topics(anchor, "feedback-one") == ("python", "rust")
+    assert sig.claude_local_md_path(proj).read_text(encoding="utf-8") == before
+
+
+def test_universal_and_clear_are_different_states(tmp_path):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-one")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-one", "--universal"]) == 0
+    assert _topics(anchor, "feedback-one") == ()
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-one", "--clear"]) == 0
+    assert _topics(anchor, "feedback-one") is None
+
+
+def test_set_topics_needs_exactly_one_way_to_say_which(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-one")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-one"]) == 2
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-one", "--topics", "python",
+                   "--universal"]) == 2
+    assert "exactly one of" in capsys.readouterr().err
+    assert _topics(anchor, "feedback-one") is None
+
+
+def test_one_bad_row_refuses_the_whole_batch_and_writes_nothing(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    for slug in ("feedback-a", "feedback-b"):
+        _fact(proj, slug)
+    _fact(proj, "feedback-pinned", pin=True)
+    batch = tmp_path / "batch.jsonl"
+    rows = [{"slug": "feedback-a", "topics": ["python"]}, {"slug": "feedback-b", "topics": ["cobol"]},
+            {"slug": "feedback-pinned", "topics": ["git"]}, {"slug": "feedback-gone", "topics": []}]
+    batch.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    assert E.main(["set-topics", "--proj", proj, "--batch", str(batch)]) == 2
+    out = capsys.readouterr().out
+    assert "feedback-b: cobol not in the topic list" in out
+    assert "feedback-pinned is pinned" in out and "feedback-gone: no level points at it" in out
+    assert _topics(anchor, "feedback-a") is None
+
+
+def test_a_good_batch_applies_every_row_and_a_second_run_changes_nothing(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    for slug in ("feedback-a", "feedback-b", "feedback-c"):
+        _fact(proj, slug)
+    E.set_fact_topics(proj, {"feedback-c": ("git",)})
+    batch = tmp_path / "batch.jsonl"
+    rows = [{"slug": "feedback-a", "topics": ["python"]}, {"slug": "feedback-b", "topics": []},
+            {"slug": "feedback-c", "topics": None}]
+    batch.write_text("\n".join(json.dumps(r) for r in rows) + "\n\n", encoding="utf-8")
+    assert E.main(["set-topics", "--proj", proj, "--batch", str(batch)]) == 0
+    assert "set topics on 3 fact(s); 0 unchanged" in capsys.readouterr().out
+    assert [_topics(anchor, s) for s in ("feedback-a", "feedback-b", "feedback-c")] == [("python",), (), None]
+    assert E.main(["set-topics", "--proj", proj, "--batch", str(batch)]) == 0
+    assert "set topics on 0 fact(s); 3 unchanged" in capsys.readouterr().out
+
+
+def test_a_dry_run_reports_and_writes_nothing(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-a", "--topics", "python",
+                   "--dry-run"]) == 0
+    assert "would set topics on 1 fact(s)" in capsys.readouterr().out
+    assert _topics(anchor, "feedback-a") is None
+
+
+@pytest.mark.parametrize("line", ['{"slug": "feedback-a", "topics": "python"}', '{"slug": "feedback-a"}',
+                                  'not json', '{"slug": 7, "topics": []}'])
+def test_a_malformed_batch_line_is_a_usage_error_naming_the_line(tmp_path, capsys, line):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    batch = tmp_path / "batch.jsonl"
+    batch.write_text('{"slug": "feedback-a", "topics": []}\n' + line + "\n", encoding="utf-8")
+    assert E.main(["set-topics", "--proj", proj, "--batch", str(batch)]) == 2
+    assert "line 2" in capsys.readouterr().err
+    assert _topics(anchor, "feedback-a") is None
+
+
+def test_set_topics_without_a_list_is_refused(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path, with_list=False)
+    _fact(proj, "feedback-a")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-a", "--universal"]) == 2
+    assert "no topic list yet" in capsys.readouterr().out
+
+
+def test_the_topic_write_verbs_are_refused_when_memory_writes_are_off(tmp_path, monkeypatch, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    monkeypatch.setenv("BITRANOX_MEMORY_WRITES", "off")
+    for argv in (["set-topics", "--proj", proj, "--slug", "feedback-a", "--universal"],
+                 ["set-level-topics", "--proj", proj, "--topics", "python"],
+                 ["set-top-topics", "--proj", anchor, "--topics", "git"],
+                 ["topics-set-list", "--proj", proj, "--from-file", _list_file(tmp_path, LIST)]):
+        assert E.main(argv) == 2
+        assert "refused" in capsys.readouterr().out
+    assert _topics(anchor, "feedback-a") is None
+
+
+# ---- a level's topics --------------------------------------------------------------------------
+
+def test_set_level_topics_writes_the_line_and_the_level_reads_fresh(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    assert E.main(["topics-stale", "--proj", proj]) == 1
+    assert "never tagged" in capsys.readouterr().out
+    assert E.main(["set-level-topics", "--proj", proj, "--topics", "rust, python"]) == 0
+    assert tp.descriptor_topics(_scope(proj)) == ("python", "rust")
+    assert _scope(proj).replace("TOPICS: python, rust\n", "") == SCOPE
+    capsys.readouterr()
+    assert E.main(["topics-stale", "--proj", proj]) == 0
+    assert capsys.readouterr().out.strip() == "fresh"
+
+
+def test_the_tree_top_takes_its_topics_only_from_its_own_verb(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", anchor, "--scope", SCOPE])
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    capsys.readouterr()
+    assert E.main(["set-level-topics", "--proj", anchor, "--topics", "git"]) == 2
+    assert "is the tree top" in capsys.readouterr().out
+    assert tp.descriptor_topics(_scope(anchor)) is None
+    assert E.main(["set-top-topics", "--proj", proj, "--topics", "git"]) == 2
+    assert "is not the tree top" in capsys.readouterr().out
+    assert E.main(["set-top-topics", "--proj", anchor, "--topics", "git"]) == 0
+    assert tp.descriptor_topics(_scope(anchor)) == ("git",)
+
+
+def test_a_tag_outside_the_list_and_a_level_without_a_descriptor_are_refused(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.ensure_level(proj)
+    assert E.main(["set-level-topics", "--proj", proj, "--topics", "python"]) == 2
+    assert "no descriptor yet" in capsys.readouterr().out
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    capsys.readouterr()
+    assert E.main(["set-level-topics", "--proj", proj, "--topics", "cobol"]) == 2
+    assert "cobol not in the topic list" in capsys.readouterr().out
+    assert tp.descriptor_topics(_scope(proj)) is None
+
+
+def test_set_scope_keeps_the_stored_topics_and_the_level_then_reads_stale(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    E.main(["set-level-topics", "--proj", proj, "--topics", "python"])
+    rewritten = SCOPE.replace("WHAT: a level", "WHAT: another level")
+    assert E.main(["set-scope", "--proj", proj, "--scope", rewritten]) == 0
+    assert tp.descriptor_topics(_scope(proj)) == ("python",)
+    assert "WHAT: another level" in _scope(proj)
+    capsys.readouterr()
+    assert E.main(["topics-stale", "--proj", proj]) == 1
+    assert "descriptor changed" in capsys.readouterr().out
+
+
+def test_set_scope_refuses_a_text_that_changes_the_topics_line(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    E.main(["set-level-topics", "--proj", proj, "--topics", "python"])
+    before = _scope(proj)
+    capsys.readouterr()
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\nTOPICS: rust"]) == 2
+    assert "changes only through set-level-topics" in capsys.readouterr().out
+    assert _scope(proj) == before
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\nTOPICS: python"]) == 0
+
+
+def test_topics_stale_is_fresh_in_a_tree_without_a_list(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path, with_list=False)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    assert E.main(["topics-stale", "--proj", proj]) == 0
+
+
+# ---- the scan over every body ------------------------------------------------------------------
+
+def _plant_bodies(anchor, count, tagged_every=10):
+    facts = us.central_facts_dir(anchor)
+    facts.mkdir(parents=True, exist_ok=True)
+    prose = "x" * 200_000
+    for i in range(count):
+        topics = "topics: [python]\n" if i % tagged_every == 0 else ""
+        (facts / ("feedback-n%05d.md" % i)).write_text(
+            "---\nname: feedback-n%05d\ndescription: d\ntitle: T\n%smetadata:\n  type: feedback\n---\n\n%s\n"
+            % (i, topics, prose), encoding="utf-8")
+
+
+def _scan_peak(anchor):
+    tracemalloc.start()
+    try:
+        found = sum(1 for _ in E.iter_fact_topics(anchor))
+        return found, tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def test_the_scan_yields_only_tagged_bodies_and_its_peak_does_not_grow_with_the_store(tmp_path):
+    small, large = tmp_path / "small", tmp_path / "large"
+    _plant_bodies(small, 30)
+    _plant_bodies(large, 300)
+    found_small, peak_small = _scan_peak(small)
+    found_large, peak_large = _scan_peak(large)
+    assert (found_small, found_large) == (3, 30)
+    assert peak_large < 200_000            # one body is 200 KB; the scan never holds one whole
+    assert peak_large < peak_small * 2 + 50_000
+
+
+def test_the_scan_skips_names_that_are_no_fact_and_a_missing_store_yields_nothing(tmp_path):
+    anchor = tmp_path / "tree"
+    assert list(E.iter_fact_topics(anchor)) == []
+    _plant_bodies(anchor, 1)
+    facts = us.central_facts_dir(anchor)
+    (facts / "notes.txt").write_text("topics: [python]\n", encoding="utf-8")
+    (facts / "Bad Name.md").write_text("---\nname: x\ntopics: [python]\n---\n", encoding="utf-8")
+    assert list(E.iter_fact_topics(anchor)) == [("feedback-n00000", ("python",))]
+
+
+# ---- what the verbs do with a list or a TOPICS line they cannot use ----------------------------
+
+def _plant_scope(level, scope):
+    """Write `scope` as `level`'s descriptor as it is, bypassing set-scope's checks: a stored line
+    that does not parse can come from a hand edit or an older writer."""
+    local = sig.claude_local_md_path(level)
+    text = local.read_text(encoding="utf-8")
+    pointers = us.parse_pointer_index(text)[1]
+    local.write_text(us.upsert_pointer_block(text, scope, pointers), encoding="utf-8")
+
+
+def test_an_empty_topic_list_is_refused(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    rc = E.main(["topics-set-list", "--proj", proj, "--from-file", _list_file(tmp_path, {})])
+    assert rc == 2 and "empty" in capsys.readouterr().out
+    assert topic_store.load(anchor)["topics"] == LIST
+
+
+def test_a_dropped_topic_is_judged_by_the_trimmed_name(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-uses-rust")
+    E.set_fact_topics(proj, {"feedback-uses-rust": ("rust",)})
+    capsys.readouterr()
+    rc = E.main(["topics-set-list", "--proj", proj, "--from-file",
+                 _list_file(tmp_path, {" rust ": "Rust code", "git": "git"})])
+    assert rc == 0, capsys.readouterr().out
+    assert set(topic_store.load(anchor)["topics"]) == {"rust", "git"}
+
+
+def test_a_stored_topics_line_that_does_not_parse(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    _plant_scope(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    before = _scope(proj)
+    capsys.readouterr()
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE]) == 2
+    assert "set-level-topics" in capsys.readouterr().out
+    assert _scope(proj) == before
+    assert E.main(["topics-stale", "--proj", proj]) == 1
+    assert "does not parse" in capsys.readouterr().out
+    # a list that drops a topic is not refused over a line that declares nothing readable
+    assert E.main(["topics-set-list", "--proj", proj, "--from-file",
+                   _list_file(tmp_path, {"python": "Python code"})]) == 0
+    # the verb meant to change the line replaces it
+    assert E.main(["set-level-topics", "--proj", proj, "--topics", "python"]) == 0
+    assert tp.descriptor_topics(_scope(proj)) == ("python",)
+
+
+def test_set_scope_refuses_a_new_topics_line_that_does_not_parse(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    before = _scope(proj)
+    capsys.readouterr()
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\nTOPICS: Not A Tag!"]) == 2
+    assert "refused" in capsys.readouterr().out
+    assert _scope(proj) == before
+
+
+def test_a_damaged_topic_file_is_an_error_for_the_read_verbs(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    topic_store.store_path(anchor).write_text("{not json", encoding="utf-8")
+    capsys.readouterr()
+    for verb in ("topics-show", "topics-stale"):
+        assert E.main([verb, "--proj", proj]) == 2
+        assert "! error" in capsys.readouterr().err
+
+
+def test_set_scope_cannot_tag_a_never_tagged_level_even_as_universal(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    capsys.readouterr()
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\nTOPICS:"]) == 2
+    assert "changes only through set-level-topics" in capsys.readouterr().out
+    assert tp.descriptor_topics(_scope(proj)) is None
+
+
+@pytest.mark.parametrize("line", ["TOPICS: python", "TOPICS:", "TOPICS: Not A Tag!"])
+def test_a_refused_set_scope_leaves_no_level_scaffolded_behind_it(tmp_path, capsys, line):
+    # The topics check reads the level's current text (none yet) BEFORE ensure_level runs, so a
+    # refusal on a directory that was never a level writes nothing at all.
+    _anchor, proj = _tree(tmp_path)
+    local = sig.claude_local_md_path(proj)
+    assert not local.exists()
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\n" + line]) == 2
+    assert "! refused" in capsys.readouterr().out
+    assert not local.exists()
+
+
+# ---- one TOPICS gate for every descriptor writer -----------------------------------------------
+
+def _legacy_md(level, descriptor):
+    """Give `level` a CLAUDE.md that still holds a legacy scope block, as older stores did."""
+    md = sig.claude_md_path(level)
+    md.write_text("# Proj\n\n%s\n%s\n%s\n\nuser text\n"
+                  % (sig.SCOPE_MARK_BEGIN, descriptor, sig.SCOPE_MARK_END), encoding="utf-8")
+    return md, md.read_bytes()
+
+
+@pytest.mark.parametrize("line", ["TOPICS: python", "TOPICS: notonlist, Bad Tag", "TOPICS:"])
+def test_add_with_a_scope_carrying_a_topics_line_on_a_fresh_level_writes_nothing(tmp_path, capsys, line):
+    # add --scope reaches ensure_level's scope_default on a level with no descriptor; without the
+    # gate the TOPICS line was written there unchecked, even one that does not parse.
+    anchor, proj = _tree(tmp_path)
+    md_before = sig.claude_md_path(proj).read_bytes()
+    rc = E.main(["add", "--proj", proj, "--title", "T", "--hook", HOOK, "--slug", "feedback-s",
+                 "--body", "b", "--scope", SCOPE + "\n" + line])
+    assert rc == 2
+    assert "! refused" in capsys.readouterr().out
+    assert not sig.claude_local_md_path(proj).exists()
+    assert not us.body_path(anchor, "feedback-s").exists()
+    assert sig.claude_md_path(proj).read_bytes() == md_before
+
+
+def test_the_library_ensure_level_refuses_a_scope_default_with_a_topics_line(tmp_path):
+    _anchor, proj = _tree(tmp_path)
+    with pytest.raises(E.TopicRefusal):
+        E.ensure_level(proj, scope_default=SCOPE + "\nTOPICS: python")
+    assert not sig.claude_local_md_path(proj).exists()
+
+
+def test_set_scope_against_a_legacy_block_whose_topics_line_does_not_parse_writes_nothing(tmp_path, capsys):
+    _anchor, proj = _tree(tmp_path)
+    md, before = _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE]) == 2
+    out = capsys.readouterr().out
+    assert "! refused" in out and str(md) in out
+    assert md.read_bytes() == before
+    assert not sig.claude_local_md_path(proj).exists()
+
+
+def test_an_add_harvesting_a_legacy_block_whose_topics_line_does_not_parse_writes_nothing(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    md, before = _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    rc = E.main(["add", "--proj", proj, "--title", "T", "--hook", HOOK, "--slug", "feedback-s",
+                 "--body", "b"])
+    assert rc == 2 and "! refused" in capsys.readouterr().out
+    assert md.read_bytes() == before
+    assert not sig.claude_local_md_path(proj).exists()
+    assert not us.body_path(anchor, "feedback-s").exists()
+
+
+def test_ensure_memory_structure_skips_a_legacy_level_it_cannot_harvest_without_a_traceback(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    md, before = _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    assert E.main(["ensure-memory-structure", "--proj", proj]) == 0
+    assert md.read_bytes() == before
+    assert not sig.claude_local_md_path(proj).exists()
+    assert sig.claude_local_md_path(anchor).exists()
+
+
+_REFUSED_LINE = "    ! refused level, left untouched: the legacy scope block in %s has a TOPICS line"
+
+
+def test_ensure_memory_structure_names_the_legacy_level_it_refused(tmp_path, capsys):
+    # A level skipped without a word never gets its CLAUDE.local.md and nothing says why; the
+    # refusal names the CLAUDE.md to fix by hand. The exit stays 0: the rest of the chain is set up.
+    _anchor, proj = _tree(tmp_path)
+    md, _before = _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    assert E.main(["ensure-memory-structure", "--proj", proj]) == 0
+    out = capsys.readouterr().out
+    assert _REFUSED_LINE % md in out
+    assert out.rstrip("\n").endswith("[%s]" % proj)
+
+
+def test_scaffold_hands_a_refused_level_to_the_callers_list(tmp_path):
+    _anchor, proj = _tree(tmp_path)
+    _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    refused = []
+    E.scaffold(proj, refused=refused)
+    assert [level for level, _why in refused] == [proj]
+    assert "does not parse" in refused[0][1]
+
+
+def test_ensure_all_trees_reports_a_member_it_refused(tmp_path):
+    _anchor, proj = _tree(tmp_path)
+    _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    rep = E.ensure_all_trees(roots=[str(tmp_path)], apply=True)
+    refused = [level for tr in rep["trees"] for level, _why in tr["refused"]]
+    assert refused == [proj]
+
+
+def test_heal_names_the_legacy_level_it_refused_and_heals_the_rest(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    md, before = _legacy_md(proj, SCOPE + "\nTOPICS: Not A Tag!")
+    rep = E.heal(proj)
+    assert [level for level, _why in rep["refused"]] == [proj]
+    assert rep["unreadable"] == []
+    assert md.read_bytes() == before
+    assert not sig.claude_local_md_path(proj).exists()
+    assert sig.claude_local_md_path(anchor).exists()
+    assert E.main(["heal", "--proj", proj]) == 0
+    out = capsys.readouterr().out
+    assert _REFUSED_LINE % md in out
+
+
+def test_heal_under_writes_off_carries_an_empty_refused_list(tmp_path, monkeypatch):
+    _anchor, proj = _tree(tmp_path)
+    monkeypatch.setenv("BITRANOX_MEMORY_WRITES", "off")
+    assert E.heal(proj)["refused"] == []
+
+
+def test_set_scope_carrying_the_legacy_blocks_own_topics_is_accepted(tmp_path, capsys):
+    _anchor, proj = _tree(tmp_path)
+    md, _before = _legacy_md(proj, "WHAT: old text\nTOPICS: python")
+    rewritten = SCOPE + "\nTOPICS: python"
+    assert E.main(["set-scope", "--proj", proj, "--scope", rewritten]) == 0
+    assert tp.descriptor_topics(_scope(proj)) == ("python",)
+    assert "WHAT: a level" in _scope(proj)
+    assert sig.SCOPE_MARK_BEGIN not in md.read_text(encoding="utf-8")
+
+
+def test_set_scope_without_topics_keeps_the_legacy_blocks_topics(tmp_path, capsys):
+    _anchor, proj = _tree(tmp_path)
+    _legacy_md(proj, "WHAT: old text\nTOPICS: python")
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE]) == 0
+    assert tp.descriptor_topics(_scope(proj)) == ("python",)
+
+
+def test_set_scope_with_other_topics_than_the_legacy_block_is_refused(tmp_path, capsys):
+    _anchor, proj = _tree(tmp_path)
+    md, before = _legacy_md(proj, "WHAT: old text\nTOPICS: python")
+    assert E.main(["set-scope", "--proj", proj, "--scope", SCOPE + "\nTOPICS: rust"]) == 2
+    assert "changes only through set-level-topics" in capsys.readouterr().out
+    assert md.read_bytes() == before
+    assert not sig.claude_local_md_path(proj).exists()
+
+
+def test_topics_on_create_says_what_is_true_for_a_pointer_without_a_body(tmp_path):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-s")
+    us.body_path(anchor, "feedback-s").unlink()           # a pointer whose body went missing
+    framed = "---\nname: feedback-s\ndescription: d\ntitle: T\ntopics: [python]\n---\n\nprose\n"
+    with pytest.raises(E.TopicsOnCreate) as exc:
+        E.add_or_update_entry(proj, title="T feedback-s", hook=HOOK, body=framed, slug="feedback-s")
+    assert "has no body file yet" in str(exc.value) and "is new" not in str(exc.value)
+
+
+# ---- a level reached through a symlink ---------------------------------------------------------
+
+def _symlinked_level(tmp_path):
+    """A tree whose level `link` is a symlink to a directory outside the tree, as a checkout
+    mounted into a workspace is. Skipped where this account may not create a symlink."""
+    anchor, _proj = _tree(tmp_path)
+    real = tmp_path / "elsewhere" / "lvl"
+    real.mkdir(parents=True)
+    (real / "CLAUDE.md").write_text("x\n", encoding="utf-8")
+    link = tmp_path / "tree" / "link"
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation is not permitted for this account (Windows without "
+                    "Developer Mode or SeCreateSymbolicLinkPrivilege)")
+    return anchor, str(link)
+
+
+def test_a_symlinked_level_is_tagged_recorded_and_reads_fresh(tmp_path, capsys):
+    anchor, level = _symlinked_level(tmp_path)
+    assert E.main(["set-scope", "--proj", level, "--scope", SCOPE]) == 0
+    capsys.readouterr()
+    assert E.main(["set-level-topics", "--proj", level, "--topics", "python"]) == 0
+    assert "Traceback" not in capsys.readouterr().err
+    assert topic_store.load(anchor)["levels"] == {"link": tp.descriptor_digest(_scope(level))}
+    assert E.main(["topics-stale", "--proj", level]) == 0
+    assert capsys.readouterr().out.strip() == "fresh"
+
+
+def test_level_key_is_lexical_and_a_level_outside_the_tree_is_a_store_error(tmp_path):
+    anchor, level = _symlinked_level(tmp_path)
+    assert topic_store.level_key(anchor, level) == "link"
+    with pytest.raises(topic_store.TopicStoreError):
+        topic_store.level_key(anchor, tmp_path / "elsewhere" / "lvl")
+
+
+def test_record_level_refuses_a_level_outside_the_tree_and_records_nothing(tmp_path):
+    anchor, _proj = _tree(tmp_path)
+    ran = []
+    with pytest.raises(topic_store.TopicStoreError):
+        topic_store.record_level(anchor, tmp_path / "outside", "d", before=lambda: ran.append(1))
+    assert ran == [] and topic_store.load(anchor)["levels"] == {}
+
+
+def test_record_level_runs_the_callers_write_only_after_the_store_checks_pass(tmp_path):
+    anchor, _proj = _tree(tmp_path, with_list=False)
+    ran = []
+    with pytest.raises(topic_store.TopicStoreError):
+        topic_store.record_level(anchor, anchor, "d", before=lambda: ran.append(1))
+    assert ran == []
+    topic_store.save_list(anchor, LIST, "jev")
+    topic_store.record_level(anchor, anchor, "d", before=lambda: ran.append(1))
+    assert ran == [1] and topic_store.load(anchor)["levels"] == {"": "d"}
+
+
+# ---- dry runs, batches, pinned facts and usage errors ------------------------------------------
+
+def test_a_dry_run_of_set_topics_runs_when_memory_writes_are_off(tmp_path, monkeypatch, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    files_before = sorted(p.name for p in (tmp_path / "tree").rglob("*"))
+    monkeypatch.setenv("BITRANOX_MEMORY_WRITES", "off")
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-a", "--topics", "python",
+                   "--dry-run"]) == 0
+    assert "would set topics on 1 fact(s)" in capsys.readouterr().out
+    assert _topics(anchor, "feedback-a") is None
+    assert sorted(p.name for p in (tmp_path / "tree").rglob("*")) == files_before
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-a", "--topics", "python"]) == 2
+    assert "refused" in capsys.readouterr().out
+    assert _topics(anchor, "feedback-a") is None
+
+
+def _batch(tmp_path, lines, name="batch.jsonl"):
+    f = tmp_path / name
+    f.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+    return str(f)
+
+
+def test_a_batch_naming_one_slug_twice_is_a_usage_error_and_writes_nothing(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    path = _batch(tmp_path, ['{"slug": "feedback-a", "topics": ["python"]}',
+                             '{"slug": "feedback-a", "topics": ["rust"]}'])
+    assert E.main(["set-topics", "--proj", proj, "--batch", path]) == 2
+    err = capsys.readouterr().err
+    assert "line 2" in err and "feedback-a" in err and "line 1" in err
+    assert _topics(anchor, "feedback-a") is None
+
+
+def test_a_batch_line_over_the_byte_cap_is_a_usage_error(tmp_path, capsys):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    long_line = '{"slug": "feedback-a", "topics": ["python"], "pad": "%s"}' % ("x" * E.MAX_TOPIC_BATCH_LINE_BYTES)
+    path = _batch(tmp_path, ['{"slug": "feedback-a", "topics": []}', long_line])
+    assert E.main(["set-topics", "--proj", proj, "--batch", path]) == 2
+    assert "line 2" in capsys.readouterr().err
+    assert _topics(anchor, "feedback-a") is None
+
+
+def test_a_batch_over_the_row_cap_is_refused_at_the_first_row_past_it(tmp_path):
+    rows = ['{"slug": "feedback-n%05d", "topics": []}' % i for i in range(E.MAX_TOPIC_BATCH + 1)]
+    rows_ok, err = E._read_topic_batch(_batch(tmp_path, rows))
+    assert rows_ok is None and "more than %d rows" % E.MAX_TOPIC_BATCH in err
+    rows_ok, err = E._read_topic_batch(_batch(tmp_path, rows[:-1], name="ok.jsonl"))
+    assert err is None and len(rows_ok) == E.MAX_TOPIC_BATCH
+
+
+def test_a_batch_with_a_bom_and_one_that_is_not_utf8(tmp_path):
+    f = tmp_path / "bom.jsonl"
+    f.write_bytes(b'\xef\xbb\xbf{"slug": "feedback-a", "topics": []}\n')
+    assert E._read_topic_batch(str(f)) == ({"feedback-a": ()}, None)
+    f.write_bytes(b'{"slug": "feedback-a", "topics": []}\n{"slug": "feedback-\xff", "topics": []}\n')
+    rows, err = E._read_topic_batch(str(f))
+    assert rows is None and "line 2" in err and "UTF-8" in err
+
+
+def _batch_peak(path):
+    tracemalloc.start()
+    try:
+        rows, err = E._read_topic_batch(path)
+        return rows, err, tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def test_reading_a_batch_holds_one_capped_line_not_the_whole_file(tmp_path):
+    # One huge line: the reader stops at the byte cap, so its peak does not grow with the line.
+    small, large = tmp_path / "small.jsonl", tmp_path / "large.jsonl"
+    small.write_bytes(b'{"slug": "' + b"a" * 1_000_000 + b'"}\n')
+    large.write_bytes(b'{"slug": "' + b"a" * 8_000_000 + b'"}\n')
+    *_, peak_small = _batch_peak(str(small))
+    rows, err, peak_large = _batch_peak(str(large))
+    assert rows is None and "line 1" in err
+    assert peak_large < 1_000_000 and peak_large < peak_small * 2 + 50_000
+
+
+def test_reading_a_batch_past_the_row_cap_does_not_grow_with_the_file(tmp_path):
+    line = '{"slug": "feedback-n%07d", "topics": []}\n'
+    small, large = tmp_path / "small.jsonl", tmp_path / "large.jsonl"
+    small.write_text("".join(line % i for i in range(E.MAX_TOPIC_BATCH + 10)), encoding="utf-8")
+    large.write_text("".join(line % i for i in range(E.MAX_TOPIC_BATCH * 20)), encoding="utf-8")
+    *_, peak_small = _batch_peak(str(small))
+    rows, err, peak_large = _batch_peak(str(large))
+    assert rows is None and "more than" in err
+    assert peak_large < peak_small * 1.5 + 50_000
+
+
+def _pinned_tagged(tmp_path):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-pinned", pin=True)
+    path = us.body_path(anchor, "feedback-pinned")
+    untagged = path.read_bytes()
+    us.put_body(anchor, "feedback-pinned", E._with_topics(path.read_text(encoding="utf-8"), ("python",)))
+    return anchor, proj, path, untagged
+
+
+def test_clearing_a_pinned_facts_topics_is_allowed_and_keeps_the_rest_byte_identical(tmp_path, capsys):
+    _anchor, proj, path, untagged = _pinned_tagged(tmp_path)
+    pointers_before = sig.claude_local_md_path(proj).read_bytes()
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-pinned", "--clear"]) == 0
+    assert path.read_bytes() == untagged
+    assert sig.claude_local_md_path(proj).read_bytes() == pointers_before
+
+
+@pytest.mark.parametrize("how", [["--topics", "rust"], ["--universal"]])
+def test_setting_a_pinned_facts_topics_stays_refused(tmp_path, capsys, how):
+    _anchor, proj, path, _untagged = _pinned_tagged(tmp_path)
+    before = path.read_bytes()
+    assert E.main(["set-topics", "--proj", proj, "--slug", "feedback-pinned", *how]) == 2
+    assert "is pinned" in capsys.readouterr().out
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("argv", [["set-topics", "--slug", "feedback-a", "--topics", "Not A Tag"],
+                                  ["set-level-topics", "--topics", "python, Bad Tag"],
+                                  ["set-top-topics", "--topics", "UPPER"]])
+def test_a_topics_value_that_does_not_parse_is_a_usage_error(tmp_path, capsys, argv):
+    anchor, proj = _tree(tmp_path)
+    _fact(proj, "feedback-a")
+    E.main(["set-scope", "--proj", anchor, "--scope", SCOPE])
+    E.main(["set-scope", "--proj", proj, "--scope", SCOPE])
+    capsys.readouterr()
+    where = anchor if argv[0] == "set-top-topics" else proj
+    assert E.main([argv[0], "--proj", where, *argv[1:]]) == 2
+    captured = capsys.readouterr()
+    assert "! error" in captured.err and "--topics" in captured.err
+    assert "refused" not in captured.out
+
+
+def test_a_deeply_nested_batch_line_is_a_usage_error_naming_the_line(tmp_path):
+    # Under the byte cap a line can still nest past the decoder's depth: a RecursionError there
+    # (or, on an unlimited stack, a list where an object belongs) names the line, never a traceback.
+    rows, err = E._read_topic_batch(_batch(tmp_path, ["[" * 2000 + "]" * 2000]))
+    assert rows is None and "line 1" in err

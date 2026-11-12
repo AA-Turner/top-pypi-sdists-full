@@ -142,9 +142,7 @@ def empty() -> OpenAPIApp:
 
 
 def no_operations() -> OpenAPIApp:
-    spec = build_schema({})
-    app = make_flask_app_from_schema(spec)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
+    return flask_app({})
 
 
 def empty_string() -> OpenAPIApp:
@@ -152,10 +150,7 @@ def empty_string() -> OpenAPIApp:
 
 
 def recursive() -> OpenAPIApp:
-    spec = {**build_schema(schemas.recursive()), "x-definitions": {"Node": _NODE_DEFINITION}}
-    app = make_flask_app_from_schema(spec)
-    handlers.register_recursive(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
+    return flask_app(schemas.recursive(), handlers.register_recursive, **{"x-definitions": {"Node": _NODE_DEFINITION}})
 
 
 def invalid_response() -> OpenAPIApp:
@@ -168,9 +163,7 @@ def invalid_path_parameter() -> OpenAPIApp:
 
 def missing_path_parameter() -> OpenAPIApp:
     # Path declares `{id}` but no `parameters` section — surfaces as a schema error.
-    spec = build_schema(schemas.missing_path_parameter())
-    app = make_flask_app_from_schema(spec)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
+    return flask_app(schemas.missing_path_parameter())
 
 
 def reserved() -> OpenAPIApp:
@@ -218,15 +211,13 @@ def success_text_and_write_only() -> OpenAPIApp:
 
     `/api/success` passes, `/api/text` fails on content-type, `/api/write_only` fails on random input.
     """
-    spec = build_schema(
+    return flask_app(
         {**schemas.success(), **schemas.text(), **schemas.write_only()},
+        handlers.register_success,
+        handlers.register_text,
+        handlers.register_write_only,
         components=schemas.READ_WRITE_COMPONENTS,
     )
-    app = make_flask_app_from_schema(spec)
-    handlers.register_success(app)
-    handlers.register_text(app)
-    handlers.register_write_only(app)
-    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def success_and_text() -> OpenAPIApp:
@@ -274,6 +265,24 @@ def success_and_basic() -> OpenAPIApp:
         handlers.register_basic,
         components=_BASIC_AUTH_SCHEME,
     )
+
+
+def schema_unavailable(failures: int = 1) -> OpenAPIApp:
+    """The first `failures` schema fetches answer 503, like a service that is still starting."""
+    spec = build_schema(schemas.success())
+    app = make_flask_app_from_schema(spec)
+    handlers.register_success(app)
+    remaining = failures
+
+    @app.before_request
+    def not_ready() -> object:
+        nonlocal remaining
+        if request.path == "/openapi.json" and remaining > 0:
+            remaining -= 1
+            return jsonify({"detail": "not ready"}), 503
+        return None
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
 
 
 def sessions_and_log_event() -> OpenAPIApp:

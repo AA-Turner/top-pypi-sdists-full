@@ -12,7 +12,7 @@ import pathspec
 from dataclasses import dataclass
 from enum import Enum
 
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 from zipfile import ZipFile, ZIP_DEFLATED
 
 
@@ -83,11 +83,28 @@ def log_setup_tests_running() -> None:
     print_library_log(SETUP_TESTS_RUNNING_MESSAGE, log_icon=Logging.LogIcon.STEP)
 
 
+def flag_name(field: str) -> str:
+    """CLI flag for an option field: the argparse dest and the flag share the name, e.g. python_version -> --python-version."""
+    return "--" + field.replace("_", "-")
+
+
+def reject_empty(value: Any, source: str) -> Any:
+    """Returns `value` unchanged, or exits if it was explicitly provided (not None) but is empty
+    or whitespace-only (typically an unset shell variable), instead of silently falling back to
+    a lower-precedence source. `source` names the environment variable or options-file field;
+    empty flags are rejected earlier, by the argument parser.
+    """
+    if value is not None and not str(value).strip():
+        print_library_log(f"{source} must not be empty", Logging.Level.SEVERE)
+        sys.exit(1)
+    return value
+
+
 def _from_flag_or_environment(flag_value, environment_variable: str, description: str):
     """The value of a flag, or of its environment variable (logged) when the flag was not given."""
     value = flag_value if flag_value else None
     if not value:
-        value = os.getenv(environment_variable, None)
+        value = reject_empty(os.getenv(environment_variable, None), f"{environment_variable} environment variable")
         if value:
             print_library_log(
                 f"reading {description} from {environment_variable} environment variable",
@@ -96,42 +113,41 @@ def _from_flag_or_environment(flag_value, environment_variable: str, description
     return value
 
 def get_destination_group(args):
-    ft_group = _from_flag_or_environment(args.destination, 'FIVETRAN_DESTINATION_NAME', "destination name")
-    if ft_group and ft_group.strip() == "":
-        return None
-    return ft_group
+    return _from_flag_or_environment(args.destination, FIVETRAN_DESTINATION_NAME_ENV, "destination name")
 
 def get_connection_name(args):
-    ft_connection = _from_flag_or_environment(args.connection, 'FIVETRAN_CONNECTION_NAME', "connection name")
+    ft_connection = _from_flag_or_environment(args.connection, FIVETRAN_CONNECTION_NAME_ENV, "connection name")
     return validate_connection_name(ft_connection)
 
 def get_api_key(args):
-    ft_deploy_key = _from_flag_or_environment(args.api_key, 'FIVETRAN_API_KEY', "api key")
-    if ft_deploy_key and ft_deploy_key.strip() == "":
-        return None
-    return ft_deploy_key
+    return _from_flag_or_environment(args.api_key, FIVETRAN_API_KEY_ENV, "api key")
 
 def get_python_version(args, prompt_mode: PromptMode):
-    python_version = args.python_version if args.python_version else None
-    env_python_version = os.getenv('FIVETRAN_PYTHON_VERSION', None)
-    if env_python_version and not python_version:
-        # Non-interactive modes can't prompt, so use the env var as-is instead of dropping it.
-        if prompt_mode.is_non_interactive_mode:
-            python_version = env_python_version
-        else:
-            python_version = get_input_from_cli("Provide your python version", env_python_version)
+    python_version = args.python_version
+    if not python_version:
+        # Only read the env var when the flag is absent; a shadowed empty value must not fail.
+        env_python_version = reject_empty(os.getenv(constants.FIVETRAN_PYTHON_VERSION_ENV, None),
+                                          f"{constants.FIVETRAN_PYTHON_VERSION_ENV} environment variable")
+        if env_python_version:
+            # Non-interactive modes can't prompt, so use the env var as-is instead of dropping it.
+            if prompt_mode.is_non_interactive_mode:
+                python_version = env_python_version
+            else:
+                python_version = get_input_from_cli("Provide your python version", env_python_version)
     return python_version
 
 def get_hd_agent_id(args, prompt_mode: PromptMode):
-    hd_agent_id = args.hybrid_deployment_agent_id if args.hybrid_deployment_agent_id else None
-    env_hd_agent_id = os.getenv('FIVETRAN_HD_AGENT_ID', None)
-
-    if env_hd_agent_id and not hd_agent_id:
-        # Non-interactive modes can't prompt, so use the env var as-is instead of dropping it.
-        if prompt_mode.is_non_interactive_mode:
-            hd_agent_id = env_hd_agent_id
-        else:
-            hd_agent_id = get_input_from_cli("Provide the Hybrid Deployment Agent ID", env_hd_agent_id)
+    hd_agent_id = args.hybrid_deployment_agent_id
+    if not hd_agent_id:
+        # Only read the env var when the flag is absent; a shadowed empty value must not fail.
+        env_hd_agent_id = reject_empty(os.getenv(constants.FIVETRAN_HD_AGENT_ID, None),
+                                       f"{constants.FIVETRAN_HD_AGENT_ID} environment variable")
+        if env_hd_agent_id:
+            # Non-interactive modes can't prompt, so use the env var as-is instead of dropping it.
+            if prompt_mode.is_non_interactive_mode:
+                hd_agent_id = env_hd_agent_id
+            else:
+                hd_agent_id = get_input_from_cli("Provide the Hybrid Deployment Agent ID", env_hd_agent_id)
     return hd_agent_id
 
 def get_proxy_id(args):
@@ -139,22 +155,14 @@ def get_proxy_id(args):
 
 def get_proxy_host_config_key(args):
     proxy_host_config_key = getattr(args, "proxy_host_config_key", None)
-    if proxy_host_config_key is None:
-        return None
-    return proxy_host_config_key.strip() or None
+    return proxy_host_config_key.strip() if proxy_host_config_key else None
 
 def get_package_id(args) -> Optional[str]:
     """Fetch and validate the --package-id flag for `fivetran deploy`."""
     package_id = getattr(args, "package_id", None)
     if package_id is None:
         return None
-    package_id = package_id.strip()
-    if not package_id:
-        print_library_log(
-            "--package-id was provided with an empty value; please provide a valid package ID.",
-            Logging.Level.SEVERE)
-        sys.exit(1)
-    return package_id
+    return package_id.strip()
 
 def get_state(args):
     if args.command.lower() == "deploy" and args.state:
@@ -204,9 +212,9 @@ def get_naming(args):
         str: The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING"),
              or None if not explicitly set via CLI or environment variable.
     """
-    naming = args.naming if hasattr(args, 'naming') else None
+    naming = getattr(args, 'naming', None)
     if not naming:
-        naming = os.getenv(FIVETRAN_NAMING_ENV, None)
+        naming = reject_empty(os.getenv(FIVETRAN_NAMING_ENV, None), f"{FIVETRAN_NAMING_ENV} environment variable")
 
     validated = validate_naming(naming)
     return validated + UNDERSCORE_NAMING if validated else None
@@ -1246,7 +1254,7 @@ def _generate_configuration_form_bytes(configuration_form_method: Optional[Calla
     if Logging.LOG_LEVEL is None:
         Logging.LOG_LEVEL = Logging.Level.INFO
     try:
-        return {CONFIGURATION_FORM_FILENAME: configuration_form_method()._to_proto().SerializeToString()}
+        return {CONFIGURATION_FORM_FILENAME: configuration_form_method()._to_proto().serialize_to_string()}
     except Exception as e:
         print_library_log(
             f"failed to package configuration form response: {e}",
@@ -2174,17 +2182,17 @@ def remove_dir_if_empty(dir_path):
         pass
 
 
-def _build_missing_param_msg(flag_name: str, env_var_name: str) -> str:
+def _build_missing_param_msg(flag: str, env_var_name: str) -> str:
     """Build error message for a missing required parameter.
 
     Args:
-        flag_name (str): The CLI flag name (e.g., '--destination')
-        env_var_name (str): The environment variable name (e.g., 'FIVETRAN_DESTINATION_NAME')
+        flag (str): The CLI flag name (e.g., '--destination')
+        env_var_name (str): The environment variable name (e.g., FIVETRAN_DESTINATION_NAME)
 
     Returns:
         str: Formatted error message for the missing parameter
     """
-    return f"{flag_name} is required; provide it via the {flag_name} flag or the {env_var_name} environment variable."
+    return f"{flag} is required; provide it via the {flag} flag or the {env_var_name} environment variable."
 
 
 def validate_required_deploy_params(ft_group: str, ft_connection: str, ft_deploy_key: str) -> None:
@@ -2199,11 +2207,11 @@ def validate_required_deploy_params(ft_group: str, ft_connection: str, ft_deploy
     """
     missing = []
     if not ft_group:
-        missing.append(_build_missing_param_msg("--destination", FIVETRAN_DESTINATION_NAME_ENV))
+        missing.append(_build_missing_param_msg(flag_name(constants.FIELD_DESTINATION), FIVETRAN_DESTINATION_NAME_ENV))
     if not ft_connection:
-        missing.append(_build_missing_param_msg("--connection", FIVETRAN_CONNECTION_NAME_ENV))
+        missing.append(_build_missing_param_msg(flag_name(constants.FIELD_CONNECTION), FIVETRAN_CONNECTION_NAME_ENV))
     if not ft_deploy_key:
-        missing.append(_build_missing_param_msg("--api-key", FIVETRAN_API_KEY_ENV))
+        missing.append(_build_missing_param_msg(flag_name(constants.API_KEY_FIELD), FIVETRAN_API_KEY_ENV))
     if missing:
         for msg in missing:
             print_library_log(msg, level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
@@ -2214,7 +2222,7 @@ def validate_required_package_params(api_key: Optional[str]) -> None:
     """Validate resolved package parameters and exit with an error if any are missing."""
     if not api_key:
         print_library_log(
-            _build_missing_param_msg("--api-key", FIVETRAN_API_KEY_ENV),
+            _build_missing_param_msg(flag_name(constants.API_KEY_FIELD), FIVETRAN_API_KEY_ENV),
             level=Logging.Level.SEVERE,
             log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
@@ -2237,8 +2245,8 @@ def get_update_prompt(connection: str, group: str, configuration: dict | None, c
     if configuration:
         prompt = (
             f"connection '{connection}' already exists in destination '{group}'.\n"
-            f"updating it will overwrite the existing code and replace its configuration with keys and values from {config_path}.\n"
-            "please provide the complete configuration, as any missing keys will be deleted.\n"
+            f"updating it will overwrite the existing code and merge configuration keys and values from {config_path} into the existing configuration.\n"
+            "keys you don't include will keep their existing value. To delete a key, set its value to null.\n"
         )
     else:
         prompt = (
@@ -2263,8 +2271,8 @@ def get_rebind_prompt(connection: str, group: str, target_package_id: str, confi
         prompt = (
             f"connection '{connection}' already exists in destination '{group}'.\n"
             f"updating it will replace its code with package '{target_package_id}' "
-            f"and replace its configuration with keys and values from {config_path}.\n"
-            "please provide the complete configuration, as any missing keys will be deleted.\n"
+            f"and merge configuration keys and values from {config_path} into the existing configuration.\n"
+            "keys you don't include will keep their existing value. To delete a key, set its value to null.\n"
         )
     else:
         prompt = (

@@ -65,37 +65,41 @@ def _of_table(entry):
     return f" of table '{entry['table']}'" if entry.get("table") else ""
 
 
+def process_decimal_type(column, column_name, column_type, entry):
+    if column_type['type'].upper() != "DECIMAL":
+        error_message = (
+            f"Expecting DECIMAL data type for dictionary column entry, but got: {column_type['type']} in entry: {entry} "
+            f"for column: {column_name}. "
+            "Dictionary type is only allowed for DECIMAL columns with 'precision' and 'scale' fields, "
+            "as in: {'type': 'DECIMAL', 'precision': <int>, 'scale': <int>}. "
+            "For all other data types, use a string as the column type."
+        )
+        raise ValueError(error_message)
+    missing = [key for key in ("precision", "scale") if key not in column_type]
+    if missing:
+        raise ValueError(
+            f"DECIMAL column '{column_name}'{_of_table(entry)} is missing {' and '.join(repr(key) for key in missing)}. "
+            "Give both its precision and its scale, as in: {'type': 'DECIMAL', 'precision': 15, 'scale': 2}"
+        )
+    column.type = DataType.DECIMAL
+    column.decimal = column.decimal or DecimalParams()
+    column.decimal.precision = wire.integer(column_type['precision'], bits=32, signed=False, unset_if_none=False)
+    column.decimal.scale = wire.integer(column_type['scale'], bits=32, signed=False, unset_if_none=False)
+
+
 def process_columns(columns, entry):
-    for column_name, type in entry["columns"].items():
+    for column_name, column_type in entry["columns"].items():
         column = columns[column_name] if column_name in columns else _new_column(column_name)
 
-        if isinstance(type, str):
-            process_data_type(column, type)
+        if isinstance(column_type, str):
+            process_data_type(column, column_type)
 
-        elif isinstance(type, dict):
-            if type['type'].upper() != "DECIMAL":
-                error_message = (
-                    f"Expecting DECIMAL data type for dictionary column entry, but got: {type['type']} in entry: {entry} "
-                    f"for column: {column_name}. "
-                    "Dictionary type is only allowed for DECIMAL columns with 'precision' and 'scale' fields, "
-                    "as in: {'type': 'DECIMAL', 'precision': <int>, 'scale': <int>}. "
-                    "For all other data types, use a string as the column type."
-                )
-                raise ValueError(error_message)
-            missing = [key for key in ("precision", "scale") if key not in type]
-            if missing:
-                raise ValueError(
-                    f"DECIMAL column '{column_name}'{_of_table(entry)} is missing {' and '.join(repr(key) for key in missing)}. "
-                    "Give both its precision and its scale, as in: {'type': 'DECIMAL', 'precision': 15, 'scale': 2}"
-                )
-            column.type = DataType.DECIMAL
-            column.decimal = column.decimal or DecimalParams()
-            column.decimal.precision = wire.integer(type['precision'], bits=32, signed=False, unset_if_none=False)
-            column.decimal.scale = wire.integer(type['scale'], bits=32, signed=False, unset_if_none=False)
+        elif isinstance(column_type, dict):
+            process_decimal_type(column, column_name, column_type, entry)
 
         else:
             raise ValueError(
-                f"Unrecognized column type for column: {column_name} in entry: {entry}. Got: {str(type)}"
+                f"Unrecognized column type for column: {column_name} in entry: {entry}. Got: {str(column_type)}"
             )
 
         if "primary_key" in entry and column_name in entry["primary_key"]:

@@ -211,6 +211,7 @@ class RawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[CreateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[CreateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -232,13 +233,13 @@ class RawAgentsClient:
         Parameters
         ----------
         name : str
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         project : typing.Optional[str]
             The name of the project to create the agent in.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[CreateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number. When set to `"assign-automatically"`, the agent will be assigned a random phone number. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -363,6 +364,9 @@ class RawAgentsClient:
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
 
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
+
         configuration_endpoint : typing.Optional[CreateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
 
@@ -481,6 +485,7 @@ class RawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[CreateAgentRequestConfigurationEndpointParams],
@@ -630,6 +635,7 @@ class RawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[CreateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[CreateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -651,7 +657,7 @@ class RawAgentsClient:
         Parameters
         ----------
         name : str
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         project : typing.Optional[str]
             The name of the project containing the agent.
@@ -663,7 +669,7 @@ class RawAgentsClient:
             Array of procedure IDs associated with the agent.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[CreateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number. When set to `"assign-automatically"`, the agent will be assigned a random phone number. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -787,6 +793,9 @@ class RawAgentsClient:
 
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
 
         configuration_endpoint : typing.Optional[CreateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
@@ -912,6 +921,7 @@ class RawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[CreateAgentRequestConfigurationEndpointParams],
@@ -1204,6 +1214,7 @@ class RawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[UpdateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[UpdateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -1231,10 +1242,10 @@ class RawAgentsClient:
             The name of the project containing the agent. Only used when `nameOrId` is a name.
 
         name : typing.Optional[str]
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[UpdateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number anymore. When set to `"assign-automatically"`, the agent will be assigned a random phone number if it doesn't have one yet. If the agent already has a phone number, `"assign-automatically"` has no effect. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -1368,6 +1379,9 @@ class RawAgentsClient:
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
 
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
+
         configuration_endpoint : typing.Optional[UpdateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
 
@@ -1495,6 +1509,7 @@ class RawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[UpdateAgentRequestConfigurationEndpointParams],
@@ -2268,6 +2283,7 @@ class AsyncRawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[CreateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[CreateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -2289,13 +2305,13 @@ class AsyncRawAgentsClient:
         Parameters
         ----------
         name : str
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         project : typing.Optional[str]
             The name of the project to create the agent in.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[CreateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number. When set to `"assign-automatically"`, the agent will be assigned a random phone number. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -2420,6 +2436,9 @@ class AsyncRawAgentsClient:
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
 
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
+
         configuration_endpoint : typing.Optional[CreateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
 
@@ -2538,6 +2557,7 @@ class AsyncRawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[CreateAgentRequestConfigurationEndpointParams],
@@ -2687,6 +2707,7 @@ class AsyncRawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[CreateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[CreateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -2708,7 +2729,7 @@ class AsyncRawAgentsClient:
         Parameters
         ----------
         name : str
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         project : typing.Optional[str]
             The name of the project containing the agent.
@@ -2720,7 +2741,7 @@ class AsyncRawAgentsClient:
             Array of procedure IDs associated with the agent.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[CreateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number. When set to `"assign-automatically"`, the agent will be assigned a random phone number. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -2844,6 +2865,9 @@ class AsyncRawAgentsClient:
 
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
 
         configuration_endpoint : typing.Optional[CreateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
@@ -2969,6 +2993,7 @@ class AsyncRawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[CreateAgentRequestConfigurationEndpointParams],
@@ -3261,6 +3286,7 @@ class AsyncRawAgentsClient:
         min_words_to_interrupt: typing.Optional[int] = OMIT,
         turn_taking: typing.Optional[UpdateAgentRequestTurnTaking] = OMIT,
         max_conversation_duration_sec: typing.Optional[int] = OMIT,
+        detect_voicemail_tone: typing.Optional[bool] = OMIT,
         configuration_endpoint: typing.Optional[UpdateAgentRequestConfigurationEndpointParams] = OMIT,
         inbound_rollout: typing.Optional[float] = OMIT,
         inbound_rollout_forward_phone_number: typing.Optional[str] = OMIT,
@@ -3288,10 +3314,10 @@ class AsyncRawAgentsClient:
             The name of the project containing the agent. Only used when `nameOrId` is a name.
 
         name : typing.Optional[str]
-            The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         slug : typing.Optional[str]
-            URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+            URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
 
         phone_number : typing.Optional[UpdateAgentRequestPhoneNumber]
             When set to `null`, the agent will not be associated with a phone number anymore. When set to `"assign-automatically"`, the agent will be assigned a random phone number if it doesn't have one yet. If the agent already has a phone number, `"assign-automatically"` has no effect. When set to `"custom"`, you must provide `custom_phone_numbers`.
@@ -3425,6 +3451,9 @@ class AsyncRawAgentsClient:
         max_conversation_duration_sec : typing.Optional[int]
             Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
 
+        detect_voicemail_tone : typing.Optional[bool]
+            Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
+
         configuration_endpoint : typing.Optional[UpdateAgentRequestConfigurationEndpointParams]
             When not `null`, at the beginning of the conversation the agent will make a POST request to this endpoint to get configuration options.
 
@@ -3552,6 +3581,7 @@ class AsyncRawAgentsClient:
                 "min_words_to_interrupt": min_words_to_interrupt,
                 "turn_taking": turn_taking,
                 "max_conversation_duration_sec": max_conversation_duration_sec,
+                "detect_voicemail_tone": detect_voicemail_tone,
                 "configuration_endpoint": convert_and_respect_annotation_metadata(
                     object_=configuration_endpoint,
                     annotation=typing.Optional[UpdateAgentRequestConfigurationEndpointParams],

@@ -167,7 +167,8 @@ class ValueTypeTest(unittest.TestCase):
 
     def test_every_key_that_takes_a_string_is_checked(self):
         for key in ("path", "type", "system", "template", "source_format", "component", "library",
-                    "location", "topic", "label", "version", "site"):
+                    "location", "topic", "label", "version", "site",
+                    "sidebar_position", "sidebar_after", "sidebar_before"):
             values = dict(path="./docs", type="component-docs", system="orders", template="arc42",
                           source_format="markdown", component="a-component")
             values[key] = 1
@@ -277,6 +278,68 @@ class DocumentationSetTest(unittest.TestCase):
                 documentation_sets_from_config(_component(entry))
             self.assertIn(f"'{key}' belongs to source-format 'html' only", str(raised.exception))
 
+    def test_sidebar_ordering_is_optional_for_html(self):
+        sets = documentation_sets_from_config(_component(HTML_SET))
+
+        self.assertIsNone(sets[0].sidebar_position)
+        self.assertIsNone(sets[0].sidebar_after)
+        self.assertIsNone(sets[0].sidebar_before)
+
+    def test_sidebar_ordering_is_accepted_for_html(self):
+        after = dict(HTML_SET, **{"sidebar-position": "1", "sidebar-after": "kontext"})
+        before = dict(HTML_SET, **{"sidebar-before": "system-context-view"})
+
+        sets = documentation_sets_from_config(_component(after))
+        self.assertEqual("1", sets[0].sidebar_position)
+        self.assertEqual("kontext", sets[0].sidebar_after)
+        self.assertIsNone(sets[0].sidebar_before)
+
+        sets = documentation_sets_from_config(_component(before))
+        self.assertEqual("system-context-view", sets[0].sidebar_before)
+
+    def test_a_sidebar_position_may_be_an_integer_or_a_decimal(self):
+        for value in ("2", "-3", "0", "2.5"):
+            documentation_sets_from_config(_component(dict(HTML_SET, **{"sidebar-position": value})))
+
+    def test_a_sidebar_position_that_is_not_a_number_is_refused(self):
+        for value in ("abc", "", "1e3", "nan", "inf", "1_000", " 1", "1.", ".5"):
+            with self.assertRaises(DocumentationConfigError, msg=value) as raised:
+                documentation_sets_from_config(
+                    _component(dict(HTML_SET, **{"sidebar-position": value})))
+            self.assertIn("'sidebar-position'", str(raised.exception))
+            self.assertIn("not a number", str(raised.exception))
+
+    def test_a_sidebar_position_written_as_a_json_number_is_told_to_quote_it(self):
+        with self.assertRaises(DocumentationConfigError) as raised:
+            documentation_sets_from_config(_component(dict(HTML_SET, **{"sidebar-position": 1})))
+        self.assertIn("'sidebar-position' is a int, not a string", str(raised.exception))
+
+    def test_a_blank_sidebar_reference_is_refused(self):
+        for key in ("sidebar-after", "sidebar-before"):
+            for value in ("", "   "):
+                with self.assertRaises(DocumentationConfigError, msg=key) as raised:
+                    documentation_sets_from_config(_component(dict(HTML_SET, **{key: value})))
+                self.assertIn(f"'{key}' is blank", str(raised.exception))
+
+    def test_sidebar_after_and_before_together_are_refused(self):
+        entry = dict(HTML_SET, **{"sidebar-after": "kontext", "sidebar-before": "hinweise"})
+
+        with self.assertRaises(DocumentationConfigError) as raised:
+            documentation_sets_from_config(_component(entry))
+
+        self.assertIn("both set", str(raised.exception))
+
+    def test_sidebar_ordering_is_refused_for_markdown(self):
+        for key, value in (("sidebar-position", "1"), ("sidebar-after", "a-page"),
+                           ("sidebar-before", "a-page")):
+            entry = dict(MARKDOWN_SET)
+            entry[key] = value
+            with self.assertRaises(DocumentationConfigError) as raised:
+                documentation_sets_from_config(_component(entry))
+            self.assertIn(f"'{key}' belongs to source-format 'html' only",
+                         str(raised.exception))
+            self.assertIn("front matter", str(raised.exception))
+
     def test_a_value_that_is_not_a_slug_is_rejected(self):
         with self.assertRaises(DocumentationConfigError) as raised:
             documentation_sets_from_config(_component(MARKDOWN_SET, system="JME"))
@@ -335,11 +398,14 @@ class ValidationQueryParametersTest(unittest.TestCase):
                           "topic": "configuration-reference"}, parameters)
 
     def test_what_the_endpoint_refuses_is_never_sent(self):
+        html_with_sidebar_ordering = dict(HTML_SET, **{
+            "sidebar-position": "1", "sidebar-after": "kontext"})
         parameters = documentation_sets_from_config(
-            _component(MARKDOWN_SET, version="1.4.0",
+            _component(html_with_sidebar_ordering, version="1.4.0",
                        site="governance"))[0].validation_query_parameters()
 
-        for refused in ("version", "site", "label", "source-repository", "source-revision",
+        for refused in ("version", "site", "label", "sidebar-position", "sidebar-after",
+                        "sidebar-before", "source-repository", "source-revision",
                         "source-ref", "source-timestamp", "build-url", "generated-at", "path"):
             self.assertNotIn(refused, parameters)
 
@@ -409,6 +475,28 @@ class UploadQueryParametersTest(unittest.TestCase):
         self.assertEqual("8-crosscutting-concepts", parameters["location"])
         self.assertEqual("configuration-reference", parameters["topic"])
         self.assertEqual("Configuration Reference", parameters["label"])
+
+    def test_an_html_set_with_no_sidebar_ordering_sends_none(self):
+        parameters = documentation_sets_from_config(
+            _component(HTML_SET))[0].upload_query_parameters(PROVENANCE, "1.0.0")
+
+        for key in ("sidebar-position", "sidebar-after", "sidebar-before"):
+            self.assertNotIn(key, parameters)
+
+    def test_an_html_set_sends_the_sidebar_ordering_it_names(self):
+        entry = dict(HTML_SET, **{"sidebar-position": "1.5", "sidebar-after": "kontext"})
+        parameters = documentation_sets_from_config(
+            _component(entry))[0].upload_query_parameters(PROVENANCE, "1.0.0")
+
+        self.assertEqual("1.5", parameters["sidebar-position"])
+        self.assertEqual("kontext", parameters["sidebar-after"])
+        self.assertNotIn("sidebar-before", parameters)
+
+        entry = dict(HTML_SET, **{"sidebar-before": "system-context-view"})
+        parameters = documentation_sets_from_config(
+            _component(entry))[0].upload_query_parameters(PROVENANCE, "1.0.0")
+
+        self.assertEqual("system-context-view", parameters["sidebar-before"])
 
     def test_the_site_is_sent_when_the_repository_names_one(self):
         parameters = documentation_sets_from_config(
@@ -515,6 +603,16 @@ class DocumentationSetsFromEntriesTest(unittest.TestCase):
         first, second = _generated(GENERATED_ENTRY, dict(GENERATED_ENTRY, topic="rest-docs"))
 
         self.assertEqual(first.path, second.path)
+
+    def test_a_generated_microsite_is_placed_in_the_sidebar_order_like_a_configured_one(self):
+        javadoc, = _generated(dict(GENERATED_ENTRY, **{"sidebar-after": "whitebox-view"}))
+
+        self.assertEqual("whitebox-view",
+                         javadoc.upload_query_parameters(PROVENANCE, "1.0.0")["sidebar-after"])
+
+        with self.assertRaises(DocumentationConfigError) as refused:
+            _generated(dict(GENERATED_ENTRY, **{"sidebar-position": "first"}))
+        self.assertIn("generated-docs[0]", str(refused.exception))
 
     def test_a_message_names_the_index_of_the_entry_it_is_about(self):
         with self.assertRaises(DocumentationConfigError) as refused:

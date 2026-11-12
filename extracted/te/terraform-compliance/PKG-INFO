@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: terraform_compliance
-Version: 1.16.0
+Version: 1.17.2
 Summary: BDD test framework for terraform
 Home-page: https://github.com/eerkunt/terraform-compliance
 Author: Emre Erkunt
@@ -23,8 +23,33 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Provides-Extra: faster_parsing
 License-File: LICENSE
+Requires-Dist: radish-bdd==0.18.2
+Requires-Dist: gitpython>=3.0.5
+Requires-Dist: netaddr>=0.7.19
+Requires-Dist: colorful>=0.5.4
+Requires-Dist: filetype>=1.0.5
+Requires-Dist: junit-xml>=1.8
+Requires-Dist: lxml>=4.5.0
+Requires-Dist: emoji>=0.5.4
+Requires-Dist: mock>=3.0.5
+Requires-Dist: semver>=2.10.2
+Requires-Dist: IPython==7.16.1
+Requires-Dist: diskcache>=5.1.0
+Requires-Dist: orjson>=3.10.15
+Provides-Extra: faster-parsing
+Requires-Dist: orjson; extra == "faster-parsing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 
 BDD test framework for terraform

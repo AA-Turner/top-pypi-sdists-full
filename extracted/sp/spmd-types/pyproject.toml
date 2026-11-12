@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spmd_types"
-version = "0.3.1"
+version = "0.3.2"
 description = "A type system for distributed (SPMD) tensor computations in PyTorch"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -61,9 +61,50 @@ quote-style = "double"
 testpaths = ["tests"]
 python_files = ["*_test.py"]
 
+# ops imports spmd_types from most of its interfaces and farm from its
+# gradient code, so an unscoped import graph selects their suites, GPU plans
+# included, for every change here. Import-graph selection stays inside this
+# tree; the tests below opt back in.
+[tool.test-selector.graph-dependents]
+"**" = ["**"]
+
 [tool.test-selector.extra-deps]
+
+# The farm tests that import spmd_types directly.
+"**" = [
+    "../farm/farm/model/tests/test_input_side_fsdp_order.py",
+    "../farm/farm/optimize/tests/test_grad_clipping_shared_tensor.py",
+    "../farm/farm/optimize/tests/test_replication_metadata.py",
+]
 
 # BEGIN GENERATED buck-manual-deps -- do not edit by hand
 # Regenerate: export_buck_manual_deps.py
-"spmd_types/__init__.py" = ["../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_encoder_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_conditioner_calibration_v21.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_ctts_pipeline_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_recipe_r5_v21.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r5.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22_gb300.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_style_r5_v21.py", "../ops/interfaces/attn/triton_attention_fp32.py", "../ops/interfaces/gemm/gemm.py"]
+"spmd_types/__init__.py" = [
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts_v22.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_encoder_r6_i11_v22.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_conditioner_calibration_v21.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_ctts_pipeline_r6_i11_v22.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_recipe_r5_v21.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r5.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22_gb300.py",
+    "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_style_r5_v21.py",
+    "../ops/interfaces/attn/triton_attention_fp32.py",
+    "../ops/interfaces/gemm/gemm.py",
+    "../rl/projects/rvg/data/data_pipeline/kimi_labeling.py",
+]
 # END GENERATED buck-manual-deps
+
+[dependency-groups]
+# Build backend of this package, locked: in the mslsrc/tbd_training export the
+# members build against the venv (the root's `no-build-isolation-package`), so
+# the backend has to be in a default group for `uv sync` to install it first.
+build = ["setuptools", "wheel"]
+# What the tests import beyond the package itself; the export runs them in
+# this project's uv env.
+# @tbd-training-enable: dev = ["expecttest", "pytest", "torch"]
+
+[tool.uv]
+default-groups = ["build"] # @tbd-training-disable
+# @tbd-training-enable: default-groups = ["build", "dev"]

@@ -15,7 +15,7 @@ from bson import ObjectId
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from .chat_summary_pipeline import summary_update_pipeline
 from ....models.chat.chat import Chat
 from ....models.chat.chat_summary import ChatSummary

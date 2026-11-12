@@ -42,6 +42,7 @@ from anyscale.controllers.kubernetes_verifier import KubectlOperations
 from anyscale.shared_anyscale_utils.conf import (
     ANYSCALE_CORS_EXPOSE_HEADERS,
     ANYSCALE_CORS_ORIGIN,
+    ANYSCALE_ENDPOINTS,
     ANYSCALE_HOST,
 )
 from anyscale.util import get_endpoint
@@ -94,14 +95,6 @@ DCGM_SERVICE_SELECTORS = (
 DCGM_DEFAULT_SERVICE_NAME = "nvidia-dcgm-exporter"
 # Condition of the dcgm-exporter subchart bundled with the connector chart.
 DCGM_EXPORTER_HELM_SET = "dcgm-exporter.enabled=true"
-GPU_ALLOCATABLE_KEY = "nvidia.com/gpu"
-# The node labels the bundled exporter's affinity keys on (values.yaml dcgm-exporter.affinity).
-GPU_NODE_LABELS = (
-    "nvidia.com/gpu.present",
-    "cloud.google.com/gke-accelerator",
-    "k8s.amazonaws.com/accelerator",
-    "karpenter.k8s.aws/instance-gpu-manufacturer",
-)
 # The chart's Ingress for the Observability API; KCP registers the console's DNS from its address.
 OBSERVABILITY_INGRESS_NAME = "anyscale-connector-observability-api"
 # Condition of the traefik ingress controller bundled with the connector chart.
@@ -171,6 +164,30 @@ class AwsInfra(NamedTuple):
 class AwsIdentity(NamedTuple):
     account_id: str
     arn: str
+
+
+# The Anyscale edge the connector dials, by the environment names ANYSCALE_ENDPOINTS uses.
+# Mirrors GetIngressEdgeParentDomain in go/common/flag/common.go; Azure consoles prefix "azure.".
+CONTROL_PLANE_EDGE_DOMAINS = {
+    "production": "anyscale-cloud.dev",
+    "predeploy": "anyscale-cloud-predeploy.dev",
+    "staging": "anyscale-cloud-staging.dev",
+    "development": "anyscale-cloud-dev.dev",
+}
+# Prefix per ANYSCALE_ENDPOINTS provider; a provider missing here has no known edge.
+CONTROL_PLANE_EDGE_PREFIXES = {"aws": "", "azure": "azure."}
+
+
+def _control_plane_edge_domain(origin: str) -> Optional[str]:
+    """The connector's edge domain for a published console origin; None for any other host."""
+    for provider, endpoints in ANYSCALE_ENDPOINTS.items():
+        prefix = CONTROL_PLANE_EDGE_PREFIXES.get(provider)
+        if prefix is None:
+            continue
+        for env, url in endpoints.items():
+            if url and url.rstrip("/") == origin and env in CONTROL_PLANE_EDGE_DOMAINS:
+                return prefix + CONTROL_PLANE_EDGE_DOMAINS[env]
+    return None
 
 
 class ScanPlan(NamedTuple):
@@ -259,8 +276,6 @@ class KubeRayCloudSetupCommand:
                 f"Not logged in to Anyscale ({ANYSCALE_HOST}): {first}. Run `anyscale login`, "
                 "then re-run setup."
             )
-        # Scan cache: nodes are listed once per run.
-        self._nodes: Optional[List[Dict[str, Any]]] = None
 
     def run(  # noqa: PLR0913
         self,
@@ -302,6 +317,9 @@ class KubeRayCloudSetupCommand:
         try:
             self._check_required_tools()
             self._log_login()
+            # Needs only the login and the flags: an unknown console fails before any
+            # cluster or AWS call.
+            control_plane = self._plan_control_plane(control_plane_domain, connector_values)
 
             cluster_context = cluster_context or self._choose_cluster_context(yes)
             self._check_no_existing_release(namespace, cluster_context)
@@ -310,7 +328,7 @@ class KubeRayCloudSetupCommand:
             stack_name = self._stack_name(name)
             aws_identity = self._resolve_aws_identity(provider_info.region)
             plans = [
-                self._plan_control_plane(control_plane_domain),
+                control_plane,
                 self._plan_kuberay_operator(
                     cluster_context=cluster_context, mode=kuberay_operator, yes=yes
                 ),
@@ -954,21 +972,40 @@ class KubeRayCloudSetupCommand:
         }
         return json.dumps(template, indent=2)
 
-    def _plan_control_plane(self, edge_domain: Optional[str]) -> ScanPlan:
+    def _plan_control_plane(
+        self, edge_domain: Optional[str], connector_values: Optional[str]
+    ) -> ScanPlan:
         """Point the chart at the Anyscale environment this run is logged in to.
 
         The token audience the OIDC ingress checks follows ANYSCALE_HOST, the way the
-        operator setup sets global.controlPlaneURL; in production that is the chart's
-        default. The edge domain the connector dials stays the chart's default unless
-        the hidden --control-plane-domain names a non-production one.
+        operator setup sets global.controlPlaneURL. The edge domain the connector dials
+        is derived from the console for the published environments; the hidden
+        --control-plane-domain overrides it. Any other console (a premerge or dev shard)
+        must name the domain, or pin global.controlPlaneHost through --connector-values.
+        A values file cannot override the domain (--set beats -f); its
+        global.controlPlaneHost still wins in the chart.
         """
         origin = ANYSCALE_HOST.rstrip("/")
         sets = ["--set-string", f"global.controlPlaneAudience={origin}"]
-        summary = origin
         if edge_domain:
-            sets += ["--set-string", f"global.controlPlaneDomain={edge_domain}"]
-            summary = f"{origin} (edge domain {edge_domain})"
-        return ScanPlan(label="Control plane", summary=summary, helm_sets=tuple(sets))
+            domain: Optional[str] = edge_domain
+            note = f"edge domain {edge_domain} from --control-plane-domain"
+        else:
+            domain = _control_plane_edge_domain(origin)
+            if domain is None and not connector_values:
+                raise click.ClickException(
+                    f"{origin} is not an Anyscale console this CLI knows the connector's edge "
+                    "domain for. Pass --control-plane-domain, or set global.controlPlaneHost "
+                    "in --connector-values."
+                )
+            note = (
+                f"edge domain {domain}"
+                if domain
+                else "edge domain not derived; expecting global.controlPlaneHost from --connector-values"
+            )
+        if domain:
+            sets += ["--set-string", f"global.controlPlaneDomain={domain}"]
+        return ScanPlan(label="Control plane", summary=f"{origin} ({note})", helm_sets=tuple(sets))
 
     def _plan_kuberay_operator(
         self, cluster_context: Optional[str], mode: KuberayOperatorMode, yes: bool
@@ -1020,8 +1057,10 @@ class KubeRayCloudSetupCommand:
         The gateway keeps exactly one Service: the dcgm-exporter named by
         clusterTelemetry.dcgmNamespace/dcgmServiceName, so a wrong name is an empty GPU
         panel with only a startup warning. --dcgm-namespace names the namespace to look
-        in; without it the scan looks everywhere, and a cluster with GPU nodes but no
-        exporter gets the one bundled in the connector chart.
+        in; without it the scan looks everywhere and, finding none, offers the exporter
+        bundled in the connector chart. GPU nodes are not a condition: the bundled
+        DaemonSet schedules only on GPU-labelled nodes, so a cluster without any today
+        gets GPU panels as they arrive.
         """
         gpu = functools.partial(ScanPlan, "GPU metrics")
         self.log.info("Checking for a DCGM exporter on this cluster...", block_label="Setup")
@@ -1052,11 +1091,9 @@ class KubeRayCloudSetupCommand:
                 )
             return self._gpu_plan_for(chosen)
 
-        gpu_nodes = self._count_gpu_nodes(cluster_context)
-        if gpu_nodes == 0:
-            return gpu(summary="off (no GPU nodes, no DCGM exporter)", helm_sets=())
         self.log.info(
-            f"GPU metrics: {gpu_nodes} GPU node(s) and no DCGM exporter. GPU panels stay empty without one."
+            "GPU metrics: no DCGM exporter on this cluster. The bundled one schedules only on "
+            "GPU-labelled nodes, present or added later; GPU panels stay empty without one."
         )
         install = yes or click.confirm(
             "Install the dcgm-exporter bundled with the connector?", default=True
@@ -1128,32 +1165,6 @@ class KubeRayCloudSetupCommand:
                 )
                 found.setdefault((service.namespace, service.name), service)
         return sorted(found.values())
-
-    def _list_nodes(self, cluster_context: Optional[str]) -> List[Dict[str, Any]]:
-        """The cluster's nodes, listed once per run."""
-        if self._nodes is None:
-            argv = self._kubectl(cluster_context) + [
-                "--request-timeout=30s",
-                "get",
-                "nodes",
-                "-o",
-                "json",
-            ]
-            self._debug(f"Listing nodes: {' '.join(argv)}")
-            self._nodes = self._kubectl_items(argv, what="nodes")
-        return self._nodes
-
-    def _count_gpu_nodes(self, cluster_context: Optional[str]) -> int:
-        """Nodes exposing GPUs, by allocatable or by the labels the bundled exporter keys on."""
-        count = 0
-        for node in self._list_nodes(cluster_context):
-            allocatable = str(
-                node.get("status", {}).get("allocatable", {}).get(GPU_ALLOCATABLE_KEY, "0")
-            )
-            labels = node.get("metadata", {}).get("labels", {})
-            if allocatable not in ("0", "") or any(label in labels for label in GPU_NODE_LABELS):
-                count += 1
-        return count
 
     def _kubectl_items(self, argv: List[str], what: str) -> List[Dict[str, Any]]:
         try:
@@ -1821,7 +1832,7 @@ class KubeRayCloudSetupCommand:
         escaped_key = IRSA_ROLE_ANNOTATION.replace(".", "\\.")
         for values_path in CHART_SERVICE_ACCOUNT_VALUES:
             argv += ["--set-string", f"{values_path}.annotations.{escaped_key}={role_arn}"]
-        # What the cluster scan decided (today: the bundled KubeRay operator).
+        # What the cluster scan decided: operator, GPU metrics and ingress sets.
         argv += list(extra_set_args)
         # global.allowedNamespaces is not set: the chart's webhook selector
         # falls back to the release namespace, which is exactly the scope.

@@ -121,6 +121,7 @@ WHY = {
 
 LIMITS = {"max_policies_per_user": "policies", "max_benchmarks_per_user": "benchmarks",
           "max_keys_per_user": "keys",
+          "max_robots": "robots",
           "max_robot_keys_per_user": "robot keys",
           "max_calls_per_min": "calls a minute",
           "max_gpus_per_user": "GPUs at once", "daily_spend_cap_per_user_usd": "daily spend (USD)"}
@@ -584,6 +585,11 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
     now = now_line(f)
     if now:
         echo(now)
+
+
+    robots = f.get("attached_robots")
+    if robots:
+        echo(f"  robots on this policy ({len(robots)}): {', '.join(str(r) for r in robots)}")
 
     sw = max([len("state")] + [len(str(w.get("state"))) for w in workers]) + 2
 

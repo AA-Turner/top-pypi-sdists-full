@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 from fivetran_connector_sdk_common import constants
 from fivetran_connector_sdk_cli.connector_helper import (
     NetworkingMethod,
+    flag_name,
     get_connection_detail,
     get_connection_details,
     get_connection_name,
@@ -23,6 +24,7 @@ from fivetran_connector_sdk_cli.connector_helper import (
     get_destination_group,
     get_group_info,
     get_hd_agent_id,
+    reject_empty,
     get_naming,
     get_package_id,
     get_proxy_host_config_key,
@@ -150,9 +152,11 @@ def _current_server_values(current_detail: Optional[dict]) -> dict:
     if not current_detail:
         return {}
     config = current_detail.get("config") or {}
+    uses_proxy_agent = current_detail.get("networking_method") == NetworkingMethod.PROXY_AGENT.value
     return {
         constants.FIELD_PYTHON_VERSION: config.get(constants.FIELD_PYTHON_VERSION),
         constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID: current_detail.get(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID),
+        constants.FIELD_PROXY_ID: current_detail.get("proxy_agent_id") if uses_proxy_agent else None,
         constants.FIELD_PROXY_HOST_CONFIG_KEY: config.get(constants.FIELD_PROXY_HOST_CONFIG_KEY),
         constants.FIELD_PACKAGE_ID: config.get(constants.FIELD_PACKAGE_ID),
     }
@@ -163,8 +167,9 @@ def _resolve(field: str, cli_env_value, cli_env_source: Optional[str], profile: 
     """Applies the CLI/env -> options-file precedence for a single field."""
     if cli_env_value:
         return cli_env_value, cli_env_source
-    if profile.get(field):
-        return profile[field], _profile_source(profile_label)
+    profile_value = reject_empty(profile.get(field), f"{field} in options file, profile [{profile_label}]")
+    if profile_value:
+        return profile_value, _profile_source(profile_label)
     return None, None
 
 
@@ -200,7 +205,7 @@ def _resolve_python_version(args, prompt_mode, profile: dict, profile_label: str
     default for a new connection (or the first migration deploy); otherwise reported as missing.
     """
     value = get_python_version(args, prompt_mode)
-    source = _source_from_flag_or_env(args, constants.FIELD_PYTHON_VERSION, "--python-version",
+    source = _source_from_flag_or_env(args, constants.FIELD_PYTHON_VERSION, flag_name(constants.FIELD_PYTHON_VERSION),
                                        constants.FIVETRAN_PYTHON_VERSION_ENV, value)
     value, source = _resolve(constants.FIELD_PYTHON_VERSION, value, source, profile, profile_label)
     if not value:
@@ -211,7 +216,7 @@ def _resolve_python_version(args, prompt_mode, profile: dict, profile_label: str
         if treat_as_new:
             value, source = constants.DEFAULT_PYTHON_VERSION, _SDK_DEFAULT_SOURCE
         else:
-            missing_entry = ("--python-version", constants.FIVETRAN_PYTHON_VERSION_ENV)
+            missing_entry = (flag_name(constants.FIELD_PYTHON_VERSION), constants.FIVETRAN_PYTHON_VERSION_ENV)
     return value, source, missing_entry
 
 
@@ -223,14 +228,14 @@ def _resolve_hd_agent_id(args, prompt_mode, profile: dict, profile_label: str, t
     agent for a new connection (or the first migration deploy); otherwise left unset.
     """
     value = get_hd_agent_id(args, prompt_mode)
-    source = _source_from_flag_or_env(args, constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID, "--hybrid-deployment-agent-id",
+    source = _source_from_flag_or_env(args, constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID, flag_name(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID),
                                        constants.FIVETRAN_HD_AGENT_ID, value)
     value, source = _resolve(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID, value, source, profile, profile_label)
     missing_entry = None
     if not value:
         current_hd_agent_id = (current_detail or {}).get(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID)
         if not treat_as_new and current_hd_agent_id:
-            missing_entry = ("--hybrid-deployment-agent-id", constants.FIVETRAN_HD_AGENT_ID)
+            missing_entry = (flag_name(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID), constants.FIVETRAN_HD_AGENT_ID)
         elif treat_as_new and group_id:
             default_agent_id = get_destination_default_hd_agent_id(group_id, deploy_key)
             if default_agent_id:
@@ -239,22 +244,16 @@ def _resolve_hd_agent_id(args, prompt_mode, profile: dict, profile_label: str, t
 
 
 def _resolve_proxy_fields(args, profile: dict, profile_label: str,
-                          current_detail: Optional[dict], project_path: Optional[str]) -> Tuple[_ResolvedField, _ResolvedField]:
+                          project_path: Optional[str]) -> Tuple[_ResolvedField, _ResolvedField]:
     """Resolves proxy_id via CLI/profile and proxy_host_config_key via CLI/profile/package
-    default (no env var; never required). Warns when proxy_id goes unresolved for a connection currently using a Proxy
-    Agent, since it will revert to direct networking.
+    default (no env var; never required).
     """
     proxy_id_cli = get_proxy_id(args)
     proxy_id_source = _source_from_flag(args, constants.FIELD_PROXY_ID, "--proxy-id")
     proxy_id, proxy_id_source = _resolve(constants.FIELD_PROXY_ID, proxy_id_cli, proxy_id_source, profile, profile_label)
-    if not proxy_id and current_detail and current_detail.get("networking_method") == NetworkingMethod.PROXY_AGENT.value:
-        print_library_log(
-            "proxy_id not resolved for a connection that currently uses a Proxy Agent; the "
-            "connection will revert to direct networking",
-            Logging.Level.WARNING)
 
     phck_cli = get_proxy_host_config_key(args)
-    phck_source = _source_from_flag(args, constants.FIELD_PROXY_HOST_CONFIG_KEY, "--proxy-host-config-key")
+    phck_source = _source_from_flag(args, constants.FIELD_PROXY_HOST_CONFIG_KEY, flag_name(constants.FIELD_PROXY_HOST_CONFIG_KEY))
     proxy_host_config_key, phck_source = _resolve(
         constants.FIELD_PROXY_HOST_CONFIG_KEY, phck_cli, phck_source, profile, profile_label)
     if proxy_id and not proxy_host_config_key:
@@ -278,9 +277,10 @@ def _resolve_naming(args, profile: dict, profile_label: str, is_new_connection: 
     would trigger a warning on every redeploy.
     """
     value = get_naming(args)
-    source = _source_from_flag_or_env(args, constants.FIELD_NAMING, "--naming", constants.FIVETRAN_NAMING_ENV, value)
+    source = _source_from_flag_or_env(args, constants.FIELD_NAMING, flag_name(constants.FIELD_NAMING), constants.FIVETRAN_NAMING_ENV, value)
     if not value and is_new_connection:
-        validated = validate_naming(profile.get(constants.FIELD_NAMING))
+        validated = validate_naming(reject_empty(
+            profile.get(constants.FIELD_NAMING), f"naming in options file, profile [{profile_label}]"))
         if validated:
             value = validated + constants.UNDERSCORE_NAMING
             source = _profile_source(profile_label)
@@ -305,7 +305,7 @@ def _report_missing_and_exit(missing: list, profile_label: str, args, options_da
                 sources = f"{head}, or {options_file}"
         else:
             sources = f"the {flag} flag or the {env} environment variable"
-        reason = " when deploying to an existing connection" if flag == "--python-version" else ""
+        reason = " when deploying to an existing connection" if flag == flag_name(constants.FIELD_PYTHON_VERSION) else ""
         print_library_log(f"{flag} is required{reason}; provide it via {sources}", Logging.Level.SEVERE)
     print_library_log(
         f"For more information, see {constants.FIELD_RESOLUTION_ORDER_DOCS_URL}", Logging.Level.SEVERE)
@@ -319,18 +319,33 @@ def _report_missing_and_exit(missing: list, profile_label: str, args, options_da
     sys.exit(1)
 
 
-def _warn_on_server_drift(resolved: dict, current_detail: Optional[dict]) -> None:
-    """Warns for each field whose resolved value differs from the connection's current server
-    value -- the deploy will overwrite it.
+def warn_on_server_drift(values: dict, current_detail: Optional[dict]) -> None:
+    """Warns about each deploy value that will change the connection's current server state:
+    a value that differs from the server's, a proxy_host_config_key the connection did not
+    have, and a proxy_id that is no longer set (the connection reverts to direct networking).
+
+    Args:
+        values: The final value of each field the deploy applies, keyed by field name.
+        current_detail: The existing connection's detail, or None for a new connection.
     """
     server_values = _current_server_values(current_detail)
-    for field, (value, _source) in resolved.items():
+    for field, value in values.items():
         server_value = server_values.get(field)
         if value and server_value and str(value) != str(server_value):
             print_library_log(
                 f"resolved {field} ('{value}') differs from the connection's current server "
                 f"value ('{server_value}'); the server value will be updated",
                 Logging.Level.WARNING)
+    server_proxy_id = server_values.get(constants.FIELD_PROXY_ID)
+    if server_proxy_id and not values.get(constants.FIELD_PROXY_ID):
+        print_library_log(
+            f"proxy_id not resolved for the connection that currently uses Proxy Agent ('{server_proxy_id}'); "
+            "the connection reverts to direct networking",
+            Logging.Level.WARNING)
+    for field in (constants.FIELD_PROXY_ID, constants.FIELD_PROXY_HOST_CONFIG_KEY):
+        if server_values and values.get(field) and not server_values.get(field):
+            print_library_log(
+                f"Setting {field} ('{values[field]}') on this connection", Logging.Level.WARNING)
 
 
 def _log_resolved_summary(resolved: dict, options_path: Optional[str]) -> None:
@@ -350,7 +365,7 @@ def _log_resolved_summary(resolved: dict, options_path: Optional[str]) -> None:
 
 
 def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migration_deploy: bool = False,
-                           group_ids: Optional[dict] = None) -> dict:
+                           group_ids: Optional[dict] = None) -> Tuple[dict, Optional[dict]]:
     """Resolves every managed deploy field for this run and logs the resolved values/sources.
     Each field's precedence and default rules are documented on its `_resolve_<field>` function.
 
@@ -363,8 +378,9 @@ def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migratio
     looks groups up, so the caller can reuse the ids instead of repeating the API call.
 
     Returns:
-        dict: Resolved values keyed by field name (`hybrid_deployment_agent_id`, `proxy_id`,
-            `proxy_host_config_key` may be None).
+        Tuple[dict, Optional[dict]]: Resolved values keyed by field name (`hybrid_deployment_agent_id`,
+            `proxy_id`, `proxy_host_config_key` may be None), and the existing connection's detail
+            (None for a new connection) for the caller's server-drift warnings.
     """
     group_ids = {} if group_ids is None else group_ids
     profile, profile_label, options_data, options_path = _select_active_profile(
@@ -378,10 +394,10 @@ def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migratio
             missing.append(missing_entry)
 
     _record(constants.FIELD_DESTINATION, *_resolve_required_field(
-        args, constants.FIELD_DESTINATION, "--destination", constants.FIVETRAN_DESTINATION_NAME_ENV,
+        args, constants.FIELD_DESTINATION, flag_name(constants.FIELD_DESTINATION), constants.FIVETRAN_DESTINATION_NAME_ENV,
         get_destination_group, profile, profile_label))
     _record(constants.FIELD_CONNECTION, *_resolve_required_field(
-        args, constants.FIELD_CONNECTION, "--connection", constants.FIVETRAN_CONNECTION_NAME_ENV,
+        args, constants.FIELD_CONNECTION, flag_name(constants.FIELD_CONNECTION), constants.FIVETRAN_CONNECTION_NAME_ENV,
         get_connection_name, profile, profile_label))
 
     is_new_connection, group_id, current_detail = True, None, None
@@ -402,7 +418,7 @@ def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migratio
         args, prompt_mode, profile, profile_label, treat_as_new, group_id, current_detail, deploy_key))
 
     resolved[constants.FIELD_PROXY_ID], resolved[constants.FIELD_PROXY_HOST_CONFIG_KEY] = _resolve_proxy_fields(
-        args, profile, profile_label, current_detail, project_path)
+        args, profile, profile_label, project_path)
     resolved[constants.FIELD_PACKAGE_ID] = package_id
     resolved[constants.FIELD_NAMING] = _resolve_naming(args, profile, profile_label, is_new_connection)
 
@@ -410,6 +426,5 @@ def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migratio
         _report_missing_and_exit(missing, profile_label, args, options_data, deploy_key, group_ids)
 
     _log_resolved_summary(resolved, options_path)
-    _warn_on_server_drift(resolved, current_detail)
 
-    return {field: value for field, (value, source) in resolved.items()}
+    return {field: value for field, (value, source) in resolved.items()}, current_detail

@@ -27,6 +27,7 @@ from ibm_watsonx_orchestrate.cli.commands.channels.channels_common import (
     get_environment_id as common_get_environment_id,
     get_agent_name_by_id as common_get_agent_name_by_id,
     build_local_webhook_url,
+    is_control_plane_only,
 )
 
 logger = logging.getLogger(__name__)
@@ -739,6 +740,10 @@ class PhoneController:
 
             if not agent_spec or not isinstance(agent_spec, dict):
                 logger.error(f"Agent not found: {agent_name}")
+                sys.exit(1)
+
+            if is_control_plane_only(agent_spec):
+                logger.error(f"Cannot attach phone configuration to agent '{agent_name}': agent is registered for control plane only.")
                 sys.exit(1)
 
             if not agent_spec.get('voice_configuration_id'):

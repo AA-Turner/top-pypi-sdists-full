@@ -1,5 +1,5 @@
 from __future__ import annotations
-from windows_mcp.uia import Control, ComboBoxControl, DocumentControl, CheckBoxControl, EditControl, ButtonControl, SliderControl, ScrollPattern, WindowControl, ImageControl, Rect, ExpandCollapseState, ToggleState, PatternId, PropertyId, AccessibleRoleNames, TreeScope, ControlFromHandle, UIADeadElementError, from_com_error, TextPatternRangeEndpoint
+from windows_mcp.uia import Control, ComboBoxControl, DocumentControl, CheckBoxControl, EditControl, ButtonControl, SliderControl, ScrollPattern, WindowControl, ImageControl, Rect, ExpandCollapseState, ToggleState, PatternId, PropertyId, AccessibleRoleNames, TreeScope, ControlFromHandle, UIADeadElementError, from_com_error, is_timeout_exception, TextPatternRangeEndpoint
 from windows_mcp.tree.config import INTERACTIVE_CONTROL_TYPE_NAMES, DOCUMENT_CONTROL_TYPE_NAMES, INFORMATIVE_CONTROL_TYPE_NAMES, DEFAULT_ACTIONS, INTERACTIVE_ROLES, THREAD_MAX_RETRIES, STRUCTURAL_CONTROL_TYPE_NAMES
 from windows_mcp.tree.views import TreeElementNode, ScrollElementNode, TextElementNode, Center, BoundingBox, TreeState, SemanticNode, _prune_structural, _reverse_children_order
 from windows_mcp.tree.cache_utils import (
@@ -9,6 +9,7 @@ from windows_mcp.tree.cache_utils import (
 )
 from windows_mcp.tree.budget import TreeElementBudget, resolve_max_tree_elements
 from windows_mcp.tree.utils import random_point_within_bounding_box
+from windows_mcp.tree.word_runs import merge_word_nodes_enabled, merge_word_runs
 from windows_mcp.tree import ia2 as ia2_traversal
 from typing import TYPE_CHECKING,Optional,Any
 from time import sleep,perf_counter
@@ -115,6 +116,9 @@ class Tree:
         self.dom = None
         self.dom_bounding_box = None
         self.dom_is_ia2 = False
+        # Clip to the virtual screen as it is now: it can change while the server runs
+        # (a monitor plugged in or rearranged, an RDP reconnect at another size).
+        self.screen_box = self.desktop.get_screen_box()
         # Fresh budget per capture — huge lists/grids (e.g. thousands of rows) must not
         # stall UI Automation or blow up the serialized response.
         self.element_budget = TreeElementBudget(resolve_max_tree_elements())
@@ -159,9 +163,10 @@ class Tree:
                 logger.debug(f"Failed to get DOM scroll pattern: {e}")
                 dom_node=None
         elif self.dom_is_ia2 and self.dom_bounding_box is not None:
-            # Firefox / IA2 path — no UIA scroll pattern, so emit a stub ScrollElementNode
-            # with scrolling disabled. Downstream consumers (Scrape) only need a truthy
-            # dom_node and the bounding box.
+            # Firefox / IA2 path — no UIA scroll pattern, so emit a stub ScrollElementNode.
+            # Downstream consumers (Scrape) only need a truthy dom_node and the bounding
+            # box. The scroll state is unknown, so vertical_scrollable is None: False
+            # would tell Scrape that the page fits on screen.
             dom_node=ScrollElementNode(**{
                 'name':'DOM',
                 'control_type':'DocumentControl',
@@ -172,7 +177,7 @@ class Tree:
                     'has_focused': False,
                     'horizontal_scrollable': False,
                     'horizontal_scroll_percent': 0,
-                    'vertical_scrollable': False,
+                    'vertical_scrollable': None,
                     'vertical_scroll_percent': 0,
                 }
             })
@@ -259,8 +264,14 @@ class Tree:
                 if active_window_flag and temp_node.ClassName == "Progman":
                     continue
                 is_browser = self.desktop.is_window_browser(temp_node)
-            except Exception:
-                pass
+            except Exception as e:
+                if is_timeout_exception(e):
+                    logger.warning(
+                        f"Window handle {handle} is not responding to UI Automation; "
+                        f"skipping it for this capture. Error: {e}"
+                    )
+                    failed_handles.append(handle)
+                    continue
             task_inputs.append((handle, is_browser))
 
         retry_counts = {handle: 0 for handle in windows_handles}
@@ -284,6 +295,15 @@ class Tree:
                             window_sem_nodes.append(win_sem_node)
                     break
                 except Exception as e:
+                    if is_timeout_exception(e):
+                        # The window's UI thread is not answering. Retrying, or even reading
+                        # its Name for the log line, would pay the full timeout again.
+                        logger.warning(
+                            f"Window handle {handle} is not responding to UI Automation; "
+                            f"skipping it for this capture. Error: {e}"
+                        )
+                        failed_handles.append(handle)
+                        break
                     retry_counts[handle] = attempt + 1
                     try:
                         window_name = ControlFromHandle(handle).Name
@@ -320,6 +340,8 @@ class Tree:
     def _append_word_nodes(self, word_elements:list[tuple[str,Rect]], reference_box:Rect, window_name:str,
                             target_nodes:list[TreeElementNode], current_semantic_node:'Optional[SemanticNode]'=None):
         """Append one interactive `TreeElementNode` (control_type='Word') per (word, rect) pair."""
+        if merge_word_nodes_enabled():
+            word_elements = merge_word_runs(word_elements)
         for word, rect in word_elements:
             if not self.element_budget.try_consume():
                 break
@@ -628,6 +650,16 @@ class Tree:
                             except Exception:
                                 pass
 
+                            # Mark the selected radio button, tab or list/tree item. IsSelected is in
+                            # the walk's cache request; elements without SelectionItem report its
+                            # default, False.
+                            try:
+                                is_selected = node.GetCachedPropertyValue(PropertyId.SelectionItemIsSelectedProperty)
+                                if is_selected is True:
+                                    metadata['is_selected'] = True
+                            except Exception:
+                                pass
+
                             if isinstance(node,(ButtonControl,CheckBoxControl)):
                                 try:
                                     toggle_state = node.GetCachedPropertyValue(PropertyId.ToggleToggleStateProperty)
@@ -717,12 +749,6 @@ class Tree:
                                 try:
                                     is_selection_required=node.GetCachedPropertyValue(PropertyId.SelectionIsSelectionRequiredProperty)
                                     metadata['is_selection_required']=is_selection_required
-                                except Exception:
-                                    pass
-
-                                try:
-                                    is_selected=node.GetCachedPropertyValue(PropertyId.SelectionItemIsSelectedProperty)
-                                    metadata['is_selected']=is_selected
                                 except Exception:
                                     pass
 

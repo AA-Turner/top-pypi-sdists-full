@@ -214,6 +214,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return _cmd_policy(args)
     if cmd == "robot":
         return _cmd_robot(args)
+    if cmd == "gpu":
+        return _cmd_gpu(args)
     if cmd == "record":
         return _cmd_record(args)
     if cmd == "key":
@@ -265,6 +267,8 @@ def _command(args: argparse.Namespace) -> str:
 def _a_terminal(args: argparse.Namespace, sub: str | None) -> bool:
     """Whether the command opens a terminal whatever it is given - a shell with no command, a debug machine - which has
     no JSON form: its output is a screen. A command after -- runs once where JSON is asked for (seq/shell_cli.in_terminal)."""
+    if args.cmd == "gpu":
+        return sub == "ssh"
     if args.cmd not in ("policy", "benchmark") or sub not in ("shell", "debug") or getattr(args, "stop", False):
         return False
     return sub == "debug" or not [w for w in (getattr(args, "command", None) or []) if w != "--"]
@@ -278,7 +282,7 @@ def _json_ok(args: argparse.Namespace) -> bool:
     sub = getattr(args, f"{args.cmd}_cmd", None)
     if _a_terminal(args, sub):
         return False
-    return (args.cmd in ("benchmark", "port", "audit", "models", "gpus", "account", "billing")
+    return (args.cmd in ("benchmark", "port", "audit", "models", "gpus", "gpu", "account", "billing")
             or (args.cmd == "usage" and not args.csv)
             or (args.cmd == "adapter" and sub != "rm")
             or (args.cmd == "deploy" and args.dry_run)
@@ -492,30 +496,46 @@ def _cmd_billing(args: argparse.Namespace) -> int:
 
 
 def _cmd_robot(args: argparse.Namespace) -> int:
-    """`seq robot add | list | status | revoke`: each robot's own key to a policy (seq/robot_cli.py), and one robot
-    connected now (seq/machines_cli.py)."""
+    """`seq robot create | list | show | set | rm | key`: a robot of your own (seq/robot_cli.py), and one robot's live
+    detail (seq/machines_cli.py)."""
     from seq import machines_cli, robot_cli
 
-    if args.robot_cmd == "add":
-        return _cmd_platform(args, robot_cli.robot_add, args.policy, expires=args.expires, limit_usd=args.limit)
-    if args.robot_cmd == "set":
-        kw: dict = {}
-        if args.limit is not None:
-            if args.limit.strip().lower() == "none":
-                kw["limit_usd"] = None
-            else:
-                try:
-                    kw["limit_usd"] = float(args.limit)
-                except ValueError:
-                    raise InvalidRequest(f"--limit {args.limit!r}: an amount in dollars, or none") from None
-        return _cmd_platform(args, robot_cli.robot_set, args.key, expires=args.expires, **kw)
+    if args.robot_cmd == "create":
+        return _cmd_platform(args, robot_cli.robot_create, args.name)
     if args.robot_cmd == "list":
         return _cmd_platform(args, robot_cli.robot_list)
-    if args.robot_cmd == "status":
-        return _cmd_platform(args, machines_cli.robot_status, args.key, out=args.out)
+    if args.robot_cmd == "show":
+        return _cmd_platform(args, machines_cli.robot_show, args.name, out=args.out)
+    if args.robot_cmd == "set":
+        return _cmd_platform(args, robot_cli.robot_set, args.name, robot_cli.parse_pairs(args.pairs))
+    if args.robot_cmd == "rm":
+        return _cmd_platform(args, robot_cli.robot_rm, args.name)
+    if args.robot_cmd == "key":
+        return _cmd_platform(args, robot_cli.robot_key, args.name)
+    if args.robot_cmd == "add":
+        return _cmd_platform(args, robot_cli.robot_add)
     if args.robot_cmd == "revoke":
-        return _cmd_platform(args, robot_cli.robot_revoke, args.key)
+        return _cmd_platform(args, robot_cli.robot_revoke)
     raise InvalidRequest(f"seq robot {args.robot_cmd} is not a command; `seq robot --help` lists them")
+
+
+def _cmd_gpu(args: argparse.Namespace) -> int:
+    """`seq gpu add | places | list | ssh | remove`: GPU machines you run yourself (seq/gpu_cli.py). `ssh` hands off
+    to the system ssh and returns its exit code; the rest read or write one gateway route."""
+    from seq import gpu_cli
+
+    sub = args.gpu_cmd
+    if sub == "add":
+        return _cmd_platform(args, gpu_cli.gpu_add, args.place, args.gpu, args.count)
+    if sub == "places":
+        return _cmd_platform(args, gpu_cli.gpu_places, " ".join(args.text), args.limit)
+    if sub == "list":
+        return _cmd_platform(args, gpu_cli.gpu_list)
+    if sub == "ssh":
+        return gpu_cli.gpu_ssh(args.id, args.command, do_print=args.ssh_print, base_url=args.base_url)
+    if sub == "remove":
+        return _cmd_platform(args, gpu_cli.gpu_remove, args.id)
+    raise InvalidRequest(f"seq gpu {args.gpu_cmd} is not a command; `seq gpu --help` lists them")
 
 
 def _cmd_record(args: argparse.Namespace) -> int:

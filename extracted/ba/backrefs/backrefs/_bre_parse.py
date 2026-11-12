@@ -6,17 +6,12 @@ Copyright (c) 2011 - 2020 Isaac Muse <isaacmuse@gmail.com>
 """
 from __future__ import annotations
 import re as _re
-import sys
+import re._parser as _parser  # type: ignore[import]
 import copyreg as _copyreg
 from . import util as _util
 from .util import PatternError
 from . import uniprops as _uniprops
 from typing import Generic, AnyStr, Match, Any, Pattern, cast
-
-if sys.version_info >= (3, 11):
-    import re._parser as _parser  # type: ignore[import]
-else:
-    import sre_parse as _parser
 
 __all__ = ("ReplaceTemplate", "PatternError")
 
@@ -76,11 +71,12 @@ class _SearchParser(Generic[AnyStr]):
     _re_start_wb = r"\b(?=\w)"
     _re_end_wb = r"\b(?<=\w)"
     _line_break = r'(?:\r\n|(?!\r\n)[\n\v\f\r\x85\u2028\u2029])'
-    _bytes_line_break = r'(?>\r\n|[\n\v\f\r\x85])' if _util.PY311 else r'(?:\r\n|(?!\r\n)[\n\v\f\r\x85])'
+    _bytes_line_break = r'(?>\r\n|[\n\v\f\r\x85])'
     _grapheme_cluster = r'(?:{}{}*(?!{}))'
 
     verbose: bool
     unicode: bool
+    named_unicode: tuple[str, int]
     ascii: bool  # noqa: A003
     is_bytes: bool
     search: AnyStr
@@ -283,6 +279,7 @@ class _SearchParser(Generic[AnyStr]):
             current.extend(self.unicode_name(text, in_group))
             if in_group:
                 self.found_named_unicode = True
+                self.named_unicode = (f'\\N{{{text}}}', ord(_util.unicode_char(text)))
         else:
             current.extend(["\\", t])
         return current
@@ -418,27 +415,55 @@ class _SearchParser(Generic[AnyStr]):
         self.verbose = verbose
         self.unicode = unicode_flag
 
-        if t == ")":
-            current.append(t)
+        current.append(t)
         return current
 
     def char_groups(self, t: str, i: _util.StringIter) -> list[str]:
         """Handle character groups."""
 
-        current = []
+        current = []  # type: list[str]
         pos = i.index - 1
         found = False
         escaped = False
+        escape_index = 0
         first = 0
         found_property = False
+        # Index of an unescaped `-` in `current` that is acting as a range operator.
+        range_dash = -1
+        # Whether the last member could start a range if followed by `-`.
+        range_start = False
+        # The last member's original text, position, and code point if it is a named character
+        # beyond the byte range of a byte string.
+        start = ('', 0, None)  # type: tuple[str, int, int | None]
         self.found_property = False
         self.found_named_unicode = False
+
+        def add_member(raw: str, index: int, value: int | None) -> None:
+            """Track a member that was just added, which may start or end a range."""
+
+            nonlocal range_dash, range_start, start
+
+            if range_dash != -1:
+                # This member ends a range.
+                start_raw, start_index, start_value = start
+                if start_value is not None or value is not None:
+                    end = self.get_named_byte_range(start_raw, raw, start_value, value, start_index)
+                    if end is None:
+                        current[range_dash] = ''
+                    else:
+                        current[-1] = end
+                range_dash = -1
+                range_start = False
+            else:
+                start = (raw, index, value)
+                range_start = True
 
         try:
             while True:
                 # Prevent POSIX/Unicode class from being part of a range.
                 if self.found_property and t == '-':
                     current.append(_re.escape(t))
+                    add_member(t, i.index - 1, None)
                     pos += 1
                     t = next(i)
                     self.found_property = False
@@ -448,15 +473,26 @@ class _SearchParser(Generic[AnyStr]):
 
                 if not escaped and t == "\\":
                     escaped = True
+                    escape_index = i.index - 1
                 elif escaped:
                     escaped = False
                     idx = len(current) - 1
                     current.extend(self.reference(t, i, True))
                     if self.found_property:
                         # Prevent Unicode class from being part of a range.
-                        if idx >= 0 and current[idx] == '-':
+                        if idx == range_dash:
                             current[idx] = _re.escape('-')
                         found_property = True
+                        range_dash = -1
+                        range_start = False
+                    elif t == 'N':
+                        raw, code = self.named_unicode
+                        add_member(raw, escape_index, code if self.is_bytes and code > 0xFF else None)
+                    else:
+                        digits = self.get_escape_digits(i, t)
+                        if digits:
+                            current.append(digits)
+                        add_member(f'\\{t}{digits}', escape_index, None)
                 elif t == "[" and not found:
                     found = True
                     first = pos
@@ -470,22 +506,43 @@ class _SearchParser(Generic[AnyStr]):
                         i.rewind(i.index - index)
                     if prop is not None:
                         value = self.unicode_props(prop[0], prop[1], in_group=True)
-                        if current[-1] == '-':
+                        # Prevent POSIX class from being part of a range.
+                        if len(current) - 1 == range_dash:
                             current[-1] = _re.escape('-')
                         current.extend(value)
                         found_property = True
+                        self.found_property = True
                         pos = i.index - 2
+                        range_dash = -1
+                        range_start = False
                     else:
                         current.append(t)
-                elif t == "^" and found and (pos == first + 1):
+                        add_member(t, index - 1, None)
+                elif t == "^" and found and (pos == first + 1) and len(current) == 1:
+                    # Only a `^` directly after the opening `[` negates the set.
                     first = pos
                     current.append(t)
                 elif t == "]" and found and (pos != first + 1):
                     found = False
                     current.append(t)
                     break
-                else:
+                elif t == '-' and range_start:
+                    # A `-` after a member starts a range, unless it is followed by `]`.
                     current.append(t)
+                    range_dash = len(current) - 1
+                    range_start = False
+                else:
+                    if (
+                        t == '^' and
+                        (found_property or self.found_named_unicode) and
+                        ''.join(current) in ('[', '[^')
+                    ):
+                        # Everything before this was a property that resolved to nothing,
+                        # so escape `^` to prevent it from being treated as a negation.
+                        current.append(_re.escape(t))
+                    else:
+                        current.append(t)
+                    add_member(t, i.index - 1, None)
                 pos += 1
                 t = next(i)
         except StopIteration as e:
@@ -539,6 +596,60 @@ class _SearchParser(Generic[AnyStr]):
             else:
                 return ['']
         return [f'\\{value:03o}' if value <= 0xFF else chr(value)]
+
+    def get_escape_digits(self, i: _util.StringIter, e: str) -> str:
+        r"""
+        Get the digits that are part of an escape in a character set (`\x`, `\u`, `\U`, or octal).
+
+        This allows an escape to be treated as a single member of the character set.
+        """
+
+        if e == 'x':
+            count, valid = 2, _HEX
+        elif e == 'u' and not self.is_bytes:
+            count, valid = 4, _HEX
+        elif e == 'U' and not self.is_bytes:
+            count, valid = 8, _HEX
+        elif e in _OCTAL:
+            count, valid = 2, _OCTAL
+        else:
+            return ''
+
+        digits = []
+        while count:
+            try:
+                c = next(i)
+            except StopIteration:
+                break
+            if c.lower() not in valid:
+                i.rewind(1)
+                break
+            digits.append(c)
+            count -= 1
+        return ''.join(digits)
+
+    @staticmethod
+    def get_named_byte_range(
+        start: str,
+        end: str,
+        start_value: int | None,
+        end_value: int | None,
+        index: int
+    ) -> str | None:
+        """
+        Get the end of a range in a byte string where either end is a named character beyond the byte range.
+
+        `start_value` and `end_value` are the code points of the ends that are named characters beyond the byte
+        range, and `None` for ends within the byte range. `start` and `end` are the original text of each end,
+        and `index` is where the range starts, both used for errors.
+
+        A range that ends beyond the byte range includes everything up to the end of the byte range, so return
+        the end to use in its place. A range that starts beyond the byte range matches nothing, so return `None`.
+        """
+
+        if start_value is not None and (end_value is None or end_value < start_value):
+            raise PatternError(f'bad character range {start}-{end} at position {index}')
+        return None if start_value is not None else '\\377'
 
     def unicode_props(
         self,
@@ -1183,7 +1294,7 @@ class _ReplaceParser(Generic[AnyStr]):
         count = len(self.span_stack)
         self.end_found = False
         try:
-            while not self.end_found:
+            while True:
                 t = next(i)
                 if self.use_format and t in _CURLY_BRACKETS:
                     self.handle_format(t, i)
@@ -1236,10 +1347,9 @@ class _ReplaceParser(Generic[AnyStr]):
                 except StopIteration:
                     self.result.append(t)
                     raise
-            elif self.single_stack:
-                this_case = self.get_single_stack()
-                if this_case is not None:
-                    self.result.append(self.convert_case(t, this_case))
+            else:
+                # The stack always has the case just added.
+                self.result.append(self.convert_case(t, cast(int, self.get_single_stack())))
         except StopIteration:
             pass
 

@@ -26,7 +26,7 @@ from optax._src import base
 import optax.tree
 
 
-def _normalize_tree(x):
+def _normalize_tree(x: base.ArrayTree) -> base.ArrayTree:
   # divide by the L2 norm of the tree weights.
   return optax.tree.scale(1.0 / optax.tree.norm(x), x)
 
@@ -77,7 +77,7 @@ def power_iteration(
   Args:
     matrix: a square matrix, either as an array or a callable implementing a
       matrix-vector product.
-    v0: initial vector approximating the dominiant eigenvector. If ``matrix`` is
+    v0: initial vector approximating the dominant eigenvector. If ``matrix`` is
       an array of size (n, n), v0 must be a vector of size (n,). If instead
       ``matrix`` is a callable, then v0 must be a tree with the same structure
       as the input of this callable. If this argument is None and ``matrix`` is
@@ -123,8 +123,8 @@ def power_iteration(
       # v0 is uniformly distributed in [-1, 1]
       v0 = jax.random.uniform(
           key,
-          shape=matrix.shape[-1:],
-          dtype=matrix.dtype,
+          shape=matrix.shape[-1:],  # pyrefly: ignore[missing-attribute]
+          dtype=matrix.dtype,  # pyrefly: ignore[missing-attribute]
           minval=-1.0,
           maxval=1.0,
       )
@@ -187,7 +187,8 @@ def matrix_inverse_pth_root(
 
   # We use float32 for the matrix inverse pth root.
   # Switch to f64 if you have hardware that supports it.
-  matrix_size = matrix.shape[0]  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  # pyrefly: ignore [missing-attribute]
+  matrix_size = matrix.shape[0]
   alpha = jnp.asarray(-1.0 / p, jnp.float32)
   identity = jnp.eye(matrix_size, dtype=jnp.float32)
   max_ev, _ = power_iteration(
@@ -275,9 +276,11 @@ def matrix_inverse_pth_root(
         _iter_condition, _iter_body, init_state
     )
     error = jnp.max(jnp.abs(mat_m - identity))
-    is_converged = jnp.asarray(convergence, old_mat_h.dtype)  # pytype: disable=attribute-error  # lax-types # noqa: E501
+    # pyrefly: ignore [missing-attribute]
+    is_converged = jnp.asarray(convergence, old_mat_h.dtype)
     resultant_mat_h = is_converged * mat_h + (1 - is_converged) * old_mat_h
-    resultant_mat_h = jnp.asarray(resultant_mat_h, matrix.dtype)  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+    # pyrefly: ignore [missing-attribute]
+    resultant_mat_h = jnp.asarray(resultant_mat_h, matrix.dtype)
   return resultant_mat_h, error
 
 

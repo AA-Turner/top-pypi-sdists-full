@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: coverage
-Version: 7.17.2
+Version: 7.17.3
 Summary: Code coverage measurement for Python
 Home-page: https://github.com/coveragepy/coveragepy
 Author: Ned Batchelder and many others
 Author-email: ned@nedbatchelder.com
 License: Apache-2.0
-Project-URL: Documentation, https://coverage.readthedocs.io/en/7.17.2
+Project-URL: Documentation, https://coverage.readthedocs.io/en/7.17.3
 Project-URL: Funding, https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=pypi
 Project-URL: Issues, https://github.com/coveragepy/coveragepy/issues
 Project-URL: Mastodon, https://hachyderm.io/@coveragepy
@@ -75,13 +75,13 @@ Coverage.py runs on these versions of Python:
 
 .. PYVERSIONS
 
-* Python 3.11 through 3.16.0a1, including free-threading.
+* Python 3.11 through 3.16.0a2, including free-threading.
 * PyPy3 version 3.11.
 
 Documentation is on `Read the Docs`_.  Code repository and issue tracker are on
 `GitHub`_.
 
-.. _Read the Docs: https://coverage.readthedocs.io/en/7.17.2/
+.. _Read the Docs: https://coverage.readthedocs.io/en/7.17.3/
 .. _GitHub: https://github.com/coveragepy/coveragepy
 
 
@@ -96,12 +96,12 @@ For Enterprise
    :widths: 10 100
 
    * - |tideliftlogo|
-     - `Available as part of the Tidelift Subscription. <https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=readme>`_
+     - `Available as part of the Tidelift Subscription. <https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=readme>`__
        Coverage and thousands of other packages are working with
        Tidelift to deliver one enterprise subscription that covers all of the open
        source you use.  If you want the flexibility of open source and the confidence
        of commercial-grade software, this is for you.
-       `Learn more. <https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=readme>`_
+       `Learn more. <https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=readme>`__
 
 
 Getting Started
@@ -110,15 +110,15 @@ Getting Started
 Looking to run ``coverage`` on your test suite? See the `Quick Start section`_
 of the docs.
 
-.. _Quick Start section: https://coverage.readthedocs.io/en/7.17.2/#quick-start
+.. _Quick Start section: https://coverage.readthedocs.io/en/7.17.3/#quick-start
 
 
-Change history
+Change History
 --------------
 
 The complete history of changes is on the `change history page`_.
 
-.. _change history page: https://coverage.readthedocs.io/en/7.17.2/changes.html
+.. _change history page: https://coverage.readthedocs.io/en/7.17.3/changes.html
 
 
 Code of Conduct
@@ -134,10 +134,15 @@ Community Code of Conduct`_.
 Contributing
 ------------
 
-Found a bug? Want to help improve the code or documentation? See the
-`Contributing section`_ of the docs.
+The `Contributing section`_ of the docs has full details about contributing to
+coverage.py, but importantly:
 
-.. _Contributing section: https://coverage.readthedocs.io/en/7.17.2/contributing.html
+- Communicate concisely.
+- Check for pull requests in progress.
+- Include tests but don't over-mock.
+- Describe user-visible changes in a scriv changelog fragment.
+
+.. _Contributing section: https://coverage.readthedocs.io/en/7.17.3/contributing.html
 
 
 Security
@@ -165,7 +170,7 @@ Licensed under the `Apache 2.0 License`_.  For details, see `NOTICE.txt`_.
     :target: https://github.com/coveragepy/coveragepy/actions/workflows/quality.yml
     :alt: Quality check status
 .. |docs| image:: https://readthedocs.org/projects/coverage/badge/?version=latest&style=flat
-    :target: https://coverage.readthedocs.io/en/7.17.2/
+    :target: https://coverage.readthedocs.io/en/7.17.3/
     :alt: Documentation
 .. |kit| image:: https://img.shields.io/pypi/v/coverage
     :target: https://pypi.org/project/coverage/

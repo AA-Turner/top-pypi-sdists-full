@@ -1,1 +1,0 @@
-import{t as e}from"./Load3D-JDBHx3SP.js";export{e as default};

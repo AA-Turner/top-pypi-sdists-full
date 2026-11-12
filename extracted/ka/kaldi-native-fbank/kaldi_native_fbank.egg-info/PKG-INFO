@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kaldi_native_fbank
-Version: 1.23.0
+Version: 1.23.1
 Home-page: https://github.com/csukuangfj/kaldi-native-fbank
 Author: Fangjun Kuang
 Author-email: csukuangfj@gmail.com

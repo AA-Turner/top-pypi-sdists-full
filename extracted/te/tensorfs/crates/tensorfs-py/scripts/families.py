@@ -92,6 +92,8 @@ class Spec(TypedDict, total=False):
     trained_on: list[TrainedOn]
     optional: dict[str, list[str]]
     converted: dict[str, str]
+    #: Carrier parts the import folds into their weight's encoding (an fp8 weight's `.weight_scale`): no canonical key.
+    folds: list[str]
     variants: dict[str, tuple[str, str]]
     banked: dict[str, str]
 
@@ -227,10 +229,13 @@ FAMILIES: list[Spec] = [
         # served tables, never a weight.
         "sites": {"transformer": [(f"transformer_blocks.{n}.adaln_curve", [96768, 8]) for n in range(50)]},
         "probe": {"component": "transformer", "keys": H3_PROBED, "variants": {"transformer": "transformer", "transformer_ref": "transformer_ref"}},
-        # musubi-tuner (AkaneTendo25@0499c2f8 minimax_h3_train_network.py `extra_metadata`): the
-        # mode picks the DiT it trains. ai-toolkit (ostris@b69b9831 minimax_h3.py): only the
-        # ref2va classes are decisive; arch `minimax_h3` trains either partition.
+        # musubi-tuner: kohya-ss@f8a1b037 minimax_h3_train_network.py:1146 names the DiT its --task trains
+        # (`ref2va` for ref2va, else `fl2va`); AkaneTendo25@0499c2f8's `extra_metadata` names the mode.
+        # ai-toolkit (ostris@b69b9831 minimax_h3.py): only the ref2va classes are decisive; arch
+        # `minimax_h3` trains either partition.
         "trained_on": [
+            {"producer": "musubi-tuner", "field": "ss_minimax_h3_base_family",
+             "values": {"fl2va": "transformer", "ref2va": "transformer_ref"}},
             {"producer": "musubi-tuner", "field": "ss_h3_training_mode",
              "values": {"fl2va": "transformer", "ref2va": "transformer_ref", "ref2va_omni": "transformer_ref"}},
             {"producer": "ai-toolkit", "field": "ss_base_model_version",
@@ -255,13 +260,14 @@ FAMILIES: list[Spec] = [
         "reference": "hf://circlestone-labs/Anima-Base-v1.0-Diffusers@073c3a9db359c31ad0e8aa268d15775473c2176c",
         "classes": ["AnimaTextConditioner"],
         "folders": ["transformer", "text_conditioner", "text_encoder", "vae"],
-        "sources": ["anima.single_file"],
+        "sources": ["anima.single_file", "anima.lora"],
     },
     {
         "name": "qwen-image",
         "reference": "hf://Qwen/Qwen-Image-2512@25468b98e3276ca6700de15c6628e51b7de54a26",
         "classes": ["QwenImagePipeline", "QwenImageEditPlusPipeline", "QwenImageTransformer2DModel"],
         "folders": ["transformer", "text_encoder", "vae"],
+        "sources": ["qwenimage.lora"],
     },
     {
         "name": "qwen-image-2",
@@ -282,6 +288,7 @@ FAMILIES: list[Spec] = [
         "reference": "hf://OpenMOSS-Team/MOSS-Image-SFT@f972bd4b4b9e3852133cc5da954d87bc32cd8fb9",
         "classes": ["MOSSImagePipeline", "MOSSImageTransformer"],
         "folders": ["transformer", "text_encoder", "vae"],
+        "sources": ["moss.lora"],
     },
     {
         "name": "ideogram-4",
@@ -291,6 +298,8 @@ FAMILIES: list[Spec] = [
         "sources": ["ideogram4.fp8"],
         # The fp8 reference's fused Q/K/V is split by its table: that output is canonical.
         "converted": {"transformer": "ideogram4.fp8", "unconditional_transformer": "ideogram4.fp8"},
+        # The text encoder's fp8 weights fold their per-row scales into fp8.rowwise.
+        "folds": [".weight_scale"],
         "probe": {
             "component": "transformer",
             "keys": [f"layers.0.attention.to_{p}.weight" for p in "qkv"],
@@ -716,6 +725,9 @@ def build(spec: Spec) -> Family:
         source, at = component(spec["reference"], files, folder)
         name = spec.get("converted", {}).get(folder)
         keys = converted(table(name), folder, source) if name else source
+        weights = {k for k, _ in keys}
+        keys = [(k, s) for k, s in keys if not any(k.endswith(f) and k.removesuffix(f) + ".weight" in weights
+                                                     for f in spec.get("folds", []))]
         where[folder] = readers(spec, folder, at, source)
         shapes[folder] = dict(keys)
         mine = sorted((k, tuple(s)) for k, s in keys)

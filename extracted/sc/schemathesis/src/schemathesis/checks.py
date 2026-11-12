@@ -292,6 +292,8 @@ class RunChecks:
     instances: dict[str, CheckInstance]
     # Per-instance locks so distinct checks don't serialize globally.
     locks: dict[str, threading.Lock]
+    # Operations whose missing and invalid credentials were already rejected in this run.
+    auth_enforced_operations: set[str] = field(default_factory=set)
 
     @classmethod
     def from_registry(cls, config: ChecksConfig) -> RunChecks:
@@ -586,10 +588,13 @@ def validate(
 
 def collect_after_run_failures(
     config: ProjectConfig,
-    checks: list[tuple[str, RunCheck]],
+    run_checks: RunChecks,
     transport_kwargs: dict[str, Any] | None = None,
 ) -> list[Failure]:
     """Run each class-based check's `after_run` once the run has completed and collect their failures."""
+    checks = run_checks.for_run()
+    if not checks:
+        return []
     from requests.structures import CaseInsensitiveDict
 
     headers = config.headers_for()

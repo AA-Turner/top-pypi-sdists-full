@@ -38,7 +38,8 @@ class IamMigrationStatus(object):
         'all_users_group_id': 'str',
         'service_accounts_group_id': 'str',
         'admin_group_id': 'str',
-        'conversion_incomplete': 'bool'
+        'conversion_incomplete': 'bool',
+        'directory_sync': 'bool'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class IamMigrationStatus(object):
         'all_users_group_id': 'all_users_group_id',
         'service_accounts_group_id': 'service_accounts_group_id',
         'admin_group_id': 'admin_group_id',
-        'conversion_incomplete': 'conversion_incomplete'
+        'conversion_incomplete': 'conversion_incomplete',
+        'directory_sync': 'directory_sync'
     }
 
-    def __init__(self, state=None, option=None, all_users_group_id=None, service_accounts_group_id=None, admin_group_id=None, conversion_incomplete=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, state=None, option=None, all_users_group_id=None, service_accounts_group_id=None, admin_group_id=None, conversion_incomplete=False, directory_sync=False, local_vars_configuration=None):  # noqa: E501
         """IamMigrationStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class IamMigrationStatus(object):
         self._service_accounts_group_id = None
         self._admin_group_id = None
         self._conversion_incomplete = None
+        self._directory_sync = None
         self.discriminator = None
 
         self.state = state
@@ -75,6 +78,8 @@ class IamMigrationStatus(object):
             self.admin_group_id = admin_group_id
         if conversion_incomplete is not None:
             self.conversion_incomplete = conversion_incomplete
+        if directory_sync is not None:
+            self.directory_sync = directory_sync
 
     @property
     def state(self):
@@ -215,6 +220,29 @@ class IamMigrationStatus(object):
         """
 
         self._conversion_incomplete = conversion_incomplete
+
+    @property
+    def directory_sync(self):
+        """Gets the directory_sync of this IamMigrationStatus.  # noqa: E501
+
+        Whether the organization's users and groups come from a synced directory. Its groups belong to the identity provider, so converting offers it Keep current access and Start from scratch only: the first keeps users' direct role bindings as they are and the second leaves every group but Super Admins without a role.  # noqa: E501
+
+        :return: The directory_sync of this IamMigrationStatus.  # noqa: E501
+        :rtype: bool
+        """
+        return self._directory_sync
+
+    @directory_sync.setter
+    def directory_sync(self, directory_sync):
+        """Sets the directory_sync of this IamMigrationStatus.
+
+        Whether the organization's users and groups come from a synced directory. Its groups belong to the identity provider, so converting offers it Keep current access and Start from scratch only: the first keeps users' direct role bindings as they are and the second leaves every group but Super Admins without a role.  # noqa: E501
+
+        :param directory_sync: The directory_sync of this IamMigrationStatus.  # noqa: E501
+        :type: bool
+        """
+
+        self._directory_sync = directory_sync
 
     def to_dict(self):
         """Returns the model properties as a dict"""

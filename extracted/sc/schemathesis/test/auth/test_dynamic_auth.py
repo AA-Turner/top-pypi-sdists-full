@@ -19,8 +19,7 @@ from schemathesis.auths import (
     set_on_case,
 )
 from schemathesis.checks import not_a_server_error
-from schemathesis.config import ApiKeyAuthConfig, ConfigError, SchemathesisConfig
-from schemathesis.config._auth import DynamicTokenAuthConfig
+from schemathesis.config import ApiKeyAuthConfig, ConfigError, DynamicTokenAuthConfig, SchemathesisConfig
 from schemathesis.core.errors import AuthenticationError
 from schemathesis.generation import GenerationMode
 from schemathesis.specs.openapi.adapter.security import build_auth_provider
@@ -276,7 +275,7 @@ def test_fetch_http_goes_through_configured_proxy(ctx, app_runner):
         return jsonify({"access_token": "test-token"})
 
     schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    schema.config.proxy = f"http://127.0.0.1:{app_runner.run_flask_app(proxy)}"
+    schema.config.proxy = app_runner.openapi_url(proxy, path="")
     operation = schema["/data"]["GET"]
     with refusing_url() as url:
         schema.config.update(base_url=url)
@@ -522,6 +521,7 @@ def test_reauth_state_not_shared_across_calls(ctx):
     assert schema.reauth_state.disabled is False
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_unused_dynamic_auth_warning(ctx, cli, app_runner, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -553,7 +553,6 @@ def test_unused_dynamic_auth_warning(ctx, cli, app_runner, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_dynamic_auth_unsupported_scheme_type_reported(ctx, cli, app_runner, snapshot_cli):
     app = _protected_app(ctx, "MutualTLS", {"type": "mutualTLS"})
     assert (

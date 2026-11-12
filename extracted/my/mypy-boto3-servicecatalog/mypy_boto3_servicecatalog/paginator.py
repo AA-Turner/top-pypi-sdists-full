@@ -25,6 +25,7 @@ Usage::
         ListResourcesForTagOptionPaginator,
         ListServiceActionsForProvisioningArtifactPaginator,
         ListServiceActionsPaginator,
+        ListStackInstancesForProvisionedProductPaginator,
         ListTagOptionsPaginator,
         ScanProvisionedProductsPaginator,
         SearchProductsAsAdminPaginator,
@@ -46,6 +47,7 @@ Usage::
     list_resources_for_tag_option_paginator: ListResourcesForTagOptionPaginator = client.get_paginator("list_resources_for_tag_option")
     list_service_actions_for_provisioning_artifact_paginator: ListServiceActionsForProvisioningArtifactPaginator = client.get_paginator("list_service_actions_for_provisioning_artifact")
     list_service_actions_paginator: ListServiceActionsPaginator = client.get_paginator("list_service_actions")
+    list_stack_instances_for_provisioned_product_paginator: ListStackInstancesForProvisionedProductPaginator = client.get_paginator("list_stack_instances_for_provisioned_product")
     list_tag_options_paginator: ListTagOptionsPaginator = client.get_paginator("list_tag_options")
     scan_provisioned_products_paginator: ScanProvisionedProductsPaginator = client.get_paginator("scan_provisioned_products")
     search_products_as_admin_paginator: SearchProductsAsAdminPaginator = client.get_paginator("search_products_as_admin")
@@ -86,6 +88,8 @@ from .type_defs import (
     ListServiceActionsForProvisioningArtifactOutputTypeDef,
     ListServiceActionsInputPaginateTypeDef,
     ListServiceActionsOutputTypeDef,
+    ListStackInstancesForProvisionedProductInputPaginateTypeDef,
+    ListStackInstancesForProvisionedProductOutputTypeDef,
     ListTagOptionsInputPaginateTypeDef,
     ListTagOptionsOutputTypeDef,
     ScanProvisionedProductsInputPaginateTypeDef,
@@ -114,6 +118,7 @@ __all__ = (
     "ListResourcesForTagOptionPaginator",
     "ListServiceActionsForProvisioningArtifactPaginator",
     "ListServiceActionsPaginator",
+    "ListStackInstancesForProvisionedProductPaginator",
     "ListTagOptionsPaginator",
     "ScanProvisionedProductsPaginator",
     "SearchProductsAsAdminPaginator",
@@ -400,6 +405,31 @@ class ListServiceActionsPaginator(_ListServiceActionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/servicecatalog/paginator/ListServiceActions.html#ServiceCatalog.Paginator.ListServiceActions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_servicecatalog/paginators/#listserviceactionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListStackInstancesForProvisionedProductPaginatorBase = Paginator[
+        ListStackInstancesForProvisionedProductOutputTypeDef
+    ]
+else:
+    _ListStackInstancesForProvisionedProductPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListStackInstancesForProvisionedProductPaginator(
+    _ListStackInstancesForProvisionedProductPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/servicecatalog/paginator/ListStackInstancesForProvisionedProduct.html#ServiceCatalog.Paginator.ListStackInstancesForProvisionedProduct)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_servicecatalog/paginators/#liststackinstancesforprovisionedproductpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListStackInstancesForProvisionedProductInputPaginateTypeDef]
+    ) -> PageIterator[ListStackInstancesForProvisionedProductOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/servicecatalog/paginator/ListStackInstancesForProvisionedProduct.html#ServiceCatalog.Paginator.ListStackInstancesForProvisionedProduct.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_servicecatalog/paginators/#liststackinstancesforprovisionedproductpaginator)
         """
 
 

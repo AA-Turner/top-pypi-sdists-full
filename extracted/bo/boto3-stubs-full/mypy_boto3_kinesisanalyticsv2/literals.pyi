@@ -35,6 +35,8 @@ __all__ = (
     "ListApplicationSnapshotsPaginatorName",
     "ListApplicationVersionsPaginatorName",
     "ListApplicationsPaginatorName",
+    "ListSnapshotOperationsPaginatorName",
+    "ListSnapshotsPaginatorName",
     "LogLevelType",
     "MetricsLevelType",
     "OperationStatusType",
@@ -44,7 +46,14 @@ __all__ = (
     "ResourceServiceName",
     "RuntimeEnvironmentType",
     "ServiceName",
+    "SnapshotFormatType",
+    "SnapshotInitiatorOperationType",
+    "SnapshotInitiatorType",
+    "SnapshotModeType",
+    "SnapshotOperationStatusType",
+    "SnapshotOperationType",
     "SnapshotStatusType",
+    "StorageLocationTypeType",
     "UrlTypeType",
 )
 
@@ -74,6 +83,8 @@ ListApplicationOperationsPaginatorName = Literal["list_application_operations"]
 ListApplicationSnapshotsPaginatorName = Literal["list_application_snapshots"]
 ListApplicationVersionsPaginatorName = Literal["list_application_versions"]
 ListApplicationsPaginatorName = Literal["list_applications"]
+ListSnapshotOperationsPaginatorName = Literal["list_snapshot_operations"]
+ListSnapshotsPaginatorName = Literal["list_snapshots"]
 LogLevelType = Literal["DEBUG", "ERROR", "INFO", "WARN"]
 MetricsLevelType = Literal["APPLICATION", "OPERATOR", "PARALLELISM", "TASK"]
 OperationStatusType = Literal["CANCELLED", "FAILED", "IN_PROGRESS", "SUCCESSFUL"]
@@ -94,7 +105,16 @@ RuntimeEnvironmentType = Literal[
     "ZEPPELIN-FLINK-2_0",
     "ZEPPELIN-FLINK-3_0",
 ]
+SnapshotFormatType = Literal["CANONICAL"]
+SnapshotInitiatorOperationType = Literal["CreateSnapshot", "ImportSnapshot", "SystemCreateSnapshot"]
+SnapshotInitiatorType = Literal["SYSTEM", "USER"]
+SnapshotModeType = Literal["APPLICATION_SNAPSHOTS_LEGACY", "ENHANCED_SNAPSHOTS"]
+SnapshotOperationStatusType = Literal["CANCELLED", "FAILED", "IN_PROGRESS", "SUCCESSFUL"]
+SnapshotOperationType = Literal[
+    "CreateSnapshot", "DeleteSnapshot", "ExportSnapshot", "ImportSnapshot", "SystemCreateSnapshot"
+]
 SnapshotStatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
+StorageLocationTypeType = Literal["S3"]
 UrlTypeType = Literal["FLINK_DASHBOARD_URL", "ZEPPELIN_UI_URL"]
 KinesisAnalyticsV2ServiceName = Literal["kinesisanalyticsv2"]
 ServiceName = Literal[
@@ -542,6 +562,8 @@ PaginatorName = Literal[
     "list_application_snapshots",
     "list_application_versions",
     "list_applications",
+    "list_snapshot_operations",
+    "list_snapshots",
 ]
 RegionName = Literal[
     "af-south-1",

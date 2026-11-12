@@ -9,7 +9,7 @@ import typing_extensions
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Object:
-    _type_prefix: typing.ClassVar[typing.Optional[str]]
+    _type_prefixes: typing.ClassVar[tuple[str, ...]]
     _prefix_to_type: typing.ClassVar[dict[str, type[Object]]]
     _load: typing.Optional[
         collections.abc.Callable[
@@ -45,6 +45,8 @@ class Object:
     def _is_hydrated(self) -> bool: ...
     @_is_hydrated.setter
     def _is_hydrated(self, value: bool): ...
+    @classmethod
+    def _has_type_prefix(cls, object_id: str) -> bool: ...
     def _init(
         self,
         rep: str,

@@ -36,7 +36,7 @@ def offsets(stack):
 
     Signature: array,!offsets
     """
-    stack.append(to_layout(stack.pop()).offsets)
+    stack.append(ensure_array(to_layout(stack.pop()).offsets))
 
 
 def mask(stack):
@@ -170,7 +170,7 @@ def counts2nestedindex(stack):
     Signature: local_counts,target_offsets,!counts2nestedindex
     Outputs a jagged array with same axis-0 shape as counts axis-1
     """
-    target_offsets = stack.pop()
+    target_offsets = ensure_array(stack.pop())
     local_counts = stack.pop()
     out = awkward.unflatten(
         numpy.arange(target_offsets[-1], dtype=numpy.int64),
@@ -287,8 +287,8 @@ def children(stack):
     Signature: offsets,globalparents,!children
     Output will be a jagged array with same outer shape as globalparents content
     """
-    parents = stack.pop()
-    offsets = stack.pop()
+    parents = ensure_array(stack.pop())
+    offsets = ensure_array(stack.pop())
     coffsets, ccontent = _children_kernel(offsets, parents)
     out = awkward.Array(
         awkward.contents.ListOffsetArray(
@@ -416,7 +416,7 @@ def distinctChildrenDeep(stack):
     """
     global_pdgs = stack.pop()
     global_parents = stack.pop()
-    offsets = stack.pop()
+    offsets = ensure_array(stack.pop())
     coffsets, ccontent = _distinctChildrenDeep_kernel(
         offsets,
         global_parents,
@@ -458,7 +458,7 @@ def nestedindex(stack):
     Index arrays should all be same shape flat arrays
     Outputs a jagged array with same outer shape as index arrays
     """
-    indexers = stack[:]
+    indexers = [ensure_array(idx) for idx in stack]
     stack.clear()
     # return awkward.concatenate([idx[:, None] for idx in indexers], axis=1)
     n = len(indexers)

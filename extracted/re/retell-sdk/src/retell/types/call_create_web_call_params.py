@@ -117,7 +117,8 @@ class CallCreateWebCallParams(TypedDict, total=False):
     agent_id: Required[str]
     """Unique id of agent used for the call.
 
-    Your agent would contain the LLM Websocket url used for this call.
+    Your agent would contain the LLM Websocket url used for this call. A payment
+    agent starts an isolated PCI test call that ends when payment completes.
     """
 
     agent_override: AgentOverride
@@ -134,8 +135,8 @@ class CallCreateWebCallParams(TypedDict, total=False):
     """Start the call at this conversation flow node (stage).
 
     Must be a valid node id in the agent's conversation flow. Only applicable when
-    the agent uses conversation flow as the response engine. Ignored for retell-llm
-    agents.
+    the agent uses conversation flow as the response engine. For a payment agent,
+    the node belongs to its own conversation flow. Ignored for retell-llm agents.
     """
 
     current_state: Optional[str]
@@ -2118,6 +2119,7 @@ class AgentOverrideAgent(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2132,6 +2134,7 @@ class AgentOverrideAgent(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2365,6 +2368,7 @@ class AgentOverrideConversationFlowBackupModelBackupModelChoice(TypedDict, total
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2379,6 +2383,7 @@ class AgentOverrideConversationFlowBackupModelBackupModelChoice(TypedDict, total
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2441,6 +2446,7 @@ class AgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict, to
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2455,6 +2461,7 @@ class AgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict, to
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2523,6 +2530,7 @@ class AgentOverrideConversationFlowModelConfigCascadingModelConfigBackupBackupMo
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2537,6 +2545,7 @@ class AgentOverrideConversationFlowModelConfigCascadingModelConfigBackupBackupMo
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2584,6 +2593,7 @@ class AgentOverrideConversationFlowModelConfigCascadingModelConfigPrimary(TypedD
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2598,6 +2608,7 @@ class AgentOverrideConversationFlowModelConfigCascadingModelConfigPrimary(TypedD
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2683,6 +2694,7 @@ class AgentOverrideConversationFlowModelConfigDuplexModelConfigBackend(TypedDict
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2697,6 +2709,7 @@ class AgentOverrideConversationFlowModelConfigDuplexModelConfigBackend(TypedDict
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2738,6 +2751,7 @@ class AgentOverrideConversationFlowModelConfigDuplexModelConfigBackupBackupModel
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2752,6 +2766,7 @@ class AgentOverrideConversationFlowModelConfigDuplexModelConfigBackupBackupModel
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2887,6 +2902,7 @@ class AgentOverrideRetellLlmBackupModelBackupModelChoice(TypedDict, total=False)
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2901,6 +2917,7 @@ class AgentOverrideRetellLlmBackupModelBackupModelChoice(TypedDict, total=False)
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2968,6 +2985,7 @@ class AgentOverrideRetellLlmModelConfigCascadingModelConfigBackupBackupModelRef(
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2982,6 +3000,7 @@ class AgentOverrideRetellLlmModelConfigCascadingModelConfigBackupBackupModelRef(
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3029,6 +3048,7 @@ class AgentOverrideRetellLlmModelConfigCascadingModelConfigPrimary(TypedDict, to
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3043,6 +3063,7 @@ class AgentOverrideRetellLlmModelConfigCascadingModelConfigPrimary(TypedDict, to
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3128,6 +3149,7 @@ class AgentOverrideRetellLlmModelConfigDuplexModelConfigBackend(TypedDict, total
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3142,6 +3164,7 @@ class AgentOverrideRetellLlmModelConfigDuplexModelConfigBackend(TypedDict, total
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3183,6 +3206,7 @@ class AgentOverrideRetellLlmModelConfigDuplexModelConfigBackupBackupModelRef(Typ
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3197,6 +3221,7 @@ class AgentOverrideRetellLlmModelConfigDuplexModelConfigBackupBackupModelRef(Typ
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3313,6 +3338,7 @@ class AgentOverrideRetellLlm(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3327,6 +3353,7 @@ class AgentOverrideRetellLlm(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]

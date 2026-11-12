@@ -1,13 +1,19 @@
-import os
-import io
-import gc
-import sys
-import pytest
 import asyncio
+import gc
+import io
+import os
+import sys
 from unittest.mock import Mock
 
-from aioconsole.stream import create_standard_streams, ainput, aprint
-from aioconsole.stream import is_pipe_transport_compatible, get_standard_streams
+import pytest
+
+from aioconsole.stream import (
+    ainput,
+    aprint,
+    create_standard_streams,
+    get_standard_streams,
+    is_pipe_transport_compatible,
+)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Not supported on windows")
@@ -15,9 +21,10 @@ from aioconsole.stream import is_pipe_transport_compatible, get_standard_streams
 async def test_create_standard_stream_with_pipe(is_uvloop):
     r1, w1 = os.pipe()
     r2, w2 = os.pipe()
-    stdin = open(r1)
-    stdout = open(w1, "w")
-    stderr = open(w2, "w")
+    # The file objects do not own the file descriptors, see clean-up below
+    stdin = open(r1, closefd=False)
+    stdout = open(w1, "w", closefd=False)
+    stderr = open(w2, "w", closefd=False)
 
     assert is_pipe_transport_compatible(stdin)
     assert is_pipe_transport_compatible(stdout)
@@ -35,7 +42,6 @@ async def test_create_standard_stream_with_pipe(is_uvloop):
     assert os.read(r2, 2) == b"b\n"
 
     # Mock stdout.close() to check if it has been called
-    stdout_actual_close = stdout.close
     stdout.close = Mock()
 
     # Close the transport and delete the object
@@ -46,12 +52,14 @@ async def test_create_standard_stream_with_pipe(is_uvloop):
     # Check that the transport has been closed but not stdout
     assert not stdout.close.called
 
-    # Weirdly enough, uvloop DID close the file descriptor.
-    # Probably because it used the file descriptor directly instead
-    # of the pipe object. However, this should not be an issue since
-    # file descriptors 0, 1, 2 do not seem to be affected by this.
+    # Unlike asyncio, uvloop closes the file descriptors of its pipe
+    # transports (at the latest when the loop is closed), regardless of
+    # `ProtectedPipe`. The actual standard streams are not affected though,
+    # since libuv never closes file descriptors 0, 1 and 2.
     if not is_uvloop:
-        stdout_actual_close()
+        for fd in (r1, w1, w2):
+            os.close(fd)
+    os.close(r2)
 
 
 @pytest.mark.asyncio
@@ -194,7 +202,7 @@ async def test_standard_stream_pipe_buffering(is_uvloop):
     if is_uvloop:
         pytest.skip("This test is flaky with uvloop for some reason.")
     r1, w1 = os.pipe()
-    r2, w2 = os.pipe()
+    _r2, w2 = os.pipe()
     stdin = open(r1)
     stdout = open(w1, "w")
     stderr = open(w2, "w")
@@ -203,7 +211,7 @@ async def test_standard_stream_pipe_buffering(is_uvloop):
     assert is_pipe_transport_compatible(stdout)
     assert is_pipe_transport_compatible(stderr)
 
-    reader, writer1, writer2 = await create_standard_streams(stdin, stdout, stderr)
+    reader, writer1, _writer2 = await create_standard_streams(stdin, stdout, stderr)
 
     blob_size = 4 * 1024 * 1024  # 4 MB
     writer1.write("a\n" + "b" * blob_size + "\n")

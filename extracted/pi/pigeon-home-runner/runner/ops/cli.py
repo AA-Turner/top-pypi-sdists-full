@@ -178,6 +178,16 @@ def build_parser():
                    help="Oracle mode: llm, or deterministic -- "
                         "the Pi Light mode, no model is called "
                         "(default: llm)")
+    g.add_argument("--oracle-tool-mode",
+                   choices=["full", "confirm", "confined", "readonly"],
+                   default=None, metavar="MODE",
+                   help="Oracle run tool mode for this process: "
+                        "full (the charter default: commands run), "
+                        "confirm (each command needs a yes at the "
+                        "runner's terminal), confined (not available "
+                        "in this build: the run tool refuses rather "
+                        "than run unconfined), readonly (the run "
+                        "tool refuses) (default: full)")
     g.add_argument("--protocol-v2", action="store_true",
                    default=None,
                    help="before a job runs, send a version 2 "
@@ -202,6 +212,16 @@ def build_parser():
                         "record, page), deterministic (tripwires "
                         "act), oracle (the model may also order a "
                         "kill) (default: deterministic)")
+    g.add_argument("--require-posture", action="store_true",
+                   default=None,
+                   help="refuse to start if any security mode "
+                        "sits below enforce (pins "
+                        "security.require_posture for this process)")
+    g.add_argument("--no-require-posture", action="store_false",
+                   dest="require_posture",
+                   help="start even if a security mode sits below "
+                        "enforce; overrides --require-posture and "
+                        "the config pin")
     g.add_argument("--require-review", action="store_true",
                    default=None,
                    help="completed board tasks wait in "
@@ -306,8 +326,8 @@ def build_parser():
         "Run one thing, print it, exit.\n"
         "None of these poll the mailbox.")
     g.add_argument("--inspect",
-                   choices=["board", "budget", "job", "outbox", "redact",
-                            "review", "sources"],
+                   choices=["board", "briefing", "budget", "job",
+                            "outbox", "redact", "review", "sources"],
                    help="read local Oracle state and exit; "
                         "no mailbox")
     g.add_argument("--job-id", default=None, metavar="ID",
@@ -329,6 +349,10 @@ def build_parser():
     g.add_argument("--audit-report", action="store_true",
                    help="print a summary of the security audit "
                         "log and exit; no mailbox needed")
+    g.add_argument("--audit-verify", action="store_true",
+                   help="verify the security audit log's hash "
+                        "chain and exit (0 = intact, 1 = first "
+                        "break reported); no mailbox needed")
     g.add_argument("--remediation-release", default=None,
                    metavar="JOB_ID",
                    help="release a quarantined job's outputs "
@@ -350,7 +374,7 @@ def build_parser():
     g.add_argument("--diagnose", action="store_true",
                    help="run the diagnostic harness against this "
                         "config and exit (see "
-                        "docs/use/local-si-test.md)")
+                        "docs/steady/use/local-si-test.md)")
     g.add_argument("--diagnose-timeout", type=int, default=None,
                    metavar="SECONDS",
                    help="with --diagnose: seconds to wait for "

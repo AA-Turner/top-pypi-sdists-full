@@ -1,18 +1,17 @@
 """Provide an asynchronous equivalent to the python console."""
 
-import sys
-import code
-import pydoc
-import types
-import codeop
-import signal
 import asyncio
-import inspect
+import code
+import codeop
 import functools
+import inspect
+import pydoc
+import signal
+import sys
 import traceback
+import types
 
-from . import stream
-from . import execute
+from . import execute, stream
 
 EXTRA_MESSAGE = """\
 ---
@@ -99,6 +98,7 @@ class AsynchronousConsole(code.InteractiveConsole):
         if streams is None and use_stderr is False:
             streams = self.reader, self.writer
         # Wrap the prompt with prompt control characters
+        prompt = str(prompt)
         if self.prompt_control and self.prompt_control not in prompt:
             prompt = self.prompt_control + prompt + self.prompt_control
         # Run ainput
@@ -189,13 +189,9 @@ class AsynchronousConsole(code.InteractiveConsole):
 
     async def _interact(self, banner=None):
         # Get ps1 and ps2
-        try:
-            sys.ps1
-        except AttributeError:
+        if not hasattr(sys, "ps1"):
             sys.ps1 = ">>> "
-        try:
-            sys.ps2
-        except AttributeError:
+        if not hasattr(sys, "ps2"):
             sys.ps2 = "... "
         # Print banner
         if banner is None:
@@ -265,20 +261,12 @@ class AsynchronousConsole(code.InteractiveConsole):
 
     def showsyntaxerror(self, filename=None):
         type, value, tb = sys.exc_info()
+        if filename and issubclass(type, SyntaxError):
+            # Stuff in the right filename (also covers IndentationError, TabError)
+            value.filename = filename
         sys.last_type = type
         sys.last_value = value
         sys.last_traceback = tb
-        if filename and type is SyntaxError:
-            # Work hard to stuff the correct filename in the exception
-            try:
-                msg, (dummy_filename, lineno, offset, line) = value.args
-            except ValueError:
-                # Not the format we expect; leave it alone
-                pass
-            else:
-                # Stuff in the right filename
-                value = SyntaxError(msg, (filename, lineno, offset, line))
-                sys.last_value = value
         lines = traceback.format_exception_only(type, value)
         self.write("".join(lines))
 

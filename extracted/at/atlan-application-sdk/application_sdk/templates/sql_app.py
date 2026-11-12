@@ -78,6 +78,7 @@ import asyncio
 import dataclasses
 import os
 import time
+import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, Union
@@ -114,8 +115,8 @@ from application_sdk.constants import TEMPORARY_PATH, WORKFLOW_OUTPUT_PATH_TEMPL
 from application_sdk.contracts.base import OutputStatus
 from application_sdk.contracts.storage import VerifyRefsInput
 from application_sdk.contracts.types import FileReference, StorageTier
-from application_sdk.credentials import CredentialResolver, legacy_credential_ref
-from application_sdk.credentials.ref import CredentialRef
+from application_sdk.credentials import CredentialResolver
+from application_sdk.credentials.ref import CredentialRef, _guid_credential_ref
 from application_sdk.errors import (
     AppError,
     FailureDetails,
@@ -1607,7 +1608,7 @@ class SqlApp(App):
 
         ref: CredentialRef | None = input.credential_ref
         if ref is None and input.credential_guid:
-            ref = legacy_credential_ref(input.credential_guid)
+            ref = _guid_credential_ref(input.credential_guid)
 
         if ref is not None:
             infra = get_infrastructure()
@@ -1700,7 +1701,7 @@ class SqlApp(App):
 
         Delegates to :meth:`CredentialRef.resolve_or_none` — prefers the input's
         own ``credential_ref``, routes direct (credential_guid) / agent
-        (agent_json) modes, and degrades to a legacy GUID ref or ``None`` on a
+        (agent_json) modes, and degrades to a GUID ref or ``None`` on a
         routing edge case.
         """
         return CredentialRef.resolve_or_none(input)
@@ -2071,3 +2072,33 @@ class SqlApp(App):
             total_record_count=count,
             transformed_file=transformed_ref,
         )
+
+
+# ── Deprecated re-exports ────────────────────────────────────────────────────
+#: name -> (replacement, why). This module imported ``legacy_credential_ref``
+#: until FND-4691 switched it to the private GUID constructor, which left the
+#: name importable from here only by accident of that import. Served once more
+#: by ``__getattr__`` below (PEP 562) so the removal waits for v4.0.0.
+_DEPRECATED_CONSTANTS: dict[str, tuple[str, str]] = {
+    "legacy_credential_ref": (
+        "application_sdk.credentials.ref.legacy_credential_ref",
+        "it was only ever re-exported here as a side effect of an import",
+    ),
+}
+
+
+def __getattr__(name: str) -> object:
+    """Serve the removed re-exports once more, with a deprecation warning (PEP 562)."""
+    entry = _DEPRECATED_CONSTANTS.get(name)
+    if entry is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    replacement, note = entry
+    warnings.warn(
+        f"{name} is deprecated here; use {replacement} instead — {note}. "
+        "Will be removed in v4.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from application_sdk.credentials import ref as _ref  # noqa: PLC0415
+
+    return getattr(_ref, name)

@@ -2112,6 +2112,7 @@ class TaskAgentOverrideAgent(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2126,6 +2127,7 @@ class TaskAgentOverrideAgent(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2359,6 +2361,7 @@ class TaskAgentOverrideConversationFlowBackupModelBackupModelChoice(TypedDict, t
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2373,6 +2376,7 @@ class TaskAgentOverrideConversationFlowBackupModelBackupModelChoice(TypedDict, t
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2435,6 +2439,7 @@ class TaskAgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2449,6 +2454,7 @@ class TaskAgentOverrideConversationFlowModelChoiceModelChoiceCascading(TypedDict
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2518,6 +2524,7 @@ class TaskAgentOverrideConversationFlowModelConfigCascadingModelConfigBackupBack
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2532,6 +2539,7 @@ class TaskAgentOverrideConversationFlowModelConfigCascadingModelConfigBackupBack
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2579,6 +2587,7 @@ class TaskAgentOverrideConversationFlowModelConfigCascadingModelConfigPrimary(Ty
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2593,6 +2602,7 @@ class TaskAgentOverrideConversationFlowModelConfigCascadingModelConfigPrimary(Ty
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2678,6 +2688,7 @@ class TaskAgentOverrideConversationFlowModelConfigDuplexModelConfigBackend(Typed
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2692,6 +2703,7 @@ class TaskAgentOverrideConversationFlowModelConfigDuplexModelConfigBackend(Typed
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2733,6 +2745,7 @@ class TaskAgentOverrideConversationFlowModelConfigDuplexModelConfigBackupBackupM
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2747,6 +2760,7 @@ class TaskAgentOverrideConversationFlowModelConfigDuplexModelConfigBackupBackupM
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2882,6 +2896,7 @@ class TaskAgentOverrideRetellLlmBackupModelBackupModelChoice(TypedDict, total=Fa
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2896,6 +2911,7 @@ class TaskAgentOverrideRetellLlmBackupModelBackupModelChoice(TypedDict, total=Fa
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2963,6 +2979,7 @@ class TaskAgentOverrideRetellLlmModelConfigCascadingModelConfigBackupBackupModel
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2977,6 +2994,7 @@ class TaskAgentOverrideRetellLlmModelConfigCascadingModelConfigBackupBackupModel
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3024,6 +3042,7 @@ class TaskAgentOverrideRetellLlmModelConfigCascadingModelConfigPrimary(TypedDict
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3038,6 +3057,7 @@ class TaskAgentOverrideRetellLlmModelConfigCascadingModelConfigPrimary(TypedDict
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3123,6 +3143,7 @@ class TaskAgentOverrideRetellLlmModelConfigDuplexModelConfigBackend(TypedDict, t
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3137,6 +3158,7 @@ class TaskAgentOverrideRetellLlmModelConfigDuplexModelConfigBackend(TypedDict, t
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3178,6 +3200,7 @@ class TaskAgentOverrideRetellLlmModelConfigDuplexModelConfigBackupBackupModelRef
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3192,6 +3215,7 @@ class TaskAgentOverrideRetellLlmModelConfigDuplexModelConfigBackupBackupModelRef
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -3308,6 +3332,7 @@ class TaskAgentOverrideRetellLlm(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3322,6 +3347,7 @@ class TaskAgentOverrideRetellLlm(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]

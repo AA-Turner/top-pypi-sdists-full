@@ -1,4 +1,3 @@
-# encoding: utf-8
 import codecs
 import os
 import sys
@@ -47,6 +46,56 @@ def fixture_test_files():
 def test_trash(test_file):
     s2t(test_file)
     assert op.exists(test_file) is False
+
+
+@pytest.mark.parametrize("symlink_source", [False, True])
+def test_trash_with_symlink_home(tmp_path, monkeypatch, symlink_source):
+    home = tmp_path / "real_home"
+    home.mkdir()
+    home_link = tmp_path / "home"
+    home_link.symlink_to(home, target_is_directory=True)
+    data_home = home_link / ".local" / "share"
+    trash = data_home / "Trash"
+    source = home_link / "file.txt"
+    target = home / "target.txt"
+    if symlink_source:
+        target.write_text("keep the target")
+        source.symlink_to(target)
+    else:
+        source.write_text("trash this file")
+
+    backend = send2trash.plat_other
+    original_expanduser = op.expanduser
+    original_get_dev = backend.get_dev
+
+    def expanduser(path):
+        return os.fsencode(home_link) if path == b"~" else original_expanduser(path)
+
+    def get_dev(path):
+        # Model a home symlink located on a different device from its target.
+        if os.fsencode(path) == os.fsencode(home_link):
+            return "symlink device"
+        return original_get_dev(path)
+
+    def unexpected_external_trash(path):
+        pytest.fail("a file on the home device should use the home trash")
+
+    monkeypatch.setattr(op, "expanduser", expanduser)
+    monkeypatch.setattr(backend, "get_dev", get_dev)
+    monkeypatch.setattr(backend, "XDG_DATA_HOME", os.fsencode(data_home))
+    monkeypatch.setattr(backend, "HOMETRASH_B", os.fsencode(trash))
+    monkeypatch.setattr(backend, "find_ext_volume_trash", unexpected_external_trash)
+
+    s2t(source)
+
+    assert not source.exists()
+    assert (trash / "info" / "file.txt.trashinfo").is_file()
+    trashed = trash / "files" / "file.txt"
+    if symlink_source:
+        assert trashed.is_symlink()
+        assert target.read_text() == "keep the target"
+    else:
+        assert trashed.read_text() == "trash this file"
 
 
 def test_multitrash(test_files):
@@ -100,7 +149,12 @@ class ExtVol:
 
         def s_getdev(path):
             st = os.lstat(path)
-            if is_parent(self.trash_topdir, path):
+            path_real = op.realpath(path)
+            if isinstance(path_real, bytes):
+                topdir_real = os.fsencode(op.realpath(self.trash_topdir))
+            else:
+                topdir_real = op.realpath(self.trash_topdir)
+            if path_real == topdir_real or is_parent(self.trash_topdir, path):
                 return "dev"
             return st.st_dev
 
@@ -208,3 +262,65 @@ def test_trash_symlink(gen_ext_vol):
         is True
     )
     os.remove(sl_dir)
+
+
+def test_is_parent_substring_path_bug_e2e():
+    """
+    End-to-end test that is_parent() substring bug doesn't affect trashing.
+
+    This test prevents a bug where paths like ~/.local/share (HOMETRASH) would be
+    incorrectly considered as the parent of ~/.local/shared due to simple substring
+    matching without checking for path separators. This would cause incorrect relative
+    path computation in the trash info file (should be absolute path since the file
+    is not actually under ~/.local/share).
+    """
+    # Create a sibling directory to HOMETRASH with a similar name
+    shared_dir = op.expanduser("~/.local/shared")
+    os.makedirs(shared_dir, exist_ok=True)
+
+    try:
+        # Create a test file in the shared directory
+        test_file = op.join(shared_dir, "test_substring_bug.txt")
+        touch(test_file)
+        assert op.exists(test_file) is True
+
+        # Trash the file
+        s2t(test_file)
+
+        # File should be removed from original location
+        assert op.exists(test_file) is False
+
+        # Find the trash info file for this test file
+        trash_info_dir = op.join(HOMETRASH, "info")
+        trash_info_files = [f for f in os.listdir(trash_info_dir) if "substring_bug" in f]
+        assert len(trash_info_files) > 0, "No trash info file found for test file"
+
+        # Read the trash info file and verify the path is absolute
+        info_file_path = op.join(trash_info_dir, trash_info_files[0])
+        cfg = ConfigParser()
+        cfg.read(info_file_path)
+        trashed_path = cfg.get("Trash Info", "Path", raw=True)
+
+        # The path should be absolute, not relative
+        # If the bug exists, it might be a relative path like "shared/test_substring_bug.txt"
+        # instead of the full absolute path
+        assert op.isabs(trashed_path) or trashed_path.startswith("/"), (
+            f"Path in trash info should be absolute, got: {trashed_path}. "
+            "This suggests is_parent() is incorrectly treating ~/.local/share as parent."
+        )
+
+    finally:
+        # Cleanup
+        if op.exists(shared_dir):
+            shutil.rmtree(shared_dir)
+        # Clean up any trash files created by this test
+        trash_files_dir = op.join(HOMETRASH, "files")
+        trash_info_dir = op.join(HOMETRASH, "info")
+        if op.exists(trash_files_dir):
+            for f in os.listdir(trash_files_dir):
+                if "substring_bug" in f:
+                    os.remove(op.join(trash_files_dir, f))
+        if op.exists(trash_info_dir):
+            for f in os.listdir(trash_info_dir):
+                if "substring_bug" in f:
+                    os.remove(op.join(trash_info_dir, f))

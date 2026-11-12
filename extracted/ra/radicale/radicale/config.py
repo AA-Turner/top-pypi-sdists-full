@@ -52,9 +52,12 @@ PROFILING: Sequence[str] = ("per_request", "per_request_method", "none")
 
 VALIDATE_TYPES: Sequence[str] = ("none", "minimal", "unicode-letter", "unicode-none", "strict")
 
-# The server implementations `[server] type` selects. `hypercorn` is the optional one: it is what
-# serves H2C, and it is only imported when it is asked for (`radicale/server.py`).
-SERVER_TYPES: Sequence[str] = ("builtin", "hypercorn")
+# The server implementations `[server] type` selects. `hypercorn` (what serves H2C) and `cheroot` are
+# optional: they are only imported when they are asked for (`radicale/server.py`).
+SERVER_TYPES: Sequence[str] = ("builtin", "hypercorn", "cheroot")
+
+# The values of `[sharing] permit_create_map`: map to anyone, only to oneself, or not at all.
+PERMIT_CREATE_MAP: Sequence[str] = ("true", "self", "false")
 
 
 def positive_int(value: Any) -> int:
@@ -148,6 +151,14 @@ def server_types(value: Any) -> str:
     if value not in SERVER_TYPES:
         raise ValueError("unsupported server type: %r (supported: %s)"
                          % (value, "|".join(SERVER_TYPES)))
+    return value
+
+
+def permit_create_map(value: Any) -> str:
+    value = str(value).strip().lower()
+    if value not in PERMIT_CREATE_MAP:
+        raise ValueError("unsupported value: %r (supported: %s)"
+                         % (value, "|".join(PERMIT_CREATE_MAP)))
     return value
 
 
@@ -257,7 +268,7 @@ DEFAULT_CONFIG_SCHEMA: types.CONFIG_SCHEMA = OrderedDict([
         ("type", {
             "value": "builtin",
             "help": "server to use (" + "|".join(SERVER_TYPES) + "), hypercorn also serves H2C "
-                    "and needs the \"h2\" extra (pip install radicale[h2])",
+                    "and needs the \"h2\" extra (pip install radicale[h2]), cheroot needs the \"cheroot\" extra",
             "type": server_types,
             "internal": SERVER_TYPES}),
         ("hosts", {
@@ -630,8 +641,9 @@ DEFAULT_CONFIG_SCHEMA: types.CONFIG_SCHEMA = OrderedDict([
             "type": bool}),
         ("permit_create_map", {
             "value": "false",
-            "help": "permit create of map-based sharing",
-            "type": bool}),
+            "help": "permit create of map-based sharing: true, self (to self only) or false",
+            "type": permit_create_map,
+            "internal": PERMIT_CREATE_MAP}),
         ("permit_properties_overlay", {
             "value": "false",
             "help": "permit properties overlay",
@@ -728,6 +740,41 @@ DEFAULT_CONFIG_SCHEMA: types.CONFIG_SCHEMA = OrderedDict([
         ("mass_email", {
             "value": "False",
             "help": "Send one email to all attendees, versus one email per attendee",
+            "type": bool}),
+        ("itip_enabled", {
+            "value": "False",
+            "help": "Opt in to sending scheduling messages as iTIP (RFC 5546) "
+                    "over iMIP (RFC 6047), one per recipient with only "
+                    "that recipient listed, instead of a plain "
+                    "notification email with the full event attached. "
+                    "Defaults to False: iTIP messages are actionable "
+                    "invitations and cancellations, so enabling them "
+                    "must be deliberate. Set to False for the legacy behaviour.",
+            "type": bool}),
+        ("itip_owner_map", {
+            "value": "",
+            "help": "Explicit actor-to-organizer-email map for iTIP, as "
+                    "actor=email pairs separated by commas, e.g. "
+                    "alice=alice@example.com. Required when "
+                    "itip_enabled is True. When set, only the mapped email "
+                    "for the authenticated actor counts as organizer "
+                    "ownership; unmapped actors send nothing, and an empty "
+                    "map with itip_enabled is a config error unless "
+                    "itip_organizer_is_username is True. The SMTP "
+                    "from_email is never used as ownership evidence. "
+                    "The user's own principal lists the mapped address "
+                    "first in calendar-user-address-set.",
+            "type": str}),
+        ("itip_organizer_is_username", {
+            "value": "False",
+            "help": "For iTIP, an actor whose username is an email "
+                    "address also owns that organizer address, without "
+                    "an itip_owner_map entry; an empty map is then "
+                    "allowed, and the user's own principal lists "
+                    "mailto:<username> in calendar-user-address-set. "
+                    "Only enable when usernames are emails the "
+                    "user cannot choose freely (e.g. single sign-on "
+                    "reverse proxy, LDAP mail as login).",
             "type": bool}),
         ("new_or_added_to_event_template", {
             "value": """Hello $attendee_name,

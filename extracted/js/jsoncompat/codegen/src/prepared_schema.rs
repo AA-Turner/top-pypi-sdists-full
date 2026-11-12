@@ -4,8 +4,10 @@
 //! objects. Loading checks its version and every edge without compiling schemas.
 //! Unsupported vocabulary is rejected by the builder, never silently ignored.
 
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 pub mod instance;
 use instance::{ArrayView, InstanceRef, InstanceView, NumberView, ObjectView};
@@ -35,10 +37,94 @@ pub struct PatternId(usize);
 pub struct PreparedSchema {
     version: u32,
     nodes: Vec<Node>,
-    patterns: Vec<Pattern>,
+    patterns: Vec<Arc<Pattern>>,
     pattern_sources: Vec<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     exact_json_numbers: bool,
+}
+
+/// A compiled pattern shared by all generated programs that reference it.
+/// The identifier covers the source and portable automata, including both byte orders.
+pub struct SharedPattern {
+    identifier: String,
+    source: String,
+    pattern: Arc<Pattern>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct PatternData {
+    source: String,
+    pattern: Arc<Pattern>,
+}
+
+impl SharedPattern {
+    pub fn load(bytes: &[u8]) -> Result<Self, String> {
+        let data: PatternData = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        Ok(Self {
+            identifier: format!("{:x}", Sha256::digest(bytes)),
+            source: data.source,
+            pattern: data.pattern,
+        })
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SharedProgram {
+    version: u32,
+    nodes: Vec<Node>,
+    pattern_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    exact_json_numbers: bool,
+}
+
+/// Build-time pool. Source identity avoids serializing a large automaton more
+/// than once; content identities keep references stable as other models change.
+#[derive(Default)]
+pub(crate) struct PatternPool {
+    identifiers: HashMap<String, String>,
+    pub(crate) data: BTreeMap<String, Vec<u8>>,
+}
+
+impl PatternPool {
+    pub(crate) fn program(
+        &mut self,
+        schema: &PreparedSchema,
+    ) -> Result<(Vec<u8>, Vec<String>), String> {
+        if schema.patterns.is_empty() {
+            return schema.to_bytes().map(|bytes| (bytes, Vec::new()));
+        }
+        let mut ids = Vec::new();
+        for (source, pattern) in schema.pattern_sources.iter().zip(&schema.patterns) {
+            let id = if let Some(id) = self.identifiers.get(source) {
+                id.clone()
+            } else {
+                let data = serde_json::to_vec(&PatternData {
+                    source: source.clone(),
+                    pattern: Arc::clone(pattern),
+                })
+                .map_err(|e| e.to_string())?;
+                let id = format!("{:x}", Sha256::digest(&data));
+                self.data.insert(id.clone(), data);
+                self.identifiers.insert(source.clone(), id.clone());
+                id
+            };
+            ids.push(id);
+        }
+        let bytes = serde_json::to_vec(&SharedProgram {
+            version: VERSION,
+            nodes: schema.nodes.clone(),
+            pattern_ids: ids.clone(),
+            exact_json_numbers: schema.exact_json_numbers,
+        })
+        .map_err(|e| e.to_string())?;
+        Ok((bytes, ids))
+    }
 }
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
@@ -182,30 +268,91 @@ impl Node {
                         Ordering::Less => !lower,
                     })
                 }),
-                Rule::MultipleOf(divisor) => multiple_of(value, divisor),
+                Rule::MultipleOf(divisor) => multiple_of(value, divisor).unwrap_or(false),
                 _ => unreachable!("leaf guards contain only scalar constraints"),
             })
     }
 }
 
-fn multiple_of<'a>(value: impl InstanceView<'a>, divisor: &Decimal) -> bool {
-    value.as_number().is_none_or(|number| {
-        // Keep machine-sized integer divisibility exact and allocation-free.
-        if divisor.is_integer()
-            && let Some(divisor) = divisor.to_u64().filter(|value| *value != 0)
-        {
-            if let Some(number) = number.as_i64() {
-                return i128::from(number) % i128::from(divisor) == 0;
-            }
-            if let Some(number) = number.as_u64() {
-                return number % divisor == 0;
-            }
+fn multiple_of<'a>(value: impl InstanceView<'a>, divisor: &Decimal) -> Option<bool> {
+    let Some(number) = value.as_number() else {
+        return Some(true);
+    };
+    // Keep machine-sized integer divisibility exact and allocation-free.
+    if divisor.is_integer()
+        && let Some(divisor) = divisor.to_u64().filter(|value| *value != 0)
+    {
+        if let Some(number) = number.as_i64() {
+            return Some(i128::from(number) % i128::from(divisor) == 0);
         }
-        exact_instance_number(value).is_some_and(|number| number.is_multiple_of(divisor))
-    })
+        if let Some(number) = number.as_u64() {
+            return Some(number % divisor == 0);
+        }
+    }
+    exact_instance_number(value).map(|number| number.is_multiple_of(divisor))
 }
 
 impl Rule {
+    /// Rewrite every graph edge, including edges under annotation applicators.
+    fn map_nodes(&mut self, mut map: impl FnMut(NodeId) -> NodeId) {
+        match self {
+            Self::Ref { node, .. }
+            | Self::Not(node)
+            | Self::PropertyNames(node)
+            | Self::Contains { node, .. }
+            | Self::UnevaluatedProperties(node)
+            | Self::UnevaluatedItems(node) => *node = map(*node),
+            Self::All(nodes) | Self::Any(nodes) | Self::One(nodes) => {
+                nodes.iter_mut().for_each(|node| *node = map(*node));
+            }
+            Self::If {
+                condition,
+                then_node,
+                else_node,
+            } => {
+                *condition = map(*condition);
+                for node in then_node.iter_mut().chain(else_node.iter_mut()) {
+                    *node = map(*node);
+                }
+            }
+            Self::Object {
+                properties,
+                patterns,
+                additional,
+                ..
+            } => {
+                for (_, node) in properties {
+                    *node = map(*node);
+                }
+                for (_, node) in patterns {
+                    *node = map(*node);
+                }
+                if let Some(node) = additional {
+                    *node = map(*node);
+                }
+            }
+            Self::DependentSchemas(entries) => {
+                for (_, node) in entries {
+                    *node = map(*node);
+                }
+            }
+            Self::Array { prefix, items } => {
+                for node in prefix.iter_mut().chain(items.iter_mut()) {
+                    *node = map(*node);
+                }
+            }
+            Self::False
+            | Self::Dependencies(_)
+            | Self::Unique
+            | Self::MultipleOf(_)
+            | Self::Pattern(_)
+            | Self::StringLength { .. }
+            | Self::ArrayLength { .. }
+            | Self::ObjectLength { .. }
+            | Self::Bound { .. } => {}
+        }
+    }
+
     fn edges_valid(&self, node_count: usize) -> bool {
         let valid = |node: NodeId| node.0 < node_count;
         match self {
@@ -268,6 +415,7 @@ impl PreparedSchema {
         let schema = linked.as_ref();
         let mut builder = Builder {
             root: schema,
+            max_nodes: Some(100_000),
             nodes: Vec::new(),
             paths: HashMap::new(),
             leaves: HashMap::new(),
@@ -275,15 +423,7 @@ impl PreparedSchema {
             pattern_ids: HashMap::new(),
         };
         builder.add(schema, "#")?;
-        let exact_json_numbers = builder.nodes.iter().any(|node| {
-            node.rules.iter().any(|rule| {
-                matches!(rule, Rule::Bound { exact: Some(_), .. })
-                    || matches!(rule, Rule::MultipleOf(divisor) if !divisor.is_integer())
-            }) || node
-                .choices
-                .as_ref()
-                .is_some_and(|choices| choices.iter().any(needs_exact_json_number))
-        });
+        let exact_json_numbers = requires_exact_numbers(&builder.nodes);
         Ok(Self {
             version: VERSION,
             exact_json_numbers,
@@ -305,6 +445,39 @@ impl PreparedSchema {
 
     pub fn load(bytes: &[u8]) -> Result<Self, String> {
         let program: Self = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+        program.checked()
+    }
+
+    /// Link already-loaded automata without parsing or compiling a regex again.
+    pub fn load_shared(bytes: &[u8], patterns: &[&SharedPattern]) -> Result<Self, String> {
+        let program: SharedProgram = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if program.pattern_ids.len() != patterns.len()
+            || program
+                .pattern_ids
+                .iter()
+                .zip(patterns)
+                .any(|(id, pattern)| id != pattern.identifier())
+        {
+            return Err("prepared schema pattern identity mismatch; regenerate models".into());
+        }
+        Self {
+            version: program.version,
+            nodes: program.nodes,
+            exact_json_numbers: program.exact_json_numbers,
+            patterns: patterns
+                .iter()
+                .map(|pattern| Arc::clone(&pattern.pattern))
+                .collect(),
+            pattern_sources: patterns
+                .iter()
+                .map(|pattern| pattern.source.clone())
+                .collect(),
+        }
+        .checked()
+    }
+
+    fn checked(self) -> Result<Self, String> {
+        let program = self;
         if program.version != VERSION
             || program.nodes.is_empty()
             || program.pattern_sources.len() != program.patterns.len()
@@ -566,14 +739,23 @@ impl PreparedSchema {
             Rule::UnevaluatedProperties(_) | Rule::UnevaluatedItems(_) => {
                 unreachable!("handled at the containing node")
             }
-            Rule::MultipleOf(divisor) => multiple_of(value, divisor),
+            Rule::MultipleOf(divisor) => multiple_of(value, divisor).unwrap_or_else(|| {
+                context.incomplete = true;
+                false
+            }),
             Rule::Unique => value.as_array().is_none_or(|array| {
                 let mut seen = Vec::with_capacity(array.len());
                 for value in array.iter() {
                     if seen.iter().any(|previous| value.equals(previous)) {
                         return false;
                     }
-                    seen.push(value.to_owned());
+                    let Ok(value) = value.try_to_owned() else {
+                        // Conversion failure is not a failed assertion that a
+                        // surrounding `not` or conditional may turn into success.
+                        context.incomplete = true;
+                        return false;
+                    };
+                    seen.push(value);
                 }
                 true
             }),
@@ -592,16 +774,17 @@ impl PreparedSchema {
                 lower,
                 exclusive,
             } => value.as_number().is_none_or(|_| {
-                let comparison = compare_bound(value, limit, exact.as_ref());
-                comparison.is_some_and(|order| {
-                    if order == Ordering::Equal {
-                        !exclusive
-                    } else if *lower {
-                        order == Ordering::Greater
-                    } else {
-                        order == Ordering::Less
-                    }
-                })
+                let Some(order) = compare_bound(value, limit, exact.as_ref()) else {
+                    context.incomplete = true;
+                    return false;
+                };
+                if order == Ordering::Equal {
+                    !exclusive
+                } else if *lower {
+                    order == Ordering::Greater
+                } else {
+                    order == Ordering::Less
+                }
             }),
         }
     }
@@ -665,7 +848,7 @@ fn exact_instance_number<'a>(value: impl InstanceView<'a>) -> Option<Decimal> {
             Some(value) => exact_decimal(&value.to_string())?,
             // Use the decimal representation of a Python float, just as the
             // public value validator does; preserve raw JSON decimal lexemes.
-            _ => exact_decimal(&value.to_owned().to_string())?,
+            _ => Decimal::from_value(&value.try_to_owned().ok()?)?,
         }
     })
 }
@@ -726,10 +909,11 @@ pub fn compare_integer(value: i64, limit: &Number) -> Option<Ordering> {
 
 struct Builder<'a> {
     root: &'a Value,
+    max_nodes: Option<usize>,
     nodes: Vec<Node>,
     paths: HashMap<String, NodeId>,
     leaves: HashMap<Vec<u8>, NodeId>,
-    patterns: Vec<Pattern>,
+    patterns: Vec<Arc<Pattern>>,
     pattern_ids: HashMap<String, PatternId>,
 }
 
@@ -739,7 +923,7 @@ impl Builder<'_> {
             return Ok(*id);
         }
         let id = PatternId(self.patterns.len());
-        self.patterns.push(Pattern::compile(pattern)?);
+        self.patterns.push(Arc::new(Pattern::compile(pattern)?));
         self.pattern_ids.insert(pattern.to_owned(), id);
         Ok(id)
     }
@@ -748,7 +932,10 @@ impl Builder<'_> {
         if let Some(id) = self.paths.get(path) {
             return Ok(*id);
         }
-        if self.nodes.len() >= 100_000 {
+        if self
+            .max_nodes
+            .is_some_and(|limit| self.nodes.len() >= limit)
+        {
             return Err("prepared schema exceeds 100,000 nodes".into());
         }
         let id = NodeId(self.nodes.len());
@@ -849,13 +1036,14 @@ impl Builder<'_> {
             let pointer = percent_encoding::percent_decode_str(pointer)
                 .decode_utf8()
                 .map_err(|error| error.to_string())?;
-            let target = self
-                .root
+            // The immutable document outlives the builder, so following an
+            // edge need not clone the referenced subtree (or its definitions).
+            let root = self.root;
+            let target = root
                 .pointer(&pointer)
-                .ok_or_else(|| format!("unresolved reference {reference}"))?
-                .clone();
+                .ok_or_else(|| format!("unresolved reference {reference}"))?;
             node.rules.push(Rule::Ref {
-                node: self.add(&target, &format!("#{pointer}"))?,
+                node: self.add(target, &format!("#{pointer}"))?,
                 pointer: pointer.into_owned(),
             });
         }
@@ -1084,9 +1272,606 @@ fn count(value: Option<&Value>) -> Result<Option<u64>, String> {
         .transpose()
 }
 
+fn requires_exact_numbers(nodes: &[Node]) -> bool {
+    nodes.iter().any(|node| {
+        node.rules.iter().any(|rule| {
+            matches!(rule, Rule::Bound { exact: Some(_), .. })
+                || matches!(rule, Rule::MultipleOf(divisor) if !divisor.is_integer())
+        }) || node
+            .choices
+            .as_ref()
+            .is_some_and(|choices| choices.iter().any(needs_exact_json_number))
+    })
+}
+
+/// Build the shared definition graph once, then emit standalone programs for
+/// individual model roots. This deliberately accepts only reference scopes
+/// whose meaning is unchanged when a model is promoted to a document root and
+/// receives the document's definition maps. Other schemas use `compile`.
+pub(crate) struct PreparedSchemaContext<'a> {
+    builder: Builder<'a>,
+    schemas: HashMap<String, &'a Value>,
+    model_roots: HashMap<String, NodeId>,
+}
+
+impl<'a> PreparedSchemaContext<'a> {
+    pub(crate) fn new(
+        document: &'a json_schema_ast::SchemaDocument,
+    ) -> Result<Option<Self>, String> {
+        Self::with_root(document, document.source_schema_json())
+    }
+
+    /// Package declarations already use this validated document's canonical
+    /// graph. Reuse it without constructing and validating a second document.
+    pub(crate) fn new_canonical(
+        document: &'a json_schema_ast::SchemaDocument,
+    ) -> Result<Option<Self>, String> {
+        let Ok(root) = document.canonical_schema_json() else {
+            return Ok(None);
+        };
+        Self::with_root(document, root)
+    }
+
+    fn with_root(
+        document: &'a json_schema_ast::SchemaDocument,
+        root: &'a Value,
+    ) -> Result<Option<Self>, String> {
+        let mut schemas = HashMap::new();
+        let mut references = Vec::new();
+        if !shared_schema_positions(root, "#", &mut schemas, &mut references)
+            || references
+                .iter()
+                .any(|pointer| !schemas.contains_key(pointer))
+        {
+            return Ok(None);
+        }
+        // Keep exactly the build-time checks performed by standalone compile,
+        // but perform them once for the complete shared document.
+        if document.root().is_err() || document.validate_source_schema().is_err() {
+            // A combined document can exceed an analysis budget even when its
+            // individual models do not. Decline the optimization; standalone
+            // compilation remains responsible for accepting or rejecting each
+            // model, including validating every materialized source schema.
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            builder: Builder {
+                root,
+                // The existing limit is per emitted program, not per package.
+                max_nodes: None,
+                nodes: Vec::new(),
+                paths: HashMap::new(),
+                leaves: HashMap::new(),
+                patterns: Vec::new(),
+                pattern_ids: HashMap::new(),
+            },
+            schemas,
+            model_roots: HashMap::new(),
+        }))
+    }
+
+    pub(crate) fn compile_at(&mut self, pointer: &str) -> Result<PreparedSchema, String> {
+        let schema = self
+            .schemas
+            .get(pointer)
+            .copied()
+            .ok_or_else(|| format!("{pointer}: expected a validated schema position"))?;
+        let root = if let Some(root) = self.model_roots.get(pointer) {
+            *root
+        } else {
+            // The standalone model root and its inline children must remain
+            // distinct from the same schema reached through a definition ref.
+            // Merging them changes cycle detection and depth-budget behavior.
+            // A non-pointer namespace cannot collide with local ref targets.
+            let model_path = format!("model:{pointer}");
+            let root = self.builder.add(schema, &model_path).map_err(|error| {
+                error
+                    .strip_prefix(&model_path)
+                    .map_or_else(|| error.clone(), |suffix| format!("#{suffix}"))
+            })?;
+            self.model_roots.insert(pointer.to_owned(), root);
+            root
+        };
+        self.extract(root)
+    }
+
+    fn extract(&self, root: NodeId) -> Result<PreparedSchema, String> {
+        enum Dependency {
+            Node(NodeId),
+            Pattern(PatternId),
+        }
+        let mut pending = vec![Dependency::Node(root)];
+        let mut ids = HashMap::new();
+        let mut nodes = Vec::new();
+        let mut pattern_ids = HashMap::new();
+        let mut patterns = Vec::new();
+        let mut pattern_sources = Vec::new();
+        let mut source_patterns = vec![""; self.builder.patterns.len()];
+        for (source, id) in &self.builder.pattern_ids {
+            source_patterns[id.0] = source.as_str();
+        }
+        // Match the standalone compiler's depth-first allocation order. Besides
+        // keeping generated artifacts stable, visiting regexes between their
+        // preceding properties and own child schema preserves pattern IDs.
+        while let Some(dependency) = pending.pop() {
+            match dependency {
+                Dependency::Pattern(old) => {
+                    pattern_ids.entry(old.0).or_insert_with(|| {
+                        let new = PatternId(patterns.len());
+                        patterns.push(self.builder.patterns[old.0].clone());
+                        pattern_sources.push(source_patterns[old.0].to_owned());
+                        new
+                    });
+                }
+                Dependency::Node(old) => {
+                    if ids.contains_key(&old.0) {
+                        continue;
+                    }
+                    if nodes.len() >= 100_000 {
+                        return Err("prepared schema exceeds 100,000 nodes".into());
+                    }
+                    ids.insert(old.0, NodeId(nodes.len()));
+                    let mut node = self.builder.nodes[old.0].clone();
+                    let mut children = Vec::new();
+                    for rule in &mut node.rules {
+                        match rule {
+                            Rule::Object {
+                                properties,
+                                patterns,
+                                additional,
+                                ..
+                            } => {
+                                children.extend(
+                                    properties.iter().map(|(_, child)| Dependency::Node(*child)),
+                                );
+                                for (pattern, child) in patterns {
+                                    children.push(Dependency::Pattern(*pattern));
+                                    children.push(Dependency::Node(*child));
+                                }
+                                children.extend(additional.map(Dependency::Node));
+                            }
+                            Rule::Pattern(pattern) => children.push(Dependency::Pattern(*pattern)),
+                            _ => rule.map_nodes(|child| {
+                                children.push(Dependency::Node(child));
+                                child
+                            }),
+                        }
+                    }
+                    nodes.push(node);
+                    pending.extend(children.into_iter().rev());
+                }
+            }
+        }
+        for node in &mut nodes {
+            for rule in &mut node.rules {
+                rule.map_nodes(|old| ids[&old.0]);
+                match rule {
+                    Rule::Pattern(id) => *id = pattern_ids[&id.0],
+                    Rule::Object { patterns, .. } => {
+                        for (id, _) in patterns {
+                            *id = pattern_ids[&id.0];
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(PreparedSchema {
+            version: VERSION,
+            exact_json_numbers: requires_exact_numbers(&nodes),
+            nodes,
+            patterns,
+            pattern_sources,
+        })
+    }
+}
+
+/// Only visit actual schema positions. Annotation payloads can themselves
+/// contain objects spelled `$ref`, `$id`, or `properties` without being schemas.
+fn shared_schema_positions<'a>(
+    schema: &'a Value,
+    path: &str,
+    schemas: &mut HashMap<String, &'a Value>,
+    references: &mut Vec<String>,
+) -> bool {
+    schemas.insert(path.to_owned(), schema);
+    let Some(object) = schema.as_object() else {
+        return schema.is_boolean();
+    };
+    if [
+        "$id",
+        "$anchor",
+        "$dynamicAnchor",
+        "$dynamicRef",
+        "$recursiveAnchor",
+        "$recursiveRef",
+        "$vocabulary",
+        "x-jsoncompat-format-assertion",
+    ]
+    .iter()
+    .any(|key| object.contains_key(*key))
+    {
+        return false;
+    }
+    if let Some(reference) = object.get("$ref") {
+        let Some(reference) = reference.as_str().and_then(|value| value.strip_prefix('#')) else {
+            return false;
+        };
+        let Ok(pointer) = percent_encoding::percent_decode_str(reference).decode_utf8() else {
+            return false;
+        };
+        if !(pointer.starts_with("/$defs/") || pointer.starts_with("/definitions/")) {
+            return false;
+        }
+        references.push(format!("#{pointer}"));
+    }
+    let mut child = |key: &str, value: &'a Value| {
+        shared_schema_positions(value, &format!("{path}/{key}"), schemas, references)
+    };
+    for (key, value) in object {
+        if json_schema_ast::is_single_schema_child_keyword(key) {
+            if !child(key, value) {
+                return false;
+            }
+        } else if json_schema_ast::is_schema_map_child_keyword(key) || key == "dependencies" {
+            if let Some(values) = value.as_object() {
+                for (name, value) in values {
+                    if key == "dependencies" && value.is_array() {
+                        continue;
+                    }
+                    let name = name.replace('~', "~0").replace('/', "~1");
+                    if !child(&format!("{key}/{name}"), value) {
+                        return false;
+                    }
+                }
+            }
+        } else if json_schema_ast::is_schema_array_child_keyword(key)
+            && let Some(values) = value.as_array()
+        {
+            for (index, value) in values.iter().enumerate() {
+                if !child(&format!("{key}/{index}"), value) {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_patterns_preserve_validation_diagnostics_and_native_identity() {
+        let schemas = [
+            serde_json::json!({"type":"object", "patternProperties":{"^x":{"type":"string", "pattern":"^(?=.{2,})[a-z]+$"}}, "additionalProperties":false}),
+            serde_json::json!({"type":"array", "items":{"type":"string", "pattern":"^(?=.{2,})[a-z]+$"}}),
+        ];
+        let mut pool = PatternPool::default();
+        let compiled = schemas
+            .iter()
+            .map(|schema| PreparedSchema::compile(schema).unwrap())
+            .collect::<Vec<_>>();
+        let programs = compiled
+            .iter()
+            .map(|schema| pool.program(schema).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(pool.data.len(), 2);
+        let patterns = pool
+            .data
+            .iter()
+            .map(|(id, data)| (id, SharedPattern::load(data).unwrap()))
+            .collect::<BTreeMap<_, _>>();
+        let values = serde_json::json!([null, {}, {"x":"ab"}, {"x":"A"}, {"x":3}, {"y":"ab"}, [], ["ab"], ["a"], ["A"], [3]]);
+        for (original, (bytes, ids)) in compiled.iter().zip(&programs) {
+            let handles = ids.iter().map(|id| &patterns[id]).collect::<Vec<_>>();
+            let shared = PreparedSchema::load_shared(bytes, &handles).unwrap();
+            for (pattern, handle) in shared.patterns.iter().zip(&handles) {
+                assert!(Arc::ptr_eq(pattern, &handle.pattern));
+            }
+            for value in values.as_array().unwrap() {
+                assert_eq!(
+                    shared.is_valid_view(InstanceRef::from_serde(value)),
+                    original.is_valid_view(InstanceRef::from_serde(value))
+                );
+                assert_eq!(shared.explain(value), original.explain(value));
+            }
+            assert!(PreparedSchema::load_shared(bytes, &[]).is_err());
+            let wrong = SharedPattern::load(
+                &serde_json::to_vec(&PatternData {
+                    source: "different".into(),
+                    pattern: Arc::clone(&handles[0].pattern),
+                })
+                .unwrap(),
+            )
+            .unwrap();
+            let mut swapped = handles;
+            swapped[0] = &wrong;
+            assert!(
+                PreparedSchema::load_shared(bytes, &swapped)
+                    .err()
+                    .unwrap()
+                    .contains("identity mismatch")
+            );
+        }
+        // Identifiers do not depend on the order programs enter the pool.
+        let mut reversed = PatternPool::default();
+        for schema in compiled.iter().rev() {
+            reversed.program(schema).unwrap();
+        }
+        assert_eq!(pool.data, reversed.data);
+        let (bytes, ids) = pool
+            .program(&PreparedSchema::compile(&serde_json::json!({"type":"null"})).unwrap())
+            .unwrap();
+        assert!(ids.is_empty());
+        assert!(
+            PreparedSchema::load(&bytes)
+                .unwrap()
+                .is_valid_view(InstanceRef::from_serde(&Value::Null))
+        );
+    }
+
+    #[test]
+    fn shared_patterns_reject_corrupt_automata_and_program_edges() {
+        let mut pool = PatternPool::default();
+        let schema =
+            PreparedSchema::compile(&serde_json::json!({"type":"string", "pattern":"^[a-z]+$"}))
+                .unwrap();
+        let (bytes, ids) = pool.program(&schema).unwrap();
+        let data = &pool.data[&ids[0]];
+        let handle = SharedPattern::load(data).unwrap();
+        let mut corrupt: Value = serde_json::from_slice(data).unwrap();
+        corrupt["pattern"]["dfa"]["little"] = serde_json::json!([0]);
+        corrupt["pattern"]["dfa"]["big"] = serde_json::json!([0]);
+        assert!(SharedPattern::load(&serde_json::to_vec(&corrupt).unwrap()).is_err());
+        let mut program: Value = serde_json::from_slice(&bytes).unwrap();
+        program["nodes"][0]["rules"][0]["pattern"] = serde_json::json!(99);
+        assert!(
+            PreparedSchema::load_shared(&serde_json::to_vec(&program).unwrap(), &[&handle])
+                .is_err()
+        );
+        program["version"] = serde_json::json!(0);
+        assert!(
+            PreparedSchema::load_shared(&serde_json::to_vec(&program).unwrap(), &[&handle])
+                .is_err()
+        );
+    }
+
+    fn standalone_at(root: &Value, pointer: &str) -> Value {
+        let mut schema = root
+            .pointer(pointer.strip_prefix('#').unwrap())
+            .unwrap()
+            .clone();
+        if let Some(object) = schema.as_object_mut() {
+            for keyword in ["$defs", "definitions"] {
+                if let Some(definitions) = root.get(keyword).and_then(Value::as_object) {
+                    let local = object
+                        .entry(keyword)
+                        .or_insert_with(|| Value::Object(Default::default()));
+                    local.as_object_mut().unwrap().extend(definitions.clone());
+                }
+            }
+        }
+        schema
+    }
+
+    #[test]
+    fn shared_context_preserves_validation_and_diagnostics_for_every_root() {
+        let schema = serde_json::json!({
+            "$defs": {
+                "Node": {"type": "object", "required": ["name"], "properties": {
+                    "name": {"type": "string", "pattern": "^(?=.{2,})[a-z]+$"},
+                    "next": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/Node"}]}
+                }, "additionalProperties": false},
+                "Number": {"type": "number", "minimum": 0.2, "maximum": 3.5, "multipleOf": 0.1},
+                "Choice": {"oneOf": [{"const": 1}, {"enum": [2, 3]}, {"$ref": "#/$defs/Node"}]},
+                "Array": {"type": "array", "prefixItems": [{"$ref": "#/$defs/Number"}],
+                    "items": {"$ref": "#/$defs/Choice"}, "contains": {"type": "number"},
+                    "minContains": 1, "maxContains": 2, "uniqueItems": true,
+                    "minItems": 1, "maxItems": 4},
+                "Annotations": {"type": "object", "allOf": [{"properties": {"a": {"type": "integer"}}}],
+                    "anyOf": [{"properties": {"b": {"type": "boolean"}}}, {"required": ["a"]}],
+                    "unevaluatedProperties": false},
+                "Conditions": {"type": "object", "if": {"required": ["a"]},
+                    "then": {"required": ["b"]}, "else": {"not": {"required": ["b"]}},
+                    "dependentSchemas": {"a": {"properties": {"b": {"const": true}}}},
+                    "dependentRequired": {"b": ["a"]}, "minProperties": 0, "maxProperties": 3},
+                "Names": {"type": "object", "propertyNames": {"pattern": "^[a-z]+$"},
+                    "patternProperties": {"^x": {"type": "integer"}},
+                    "additionalProperties": {"type": "boolean"}},
+                "Escaped/a~b": {"$ref": "#/%24defs/Number"},
+                "Legacy": {"$ref": "#/definitions/Text"},
+                "UnevaluatedArray": {"allOf": [{"prefixItems": [{"const": 1}]}], "unevaluatedItems": false}
+            },
+            "definitions": {"Text": {"type": "string", "minLength": 2, "maxLength": 3}},
+            "type": "object"
+        });
+        let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+        let mut context = PreparedSchemaContext::new(&document).unwrap().unwrap();
+        let values = serde_json::json!([
+            null, false, true, 0, 0.1, 0.2, 0.3, 1, 2, 3, 3.5, 3.6, 4, "", "a", "ab", "abcd",
+            [], [1], [0.3, 1, 2], [1, 1], [1, 2, 3], [1, "a"], {},
+            {"a": 1}, {"b": true}, {"a": 1, "b": true}, {"a": 1, "b": false}, {"c": 1},
+            {"x": 1}, {"x": false}, {"X": true}, {"name": "ab"}, {"name": "a"},
+            {"name": "ab", "next": {"name": "cd", "next": null}},
+            {"name": "ab", "next": {"name": "C"}}, {"name": "ab", "extra": false}
+        ]);
+        let mut pointers = context.schemas.keys().cloned().collect::<Vec<_>>();
+        pointers.sort();
+        for pointer in pointers {
+            let standalone = standalone_at(&schema, &pointer);
+            let expected = PreparedSchema::compile(&standalone).unwrap();
+            let backend = json_schema_ast::compile(&standalone).unwrap();
+            let shared = context.compile_at(&pointer).unwrap();
+            assert_eq!(
+                expected.to_bytes().unwrap(),
+                shared.to_bytes().unwrap(),
+                "{pointer}: standalone program layout"
+            );
+            let loaded = PreparedSchema::load(&shared.to_bytes().unwrap()).unwrap();
+            assert_eq!(
+                expected.requires_exact_json_numbers(),
+                loaded.requires_exact_json_numbers(),
+                "{pointer}"
+            );
+            for value in values.as_array().unwrap() {
+                assert_eq!(
+                    backend.is_valid(value),
+                    loaded.is_valid_json_view(InstanceRef::from_serde(value)),
+                    "{pointer}: {value}"
+                );
+                assert_eq!(
+                    expected.is_valid_json_view(InstanceRef::from_serde(value)),
+                    loaded.is_valid_json_view(InstanceRef::from_serde(value)),
+                    "{pointer}: {value}"
+                );
+                assert_eq!(
+                    expected.explain(value),
+                    loaded.explain(value),
+                    "{pointer}: {value}"
+                );
+            }
+        }
+        let nodes = context.builder.nodes.len();
+        let patterns = context.builder.patterns.len();
+        context.compile_at("#/$defs/Node").unwrap();
+        assert_eq!(context.builder.nodes.len(), nodes);
+        assert_eq!(context.builder.patterns.len(), patterns);
+        assert!(patterns > 0);
+    }
+
+    #[test]
+    fn shared_context_preserves_recursive_root_identity_and_depth_limits() {
+        std::thread::Builder::new().stack_size(16 * 1024 * 1024).spawn(|| {
+            let schema = serde_json::json!({"$defs": {
+                "Self": {"$ref": "#/$defs/Self", "type": "object", "properties": {
+                    "next": {"$ref": "#/$defs/Self"}, "flag": {"type": "boolean"}
+                }},
+                "Indirect": {"allOf": [{"$ref": "#/$defs/Other"}]},
+                "Other": {"anyOf": [{"$ref": "#/$defs/Indirect"}, {"type": "null"}],
+                    "properties": {"next": {"$ref": "#/$defs/Indirect"}}},
+                "Array": {"type": "array", "items": {"$ref": "#/$defs/Array"}}
+            }});
+            let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+            let mut context = PreparedSchemaContext::new(&document).unwrap().unwrap();
+            for pointer in ["#/$defs/Self", "#/$defs/Indirect", "#/$defs/Other", "#/$defs/Array"] {
+                let expected = PreparedSchema::compile(&standalone_at(&schema, pointer)).unwrap();
+                let shared = context.compile_at(pointer).unwrap();
+                if pointer == "#/$defs/Self" {
+                    assert!(matches!(shared.nodes[0].rules[0], Rule::Ref { node, .. } if node.0 != 0));
+                }
+                for length in [0, 1, 2, 126, 127, 128, 254, 255, 256, 257, 300] {
+                    for base in [serde_json::json!({}), serde_json::json!({"flag": 1}), serde_json::json!([])] {
+                        let mut value = base;
+                        for _ in 0..length {
+                            value = if pointer == "#/$defs/Array" { serde_json::json!([value]) } else { serde_json::json!({"next": value}) };
+                        }
+                        assert_eq!(expected.is_valid_json_view(InstanceRef::from_serde(&value)), shared.is_valid_json_view(InstanceRef::from_serde(&value)), "{pointer} at depth {length}");
+                        assert_eq!(expected.explain(&value), shared.explain(&value), "{pointer} at depth {length}");
+                    }
+                }
+            }
+        }).unwrap().join().unwrap();
+    }
+
+    #[test]
+    fn shared_context_preserves_recursive_unevaluated_annotations() {
+        let schema = serde_json::json!({"$defs": {"Closed": {"type": "object",
+            "allOf": [{"properties": {"a": {"type": "integer"}, "next": {"$ref": "#/$defs/Closed"}}}],
+            "unevaluatedProperties": false}}});
+        let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+        let mut context = PreparedSchemaContext::new(&document).unwrap().unwrap();
+        let expected = PreparedSchema::compile(&standalone_at(&schema, "#/$defs/Closed")).unwrap();
+        let shared = context.compile_at("#/$defs/Closed").unwrap();
+        for value in serde_json::json!([{}, {"a": 1}, {"b": 1}, {"next": {"a": 2}}, {"next": {"b": 1}}, {"next": {"next": {"a": false}}}]).as_array().unwrap() {
+            assert_eq!(expected.is_valid_json_view(InstanceRef::from_serde(value)), shared.is_valid_json_view(InstanceRef::from_serde(value)), "{value}");
+            assert_eq!(expected.explain(value), shared.explain(value), "{value}");
+        }
+    }
+
+    #[test]
+    fn canonical_context_borrows_the_existing_graph_and_preserves_model_validation() {
+        let schema = serde_json::json!({
+            "$defs": {
+                "Number": {"type":"integer", "minimum":0, "exclusiveMaximum":10},
+                "Node": {"type":"object", "required":["value"], "properties": {
+                    "value":{"$ref":"#/$defs/Number"},
+                    "next":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/Node"}]}
+                }, "additionalProperties":false},
+                "Shape": {"type":"object", "anyOf":[
+                    {"properties":{"name":{"type":"string", "pattern":"^a"}}},
+                    {"properties":{"count":{"$ref":"#/$defs/Number"}}}
+                ], "unevaluatedProperties":false}
+            },
+            "type":"object", "properties":{"node":{"$ref":"#/$defs/Node"}}
+        });
+        let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+        let canonical = document.canonical_schema_json().unwrap();
+        assert_ne!(
+            canonical, &schema,
+            "exercise canonical rather than raw input"
+        );
+        let mut context = PreparedSchemaContext::new_canonical(&document)
+            .unwrap()
+            .unwrap();
+        assert!(std::ptr::eq(context.builder.root, canonical));
+        let values = serde_json::json!([
+            null, false, 0, 1, 1.5, 9, 10, "a", {}, {"name":"ab"}, {"name":"bad"},
+            {"count":3}, {"count":-1}, {"extra":true}, {"value":1},
+            {"value":1,"next":{"value":2,"next":null}}, {"value":1,"next":{"value":10}}
+        ]);
+        let mut pointers = context.schemas.keys().cloned().collect::<Vec<_>>();
+        pointers.sort();
+        for pointer in pointers {
+            let expected = PreparedSchema::compile(&standalone_at(canonical, &pointer)).unwrap();
+            let shared = context.compile_at(&pointer).unwrap();
+            let loaded = PreparedSchema::load(&shared.to_bytes().unwrap()).unwrap();
+            for value in values.as_array().unwrap() {
+                assert_eq!(
+                    expected.is_valid_json_view(InstanceRef::from_serde(value)),
+                    loaded.is_valid_json_view(InstanceRef::from_serde(value)),
+                    "{pointer}: {value}"
+                );
+                assert_eq!(
+                    expected.explain(value),
+                    loaded.explain(value),
+                    "{pointer}: {value}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn shared_context_falls_back_when_promoting_a_root_can_change_references() {
+        for schema in [
+            serde_json::json!({"type": "object", "properties": {"next": {"$ref": "#"}}}),
+            serde_json::json!({"properties": {"a": {"type": "integer"}, "b": {"$ref": "#/properties/a"}}}),
+            serde_json::json!({"$id": "https://example.com/schema", "type": "string"}),
+            serde_json::json!({"$defs": {"A": {"$anchor": "A", "type": "string"}}, "$ref": "#A"}),
+            serde_json::json!({"$defs": {"A": {"$id": "https://example.com/child", "type": "string"}}, "$ref": "#/$defs/A"}),
+            serde_json::json!({"$defs": {"A": {"const": {"schema": {"type": "integer"}}}}, "$ref": "#/$defs/A/const/schema"}),
+        ] {
+            let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+            assert!(
+                PreparedSchemaContext::new(&document).unwrap().is_none(),
+                "{schema}"
+            );
+        }
+    }
+
+    #[test]
+    fn shared_context_treats_annotation_payloads_as_data_and_rejects_non_schema_positions() {
+        let schema = serde_json::json!({"$defs": {"A": {"const": {"$id": "data", "$ref": "#"},
+            "examples": [{"$dynamicRef": "data"}]}}, "type": "object"});
+        let document = json_schema_ast::SchemaDocument::from_json(&schema).unwrap();
+        let mut context = PreparedSchemaContext::new(&document).unwrap().unwrap();
+        assert!(context.compile_at("#/$defs/A/const").is_err());
+        let model = context.compile_at("#/$defs/A").unwrap();
+        assert!(model.is_valid_json_view(InstanceRef::from_serde(
+            &serde_json::json!({"$id": "data", "$ref": "#"})
+        )));
+    }
 
     #[test]
     fn exhausted_depth_cannot_accept_negations_or_conditionals() {

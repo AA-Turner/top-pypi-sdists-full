@@ -162,8 +162,10 @@ class Recorder:
     # Open handle on fixture.jsonl while a recording is running, None otherwise.
     _file_handle: Optional[io.TextIOBase] = None
     _interaction_count: int = 0
+    # Results or arguments that could not be written to the fixture, even if connector code caught the error.
+    _failed_count: int = 0
 
-    # Guards _interaction_count and writes to _file_handle, because
+    # Guards _interaction_count, _failed_count and writes to _file_handle, because
     # connectors may call @action functions from several threads.
     _state_lock: threading.Lock = threading.Lock()
 
@@ -193,6 +195,7 @@ class Recorder:
                 cls._file_handle = None
 
         cls._interaction_count = 0
+        cls._failed_count = 0
         MaxRecordHandler.stop()
 
     @classmethod
@@ -201,12 +204,24 @@ class Recorder:
         return cls._interaction_count
 
     @classmethod
+    def failed_count(cls) -> int:
+        """Number of @action arguments or results that could not be written to the fixture."""
+        return cls._failed_count
+
+    @classmethod
+    def note_failed_write(cls) -> None:
+        """Count an @action argument or result that could not be serialized. Calls after the cap are not counted."""
+        with cls._state_lock:
+            if cls._file_handle is not None and not MaxRecordHandler.is_stopped_by_cap():
+                cls._failed_count += 1
+
+    @classmethod
     def record(cls, name: str, arguments: dict, result) -> None:
         """
         Append one interaction to the fixture and flush.
 
         Raises TypeError, ValueError (NaN or Infinity) or RecursionError (too deeply nested), before anything is written,
-        if the values are not standard JSON.
+        if the values are not standard JSON. Raises RecordError if the write to the fixture fails.
 
         A call that arrives after stop(), or after a write was rejected for exceeding the cap
         (a worker thread still running after the sync was halted), is ignored.
@@ -215,6 +230,10 @@ class Recorder:
         with cls._state_lock:
             if cls._file_handle is None or MaxRecordHandler.is_stopped_by_cap():
                 return
-            cls._file_handle.write(line + "\n")
-            cls._file_handle.flush()
+            try:
+                cls._file_handle.write(line + "\n")
+                cls._file_handle.flush()
+            except OSError as e:
+                cls._failed_count += 1
+                raise RecordError(f"Cannot write interaction '{name}' to {cls._file_handle.name}: {e}") from e
             cls._interaction_count += 1

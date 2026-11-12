@@ -1,5 +1,7 @@
 import platform
 import ssl
+import subprocess
+import sys
 import time
 
 import pytest
@@ -80,6 +82,63 @@ def test_b(case, a):
     )
     # There should be no errors. There are no warnings from Schemathesis pytest plugin.
     result.assert_outcomes(passed=3)
+
+
+@pytest.mark.parametrize(
+    "parametrize",
+    ["schema.parametrize()", 'schemathesis.pytest.from_fixture("simple_schema").parametrize()'],
+    ids=["eager", "lazy"],
+)
+def test_pytest_schema_warnings(testdir, ctx, parametrize):
+    testdir.make_test(
+        f"""
+@{parametrize}
+@settings(max_examples=1, phases=[Phase.generate])
+def test_api(case):
+    pass
+""",
+        schema=ctx.openapi.build_schema(
+            {
+                "/users": {
+                    "post": {
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"address": {"$ref": "#/components/schemas/Address"}},
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                },
+                "/items": {
+                    "get": {
+                        "parameters": [
+                            {"name": "q", "in": "query", "schema": {"type": "string", "pattern": "(?<=a)+b"}}
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "OK",
+                                "content": {"application/msgpack": {"schema": {"type": "object"}}},
+                            }
+                        },
+                    }
+                },
+            }
+        ),
+    )
+    result = testdir.runpytest("-W", "always")
+    result.stdout.fnmatch_lines(
+        [
+            "*UserWarning: Unresolvable references: POST /users - `body` - unresolvable reference "
+            "`#/components/schemas/Address`",
+            "*UserWarning: Missing deserializer: GET /items - `200` responses in `application/msgpack` are not validated",
+            "*UserWarning: Unsupported regex patterns: GET /items - Dropped `(?<=a)+b` - generated values may not match it",
+        ]
+    )
 
 
 def test_default_hypothesis_deadline(testdir):
@@ -481,6 +540,21 @@ from schemathesis import *
     )
     result = testdir.runpytest()
     assert "cannot collect test class" not in result.stdout.str()
+
+
+# Every pytest run with Schemathesis installed loads the plugin, so it should not pay for HTTP clients or test builders.
+_PLUGIN_PROBE = (
+    "import sys, schemathesis.pytest.plugin; "
+    "print(sorted(m for m in sys.modules if m.split('.')[0] in {'requests', 'urllib3'} or m in {"
+    "'schemathesis.python.asgi', "
+    "'schemathesis.generation.hypothesis.builder', "
+    "'schemathesis.generation.stateful.state_machine'}))"
+)
+
+
+def test_plugin_load_does_not_import_heavy_modules():
+    output = subprocess.run([sys.executable, "-c", _PLUGIN_PROBE], capture_output=True, text=True, check=True).stdout
+    assert output.strip() == "[]"
 
 
 def test_skip_negative_without_parameters(testdir):

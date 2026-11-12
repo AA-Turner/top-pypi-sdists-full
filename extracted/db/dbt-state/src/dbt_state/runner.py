@@ -20,6 +20,7 @@ from dbt.contracts.graph.nodes import (
 from dbt.contracts.results import RunResult, RunStatus
 from dbt.events.types import LogTestResult as DbtLogTestResult
 from dbt.events.types import green, red, yellow
+from dbt.node_types import RunHookType
 
 from dbt_state.auth.sso import Org
 from dbt_state.errors import (
@@ -76,7 +77,7 @@ from dbt_state.version import __version__
 if t.TYPE_CHECKING:
     from dbt.adapters.sql import SQLAdapter
     from dbt.task.compile import CompileRunner
-    from dbt.task.run import MicrobatchModelRunner, ModelRunner
+    from dbt.task.run import MicrobatchModelRunner, ModelRunner, RunTask
     from dbt.task.runnable import GraphRunnableTask
     from dbt.task.test import TestRunner
 
@@ -95,6 +96,7 @@ class RunnerOverride:
             [ManifestNode, RuntimeConfig, Manifest], t.Dict[str, t.Any]
         ],
         original_build_test_run_result: t.Optional[t.Callable] = None,
+        original_safe_run_hooks: t.Optional[t.Callable] = None,
         telemetry_dispatcher: TelemetryDispatcher | None = None,
         query_cache_client: QueryCacheGrpcClient | None = None,
     ) -> None:
@@ -103,6 +105,7 @@ class RunnerOverride:
         self._original_microbatch_execute = original_microbatch_execute
         self._original_generate_runtime_model_context = original_generate_runtime_model_context
         self._original_build_test_run_result = original_build_test_run_result
+        self._original_safe_run_hooks = original_safe_run_hooks
         self._query_cache_client = query_cache_client
         self._run_cache: RunCache | None = None
         self._run_cache_lock = threading.Lock()
@@ -159,6 +162,78 @@ class RunnerOverride:
         if self._run_cache is not None:
             self._run_cache.attach_state_decision_id(t.cast(ManifestNode, result.node), result)
         return result
+
+    def safe_run_hooks_override(
+        self, task: RunTask, adapter: t.Any, hook_type: t.Any, extra_context: t.Any
+    ) -> t.Any:
+        """Refresh stored last_modified for tables modified by on-run-end hooks."""
+        if self._original_safe_run_hooks is None:
+            raise RuntimeError("safe_run_hooks override is not configured")
+
+        run_cache = self._run_cache
+        track = False
+        try:
+            track = (
+                run_cache is not None
+                and hook_type == RunHookType.End
+                and bool(task.get_hooks_by_type(hook_type))
+            )
+            if track and run_cache is not None:
+                run_cache.begin_on_run_end()
+        except Exception as e:
+            track = False
+            events.fire_debug_event("Skipping on-run-end metadata tracking: {}", str(e))
+
+        original_execute = adapter.execute
+        if track and run_cache is not None:
+            adapter.execute = self._observing_execute(
+                adapter,
+                original_execute,
+                run_cache.before_on_run_end_statement,
+                run_cache.after_on_run_end_statement,
+            )
+        try:
+            status = self._original_safe_run_hooks(task, adapter, hook_type, extra_context)
+        finally:
+            if track:
+                try:
+                    del adapter.execute
+                except AttributeError:
+                    pass
+
+        if track and run_cache is not None:
+            try:
+                run_cache.update_metadata_after_on_run_end()
+            except Exception as e:
+                events.fire_warn_event("Failed to update on-run-end metadata: {}", str(e))
+        return status
+
+    @staticmethod
+    def _observing_execute(
+        adapter: t.Any,
+        original_execute: t.Callable,
+        before_on_run_end_statement: t.Callable,
+        after_on_run_end_statement: t.Callable,
+    ) -> t.Callable:
+        """Wrap `adapter.execute` to report on-run-end statements to the hooks handler."""
+
+        def execute(sql: t.Any, *args: t.Any, **kwargs: t.Any) -> t.Any:
+            matched: t.Any = None
+            if isinstance(sql, str):
+                try:
+                    matched = before_on_run_end_statement(sql)
+                except Exception as e:
+                    events.fire_debug_event("on-run-end pre-statement tracking failed: {}", str(e))
+            result = original_execute(sql, *args, **kwargs)
+            # Only reached if the statement did not raise: failed statements are not refreshed.
+            if matched:
+                try:
+                    after_on_run_end_statement(matched)
+                except Exception as e:
+                    events.fire_debug_event("on-run-end post-statement tracking failed: {}", str(e))
+            return result
+
+        return execute
 
     def create_state_selector_override(
         self,

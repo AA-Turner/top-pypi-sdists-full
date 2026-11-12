@@ -629,9 +629,20 @@ def server_start(
         logger.error("Please select either langfuse or ibm telemetry for observability not both")
         sys.exit(1)
 
-    # Add LANGFUSE_ENABLED and DOCPROC_ENABLED into the merged_env_dict, for tempus to pick up.
-    if experimental_with_langfuse:
+    # Add Observability and Analytics environment variables into merged_env_dict
+    if experimental_with_langfuse or experimental_with_ibm_telemetry:
+        merged_env_dict['AGENT_OPS_V3'] = 'true'
+        merged_env_dict['AGENT_OPS_V3_SCHEMA_SETUP'] = 'true'
+        merged_env_dict['REACT_APP_LOAD_ANALYTICS_UI'] = 'true'
         merged_env_dict['LANGFUSE_ENABLED'] = 'true'
+        if experimental_with_ibm_telemetry:
+            merged_env_dict['USE_IBM_TELEMETRY'] = 'true'
+            merged_env_dict['FLOW_TRACING_OTLP_ENDPOINT'] = merged_env_dict.get('FLOW_TRACING_OTLP_ENDPOINT') or 'http://jaeger:4318/v1/traces'
+        else:
+            merged_env_dict['FLOW_TRACING_OTLP_ENDPOINT'] = ''
+    else:
+        merged_env_dict['AGENT_OPS_V3_SCHEMA_SETUP'] = 'false'
+        merged_env_dict['FLOW_TRACING_OTLP_ENDPOINT'] = ''
 
     if with_doc_processing:
         merged_env_dict['DOCPROC_ENABLED'] = 'true'
@@ -640,16 +651,6 @@ def server_start(
         merged_env_dict["WDU_RUNTIME_SOURCE"] = "remote" # Set WDU_RUNTIME_SOURCE=remote to use WDU proxy
     else:
         logger.warning("IBM Document Processing is not enabled. The following two features will be disabled: \n1. Agent Knowledge - Upload files \n2. Agent Workflow - Document Processing. \nTo enable these features, please use '--with-doc-processing' argument or provide WO_INSTANCE and WO_API_KEY in your env file to start the server.")
-
-    if experimental_with_ibm_telemetry:
-        merged_env_dict['USE_IBM_TELEMETRY'] = 'true'
-        merged_env_dict['AGENT_OPS_V3'] = 'true'
-        merged_env_dict['AGENT_OPS_V3_SCHEMA_SETUP'] = 'true'
-        merged_env_dict['FLOW_TRACING_OTLP_ENDPOINT'] = merged_env_dict.get('FLOW_TRACING_OTLP_ENDPOINT') or 'http://jaeger:4318/v1/traces'
-        merged_env_dict['LANGFUSE_ENABLED'] = 'true'
-    else:
-        merged_env_dict['FLOW_TRACING_OTLP_ENDPOINT'] = ''
-        merged_env_dict['AGENT_OPS_V3_SCHEMA_SETUP'] = 'false'
 
     if with_langflow:
         merged_env_dict['LANGFLOW_ENABLED'] = 'true'

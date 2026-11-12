@@ -254,7 +254,7 @@ class ReopenConflictMixin:
             if name == base and retry_kw.get("authored_by") is None and not retry_kw.get("description"):
                 # `retry_id` is SDK-composed (`<base>-r2`): it declares itself unless the caller did, or a
                 # description (someone's words) rides along (DESIGN.md).
-                retry_kw["authored_by"] = agent_session.AUTHORSHIP_AGENT
+                retry_kw["authored_by"] = agent_session.AUTHORSHIP_COMPOSED
             try:
                 run = create(retry_kw, retry_id if name == base else name)
                 break

@@ -1154,20 +1154,17 @@ def test_positive_oversized_strings_only_for_unbounded_body_strings(ctx):
 
 def test_positive_oversized_strings_skip_parameters(ctx):
     # Servers reject long URLs and headers before the application sees them, whatever the schema says.
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /foo/{id}",
         {
-            "/foo/{id}": {
-                "get": {
-                    "parameters": [
-                        {"name": location, "in": location, "required": True, "schema": {"type": "string"}}
-                        for location in ("query", "header", "cookie")
-                    ]
-                    + [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/foo/{id}"]["GET"]
+            "parameters": [
+                {"name": location, "in": location, "required": True, "schema": {"type": "string"}}
+                for location in ("query", "header", "cookie")
+            ]
+            + [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
 
     assert not scenario_cases(collect_cases(operation, GenerationMode.POSITIVE), CoverageScenario.OVERSIZED_STRING)
 
@@ -1895,6 +1892,7 @@ def test_required_header_as_string(ctx):
         {"const": 42},
     ],
 )
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_underspecified_path_parameters(ctx, cli, app_runner, snapshot_cli, schema):
     # There should be no "Path parameter 'organization_id' is not defined"
     paths = {
@@ -3124,6 +3122,7 @@ def test_json_content_parameter_keeps_nested_types(ctx, location, media_type):
     ]
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_negative_data_rejection(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     raw_schema = build_schema(
@@ -3229,6 +3228,7 @@ def test_request_body_without_validation_keywords(ctx):
     run_positive_test(operation, test)
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_unspecified_http_methods(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     raw_schema = {
@@ -3497,7 +3497,6 @@ def test_malformed_multipart_probe_does_not_serialize_a_boundary(ctx):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_content_type_probe_reports_server_error(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
@@ -3575,7 +3574,6 @@ def test_content_type_probe_server_error_via_wsgi(ctx, scenario, message):
     ] == [(ContentTypeServerError, "POST /items", 500, message)]
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_content_type_probe_ignores_non_server_errors(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
@@ -3867,6 +3865,7 @@ def test_body_examples_do_not_leak_into_property_schemas(ctx, mode):
     }
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_missing_authorization(ctx, cli, snapshot_cli):
     # The reproduction code should not contain auth if it is explicitly specified
     api = ctx.openapi.apps.failure()
@@ -3935,6 +3934,7 @@ def filter_case(ctx, case):
     assert result.exit_code == 0, result.output
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_unnecessary_auth_warning(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.basic()
     # If a test for missing Authorization is the only thing that happen, there should be no warning for missing Authorization header
@@ -7161,35 +7161,82 @@ def test_coverage_negative_string_property_xml_not_wire_identical(ctx):
                 )
 
 
-def test_coverage_positive_oneof_body_valid_for_whole_schema(ctx):
-    # oneOf where both branches allow the same set of values (no additionalProperties: false).
-    # POSITIVE coverage must not yield bodies that are invalid for the whole oneOf (i.e. valid
-    # for multiple branches simultaneously).
+# Boundary values here match two branches, yet values only one branch admits exist and must be sent.
+@pytest.mark.parametrize(
+    ("schema", "components"),
+    [
+        ({"oneOf": [{"type": "integer"}, {"type": "number"}]}, {}),
+        (
+            {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {"name": {"type": "string"}, "meow": {"type": "boolean"}},
+                    },
+                    {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {"name": {"type": "string"}, "bark": {"type": "boolean"}},
+                    },
+                ]
+            },
+            {},
+        ),
+        (
+            {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "properties": {"email": {"type": "string", "example": "a@b.com"}},
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "email": {"type": "string"},
+                            "code": {"type": "string"},
+                        },
+                    },
+                ]
+            },
+            {},
+        ),
+        (
+            {"oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]},
+            {
+                "schemas": {
+                    "A": {
+                        "type": "object",
+                        "required": ["kind"],
+                        "properties": {"kind": {"type": "string"}, "a": {"type": "integer"}},
+                    },
+                    "B": {
+                        "type": "object",
+                        "required": ["kind"],
+                        "properties": {"kind": {"type": "string"}, "b": {"type": "number"}},
+                    },
+                }
+            },
+        ),
+    ],
+    ids=["integer-number", "shared-required-name", "email-code", "shared-required-kind-refs"],
+)
+def test_coverage_positive_oneof_body_valid_for_whole_schema(ctx, schema, components):
+    operation = body_operation(ctx, schema, path="/modify", method="patch", components=components)
+
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
+
+
+# YAML `!!binary` values load as bytes, and no validator loads a schema holding them, so no value can be confirmed.
+def test_coverage_positive_oneof_overlap_without_a_loadable_validator_sends_no_body(ctx):
     operation = body_operation(
         ctx,
-        {
-            "oneOf": [
-                {
-                    "type": "object",
-                    "properties": {"email": {"type": "string", "example": "a@b.com"}},
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "email": {"type": "string"},
-                        "code": {"type": "string"},
-                    },
-                },
-            ]
-        },
+        {"oneOf": [{"type": "integer"}, {"type": "number"}], "default": b"\x00"},
         path="/modify",
         method="patch",
     )
-    validator = body_validator(operation)
 
-    for case in iter_cases(operation, GenerationMode.POSITIVE):
-        if case.media_type == "application/json" and body_mode(case) == GenerationMode.POSITIVE:
-            assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid for oneOf: {case.body!r}"
+    assert [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)] == []
 
 
 def test_coverage_form_urlencoded_primitive_body_negative_no_crash(ctx):
@@ -7840,6 +7887,57 @@ def test_coverage_form_urlencoded_filters_nested_wire_identical_mutations(ctx):
     _assert_form_negatives_survive_stringification(operation)
 
 
+def _negative_scalar_values(operation, name):
+    return [
+        case.body[name]
+        for case in iter_cases(operation, GenerationMode.NEGATIVE)
+        if isinstance(case.body, dict) and not isinstance(case.body.get(name, []), (list, dict))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("media_type", "expected"),
+    [
+        ("application/x-www-form-urlencoded", [0.5, True, "AAA"]),
+        ("multipart/form-data", [0.5, True, None, "AAA"]),
+    ],
+    ids=["urlencoded", "multipart"],
+)
+@pytest.mark.parametrize(
+    "field",
+    [
+        {"type": "array", "items": {"type": "integer"}},
+        {"allOf": [{"type": "array", "items": {"type": "integer"}}]},
+        {"$ref": "#/components/schemas/Integers"},
+    ],
+    ids=["plain", "all-of", "ref-to-all-of"],
+)
+def test_coverage_form_array_property_skips_scalars_sent_like_a_valid_one_item_array(ctx, media_type, expected, field):
+    # A form field carries `0` exactly as it carries `[0]`, so the server cannot tell them apart.
+    operation = body_operation(
+        ctx,
+        {"type": "object", "properties": {"f": field}, "required": ["f"]},
+        media_type=media_type,
+        components={"schemas": {"Integers": {"allOf": [{"type": "array", "items": {"type": "integer"}}]}}},
+    )
+
+    assert _negative_scalar_values(operation, "f") == expected
+
+
+@pytest.mark.parametrize(
+    "media_type", ["application/x-www-form-urlencoded", "multipart/form-data"], ids=["urlencoded", "multipart"]
+)
+def test_coverage_form_string_array_property_skips_scalars_sent_like_a_valid_one_item_array(ctx, media_type):
+    # Every scalar reaches the server as a string, which is a valid one-item array of strings.
+    operation = body_operation(
+        ctx,
+        {"type": "object", "properties": {"f": {"type": "array", "items": {"type": "string"}}}, "required": ["f"]},
+        media_type=media_type,
+    )
+
+    assert _negative_scalar_values(operation, "f") == []
+
+
 def test_coverage_array_above_max_items_with_draft_mismatch_sibling(ctx):
     # When a sibling keyword breaks the auto-detected validator (e.g. `exclusiveMinimum: true`),
     # the `ARRAY_ABOVE_MAX_ITEMS` mutation must still produce a body whose target array exceeds
@@ -7882,7 +7980,6 @@ def test_coverage_array_above_max_items_with_draft_mismatch_sibling(ctx):
         )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_coverage_array_items_enum_entries_violating_item_schema(cli, snapshot_cli, ctx):
     # No `enum` entry is a string, so nothing may be sent as valid data for a server that enforces the schema.
     paths = {
@@ -8540,7 +8637,6 @@ def test_ref_parameter_schema_keeps_combination_coverage(ctx):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_allow_header_conformance(ctx, cli, snapshot_cli):
     # The server leaves the documented POST out of `Allow`; a fixed value keeps the reported header stable.
     app, _ = ctx.openapi.make_flask_app(
@@ -8862,7 +8958,7 @@ def test_body_example_is_dropped_when_an_inferred_bound_contradicts_it(ctx, mini
     assert ({"name": "ab"} in bodies) is keeps_example
 
 
-@pytest.mark.parametrize("declared", ["inline", "ref"])
+@pytest.mark.parametrize("declared", ["inline", "ref", "all-of"])
 def test_multipart_template_body_built_from_custom_property_encodings(ctx, declared):
     # A property with a registered `encoding.contentType` draws from that strategy; other required
     # properties get values valid against their own schemas.
@@ -8881,6 +8977,25 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx, decla
         },
         "required": ["file", "name", "avatar", "count", "kind", "attachments"],
     }
+    details = {
+        "type": "object",
+        "properties": {name: upload["properties"][name] for name in ("name", "avatar", "count", "kind", "attachments")},
+        "required": ["name", "avatar", "count", "kind", "attachments"],
+    }
+    schema = {
+        "inline": upload,
+        "ref": {"$ref": "#/components/schemas/Upload"},
+        "all-of": {
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {"file": upload["properties"]["file"], "note": upload["properties"]["note"]},
+                    "required": ["file"],
+                },
+                {"$ref": "#/components/schemas/Details"},
+            ]
+        },
+    }[declared]
     operation = load_schema(
         ctx,
         parameters=[{"name": "q", "in": "query", "schema": {"type": "string", "enum": ["a", "b"]}}],
@@ -8888,13 +9003,18 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx, decla
             "required": True,
             "content": {
                 "multipart/form-data": {
-                    "schema": upload if declared == "inline" else {"$ref": "#/components/schemas/Upload"},
+                    "schema": schema,
                     "encoding": {"file": {"contentType": "image/png"}},
                 }
             },
         },
         components={
-            "schemas": {"Upload": upload, "Note": {"type": "string"}, "Bin": {"type": "string", "format": "binary"}}
+            "schemas": {
+                "Upload": upload,
+                "Details": details,
+                "Note": {"type": "string"},
+                "Bin": {"type": "string", "format": "binary"},
+            }
         },
     )["/foo"]["post"]
     bodies = [_binary_as_bytes(case.body) for case in iter_cases(operation, GenerationMode.POSITIVE)]

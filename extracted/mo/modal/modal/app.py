@@ -3,6 +3,7 @@ import inspect
 import typing
 from collections.abc import AsyncGenerator, Callable, Collection, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
 from textwrap import dedent
 from typing import (
@@ -30,7 +31,7 @@ from ._partial_function import (
     _PartialFunctionFlags,
     verify_concurrent_params,
 )
-from ._server import _Server, validate_http_server_config
+from ._server import _DirectServerCls, _Server, validate_http_server_config
 from ._supports_logs import _LogQueryData
 from ._utils.async_utils import synchronize_api
 from ._utils.deprecation import deprecation_warning, handle_deprecated_parameters, with_deprecation_warning
@@ -42,7 +43,7 @@ from ._utils.function_utils import (
     validate_target_concurrency,
 )
 from ._utils.mount_utils import validate_volumes
-from ._utils.name_utils import check_object_name, check_tag_dict
+from ._utils.name_utils import check_object_name, check_tag_dict, is_app_id
 from .client import _Client
 from .cloud_bucket_mount import _CloudBucketMount
 from .cls import _Cls, parameter
@@ -56,7 +57,7 @@ from .retries import Retries
 from .running_app import RunningApp
 from .schedule import Schedule
 from .secret import _Secret
-from .types import AppInfo
+from .types import AppInfo, AppStats, SandboxGroupStats
 from .volume import _Volume
 
 _default_image: _Image = _Image.debian_slim()
@@ -133,6 +134,82 @@ class _LocalAppState:
     include_source_default: bool
     secrets_default: Sequence[_Secret]
     volumes_default: dict[str | PurePosixPath, _Volume]
+
+
+class _AppSandboxesManager:
+    """mdmd:namespace"""
+
+    def __init__(self, app: "_App"):
+        """mdmd:hidden"""
+        self._app = app
+
+    async def stats(
+        self,
+        *,
+        since: datetime,
+        until: datetime | None = None,
+        group_by_tags: Sequence[str] | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> AsyncGenerator[SandboxGroupStats, None]:
+        """Return statistics for this App's Sandboxes over a time range, optionally grouped by tag values.
+
+        The maximum time range is 7 days.
+
+        Args:
+            since: The beginning of the time range, inclusive, on a UTC hour boundary. Values without a
+                timezone are interpreted as local time.
+            until: The end of the time range, exclusive, on a UTC hour boundary. If omitted, this defaults to
+                the current time. Values without a timezone are interpreted as local time.
+            group_by_tags: Tag names to group by. Sandboxes with the same values for these names form one group;
+                a name not present on a Sandbox counts as `None`. If omitted, all matching Sandboxes are returned
+                as a single group.
+            tags: Only include Sandboxes that have at least these tags.
+
+        Yields:
+            `SandboxGroupStats` objects, one per combination of tag values, with the following fields:
+            - `tags`: the value of each name in `group_by_tags` for the group's Sandboxes, `None` where not present.
+            - `cost`: total cost in USD as a `decimal.Decimal`, the sum of `cost_by_resource`.
+            - `cost_by_resource`: cost in USD as `decimal.Decimal`s, by billed resource: `CPU`, `Memory`, and GPU
+              types such as `H100`. The resource names are subject to change as Modal's billing model evolves.
+
+        Raises:
+            InvalidError: If the time range is invalid or there are more than 10,000 groups.
+
+        Examples:
+            ```python notest
+            app = modal.App.lookup("my-app")
+            since = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) - timedelta(days=1)
+            for group in app.sandboxes.stats(since=since, group_by_tags=["team"]):
+                print(group.tags, group.cost, group.cost_by_resource)
+            ```
+        """
+        if self._app._app_id is None:
+            raise InvalidError("`App.sandboxes.stats` requires a running, deployed or looked-up App.")
+        if until is not None:
+            if until.tzinfo is None:
+                until = until.astimezone()
+            until = until.astimezone(timezone.utc)
+        if since.tzinfo is None:
+            since = since.astimezone()
+        since = since.astimezone(timezone.utc)
+        if since >= datetime.now(timezone.utc):
+            raise InvalidError("`since` must be in the past.")
+        if until is not None and since >= until:
+            raise InvalidError("`since` must be before `until`.")
+        client = self._app._client or await _Client.from_env()
+        request = api_pb2.SandboxGetTimeRangeStatsRequest(
+            group_by_tags=list(group_by_tags or []), tags=tags or {}, app_id=self._app._app_id
+        )
+        request.since.FromDatetime(since)
+        if until is not None:
+            request.until.FromDatetime(until)
+        while True:
+            response = await client._stub.SandboxGetTimeRangeStats(request)
+            for group in response.groups:
+                yield SandboxGroupStats._from_proto(group)
+            if not response.next_page_token:
+                return
+            request.page_token = response.next_page_token
 
 
 class _App:
@@ -344,28 +421,47 @@ class _App:
         environment_name: str | None = None,
         create_if_missing: bool = False,
     ) -> "_App":
-        """Look up an App with a given name, creating a new App if necessary.
+        """Look up an App by name or App ID, creating a new App if necessary.
 
         Note that Apps created through this method will be in a deployed state,
         but they will not have any associated Functions or Classes. This method
         is mainly useful for creating an App to associate with a Sandbox.
 
+        Passing an App ID (`ap-...`) instead of a name looks up that specific App,
+        which also works for ephemeral Apps started with `app.run()` and for stopped
+        Apps. A lookup by ID ignores `environment_name` and cannot be combined with
+        `create_if_missing`.
+
         Args:
-            name: App name to resolve or create.
+            name: App name to resolve or create, or the ID of an existing App.
             client: Modal client to use; defaults to `Client.from_env()` when omitted.
             environment_name: Optional environment name; defaults to the configured environment.
+                Ignored when `name` is an App ID.
             create_if_missing: If True, create the app when it does not already exist.
+                Not supported when looking up an App by ID.
 
         Returns:
-            An `App` handle tied to the deployed app record.
+            An `App` handle tied to the App record.
 
         Examples:
             ```python
             app = modal.App.lookup("my-app", create_if_missing=True)
             modal.Sandbox.create("echo", "hi", app=app)
             ```
+
+            Look up an ephemeral App by its ID and read its most recent logs:
+
+            ```python notest
+            app = modal.App.lookup("ap-Xk7fT2qLm9RzVb4NwYc8Hd")
+            for entry in app.logs.tail(20):
+                print(entry.message, end="")
+            ```
         """
-        check_object_name(name, "App")
+        if is_app_id(name):
+            if create_if_missing:
+                raise InvalidError("`create_if_missing=True` is not supported when looking up an App by ID.")
+        else:
+            check_object_name(name, "App")
 
         if client is None:
             client = await _Client.from_env()
@@ -1429,25 +1525,27 @@ class _App:
         if scaleup_window is not None and scaleup_window <= 0:
             raise InvalidError("`scaleup_window` must be > 0")
 
-        http_config = api_pb2.HTTPConfig(
-            port=port,
-            proxy_regions=[routing_region],
-            startup_timeout=startup_timeout,
-            exit_grace_period=exit_grace_period,
-            h2_enabled=h2_enabled,
-            unauthenticated=unauthenticated,
-        )
-
         # Build secrets list
         secrets_list: list[_Secret] = list(secrets) if secrets else []
         if env:
             secrets_list.append(_Secret.from_dict(env))
 
         def wrapper(wrapped_user_cls: type[Any] | _PartialFunction[..., Any, Any] | Callable[..., Any]) -> _Server:
-            _Server._validate_wrapped_user_cls_decorators(wrapped_user_cls, enable_memory_snapshot)
+            direct = _Server._extract_user_cls(wrapped_user_cls) is _DirectServerCls
+            _Server._validate_wrapped_user_cls_decorators(wrapped_user_cls, enable_memory_snapshot, direct)
 
             # Validate the server class
             _Server._validate_construction_mechanism(wrapped_user_cls)
+
+            http_config = api_pb2.HTTPConfig(
+                port=port,
+                proxy_regions=[routing_region],
+                startup_timeout=startup_timeout,
+                exit_grace_period=exit_grace_period,
+                h2_enabled=h2_enabled,
+                unauthenticated=unauthenticated,
+                lift_and_shift_config=api_pb2.LiftAndShiftConfig() if direct else None,
+            )
 
             # Extract the underlying class if wrapped in a _PartialFunction (e.g., from @modal.clustered())
             cluster_size = None
@@ -1509,6 +1607,7 @@ class _App:
                 include_source=include_source if include_source is not None else local_state.include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 restrict_output=False,
+                include_client_mounts=not direct,
             )
 
             self._add_function(service_function, is_web_endpoint=False)
@@ -1679,6 +1778,50 @@ class _App:
 
         return _AppLogsManager(self)
 
+    @property
+    def sandboxes(self) -> _AppSandboxesManager:
+        """Namespace for the Sandboxes belonging to this App."""
+        return _AppSandboxesManager(self)
+
+    async def stats(self, *, since: datetime | None = None, until: datetime | None = None) -> AppStats:
+        """Return aggregate Function, Server, and Sandbox statistics for this App.
+
+        The default window is the most recent hour. Windows can span at most seven days,
+        with a start in the past 30 days.
+
+        App stats show total call counts, request counts, and the count of active and errored containers in
+        the time window. The count of sandboxes that finished in the interval as well as the count
+        that were still running as of the end of the window is also returned.
+
+        The available stats and their definitions are subject to change and are provided
+        on a best-effort basis. They may be delayed or incomplete.
+
+        Args:
+            since: The beginning of the time range, inclusive. If omitted, this defaults to an hour before `until`.
+               Values without a timezone are interpeted as local time.
+            until: The end of the time range, exclusive. If omitted, this defaults to current time.
+                Values without a timezone are interpeted as local time.
+
+        Examples:
+            ```python notest
+            stats = modal.App.lookup("my-app").stats()
+            print(stats.functions.total.calls.failed)
+            print(stats.functions["embed"].counts.containers.errors)
+            ```
+        """
+        if not self._app_id:
+            raise InvalidError("`app.stats` requires a running or stopped app.")
+        until = (until or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        since = (since or until - timedelta(hours=1)).astimezone(timezone.utc)
+        if since >= until:
+            raise InvalidError("`since` must be before `until`.")
+        request = api_pb2.AppGetTimeRangeStatsRequest(app_id=self._app_id)
+        request.since.FromDatetime(since)
+        request.until.FromDatetime(until)
+        client = self._client or await _Client.from_env()
+        response = await client._stub.AppGetTimeRangeStats(request)
+        return AppStats._from_proto(response)
+
     async def info(self, refresh: bool = False) -> AppInfo:
         """Return information for a modal `App`.
 
@@ -1711,4 +1854,5 @@ class _App:
         return self._info
 
 
+AppSandboxesManager = synchronize_api(_AppSandboxesManager)
 App = synchronize_api(_App)

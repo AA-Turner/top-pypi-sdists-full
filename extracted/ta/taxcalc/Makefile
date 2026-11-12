@@ -1,0 +1,157 @@
+# GNU Makefile that documents and automates common development operations
+#              using the GNU make tool (version >= 3.81)
+# Development is typically conducted on Linux or Max OS X (with the Xcode
+#              command-line tools installed), so this Makefile is designed
+#              to work in that environment (and not on Windows).
+# USAGE: Tax-Calculator$ make [TARGET]
+
+.PHONY=help
+help:
+	@echo "USAGE: make [TARGET]"
+	@echo "TARGETS:"
+	@echo "help       : show this help message"
+	@echo "package    : build and install local taxcalc package"
+	@echo "clean      : remove .pyc files, JIT cache, and local taxcalc package"
+	@echo "cstest     : generate coding-style errors using the"
+	@echo "             pycodestyle and pylint tools"
+	@echo "pytest     : generate report for and cleanup after"
+	@echo "             pytest -m ''"
+	@echo "valtest    : generate report for and cleanup after executing"
+	@echo "             taxcalc/validation/pe_taxsim/test.sh and"
+	@echo "             taxcalc/validation/tbly_ts/test.sh"
+	@echo "brtest     : generate report for and cleanup after executing"
+	@echo "             taxcalc/cli/behavioral_responses_tests/tests.sh"
+	@echo "idtest     : generate report for and cleanup after executing"
+	@echo "             taxcalc/cli/input_data_tests/tests.sh"
+	@echo "tctest     : generate report for and cleanup after"
+	@echo "             tc --test"
+	@echo "tctest-jit : generate report for and cleanup after"
+	@echo "             tc --test when environment var NOTAXCALCJIT is set"
+	@echo "docs       : generate docs/guide/{*_vars.md,*_params.md} and"
+	@echo "             docs/api/*.md files"
+	@echo "docs-peek  : preview docs at http://localhost:3000 (Ctrl-C ends)"
+	@echo "docs-html  : build docs/_build/html website just as CI does"
+	@echo "tests      : execute cstest, pytest, valtest, brtest, idtest, docs"
+	@echo "coverage   : generate pytest coverage report"
+	@echo "git-sync   : synchronize local, origin, and upstream Git repos"
+	@echo "git-pr N=n : create local pr-n branch containing upstream PR"
+
+.PHONY=clean
+clean:
+	@find . -name *pyc -exec rm {} \;
+	@find . -name *cache -maxdepth 1 -exec rm -r {} \;
+	@NOTAXCALCJIT=1 python -c "import shutil; \
+	  from taxcalc.decorators import jit_cache_root; \
+	  shutil.rmtree(jit_cache_root(), ignore_errors=True)"
+	@pip uninstall taxcalc --yes --quiet 2>&1 > /dev/null
+
+.PHONY=package
+package:
+	@pip install -e . | tail -1
+
+define pytest-cleanup
+find . -name *cache -maxdepth 1 -exec rm -r {} \;
+rm -f df-??-#-*
+rm -f tmp??????-??-#-tmp*
+endef
+
+.PHONY=pytest
+pytest: clean
+	@cd taxcalc ; pytest -n6 --durations=0 --durations-min=8
+	@$(pytest-cleanup)
+
+define tctest-cleanup
+rm -f test.csv
+rm -f test-18-*
+pip uninstall taxcalc --yes --quiet 2>&1 > /dev/null
+endef
+
+.PHONY=valtest
+valtest: clean
+	@echo "Executing taxcalc/validation/pe_taxsim/test.sh"
+	@cd taxcalc/validation/pe_taxsim ; ./test.sh
+	@echo "Executing taxcalc/validation/tbly_ts/test.sh"
+	@cd taxcalc/validation/tbly_ts ; ./test.sh
+
+.PHONY=tctest
+tctest: package
+	tc --test
+	@$(tctest-cleanup)
+
+.PHONY=tctest-jit
+tctest-jit:
+	@./tctest-nojit.sh
+
+TOPLEVEL_JSON_FILES := $(shell ls -l ./*json | awk '{print $$9}')
+TAXCALC_JSON_FILES := $(shell ls -l ./taxcalc/*json | awk '{print $$9}')
+TESTS_JSON_FILES := $(shell ls -l ./taxcalc/tests/*json | awk '{print $$9}')
+PYLINT_DISABLE = locally-disabled,duplicate-code,cyclic-import
+PYLINT_OPTIONS = --disable=$(PYLINT_DISABLE) --score=no --jobs=1 \
+                 --check-quote-consistency=yes
+EXCLUDED_PATHS = taxcalc/validation/taxsim35
+
+.PHONY=cstest
+cstest:
+	@-pycodestyle --ignore=W503,W504,E712 --exclude=$(EXCLUDED_PATHS) .
+	@-pycodestyle --ignore=E501,E121 $(TOPLEVEL_JSON_FILES)
+	@-pycodestyle --ignore=E501,E121 $(TAXCALC_JSON_FILES)
+	@-pycodestyle --ignore=E501,E121 $(TESTS_JSON_FILES)
+	@-pylint $(PYLINT_OPTIONS) --ignore-paths=$(EXCLUDED_PATHS) .
+
+.PHONY=brtest
+brtest: package
+	@echo "Executing taxcalc/cli/behavioral_responses_tests"
+	@cd taxcalc/cli/behavioral_responses_tests ; ./tests.sh
+
+.PHONY=idtest
+idtest: package
+	@echo "Executing taxcalc/cli/input_data_tests"
+	@cd taxcalc/cli/input_data_tests ; ./tests.sh
+
+.PHONY=docs
+docs: package
+	@echo "Executing docs/guide/make/make_uguide.py"
+	@python docs/guide/make/make_uguide.py
+	@echo "Executing docs/api/make/make_api.py"
+	@python docs/api/make/make_api.py
+
+.PHONY=docs-peek
+docs-peek: docs
+	@cd docs ; jupyter-book start
+
+.PHONY=docs-html
+docs-html: docs
+	@echo "Building docs/_build/html website"
+	@cd docs ; rm -rf _build ; \
+	  jupyter-book build --html --execute --strict && \
+	  python make_redirects.py
+
+.PHONY=tests
+tests: clean cstest pytest valtest brtest idtest docs
+
+define coverage-cleanup
+rm -f .coverage .coverage.* htmlcov/*
+endef
+
+COVMARK = "not requires_puf and not requires_tmd"
+
+OS := $(shell uname -s)
+
+.PHONY=coverage
+coverage:
+	@$(coverage-cleanup)
+	@pytest -v -n6 -m $(COVMARK) --cov --cov-report=html:htmlcov > /dev/null
+ifeq ($(OS), Darwin) # on Mac OS X
+	@open htmlcov/index.html
+else
+	@echo "Open htmlcov/index.html in browser to view report"
+endif
+	@$(pytest-cleanup)
+
+.PHONY=git-sync
+git-sync:
+	@./gitsync
+
+.PHONY=git-pr
+git-pr:
+	@./gitpr $(N)

@@ -24,6 +24,14 @@ except ImportError:  # running from inside runner/ as __main__
     except ImportError:
         _security = None
 
+try:
+    from runner.ops import oracle_ops as _oracle_ops
+except ImportError:  # running from inside runner/ as __main__
+    try:
+        from ops import oracle_ops as _oracle_ops
+    except ImportError:
+        _oracle_ops = None
+
 
 # Features the posture check recommends even for a default install.
 # Advisory only: WARN, never FAIL.
@@ -74,6 +82,37 @@ def _check_key_policies(cfg, results):
     if not isinstance(cfg, dict):
         return
     extra = cfg.get("additional_secrets")
+    # S5 residue: the require_posture pin's state, when pinned.
+    # Unpinned adds no line -- the report stays what it was.
+    if _security is not None \
+            and _security.require_posture_enabled(cfg):
+        lowered = _security.lowered_features(cfg)
+        if lowered:
+            eff = _security.effective_modes(cfg)
+            results.append(("FAIL", "security modes",
+                            "require_posture pinned but below "
+                            "enforce: %s" % ", ".join(
+                                "%s=%s" % (f, eff[f]) for f in lowered)))
+        else:
+            results.append(("OK", "security modes",
+                            "require_posture pinned: every feature "
+                            "at enforce"))
+
+    # F2: the Oracle run tool's mode, stated outright like the
+    # security modes above -- a deployment that tuned it (or one
+    # that inherits a config that did) can see it before starting.
+    # An invalid value is a FAIL: startup refuses it by name.
+    if _oracle_ops is not None:
+        tool_mode = _oracle_ops._oracle_tool_mode(cfg)
+        if tool_mode in _oracle_ops.ORACLE_TOOL_MODES:
+            results.append(("OK", "oracle",
+                            "tool_mode=%s (run tool)" % tool_mode))
+        else:
+            results.append(("FAIL", "oracle",
+                            "tool_mode=%r is not one of %s"
+                            % (tool_mode,
+                               ", ".join(_oracle_ops.ORACLE_TOOL_MODES))))
+
     policies = cfg.get("key_policies")
     if not isinstance(extra, dict):
         return
@@ -104,6 +143,21 @@ def _check_recommended_features(cfg, results):
             results.append(("WARN", "security modes",
                             "%s is off (recommended: audit or enforce)"
                             % feat))
+
+
+def _check_job_user_engagement(cfg, results):
+    # job_user at enforce with no user named engages nothing:
+    # the mode reads enforce and every job runs as the runner's
+    # own account. Name the state outright (phase 2 of the
+    # default-posture work) so the report never lets enforce
+    # silently mean nothing. Advisory: WARN, never FAIL -- the
+    # deployment runs; it just does not demote.
+    if _security is not None and _security.job_user_not_engaged(cfg):
+        results.append(("WARN", "security modes",
+                        "job_user is enforce but no "
+                        "security.job_user.user is configured: "
+                        "not engaged (jobs run as the runner's "
+                        "own account)"))
 
 
 def _check_confinement_backend(results):
@@ -316,6 +370,7 @@ def build_posture(cfg, cfg_path, base_dir):
     _check_workspace_root(cfg, results)
     _check_key_policies(cfg, results)
     _check_recommended_features(cfg, results)
+    _check_job_user_engagement(cfg, results)
     _check_confinement_backend(results)
     _check_service_unit(results)
 

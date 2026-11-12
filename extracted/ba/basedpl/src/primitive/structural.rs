@@ -52,10 +52,12 @@ pub(crate) enum Form {
     Transpose { inverse: bool, groups: Option<std::sync::Arc<[TransposeGroup]>> },
     /// Windows over the leading axes, padded by `edge` where it's given, and otherwise by fill on an axis whose size is below 0. `fill` where padding reads an explicit fill.
     Windows { edge: Option<Edge>, fill: bool },
+    /// Uniform cells joined under `frame`. The frame and cells retain their axis labels, without a renderer.
+    Stack { frame: CoreLayout },
 }
 
 impl Form {
-    /// Whether atoms copied to a result with no axes stay atoms, as `⌽3` and `⍬↓0` give. A reshape gives an array of the shape it's given, so `⍬⍴5` is a scalar.
+    /// Whether atoms copied to a result with no axes stay atoms, as `⌽3` and `⍬↓0` give. A reshape gives an array of the shape it's given, so `⍬ρ5` is a scalar.
     pub(crate) fn keeps_atoms(&self) -> bool { !matches!(self, Form::Call { p: Primitive::Shape, .. }) }
 }
 
@@ -66,7 +68,7 @@ impl Form {
 /// - Windows: the sizes, then the movements. The result's layout is `relaid` from the inputs'.
 pub(crate) fn plan(form: &Form, params: &[Value], inputs: &[&Layout]) -> Result<(Layout, ReadPlan), Error> {
     let (core, read) = core_plan(form, params, inputs)?;
-    Ok((relaid(core, inputs), read))
+    Ok((if matches!(form, Form::Stack { .. }) { core.into() } else { relaid(core, inputs) }, read))
 }
 
 /// A structural result's layout from its sources': `core` with the renderer of the one source it rearranges where the rank is unchanged, and for a join the renderer both sources agree on.
@@ -88,6 +90,12 @@ fn core_plan(form: &Form, params: &[Value], inputs: &[&Layout]) -> Result<(CoreL
     // A unit reads as `n` axes of length 1.
     let unit = |n: usize| CoreLayout::from(vec![1; n]);
     match *form {
+        Form::Stack { ref frame } => {
+            if frame.count() != inputs.len() || inputs.iter().any(|&layout| layout != inputs[0]) {
+                return Err(Error::new(Kind::Length, "stacked cells must have one layout and fill their frame"));
+            }
+            Ok((frame.concat(right), ReadPlan::joined(1, inputs.iter().enumerate().map(|(i, layout)| ReadPlan::input(i, layout.count())))?))
+        }
         Form::Call { p: p @ (Primitive::Take | Primitive::Drop), .. } => {
             let counts = &params[0];
             if counts.shape().len() > 1 { return Err(Error::new(Kind::Rank, "take/drop counts must be a unit or vector")); }
@@ -106,7 +114,7 @@ fn core_plan(form: &Form, params: &[Value], inputs: &[&Layout]) -> Result<(CoreL
             let axis = axis.unwrap_or(0);
             planned(if inverse { structure::expand(layout, axis, &counts) } else { structure::repeat(layout, axis, &counts) }?)
         }
-        Form::Call { p: Primitive::Reverse(_), axis, .. } => {
+        Form::Call { p: Primitive::Reverse, axis, .. } => {
             let axis = axis.expect("a rotation resolves its axis");
             let numbers = params.first().map(|a| a.as_items().integers().described("invalid rotation count")).transpose()?;
             let counts = params.first().zip(numbers.as_deref()).map(|(a, ns)| (a.shape(), ns));
@@ -238,7 +246,7 @@ pub(super) fn placed_cells(mixed: &Value, frame: usize, spec: &Value) -> Result<
     reorder(mixed, &order)
 }
 
-/// The axis names that the shape `dimensions` gives reshape and `⍳`: each key names its entry's axis, and an unkeyed entry leaves its axis unnamed.
+/// The axis names that the shape `dimensions` gives reshape and `ι`: each key names its entry's axis, and an unkeyed entry leaves its axis unnamed.
 pub(super) fn shape_names(dimensions: &Value) -> Vec<Option<std::sync::Arc<str>>> { dimensions.keys(0).map_or_else(Vec::new, |k| k.names().to_vec()) }
 
 pub(super) fn reshape(dimensions: &Value, right: &Value, fill: Option<Value>) -> Result<Value, Error> {
@@ -287,7 +295,7 @@ fn replication_counts(counts: &Value) -> Result<std::borrow::Cow<'_, [i64]>, Err
 }
 
 pub(super) fn rotate(counts: Option<&Value>, right: &Value, axis: usize) -> Result<Value, Error> {
-    crate::fusion::copy(&Form::Call { p: Primitive::Reverse(false), axis: Some(axis), inverse: false, fill: false }, counts.cloned().as_slice(), &[right], None)
+    crate::fusion::copy(&Form::Call { p: Primitive::Reverse, axis: Some(axis), inverse: false, fill: false }, counts.cloned().as_slice(), &[right], None)
 }
 
 /// `a` with `rank` axes for joining along `axis` with `other`. A unit becomes one cell with `other`'s other axes. An array with one axis fewer gains `axis`, with one position.
@@ -354,7 +362,8 @@ pub(crate) fn catenate_many(p: Primitive, axis: Option<&Value>, right: &Value) -
         return Ok(None);
     }
     let axis = match axis {
-        Some(axis) => super::single_axis(&p.resolved_axes(None, source, axis)?, rank)?, None => if first { 0 } else { rank - 1 },
+        Some(axis) => match super::single_axis(&p.resolved_axes(None, source, axis)?, rank) { Ok(axis) => axis, Err(_) => return Ok(None) },
+        None => { if first { 0 } else { rank - 1 } }
     };
     let (layout, buffer) = rustymath::array::Array::concatenate(&views, axis)?.into_compact();
     crate::events::taken(crate::events::routes::BulkCatenate, buffer.len());

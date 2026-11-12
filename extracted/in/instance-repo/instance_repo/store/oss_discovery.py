@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .. import paths as P
 from ..errors import DatasetNotFound, PrivateNetworkRequired, TransportError
@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 # Maximum size of a single metadata JSON object we are willing to read (10 MB).
 # Larger objects are silently skipped to prevent OOM on malformed uploads.
 _MAX_JSON_BYTES = 10 * 1024 * 1024
+
+# Per-batch raw-key cap for the paged instance discovery (P1 re-review fix).
+# Small enough to bound each listing round-trip; the marker loop advances
+# until the wanted number of *valid* instances is collected or OSS is
+# exhausted, so the batch size only affects request granularity.
+_PAGED_BATCH_KEYS = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +68,10 @@ class OssVersionInfo:
     instance_count: int
     # default split（3 层布局）的直接 .json 数，与 instance_count（含命名 split）区分
     default_instance_count: int = 0
+    # 每个命名 split 的直接 .json 计数（best-effort：split 列举失败时该
+    # split 缺席，视为 0）。probe 阶段与 instance_count 同一 LIST 往返，
+    # 不新增 OSS 调用。
+    split_instance_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -306,11 +316,14 @@ def parse_dataset_level(
         # version 路径（version_first 或含子目录的 split_first 形态）。
         splits: list[str] = sorted(g.name for g in subdirs)
         instance_count = len(direct_json)
+        split_instance_counts: dict[str, int] = {}
         for s_name in splits:
             split_dir = f"{group_dir}{s_name}/"
             _s_dirs, s_keys = content_store.list_level(
                 split_dir, list_only=True, dataset=dataset)
-            instance_count += len(_direct_json_keys(s_keys, split_dir))
+            split_json = len(_direct_json_keys(s_keys, split_dir))
+            split_instance_counts[s_name] = split_json
+            instance_count += split_json
         return OssVersionInfo(
             version=name,
             has_three_layer_content=grp.has_assets,
@@ -318,6 +331,7 @@ def parse_dataset_level(
             has_default_instances=len(direct_json) > 0,
             instance_count=instance_count,
             default_instance_count=len(direct_json),
+            split_instance_counts=split_instance_counts,
         )
 
     # A failed probe is not an empty directory or zero instances. Propagate the
@@ -361,12 +375,12 @@ def _warn_if_truncated(info: OssDatasetLevelInfo, dataset: str, max_versions: in
 # JSON reading helper
 # ---------------------------------------------------------------------------
 
-def _read_json_object(content_store, key: str) -> dict:
-    """Best-effort read and parse of a JSON object from OSS.
+def _read_json_object(content_store, key: str, *, required: bool = False) -> dict:
+    """Read a JSON object; ``required=True`` never hides read/parse failures.
 
-    Performs a HEAD check first: if ``Content-Length`` exceeds 10 MB the object
-    is skipped (returns ``{}``) to prevent OOM on malformed uploads.  Any other
-    failure (network, parse error, missing key) also returns ``{}``.
+    Best-effort discovery retains the historical empty-object fallback. Tag-filtered
+    discovery uses ``required=True`` so missing GetObject permission, oversized data,
+    network errors and malformed JSON cannot be misreported as "no match".
     """
     try:
         # Use the internal _execute_oss to do a HEAD and check size.
@@ -375,6 +389,10 @@ def _read_json_object(content_store, key: str) -> dict:
             head = bucket.head_object(key)
             content_length = getattr(head, "content_length", 0)
             if content_length and content_length > _MAX_JSON_BYTES:
+                if required:
+                    raise TransportError(
+                        f"required instance metadata JSON {key!r} exceeds "
+                        f"{_MAX_JSON_BYTES} bytes (content_length={content_length})")
                 logger.warning(
                     "Skipping oversized JSON object %s (%d bytes)",
                     key, content_length,
@@ -383,19 +401,54 @@ def _read_json_object(content_store, key: str) -> dict:
             # Read body.
             result = bucket.get_object(key)
             body = result.read()
-            return json.loads(body)
+            parsed = json.loads(body)
+            # P2-5: an instance metadata JSON must be a JSON *object*. A legal
+            # but non-object document (e.g. a non-empty array or a bare string)
+            # is malformed metadata — return {} so best-effort callers never
+            # hit AttributeError on ``.get()`` and one bad object cannot fail
+            # the whole instance list.
+            if not isinstance(parsed, dict):
+                if required:
+                    raise TransportError(
+                        f"required instance metadata {key!r} must be a JSON object")
+                logger.warning(
+                    "Instance metadata JSON %s is not a JSON object "
+                    "(got %s); skipping", key, type(parsed).__name__)
+                return {}
+            return parsed
 
         from .._routing import _OperationIntent
         return content_store._execute_oss(
             _OperationIntent.DOWNLOAD, key, None, _head_and_read)
     except PrivateNetworkRequired:
+        if required:
+            raise
         logger.warning(
             "Cannot read instance metadata JSON (private network required): %s",
             key)
         return {}
     except Exception:
+        if required:
+            raise
         logger.debug("Failed to read JSON object %s", key, exc_info=True)
         return {}
+
+
+def _apply_synthetic_content(inst: DatasetInstance, data: dict) -> None:
+    """Read legacy tags and native tag_values independently from OSS JSON."""
+    parsed = DatasetInstance.from_dict({
+        **data,
+        "instance_id": inst.instance_id,
+        "dataset": inst.dataset,
+        "dataset_version": inst.dataset_version,
+        "split": inst.split,
+        "registered": False,
+    })
+    inst.tags = parsed.tags
+    inst.tag_values = parsed.tag_values
+    inst.difficulty = parsed.difficulty
+    inst.docker_image = parsed.docker_image
+    inst.extend_meta = parsed.extend_meta
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +572,7 @@ def build_synthetic_instances(
     *,
     oss_prefix: str = "swe/datasets",
     read_content: bool = False,
+    max_keys: int | None = None,
 ) -> list[DatasetInstance]:
     """List and build :class:`DatasetInstance` objects from OSS metadata JSONs.
 
@@ -526,33 +580,113 @@ def build_synthetic_instances(
     ``DatasetInstance`` is constructed.  ``read_content=True`` 时尝试读 JSON
     回填 tags/difficulty/docker_image；默认 False——发现模式（list-only STS）
     无 GetObject，逐实例 GET 必然失败，跳过可省 N 次无谓的 STS 签发与下载。
+
+    ``max_keys``（P1-1c 修复）：限制返回的**有效实例**数上限（不是原始
+    key 数——无效 key 不能挤占页容量）。给分页路径使用；``None`` 保持
+    全量旧行为。截断只影响返回列表长度，不改变排序确定性（键序）。
+    """
+    return build_synthetic_instances_paged(
+        content_store, dataset, version, split, oss_prefix=oss_prefix,
+        read_content=read_content, want=max_keys)[0]
+
+
+def build_synthetic_instances_paged(
+    content_store,
+    dataset: str,
+    version: str,
+    split: str | None = None,
+    *,
+    oss_prefix: str = "swe/datasets",
+    read_content: bool = False,
+    want: int | None = None,
+) -> tuple[list[DatasetInstance], bool]:
+    """按**有效实例数**推进的 OSS 实例发现（P1 复审修复）。
+
+    返回 ``(instances, exhausted)``：
+
+    - *instances*：至多 ``want`` 个有效实例（``want=None`` 全量）；
+    - *exhausted*：OSS 目录是否已列举到底。``want`` 有效且未耗尽时，
+      调用方可确定还有更多实例（``has_more=True``）；耗尽时以实际
+      数量为准——不再出现"无效 key 在前挤占页容量返回空页"或
+      "恰好满页却误报 has_more"两种错位。
+
+    实现：内部以 OSS marker（``start_after``）逐批推进 raw keys，
+    跳过非直接/非 JSON key，直到集满 ``want+1`` 个有效实例或列举耗尽；
+    返回前丢弃探针用的第 ``want+1`` 个实例（探针存在 ⇒ 耗尽为 False）。
+    每批拉取量有上限（``_PAGED_BATCH_KEYS``），网络开销与有效实例数
+    成正比，而非桶内对象总量。
     """
     metadata_prefix = _metadata_prefix(dataset, version, split, oss_prefix)
 
-    all_keys = content_store.list_objects(
-        metadata_prefix, list_only=True, dataset=dataset)
-    json_keys = _direct_json_keys(all_keys, metadata_prefix)
-
-    instances: list[DatasetInstance] = []
-    for key in json_keys:
-        instance_id = key.rsplit("/", 1)[-1].removesuffix(".json")
-        inst = DatasetInstance(
-            instance_id=instance_id,
+    def _new_instance(key: str) -> DatasetInstance:
+        return DatasetInstance(
+            instance_id=key.rsplit("/", 1)[-1].removesuffix(".json"),
             dataset=dataset,
             dataset_version=version,
             split=split or "default",
             registered=False,
         )
-        if read_content:
-            data = _read_json_object(content_store, key)
-            if data:
-                inst.tags = data.get("tags", {})
-                inst.difficulty = data.get("difficulty")
-                inst.docker_image = data.get("docker_image")
-                inst.extend_meta = data.get("extend_meta", {})
-        instances.append(inst)
 
-    return instances
+    if want is not None and (isinstance(want, bool) or want < 0):
+        want = None
+    probe_need = (want + 1) if want is not None else None
+    instances: list[DatasetInstance] = []
+    exhausted = False
+    start_after = ""
+
+    def _read_batch(cap: int, after: str) -> tuple[list[str], bool]:
+        # Prefer the delimiter-based direct-level reader (P2 re-review fix):
+        # sub-directory contents are skipped server-side — one subtree costs
+        # one prefix entry, so a sparse directory (few direct JSONs beside
+        # huge nested subtrees) needs a handful of LISTs, not one per raw
+        # key. Falls back to the flat-key readers for stores that do not
+        # implement the delimiter API (their listings are finite by
+        # construction, so "returned fewer than cap" ⇒ exhausted).
+        direct = getattr(content_store, "list_direct_objects_paged", None)
+        if callable(direct):
+            return direct(metadata_prefix, list_only=True, dataset=dataset,
+                          max_keys=cap, start_after=after)
+        reader = getattr(content_store, "list_objects_with_exhausted", None)
+        if callable(reader):
+            return reader(metadata_prefix, list_only=True, dataset=dataset,
+                          max_keys=cap, start_after=after)
+        keys = content_store.list_objects(
+            metadata_prefix, list_only=True, dataset=dataset)
+        # Emulate start_after + exhaustion from the (already complete) list.
+        keys = [k for k in keys if k > after] if after else list(keys)
+        return keys[:cap], len(keys) <= cap
+
+    # Batch cap counts *direct keys*: the delimiter reader pages through OSS
+    # *entries* (direct objects + folded subtree prefixes) at a full 1000 per
+    # request, so a dense directory stops after one page and a directory
+    # dominated by sibling sub-dirs pages at O(entries/1000) — bounded by the
+    # listing's page budget (re-review follow-up for many same-level dirs).
+    batch_cap = _PAGED_BATCH_KEYS
+    if probe_need is not None:
+        batch_cap = min(_PAGED_BATCH_KEYS, probe_need)
+
+    while True:
+        batch_keys, batch_exhausted = _read_batch(batch_cap, start_after)
+        exhausted = batch_exhausted
+        if not batch_keys:
+            break
+        for key in _direct_json_keys(batch_keys, metadata_prefix):
+            inst = _new_instance(key)
+            if read_content:
+                data = _read_json_object(content_store, key, required=True)
+                if data:
+                    _apply_synthetic_content(inst, data)
+            instances.append(inst)
+            if probe_need is not None and len(instances) >= probe_need:
+                break
+        if exhausted or (probe_need is not None and len(instances) >= probe_need):
+            break
+        start_after = batch_keys[-1]
+
+    if want is not None and len(instances) > want:
+        instances = instances[:want]  # drop the probe instance
+        exhausted = False  # probe succeeded → more valid instances exist
+    return instances, exhausted
 
 
 def _instance_dir(dataset: str, version: str, split: str | None,
@@ -705,6 +839,8 @@ def build_synthetic_instance(
         keys = content_store.list_objects(
             parent, list_only=True, dataset=dataset)
     except Exception:  # noqa: BLE001
+        if read_content:
+            raise
         return None
 
     if key not in keys:
@@ -725,11 +861,8 @@ def build_synthetic_instance(
         except Exception:  # noqa: BLE001, S110
             pass  # best-effort：manifest 枚举失败不阻断实例返回
     if read_content:
-        data = _read_json_object(content_store, key)
+        data = _read_json_object(content_store, key, required=True)
         if data:
-            inst.tags = data.get("tags", {})
-            inst.difficulty = data.get("difficulty")
-            inst.docker_image = data.get("docker_image")
-            inst.extend_meta = data.get("extend_meta", {})
+            _apply_synthetic_content(inst, data)
 
     return inst

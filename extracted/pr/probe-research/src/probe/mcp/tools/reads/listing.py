@@ -16,6 +16,7 @@ from ....shared.reads.search_contract import (
 from ...delivery.context import source_changed
 from probe.mcp.tools.shaping.cursors import _pack_cursor, _unpack_cursor
 from probe.mcp.tools.view import _supported_views
+from probe.mcp.source import RunListQuery
 
 
 class BrowseListMixin:
@@ -23,7 +24,7 @@ class BrowseListMixin:
 
     # -- browse: the flat listings ------------------------------------------------
     #
-    # Every mode but `tree` lists ONE kind of row from ONE route, newest-first or
+    # Every mode but `projects` lists ONE kind of row from ONE route, newest-first or
     # name-ordered as that route orders it. The service answers one backend page
     # (from the position its own cursor names) and says, per row, the cursor that
     # resumes AFTER that row (`_list_after`) -- the same contract the tree's
@@ -95,7 +96,8 @@ class BrowseListMixin:
         except ValueError:
             accepted = " or ".join(f"`{k}:<uuid>`" for k in kinds)
             raise errors.ValidationError(
-                f"{what} takes {accepted}, not {value!r} (slugs go to `entity`)",
+                f"{what} takes {accepted}, not {value!r}: name the scope with `project` or "
+                "`experiment` instead (a slug or a uuid)",
                 status=422,
             ) from None
         return kind, uuid_value
@@ -135,6 +137,9 @@ class BrowseListMixin:
         status: str | None = None,
         tags: list[str] | None = None,
         active: bool | None = None,
+        run_filter: dict | None = None,
+        order: str | None = None,
+        latest_metrics: list[str] | None = None,
         query: str | None = None,
         prefix: str | None = None,
         workspace_id: str | None = None,
@@ -172,8 +177,8 @@ class BrowseListMixin:
         None of them is a count of rows to skip.
         """
         mode = BrowseMode(mode)
-        if mode is BrowseMode.TREE:
-            raise errors.ValidationError("mode=tree is browse_research", status=422)
+        if mode is BrowseMode.PROJECTS:
+            raise errors.ValidationError("mode=projects is browse_research", status=422)
         page_size = max(1, min(int(limit), self._BROWSE_LIST_MAX))
         backend_cursor, last_sent = self._list_position(cursor, mode)
         hide_session = accounting.session_work_to_hide()
@@ -212,6 +217,8 @@ class BrowseListMixin:
                 hidden_count=hidden_count, hidden_count_more=hidden_count_more,
                 hide_session=hide_session, kind=kind, missing=missing, mode=mode,
                 page_size=page_size, scope=scope, sent=sent, status=status, tags=tags,
+                query=RunListQuery(run_filter=run_filter or None, order=order or None,
+                                   latest_metrics=latest_metrics or None),
             )
         elif mode in self._CATALOG_FILTERS:
             end, hidden_count, views_by_kind = self._list_catalog_page(
@@ -380,15 +387,17 @@ class BrowseListMixin:
 
     def _list_runs_page(
         self, *, active, backend_cursor, data, end, hidden, hidden_count, hidden_count_more,
-        hide_session, kind, missing, mode, page_size, scope, sent, status, tags,
+        hide_session, kind, missing, mode, page_size, scope, sent, status, tags, query,
     ):
-        """mode=runs: one page of runs, newest first, reading past the caller's own hidden work."""
+        """mode=runs: one page of runs, newest first, reading past the caller's own hidden work. An ordered read
+        (`order` other than newest first) is ONE top-N page: the server sends no cursor for it, and no row here
+        gets one either, since a `created_at` keyset would resume a different order."""
         project_id = experiment_id = None
         if scope is not None:
             kind, ident = self._uuid_ref(
                 scope,
                 (EntityType.PROJECT.value, EntityType.EXPERIMENT.value),
-                what="browse(mode='runs') `ref`",
+                what="browse(mode='runs') scope",
             )
             if kind == EntityType.PROJECT.value:
                 project_id = ident
@@ -406,6 +415,7 @@ class BrowseListMixin:
                 cursor=position,
                 limit=page_size,
                 exclude_origin_session=hide_session,
+                query=query,
             )
             visible = [
                 row
@@ -435,6 +445,7 @@ class BrowseListMixin:
                     active=bool(active),
                     cursor=backend_cursor,
                     limit=self._HIDDEN_COUNT_READ,
+                    query=query,
                 )
             except Exception:  # noqa: BLE001 -- the count is optional
                 probe, probe_next = [], None
@@ -445,7 +456,8 @@ class BrowseListMixin:
             )
             hidden_count_more = bool(probe_next) and hidden_count > 0
         for index, row in enumerate(visible):
-            if index + 1 == len(visible):
+            if index + 1 == len(visible) or query.is_ordered:
+                # An ordered page ends here: a budget cut says `truncated_by_token_budget`, never a cursor.
                 after = end
             else:
                 keyset = self.source.run_cursor_after(row)
@@ -470,6 +482,7 @@ class BrowseListMixin:
                     tags=tags,
                     is_active=bool(active),
                     exclude_origin_session=hide_session,
+                    run_filter=query.run_filter,
                 )
             except Exception:  # noqa: BLE001 -- an older API or a count past its bound
                 missing.append(MissingMarker.TOTALS_UNAVAILABLE)

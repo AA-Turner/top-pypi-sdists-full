@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skforecast
-Version: 0.26.0
+Version: 0.27.0
 Summary: Python library for time series forecasting using scikit-learn compatible models, statistical methods, and foundation models.
 Author-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
 Maintainer-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
@@ -56,21 +56,21 @@ Requires-Dist: matplotlib<3.12,>=3.7; extra == "all"
 Requires-Dist: statsmodels<0.16,>=0.13.2; extra == "all"
 Requires-Dist: keras<4.0,>=3.3; extra == "all"
 Requires-Dist: tensorflow<2.22,>=2.18; python_version < "3.14" and extra == "all"
-Requires-Dist: torch<2.15,>=2.4; extra == "all"
+Requires-Dist: torch<2.16,>=2.4; extra == "all"
 Provides-Extra: full
 Requires-Dist: skforecast[all]; extra == "full"
 Provides-Extra: docs
-Requires-Dist: mike==2.1.3; extra == "docs"
+Requires-Dist: mike==2.2.0; extra == "docs"
 Requires-Dist: mkdocs==1.6.1; extra == "docs"
 Requires-Dist: mkdocs-jupyter==0.26.3; extra == "docs"
 Requires-Dist: mkdocs-material==9.7.7; extra == "docs"
-Requires-Dist: mkdocstrings==1.0.6; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.8; extra == "docs"
+Requires-Dist: mkdocstrings==1.0.7; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.9; extra == "docs"
+Requires-Dist: pymdown-extensions==12.2; extra == "docs"
 Requires-Dist: black==26.5.1; extra == "docs"
 Provides-Extra: test
 Requires-Dist: pytest>=9.1.0; extra == "test"
 Requires-Dist: pytest-cov>=7.1.0; extra == "test"
-Requires-Dist: pytest-xdist>=3.8; extra == "test"
 Requires-Dist: pytest-github-actions-annotate-failures>=0.4.2; extra == "test"
 Requires-Dist: statsmodels<0.16,>=0.13.2; extra == "test"
 Requires-Dist: matplotlib<3.12,>=3.7; extra == "test"
@@ -78,7 +78,7 @@ Requires-Dist: lightgbm<5.0,>=4.0; extra == "test"
 Requires-Dist: xgboost<4.0,>=2.1; extra == "test"
 Requires-Dist: catboost<2.0,>=1.2; extra == "test"
 Requires-Dist: keras<4.0,>=3.3; extra == "test"
-Requires-Dist: torch<2.15,>=2.4; extra == "test"
+Requires-Dist: torch<2.16,>=2.4; extra == "test"
 Requires-Dist: cloudpickle>=3.0; extra == "test"
 Requires-Dist: skops>=0.14; extra == "test"
 Requires-Dist: tomli>=2.0; extra == "test"
@@ -189,7 +189,7 @@ predictions.head()
 - **[Statistical models](https://skforecast.org/latest/user_guides/forecasting-statistical-models.html)**: ARIMA, SARIMAX, ETS and ARAR, with automatic model selection.
 - **[Deep learning](https://skforecast.org/latest/user_guides/forecasting-with-deep-learning-rnn-lstm.html)**: recurrent neural networks (RNN, LSTM) built with Keras.
 
-Train, predict, tune and backtest the same way, whatever the model.
+Train, predict, tune and backtest the same way, whatever the model: see them [compared on three datasets](https://skforecast.org/latest/user_guides/comparing-forecasting-models.html).
 
 ### Built for production
 
@@ -253,10 +253,10 @@ The full documentation is available at **https://skforecast.org**.
 
 ## AI and tools
 
-[![Skforecast AI](https://img.shields.io/badge/Skforecast%20AI-Documentation-f79939?logo=readthedocs)](https://ai.skforecast.org/) [![PyPI](https://img.shields.io/pypi/v/skforecast-ai)](https://pypi.org/project/skforecast-ai/) [![GitHub](https://img.shields.io/badge/GitHub-skforecast--ai-181717?logo=github)](https://github.com/skforecast/skforecast-ai) [![Skforecast Studio](https://img.shields.io/badge/Skforecast%20Studio-Launch%20App-f79939?logo=rocket)](https://studio.skforecast.org/) [![llms.txt](https://img.shields.io/badge/llms.txt-available-blue)](https://skforecast.org/latest/llms-full.txt) [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html#install-skforecast-context-in-your-agent)
+[![Skforecast AI](https://img.shields.io/badge/Skforecast%20AI-Documentation-f79939?logo=readthedocs)](https://ai.skforecast.org/) [![PyPI](https://img.shields.io/pypi/v/skforecast-ai)](https://pypi.org/project/skforecast-ai/) [![GitHub](https://img.shields.io/badge/GitHub-skforecast--ai-181717?logo=github)](https://github.com/skforecast/skforecast-ai) [![MCP server](https://img.shields.io/badge/MCP-server-blue?logo=modelcontextprotocol&logoColor=white)](https://ai.skforecast.org/stable/user-guides/mcp-server.html) [![Skforecast Studio](https://img.shields.io/badge/Skforecast%20Studio-Launch%20App-f79939?logo=rocket)](https://studio.skforecast.org/) [![llms.txt](https://img.shields.io/badge/llms.txt-available-blue)](https://skforecast.org/latest/llms-full.txt) [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html#install-skforecast-context-in-your-agent)
 
-- **AI-assisted coding**: skforecast publishes machine-readable context files so AI assistants (ChatGPT, Claude, Copilot and others) generate accurate code. Paste `https://skforecast.org/latest/llms-full.txt` into any LLM, or install the workflow skills in your coding agent: as a Claude Code plugin (`/plugin marketplace add skforecast/skforecast`) or with `npx skills add skforecast/skforecast` for Cursor, Copilot, Codex and others. Learn more in [AI-assisted forecasting](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html).
-- **[skforecast-ai](https://ai.skforecast.org/)**: an AI forecasting assistant that pairs a deterministic engine, powered by skforecast, with an LLM reasoning layer. Install it with `pip install skforecast-ai`.
+- **AI-assisted coding**: skforecast publishes machine-readable context files so AI assistants (ChatGPT, Claude, Copilot and others) generate accurate code. Paste `https://skforecast.org/latest/llms-full.txt` into any LLM, or install the workflow skills in your coding agent: as a Claude Code plugin (`/plugin marketplace add skforecast/skforecast`) or with `npx skills add skforecast/skforecast/skills` for Cursor, Copilot, Codex and others. Learn more in [AI-assisted forecasting](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html).
+- **[skforecast-ai](https://ai.skforecast.org/)**: an AI forecasting assistant that pairs a deterministic engine, powered by skforecast, with an LLM reasoning layer. Install it with `pip install skforecast-ai`. It also brings skforecast to coding agents such as Claude Code or VS Code through an [MCP server](https://ai.skforecast.org/stable/user-guides/mcp-server.html): ask in plain language and get the forecast, its backtesting metrics and the skforecast script that produced them.
 - **[Skforecast Studio](https://studio.skforecast.org/)**: a no-code application to build forecasting models visually, which generates production-ready Python code.
 
 

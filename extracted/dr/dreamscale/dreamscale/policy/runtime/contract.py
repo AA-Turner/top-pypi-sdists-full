@@ -80,6 +80,22 @@ class RuntimeContract:
     # action value's index in the state vector (-1: zero, e.g. a mobile base held still).
     # Empty: the hold is the observation's own (``hold_action`` or its joint positions).
     hold_indices: tuple[int, ...] = ()
+    # The fewest real rows an answer may hold (None: the executed rows). An answer has between
+    # this many and ``chunk_size``; a loop runs its real rows up to the executed rows and never
+    # queues the rest (Praxis-1: 21 on a context's first call, 24 after).
+    min_chunk_rows: int | None = None
+    # While a robot waits for a chunk, hold its last command rather than its measured pose (a
+    # measured hold steps the arm back by its tracking lag and eases a gripper's grasp). The
+    # measured pose still holds before the first command and after a reconnect.
+    hold_last_command: bool = False
+    # How ``dreamscale run`` and the Python API execute chunks unless told: "async" asks again
+    # while rows remain; "sync" runs each chunk to its end, then asks (``control="chunked"``).
+    default_mode: str = "async"
+    # The action smoothing ``"auto"`` resolves to on an absolute joint space (None: "motion").
+    default_smoothing: str | None = None
+    # Async refuses to go on when three answers in a row arrive with more than this many of their
+    # rows already due (None: no limit): each then adds fewer rows than the next round trip takes.
+    async_max_stale_rows: int | None = None
 
     def __post_init__(self) -> None:
         if not isfinite(self.task_prepare_timeout_s) or self.task_prepare_timeout_s <= 0:
@@ -132,8 +148,12 @@ class RuntimeContract:
                 0 <= self.min_replan_steps < self.execution_chunk_size):
             raise ValueError("min_replan_steps must be 0 to the executed rows - 1")
         if self.episode_tick_steps and (ticks or offsets or self.history_anchor
-                                        or self.state_history or self.measured_state_steps):
+                                        or self.state_history):
             raise ValueError("an episode kept by the server takes no other observation history")
+        if self.episode_tick_steps and self.measured_state_steps and (
+                self.measured_state_steps < self.execution_chunk_size):
+            # Praxis-1: the state of every step executed since the last request.
+            raise ValueError("an episode's measured states cover at least the executed rows")
         native = self.action_hz if self.native_action_hz is None else self.native_action_hz
         if not isfinite(float(native)) or float(native) <= 0.0:
             raise ValueError("native_action_hz must be finite and positive")
@@ -162,6 +182,20 @@ class RuntimeContract:
             raise ValueError("startup_motion_delay_s must be finite and nonnegative")
         if self.startup_motion_delay_s and not self.joint_groups:
             raise ValueError("measured startup requires an explicit joint layout")
+        if self.min_chunk_rows is not None and (
+            type(self.min_chunk_rows) is not int
+            or not 1 <= self.min_chunk_rows <= self.chunk_size
+        ):
+            raise ValueError("min_chunk_rows must be an integer from 1 to chunk_size")
+        if self.default_mode not in ("async", "sync"):
+            raise ValueError("default_mode must be async or sync")
+        if self.default_smoothing not in (None, "output", "motion", "continuation"):
+            raise ValueError("default_smoothing must be output, motion or continuation")
+        if self.async_max_stale_rows is not None and (
+            type(self.async_max_stale_rows) is not int
+            or not 1 <= self.async_max_stale_rows < self.chunk_size
+        ):
+            raise ValueError("async_max_stale_rows must be an integer from 1 to chunk_size - 1")
 
     @property
     def joint_indices(self) -> tuple[int, ...]:
@@ -184,6 +218,14 @@ class RuntimeContract:
     @property
     def execution_chunk_size(self) -> int:
         return self.chunk_size if self.execution_horizon is None else self.execution_horizon
+
+    @property
+    def fewest_chunk_rows(self) -> int:
+        """The fewest rows a complete answer holds: ``min_chunk_rows``, else the executed rows
+        (a shorter answer is a truncated one)."""
+        if self.min_chunk_rows is not None:
+            return min(self.min_chunk_rows, self.execution_chunk_size)
+        return self.execution_chunk_size
 
     @property
     def supported_control_hz(self) -> tuple[int, ...]:
@@ -373,6 +415,11 @@ def resolve_runtime_contract(
         or not 1 <= execution_horizon <= generated_horizon
     ):
         raise ValueError("execution_horizon must be an integer from 1 to chunk_size")
+    # The rows a session runs of each answer, where the model's wire decides them (Praxis-1 runs
+    # every real row; its server's contract keeps the 21 older SDKs run).
+    own_rows = served.hook(model, "execution_horizon")
+    if own_rows is not None:
+        execution_horizon = own_rows(model, execution_horizon)
     # The model's wire checks the served contract and the overrides it takes (served).
     check = served.hook(model, "check")
     if check is not None:
@@ -438,6 +485,20 @@ def resolve_runtime_contract(
         history_offsets=base.history_offsets,
         state_history=base.state_history,
         measured_state_steps=base.measured_state_steps,
+        history_anchor=base.history_anchor,
+        history_ticks=base.history_ticks,
+        history_start=base.history_start,
+        episode_tick_steps=base.episode_tick_steps,
+        min_replan_steps=base.min_replan_steps,
+        hold_indices=base.hold_indices if own_width else (),
+        min_chunk_rows=(base.min_chunk_rows if base.min_chunk_rows is None
+                        else min(base.min_chunk_rows, int(chunk_size))),
+        hold_last_command=base.hold_last_command,
+        default_mode=base.default_mode,
+        default_smoothing=base.default_smoothing,
+        async_max_stale_rows=(base.async_max_stale_rows
+                              if base.async_max_stale_rows is None
+                              or base.async_max_stale_rows < int(chunk_size) else None),
     )
 
 

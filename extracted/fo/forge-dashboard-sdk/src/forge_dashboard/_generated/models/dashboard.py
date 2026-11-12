@@ -74,6 +74,11 @@ class Dashboard:
                 no tally: a client counts the rows it holds, so the filter pills and
                 the navigation badge always agree with the list.
             generated_at (datetime.datetime): When this snapshot was refreshed, not when it was requested.
+            recently_started (bool): True for the first five minutes after the server process started.
+                A restart empties the in-memory state and the first full refresh is
+                the heaviest moment, so a forge that has not answered yet is
+                starting up, not down. A client words its unreachable banner as
+                starting up while this is true. Always present.
             read_interval_seconds (int): How often, in seconds, a client should re-read GET
                 /api/v1/dashboard. The server's advice, so a client needs no
                 interval of its own. The read is cheap and never calls a
@@ -109,6 +114,7 @@ class Dashboard:
     nav_counts: NavCounts
     main_branch_page: MainBranches
     generated_at: datetime.datetime
+    recently_started: bool
     read_interval_seconds: int
     hidden_drafts: int
     forges: list[ForgeHealth]
@@ -155,6 +161,8 @@ class Dashboard:
         main_branch_page = self.main_branch_page.to_dict()
 
         generated_at = self.generated_at.isoformat()
+
+        recently_started = self.recently_started
 
         read_interval_seconds = self.read_interval_seconds
 
@@ -203,6 +211,7 @@ class Dashboard:
             "navCounts": nav_counts,
             "mainBranchPage": main_branch_page,
             "generatedAt": generated_at,
+            "recentlyStarted": recently_started,
             "readIntervalSeconds": read_interval_seconds,
             "hiddenDrafts": hidden_drafts,
             "forges": forges,
@@ -269,6 +278,8 @@ class Dashboard:
 
 
 
+        recently_started = d.pop("recentlyStarted")
+
         read_interval_seconds = d.pop("readIntervalSeconds")
 
         hidden_drafts = d.pop("hiddenDrafts")
@@ -325,6 +336,7 @@ class Dashboard:
             nav_counts=nav_counts,
             main_branch_page=main_branch_page,
             generated_at=generated_at,
+            recently_started=recently_started,
             read_interval_seconds=read_interval_seconds,
             hidden_drafts=hidden_drafts,
             forges=forges,

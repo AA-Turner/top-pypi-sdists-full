@@ -1,3 +1,5 @@
+import copy
+import json
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
 from datetime import date
@@ -147,7 +149,7 @@ class Position(BaseModel):
     y: float
 
 class NodeSpec(BaseModel):
-    kind: Literal["node", "tool", "user", "agent", "flow", "start", "decisions", "prompt", "timer", "branch", "wait", "foreach", "loop", "userflow", "end", "docproc", "docext", "docclassifier", "user_flow", "script" ] = "node"
+    kind: Literal["node", "tool", "user", "agent", "flow", "start", "decisions", "prompt", "timer", "branch", "wait", "foreach", "loop", "userflow", "end", "transfer_end", "docproc", "docext", "docclassifier", "user_flow", "script" ] = "node"
     name: str
     display_name: str | None = None
     description: str | None = None
@@ -220,6 +222,15 @@ class DocExtConfigTableField(DocExtConfigField):
 class PageRange(BaseModel):
     start: int = Field(description="The starting page number (1-based, inclusive)")
     end: int = Field(description="The ending page number (1-based, inclusive)")
+
+    @model_validator(mode='after')
+    def validate_page_range(self) -> 'PageRange':
+        if self.start < 1:
+            raise ValueError(f"Page range start must be >= 1, got {self.start}")
+        if self.end < self.start:
+            raise ValueError(f"Page range end ({self.end}) must be >= start ({self.start})")
+        return self
+
 
 class DocExtConfig(BaseModel):
     domain: str = Field(description="Domain of the document", default="other")
@@ -2267,7 +2278,7 @@ class UserForm(BaseModel):
         # Validate inputs
         ensure_datamap(initial_value, "initial value")
         ensure_datamap(minimum_value, "minimum_value")
-        ensure_datamap(minimum_value, "maximum_value")
+        ensure_datamap(maximum_value, "maximum_value")
         
         # Customize input schema based on parameters
         num_type = "integer" if is_integer else "number"
@@ -2281,7 +2292,13 @@ class UserForm(BaseModel):
             add_assignment(initial_value, maximum_value)
         elif maximum_value is not None:
             initial_value = maximum_value
-        
+
+        # runtime only evaluates properties declared in input_schema
+        if minimum_value is not None:
+            schemas["input_schema"].properties["minimum"] = {"type": num_type}
+        if maximum_value is not None:
+            schemas["input_schema"].properties["maximum"] = {"type": num_type}
+
         # Create the field
         userfield = UserField(
             name=name,
@@ -4360,6 +4377,476 @@ class DecisionsNodeSpec(NodeSpec):
             model_spec["decisionTableColumns"] = [column.model_dump() for column in self.decision_table_columns]
 
         return model_spec
+
+
+class CustomerCareEscalationInput(BaseModel):
+    '''Input schema for customer care escalation flows.'''
+    channel_type: str = Field(description="current channel type the agent is in")
+    condition_id: str = Field(description="the reason/condition for escalation")
+
+
+class TransferChannelType(StrEnum):
+    GENESYS_BOT_CONNECTOR = "genesys_bot_connector"
+    GENESYS_AUDIO_CONNECTOR = "genesys_audio_connector"
+    SIP = "sip"
+
+
+# Properties the platform defines for a channel. They are added automatically when the
+# channel is configured (as the Flow Builder UI does), so users only populate them.
+_BUILTIN_CHANNEL_PROPERTIES: dict[str, dict[str, dict[str, Any]]] = {
+    "sip": {
+        "service_desk_info": {
+            "type": "object",
+            "required": ["uri", "transfer_method"],
+            "properties": {
+                "uri": {"type": "string"},
+                "transfer_method": {"type": "string"},
+            },
+            "additionalProperties": False,
+            "_required": True,
+        },
+    },
+}
+
+
+class ChannelConfig(BaseModel):
+    '''Configuration for a communication channel in a Transfer End Node.'''
+    name: str
+    agent_available: str | None = None
+    agent_unavailable: str | None = None
+    custom_properties: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+    def model_post_init(self, __context: Any) -> None:
+        for prop_name, prop_def in _BUILTIN_CHANNEL_PROPERTIES.get(self.name, {}).items():
+            self.custom_properties.setdefault(prop_name, copy.deepcopy(prop_def))
+
+    def agent_available_message(self, message: str) -> Self:
+        '''Set message displayed when an agent is available.'''
+        self.agent_available = message
+        return self
+
+    def agent_unavailable_message(self, message: str) -> Self:
+        '''Set message displayed when no agent is available.'''
+        self.agent_unavailable = message
+        return self
+
+    def add_custom_property(self,
+                            name: str,
+                            property_type: str | None = None,
+                            description: str | None = None,
+                            required: bool = False,
+                            properties: dict[str, Any] | None = None,
+                            additional_properties: bool | None = None,
+                            schema_dict: dict[str, Any] | None = None,
+                            expression: str | dict[str, str] | None = None,
+                            required_properties: list[str] | None = None,
+                            value: Any = None) -> Self:
+        '''
+        Add a custom property to this channel's ``transfer_metadata`` and, optionally,
+        populate it. Populating with ``value`` or ``expression`` is the same as filling
+        the property's data map in the Flow Builder UI::
+
+            channel.add_custom_property(
+                "routing_skill",
+                value="customer_care",
+            ).add_custom_property(
+                "priority",
+                expression="'high' if flow.input.condition_id == 'frustration' else 'normal'",
+            )
+
+        Use this for properties you define yourself. Properties the platform defines for a
+        channel (such as SIP's ``service_desk_info``) are not custom properties and are
+        rejected here: they are added automatically when the channel is configured, and
+        their values are set with :meth:`TransferEndNode.map_output_variable`::
+
+            transfer_end_node.configure_channel(name=TransferChannelType.SIP)
+            transfer_end_node.map_output_variable(
+                channel="sip",
+                property_path="service_desk_info.uri",
+                expression="tel:+1xxx",
+                assignment_type="literal",
+            )
+
+        :param name: Field name (e.g. ``"routing_skill"``).
+        :param property_type: JSON schema type (default ``"string"``).
+        :param description: Optional description.
+        :param required: Whether the property is required in the schema.
+        :param properties: Nested properties dict for object types.
+        :param additional_properties: Controls ``additionalProperties`` in the schema.
+        :param schema_dict: Provide a raw schema dict instead of building from params.
+        :param expression: Flow expression whose runtime value populates the field
+            (e.g. ``"flow.private.routing_skill"``). For object types, a dict mapping
+            nested property names to expressions.
+        :param required_properties: For object types, the nested property names that are
+            required (emitted as the nested ``required`` list).
+        :param value: Fixed (literal) value that populates the field (e.g. ``"customer_care"``).
+            For object types, a dict mapping nested property names to literal values.
+        '''
+        if name in _BUILTIN_CHANNEL_PROPERTIES.get(self.name, {}):
+            raise ValueError(
+                f"'{name}' is a built-in property of the '{self.name}' channel, not a custom "
+                f"property. It is added when the channel is configured; set its values with "
+                f"map_output_variable(channel='{self.name}', property_path='{name}.<field>', ...)."
+            )
+        if value is not None and expression is not None:
+            raise ValueError(f"Custom property '{name}': pass either 'value' or 'expression', not both.")
+
+        if schema_dict:
+            prop_def = copy.deepcopy(schema_dict)
+        else:
+            prop_def = {"type": property_type or "string"}
+            if description:
+                prop_def["description"] = description
+            if required_properties:
+                prop_def["required"] = list(required_properties)
+            if properties:
+                prop_def["properties"] = properties
+            if additional_properties is not None:
+                prop_def["additionalProperties"] = additional_properties
+
+        nested_props = prop_def.get("properties")
+        for populated in (value, expression):
+            if isinstance(populated, dict) and nested_props:
+                unknown = [k for k in populated if k not in nested_props]
+                if unknown:
+                    raise ValueError(
+                        f"Custom property '{name}': {unknown} are not defined in its properties."
+                    )
+
+        if required:
+            prop_def["_required"] = True
+        if expression is not None:
+            prop_def["_expression"] = expression
+        if value is not None:
+            prop_def["_value"] = value
+        self.custom_properties[name] = prop_def
+        return self
+
+    def to_channel_spec(self) -> "TransferChannelSpec":
+        return TransferChannelSpec(
+            name=self.name,
+            agent_available=self.agent_available,
+            agent_unavailable=self.agent_unavailable
+        )
+
+    def to_json(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"name": self.name}
+        if self.agent_available is not None:
+            result["agent_available"] = self.agent_available
+        if self.agent_unavailable is not None:
+            result["agent_unavailable"] = self.agent_unavailable
+        return result
+
+
+class TransferChannelSpec(BaseModel):
+    '''Configuration for a channel in a transfer end node.'''
+    name: str
+    agent_available: str | None = None
+    agent_unavailable: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"name": self.name}
+        if self.agent_available is not None:
+            result["agent_available"] = self.agent_available
+        if self.agent_unavailable is not None:
+            result["agent_unavailable"] = self.agent_unavailable
+        return result
+
+
+class ConversationSummarySpec(BaseModel):
+    '''Configuration for generating conversation summary in transfer end node.'''
+    enabled: bool = True
+    prompt_override: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"enabled": self.enabled}
+        if self.prompt_override is not None:
+            result["prompt_override"] = self.prompt_override
+        return result
+
+
+class TransferEndNodeSpec(NodeSpec):
+    '''Node specification for a Transfer End Node (escalating / transferring to live agent).'''
+    channels: list[TransferChannelSpec] = Field(default_factory=list)
+    channel_configs: dict[str, ChannelConfig] = Field(default_factory=dict)
+    conversation_summary: ConversationSummarySpec | None = None
+    output_map: Any | None = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.kind = "transfer_end"
+        if self.output_map:
+            from .data_map import DataMapSpec, DataMap
+            if isinstance(self.output_map, dict):
+                self.output_map = DataMapSpec(**self.output_map)
+            elif isinstance(self.output_map, DataMap):
+                self.output_map = DataMapSpec(spec=self.output_map)
+
+    def _channel(self,
+                 name: str | TransferChannelType,
+                 agent_available: str | None = None,
+                 agent_unavailable: str | None = None) -> Self:
+        '''Internal: add or update channel data in both channel_configs and channels list.'''
+        channel_name = name.value if isinstance(name, TransferChannelType) else str(name)
+        if channel_name in self.channel_configs:
+            cfg = self.channel_configs[channel_name]
+            if agent_available is not None:
+                cfg.agent_available = agent_available
+            if agent_unavailable is not None:
+                cfg.agent_unavailable = agent_unavailable
+        else:
+            self.channel_configs[channel_name] = ChannelConfig(
+                name=channel_name,
+                agent_available=agent_available,
+                agent_unavailable=agent_unavailable
+            )
+        # Sync channels list
+        for ch in self.channels:
+            if ch.name == channel_name:
+                if agent_available is not None:
+                    ch.agent_available = agent_available
+                if agent_unavailable is not None:
+                    ch.agent_unavailable = agent_unavailable
+                return self
+        self.channels.append(TransferChannelSpec(
+            name=channel_name,
+            agent_available=agent_available,
+            agent_unavailable=agent_unavailable
+        ))
+        return self
+
+    def configure_channel(self,
+                          name: str | TransferChannelType,
+                          agent_available: str | None = None,
+                          agent_unavailable: str | None = None) -> ChannelConfig:
+        '''Create or get a ChannelConfig for fluent channel setup.'''
+        channel_name = name.value if isinstance(name, TransferChannelType) else str(name)
+        self._channel(name=channel_name, agent_available=agent_available, agent_unavailable=agent_unavailable)
+        return self.channel_configs[channel_name]
+
+    def set_conversation_summary(self,
+                                 enabled: bool = True,
+                                 prompt_override: str | None = None) -> Self:
+        '''Configure the conversation summary generation for the transfer.'''
+        self.conversation_summary = ConversationSummarySpec(
+            enabled=enabled,
+            prompt_override=prompt_override
+        )
+        return self
+
+    def map_output_variable(self,
+                            channel: str | TransferChannelType,
+                            property_path: str,
+                            expression: str,
+                            assignment_type: Literal["literal", "variable", "pyExpression"] = "pyExpression") -> Self:
+        '''
+        Set the value of a channel property in the node's output map.
+
+        This is how built-in channel properties, such as SIP's ``service_desk_info``, are
+        populated. Map each leaf field separately; the resulting entries match the data
+        map the Flow Builder UI produces::
+
+            transfer_end_node.configure_channel(name=TransferChannelType.SIP)
+            transfer_end_node.map_output_variable(
+                channel="sip",
+                property_path="service_desk_info.uri",
+                expression="tel:+1xxx",
+                assignment_type="literal",
+            ).map_output_variable(
+                channel="sip",
+                property_path="service_desk_info.transfer_method",
+                expression="flow.private.transfer_method",
+            )
+
+        An explicit mapping takes precedence over a value set for the same field with
+        ``ChannelConfig.add_custom_property(value=...)`` or ``expression=...``.
+
+        :param channel: The channel, as a :class:`TransferChannelType` (e.g.
+            ``TransferChannelType.SIP``) or its string value (e.g. ``"sip"``). The channel
+            must be configured with ``configure_channel()``.
+        :param property_path: Dotted path to the field within the channel
+            (e.g. ``"service_desk_info.uri"``).
+        :param expression: The value to assign, interpreted according to ``assignment_type``.
+        :param assignment_type: How ``expression`` is interpreted: ``"literal"`` for a fixed
+            value (e.g. ``"tel:+1xxx"``), ``"variable"`` for a flow variable, or
+            ``"pyExpression"`` (default) for a Python expression.
+        '''
+        from .data_map import Assignment, DataMap, DataMapSpec
+
+        channel_name = channel.value if isinstance(channel, TransferChannelType) else str(channel)
+        target_variable = f"self.output.{channel_name}.{property_path}"
+        if self.output_map and isinstance(self.output_map, DataMapSpec) and self.output_map.spec:
+            maps = list(self.output_map.spec.maps or [])
+        else:
+            maps = []
+        existing = next((m for m in maps if m.target_variable == target_variable), None)
+        metadata = {"assignmentType": assignment_type}
+        if existing:
+            existing.value_expression = expression
+            existing.metadata = metadata
+        else:
+            maps.append(Assignment(
+                target_variable=target_variable,
+                value_expression=expression,
+                has_no_value=False,
+                metadata=metadata
+            ))
+        self.output_map = DataMapSpec(spec=DataMap(maps=maps))
+        return self
+
+    def _build_output_schema(self) -> dict[str, Any]:
+        '''
+        Build the output_schema block as a JSON Schema object, matching the shape the
+        Flow Builder UI produces. Only custom properties are included per channel;
+        summary and condition_id are injected at runtime and are not listed here.
+
+        Every configured channel is emitted as an entry in ``properties``, even when
+        it has no custom properties — resulting in ``{"type": "object", "properties": {}}``.
+        This matches the exact JSON the Flow Builder UI produces and is required by the
+        backend; omitting property-less channels would diverge from the UI contract.
+
+        Structure::
+
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "<channel>": {
+                  "type": "object",
+                  "required": ["<required_prop>", ...],   # only when any are required
+                  "properties": {
+                    "<custom_prop>": { ...prop_def... },
+                    ...
+                  }
+                }
+              }
+            }
+        '''
+        channel_properties: dict[str, Any] = {}
+        for ch_name, cfg in self.channel_configs.items():
+            ch_props: dict[str, Any] = {}
+            ch_required: list[str] = []
+            for prop_name, prop_def in cfg.custom_properties.items():
+                if prop_def.get("_required"):
+                    ch_required.append(prop_name)
+                ch_props[prop_name] = {
+                    k: v for k, v in prop_def.items() if not k.startswith("_")
+                }
+            ch_schema: dict[str, Any] = {"type": "object"}
+            if ch_required:
+                ch_schema["required"] = ch_required
+            ch_schema["properties"] = ch_props
+            channel_properties[ch_name] = ch_schema
+
+        return {
+            "type": "object",
+            "properties": channel_properties,
+            "additionalProperties": False,
+        }
+
+    def to_json(self) -> dict[str, Any]:
+        model_spec = super().to_json()
+
+        if self.conversation_summary is not None:
+            model_spec["conversation_summary"] = self.conversation_summary.to_json()
+
+        if self.channels:
+            model_spec["channels"] = [ch.to_json() for ch in self.channels]
+
+        if self.channel_configs:
+            model_spec["output_schema"] = self._build_output_schema()
+
+        return model_spec
+
+    def build_output_map(self) -> dict[str, Any]:
+        '''
+        Build the node-level ``output_map`` (it sits beside ``spec`` in the flow JSON, like
+        ``input_map`` on other nodes) and check that every required channel property has a
+        value. When nothing is mapped the result is ``{"spec": {"maps": []}}``.
+
+        Values set with ``map_output_variable()`` take precedence over values set for the
+        same field with ``ChannelConfig.add_custom_property(value=... / expression=...)``.
+        '''
+        # Collect data-map assignments from add_custom_property(value=... / expression=...)
+        from .data_map import Assignment
+
+        def _literal(v: Any) -> str:
+            if isinstance(v, str):
+                return v
+            if isinstance(v, bool):
+                return str(v)
+            return json.dumps(v)
+
+        inline_assignments: list[Any] = []
+        for ch_name, config in self.channel_configs.items():
+            for prop_name, prop_def in config.custom_properties.items():
+                target = f"self.output.{ch_name}.{prop_name}"
+                for key, assignment_type, to_expr in (
+                    ("_expression", "pyExpression", str),
+                    ("_value", "literal", _literal),
+                ):
+                    populated = prop_def.get(key)
+                    if populated is None:
+                        continue
+                    if isinstance(populated, dict) and prop_def.get("type") == "object":
+                        items = [(f"{target}.{k}", v) for k, v in populated.items()]
+                    else:
+                        items = [(target, populated)]
+                    for target_variable, v in items:
+                        inline_assignments.append(Assignment(
+                            target_variable=target_variable,
+                            value_expression=to_expr(v),
+                            has_no_value=False,
+                            metadata={"assignmentType": assignment_type},
+                        ))
+
+        # Explicit map_output_variable() values win over add_custom_property() values.
+        explicit_maps = list(self.output_map.spec.maps) if self.output_map else []
+        explicit_targets = {m.target_variable for m in explicit_maps}
+        merged = explicit_maps + [a for a in inline_assignments if a.target_variable not in explicit_targets]
+
+        self._check_required_channel_properties({m.target_variable for m in merged})
+
+        # default_value is left out when unset.
+        maps = [m.model_dump(exclude={"default_value"} if m.default_value is None else None) for m in merged]
+        return {"spec": {"maps": maps}}
+
+    def _check_required_channel_properties(self, mapped_targets: set[str]) -> None:
+        '''
+        Raise if a required channel property has no value in the output map.
+
+        A required property counts as populated when it is mapped as a whole
+        (``self.output.<channel>.<property>``) or, for an object property, when every
+        nested field it requires is mapped (``self.output.<channel>.<property>.<field>``).
+        Built-in properties such as SIP's ``service_desk_info`` are always required.
+        '''
+        missing: list[str] = []
+        channels: list[str] = []
+        for ch_name, config in self.channel_configs.items():
+            for prop_name, prop_def in config.custom_properties.items():
+                if not prop_def.get("_required"):
+                    continue
+                target = f"self.output.{ch_name}.{prop_name}"
+                if target in mapped_targets:
+                    continue
+                nested_required = prop_def.get("required") if prop_def.get("type") == "object" else None
+                if nested_required:
+                    unmapped = [f for f in nested_required if f"{target}.{f}" not in mapped_targets]
+                    paths = [f"{prop_name}.{f}" for f in unmapped]
+                else:
+                    paths = [prop_name]
+                if paths:
+                    missing.extend(f"'{p}'" for p in paths)
+                    if ch_name not in channels:
+                        channels.append(ch_name)
+        if missing:
+            example = channels[0]
+            raise ValueError(
+                f"Transfer End node '{self.name}': channel(s) {', '.join(repr(c) for c in channels)} "
+                f"require values for {', '.join(missing)}. Set them with "
+                f"map_output_variable(channel='{example}', property_path=..., expression=...), "
+                f"or with add_custom_property(..., value=... / expression=...) for your own properties."
+            )
 
 
 def extract_node_spec(

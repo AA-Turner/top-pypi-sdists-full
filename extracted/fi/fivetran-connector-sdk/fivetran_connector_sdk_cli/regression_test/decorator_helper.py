@@ -23,7 +23,7 @@ from fivetran_connector_sdk_cli.regression_test.replayer import Replayer
 # Argument names that look like credentials. This is a name-based heuristic: it
 # can miss a secret under an innocuous name (for example nested inside a
 # "headers" dict) and can flag a harmless field such as a pagination "page_token".
-_SECRET_KEY_PATTERN = re.compile(r"(?:api[_-]?key|private[_-]?key|secret[_-]?key|access[_-]?key|token|secret|password|passwd|pwd|bearer|cookie|credential|configuration)s?$", re.IGNORECASE)
+_SECRET_KEY_PATTERN = re.compile(r"(?:(?:api|private|secret|access)[_-]?key|token|secret|password|passwd|pwd|bearer|cookie|credential|configuration)s?$", re.IGNORECASE)
 
 # Public, fixed pepper for the HMAC below. It only defends against generic
 # precomputed tables; it cannot protect low-entropy secrets such as a short PIN.
@@ -151,6 +151,7 @@ def record_action_call(name: str, func: Callable, match: Optional[Callable], arg
     try:
         matched_args = _json_round_trip(identified)
     except (TypeError, ValueError, RecursionError) as e:
+        Recorder.note_failed_write()
         raise _fixture_serialization_error(
             name, "argument",
             "Use plain dicts, lists, strings, numbers, booleans or None, or supply a match= lambda "
@@ -165,6 +166,7 @@ def record_action_call(name: str, func: Callable, match: Optional[Callable], arg
         Recorder.record(name, matched_args, result)
         return _json_round_trip(result)
     except (TypeError, ValueError, RecursionError) as e:
+        Recorder.note_failed_write()
         raise _fixture_serialization_error(
             name, "result",
             "Return plain dicts, lists, strings, numbers, booleans or None from @action functions.", e) from e

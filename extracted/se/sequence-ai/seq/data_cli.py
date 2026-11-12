@@ -1,7 +1,7 @@
 """
 `seq policy data export` — field data from a deployment's real robots, for fine-tuning.
 
-In one sentence: its capture setting (`seq policy set <name> capture=on`, seq/settings_cli.py) has its workers keep
+In one sentence: each robot's Record (`seq robot set <name> record=on`, seq/robot_cli.py) has it, or its workers, keep
 every episode whole - each step's observation as the robot sent it, frames and all, each act's answer, and what the
 policy kept in episode.state at its end → robots label how an episode went with `policy.label(success=...)` →
 `seq policy data export <name> --format lerobot --out DIR` downloads the kept files through the platform and writes a
@@ -32,6 +32,7 @@ import os
 import re
 from collections import defaultdict
 from typing import Any
+from urllib.parse import quote
 
 from seq import safe_path, storage_note
 from seq.deployments_cli import _call
@@ -66,6 +67,10 @@ _TASKS_PANDAS = {"index_columns": ["task"], "column_indexes": [{"name": None, "f
 
 
 _DATASET = re.compile(r"capture:[A-Za-z0-9][A-Za-z0-9._-]{0,72}")
+
+
+
+_PAGE = 200
 
 
 def _files(name: str) -> str:
@@ -103,10 +108,19 @@ def _listed(name: str, base_url: str | None) -> tuple[list[dict], float | None]:
     """`name`'s captured files, and the hz its policy declares where the platform says it beside them (a deployment's
     listing; a dataset's says none)."""
     try:
-        got = _call("GET", _files(name), base_url)
-        hz = got.get("hz")
-        return got["files"], (float(hz) if isinstance(hz, (int, float)) and not isinstance(hz, bool) and hz > 0
-                              else None)
+        files: list[dict] = []
+        cursor, hz = None, None
+        while True:
+            path = _files(name)
+            if name.startswith("capture:"):
+                path += f"?limit={_PAGE}" + (f"&cursor={quote(str(cursor), safe='')}" if cursor else "")
+            got = _call("GET", path, base_url)
+            files += got["files"]
+            hz = got.get("hz", hz)
+            cursor = got.get("next_cursor")
+            if not cursor:
+                break
+        return files, (float(hz) if isinstance(hz, (int, float)) and not isinstance(hz, bool) and hz > 0 else None)
     except NotFound as exc:
 
         if not name.startswith("capture:") and not exc.hint:
@@ -148,27 +162,15 @@ def load(name: str, base_url: str | None = None, *, fetch=None,
     return dict(episodes), labels
 
 
-def _capturing(name: str, base_url: str | None) -> bool:
-    """Whether the deployment's capture switch is on; False when it cannot be read: an export's words, never its failure."""
-    try:
-        rows = _call("GET", f"/v1/deployments/{segment(name)}/settings", base_url).get("settings") or []
-    except Exception:
-        return False
-    return any(r.get("key") == "capture" and r.get("value") == "on" for r in rows)
-
-
 def _why_none(name: str, base_url: str | None) -> str:
-    """What an export of a deployment says when it holds no episode. An account at its storage limit first: its capture
-    being on, or its robot a teleop one, keeps nothing then, and nothing else says so to whoever looks here. What it
-    cannot tell is why these episodes are missing, so it says how the account stands now.
-    
+    """What an export of a deployment says when it holds no episode. An account at its storage limit first: a robot's Record
+    keeps nothing then, and nothing else says so to whoever looks here. What it cannot tell is why these episodes are
+    missing, so it says how the account stands now.
 """
     full = storage_note.full_now(base_url)
     if full:
         return f"{name}: no episodes: {full}"
-    if _capturing(name, base_url):
-        return f"{name}: nothing captured yet: capture is on, and no robot has run an episode since"
-    return f"{name}: nothing captured yet (`seq policy set {name} capture=on`)"
+    return f"{name}: nothing captured from before its robots had a Record: `seq volume ls` lists each robot's own"
 
 
 def export(name: str, out: str, *, fmt: str = "lerobot", base_url: str | None = None, echo=print,
@@ -201,7 +203,7 @@ def export(name: str, out: str, *, fmt: str = "lerobot", base_url: str | None = 
     episodes, labels = load(name, base_url, fetch=fetch, listing=listing)
     if not episodes:
         echo(f"{name}: no episodes in this dataset" if name.startswith("capture:") else
-             _why_none(name, base_url) if live else f"{name}: nothing captured yet (`seq policy set {name} capture=on`)")
+             _why_none(name, base_url) if live else f"{name}: nothing captured from before its robots had a Record")
         return {"episodes": 0, "frames": 0}
     summary = write_steps(episodes, labels, out, hz=hz)
     echo(f"wrote a LeRobot {LEROBOT_VERSION} dataset to {out}: {summary['episodes']} episode(s), "

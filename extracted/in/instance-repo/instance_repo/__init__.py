@@ -20,7 +20,7 @@ from .errors import (
     RegistrationFailed, TransportError,
 )
 
-__version__ = "1.4.7"
+__version__ = "1.7.0"
 
 __all__ = [
     "Repo", "load_instances",

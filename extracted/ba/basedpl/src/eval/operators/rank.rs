@@ -122,11 +122,20 @@ fn vector_product(f: Primitive, g: Primitive, x: &Value, y: &Value, span: &Span)
 
 /// `f` on each rank-`k` cell of `y`, as calls on the whole of `y` along the cells' axes. The frame's axes keep their keys and names. `None` where no rule covers `f`.
 fn cell_rule(f: &Function, y: &Value, k: usize, span: &Span) -> Option<Result<Value, Error>> {
-    use {crate::primitive::CellRule, FunctionNode as N, Operand::{Function as F, Value as V}, OperatorKind::{Atop, Before}};
+    use {crate::primitive::CellRule, FunctionNode as N, Operand::{Function as F, Value as V}, OperatorKind::{Atop, Axis, Before}};
     match f.node() {
         N::Primitive(p) => primitive_cells(*p, None, y, k, span),
         N::Fold(g, kind) => folded_cells(pervasive_primitive(g, true)?, *kind, &[kind.default_axis(k)], None, y, k, span),
         N::Composed(Before, [V(a), F(g)]) => primitive_cells(g.dyadic_primitive()?, Some(a), y, k, span),
+        N::Composed(Axis, [F(g), V(spec)]) if spec.keys(0).is_none() => {
+            let p = primitive(g, false)?;
+            if !p.facts(false).axes || !matches!(p.facts(false).cells, CellRule::Same | CellRule::Every | CellRule::Encloses) { return None; }
+            let frame = y.shape().len() - k;
+            let cell = y.layout().axes(frame..y.shape().len());
+            let selected = crate::primitive::axes(&crate::primitive::resolve_axes_in(spec, &cell).ok()?, k).ok()?;
+            let spec = Value::integers(vec![selected.len()], selected.iter().map(|&a| (frame + a) as i64).collect()).ok()?;
+            Some(p.call_axes(None, y, &spec, span))
+        }
         N::Composed(Atop, [F(g), F(h)]) => {
             // A fold of each cell's items, joined into one axis as monadic `,` joins them (`CellRule::Every`), folds all the cell axes at once. That takes folds in turn where the primitive allows them. Folds in turn reach sliding folds over windows.
             if let (N::Fold(op, kind), Some(p)) = (g.node(), primitive(h, false)) {
@@ -172,7 +181,6 @@ fn primitive_cells(p: Primitive, left: Option<&Value>, y: &Value, k: usize, span
     let Some(a) = left else {
         if p.extends_at(None, k) { return Some(p.call(None, y, span)); }
         return match p.facts(false).cells {
-            CellRule::First if k > 0 => Some(p.call_axes(None, y, &axes(0, 1), span)),
             CellRule::Every => Some(p.call_axes(None, y, &axes(0, k), span)),
             CellRule::Encloses if k > 0 => Some(p.call_axes(None, y, &axes(0, k), span)),
             CellRule::Length | CellRule::Shape => cell_constant(p, &y.layout().axes(frame..frame + k))
@@ -201,7 +209,6 @@ fn primitive_cells(p: Primitive, left: Option<&Value>, y: &Value, k: usize, span
     match p.facts(true).cells {
         // A left argument of a form that runs along leading cell axes has one item for each axis it applies to. A named selector stays on the cell path, because the whole array's frame axes could pair with its name.
         CellRule::Leading if vector && a.len() <= k && !a.elements().any(|e| e.layout().has_names()) => Some(p.call_axes(Some(a), y, &axes(0, a.len()), span)),
-        CellRule::First if a.shape().is_empty() && k > 0 => Some(p.call_axes(Some(a), y, &axes(0, 1), span)),
         CellRule::Along if vector && k > 0 => Some(p.call_axes(Some(a), y, &axes(0, 1), span)),
         // Each destination lies inside the cell.
         CellRule::Axes if vector => a.as_items().nonnegative_integers::<usize>().ok().filter(|to| to.iter().all(|&d| d < k)).map(|to| moved(&to)),
@@ -232,7 +239,7 @@ fn primitive_cells(p: Primitive, left: Option<&Value>, y: &Value, k: usize, span
 /// - A form that extends, at cell ranks of at least its own. A call on two arguments pairs their frames as Rank does, wherever the call succeeds (`declared_ranks_match_rank` in `tests/core.rs`).
 /// - `⌷`, `⊃` and bracket indexing whose positions or right argument differ by cell select as one bracket selection of the whole (`primitive::paired_select`).
 /// - `∊`, with the same haystack on the right in every cell, searches all the cells of `x` at once, where each cell holds whole needles (`CellRule::Searches`).
-/// - `⍳`, `∊` and `⍸` whose haystack differs from cell to cell search each cell's needles in its own haystack (`primitive::searched_cells`).
+/// - `ι`, `∊` and `⍸` whose haystack differs from cell to cell search each cell's needles in its own haystack (`primitive::searched_cells`).
 /// - `≡` and `≢` compare every pair of cells at once (`CellRule::Matches`).
 ///
 /// `None` for any other form, for frames whose names one whole call would pair otherwise than Rank (`frames_pair`), and where the call fails. The calls on each cell then give the result or the error. Names on cell axes pair in the whole call as calls on cells pair them.
@@ -279,7 +286,7 @@ pub(crate) fn folded_cells(
     Some(fold(&Function::primitive(p), kind, Some(&axes), seed, y, span))
 }
 
-/// What `p` gives a cell laid out by `cell`, where its rule for cells says that depends only on the cell's shape: the cell's length for `≢` and its shape for monadic `⍴`. `None` for any other rule, and for the shape of a cell with named axes, which the names key. Rank lays it over the frame (`primitive_cells`), and a batched run gives it as every cell's result (`batch::call`).
+/// What `p` gives a cell laid out by `cell`, where its rule for cells says that depends only on the cell's shape: the cell's length for `≢` and its shape for monadic `ρ`. `None` for any other rule, and for the shape of a cell with named axes, which the names key. Rank lays it over the frame (`primitive_cells`), and a batched run gives it as every cell's result (`batch::call`).
 pub(crate) fn cell_constant(p: Primitive, cell: &crate::array::Layout) -> Option<Value> {
     use crate::primitive::CellRule;
     let shape = cell.shape();

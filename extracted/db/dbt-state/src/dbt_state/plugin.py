@@ -60,6 +60,7 @@ ORIGINALS: t.Dict[str, t.Callable] = {
     ],
     "CompileTask.defer_to_manifest": CompileTask.defer_to_manifest,
     "RunTask.defer_to_manifest": RunTask.defer_to_manifest,
+    "RunTask.safe_run_hooks": RunTask.safe_run_hooks,
 }
 
 if hasattr(TestRunner, "build_test_run_result"):
@@ -113,6 +114,7 @@ def set_runner_overrides() -> None:
         ORIGINALS.get("MicrobatchModelRunner.execute"),
         ORIGINALS["dbt_test.generate_runtime_model_context"],
         ORIGINALS.get("TestRunner.build_test_run_result"),
+        ORIGINALS["RunTask.safe_run_hooks"],
     )
 
     def compile_override(self: CompileRunner, manifest: Manifest) -> t.Any:
@@ -158,6 +160,11 @@ def set_runner_overrides() -> None:
             else:
                 ORIGINALS["GraphRunnableTask.defer_to_manifest"](self, *args)
 
+    def safe_run_hooks_override(
+        self: RunTask, adapter: t.Any, hook_type: t.Any, extra_context: t.Any
+    ) -> t.Any:
+        return runner_override.safe_run_hooks_override(self, adapter, hook_type, extra_context)
+
     def state_selector_override(
         manifest: Manifest,
         previous_state: t.Any,
@@ -195,6 +202,7 @@ def set_runner_overrides() -> None:
     MethodManager.SELECTOR_METHODS[MethodName.State] = state_selector_override  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
+    RunTask.safe_run_hooks = safe_run_hooks_override  # ty: ignore[invalid-assignment]
     if ListTask is not None:
         ListTask.run = run_override  # ty: ignore[invalid-assignment]
     if GenerateTask is not None:
@@ -269,6 +277,7 @@ def remove_runner_overrides() -> None:
     ]  # ty: ignore[assignment]  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = ORIGINALS["CompileTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = ORIGINALS["RunTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
+    RunTask.safe_run_hooks = ORIGINALS["RunTask.safe_run_hooks"]  # ty: ignore[invalid-assignment]
     if ListTask is not None and "ListTask.run" in ORIGINALS:
         ListTask.run = ORIGINALS["ListTask.run"]  # ty: ignore[invalid-assignment]
     if GenerateTask is not None and "GenerateTask.run" in ORIGINALS:

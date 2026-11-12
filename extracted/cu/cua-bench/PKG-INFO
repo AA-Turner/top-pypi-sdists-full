@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cua-bench
-Version: 0.4.1
+Version: 0.4.2
 Summary: Run computer-use benchmark datasets on sandboxes
 Project-URL: Homepage, https://github.com/trycua/cua
 Project-URL: Documentation, https://docs.trycua.com

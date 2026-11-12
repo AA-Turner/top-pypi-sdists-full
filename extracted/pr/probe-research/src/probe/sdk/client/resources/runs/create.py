@@ -57,10 +57,10 @@ class RunCreateMixin:
         # name still has an authored field on it. A caller's name is the run's
         # identifier and goes undeclared, so the server keeps it, and any
         # description sent beside it (agent_session.default_authorship). A name
-        # Probe composed declares `agent`, unless a description rides along:
-        # those are someone's words, and `agent` would hand them to generation.
+        # Probe composed declares `composed`, unless a description rides along:
+        # those are someone's words, and `composed` would hand them to generation.
         if authored_by is None and isinstance(name, agent_session.ComposedName) and not description:
-            authored_by = agent_session.AUTHORSHIP_AGENT
+            authored_by = agent_session.AUTHORSHIP_COMPOSED
         _put_authorship(body, authored_by, is_new_run_name=bool(name))
         # OMITTED, not null: `name` is optional server-side since 0080, and leaving
         # it out is the only way to say "the server picks it". `min_length=1` on

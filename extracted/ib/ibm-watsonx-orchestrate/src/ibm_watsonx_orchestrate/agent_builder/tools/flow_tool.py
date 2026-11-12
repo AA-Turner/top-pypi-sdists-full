@@ -47,6 +47,31 @@ class FlowTool(BaseTool):
         return self.__tool_spec__.description
 
 
+def _collect_transfer_channels(model: object) -> list[str]:
+    '''
+    Return the channel names configured on every Transfer End node in a flow model,
+    in the order they first appear. Nested sub-flows (such as user flows) are searched too.
+    '''
+    channels: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            spec = node.get("spec")
+            if isinstance(spec, dict) and spec.get("kind") == "transfer_end":
+                for channel in spec.get("channels") or []:
+                    name = channel.get("name") if isinstance(channel, dict) else None
+                    if name and name not in channels:
+                        channels.append(name)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(model.get("nodes", {}) if isinstance(model, dict) else model)
+    return channels
+
+
 def create_flow_json_tool(
         flow_model: dict,
         name: str = None,
@@ -74,11 +99,19 @@ def create_flow_json_tool(
 
     # Extract display_name from flow_model
     spec_display_name = flow_model.get("spec", {}).get("display_name")
+    spec_category = None
+    spec_supported_channels = None
+    if flow_model.get("metadata", {}).get("is_customercare_escalation"):
+        spec_category = "escalation"
+        spec_supported_channels = _collect_transfer_channels(flow_model) or None
+
     spec = ToolSpec(
         name=spec_name,
         display_name=spec_display_name,
         description=spec_description,
-        permission=spec_permission
+        permission=spec_permission,
+        category=spec_category,
+        supported_channels=spec_supported_channels
     )
 
     spec.binding = ToolBinding(flow=FlowToolBinding(flow_id=name, model=flow_model))

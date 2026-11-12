@@ -1140,7 +1140,33 @@ def _pg_tls_archive(cert_pem: str, key_pem: str) -> bytes:
             entry.mode = 0o600
             entry.size = len(data)
             bundle.addfile(entry, io.BytesIO(data))
+        # Runs once, when the image initializes a fresh data directory.
+        data = _PG_RDS_INIT.encode()
+        entry = tarfile.TarInfo("docker-entrypoint-initdb.d/ministack-rds.sh")
+        entry.mode = 0o755
+        entry.size = len(data)
+        bundle.addfile(entry, io.BytesIO(data))
     return archive.getvalue()
+
+
+# The roles RDS and Aurora PostgreSQL provide, with the master user in rds_superuser (real AWS, Aurora
+# PostgreSQL 16.15, us-west-2: rds_superuser holds rds_replication and rds_password with admin option).
+_PG_RDS_INIT = """#!/bin/sh
+set -e
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rds_iam') THEN CREATE ROLE rds_iam NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rds_superuser') THEN CREATE ROLE rds_superuser NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rds_replication') THEN CREATE ROLE rds_replication NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rds_password') THEN CREATE ROLE rds_password NOLOGIN; END IF;
+END
+$$;
+GRANT rds_replication, rds_password TO rds_superuser WITH ADMIN OPTION;
+SQL
+# A master user named rds_superuser already is that role; GRANT would make it a member of itself.
+[ "$POSTGRES_USER" = rds_superuser ] || psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -c "GRANT rds_superuser TO \"$POSTGRES_USER\""
+"""
 
 
 def _run_rds_container(docker_client, engine, container_kwargs, tls_names=(), tls_ips=()):
@@ -5057,7 +5083,13 @@ def _create_db_instance(p):
     if cluster and (switch_error := _begin_mysql_global_instance_mutation(cluster)):
         return switch_error
     try:
-        return _create_db_instance_impl(p)
+        # Handlers run on worker threads; serialise creates per cluster.
+        lock = resource_lock(
+            "rds-cluster-create",
+            f"{get_account_id()}/{get_region()}/{cluster['DBClusterIdentifier']}",
+        ) if cluster else contextlib.nullcontext()
+        with lock:
+            return _create_db_instance_impl(p)
     finally:
         if cluster:
             _end_mysql_global_instance_mutation(cluster)
@@ -5195,7 +5227,7 @@ def _create_db_instance_impl(p):
         pending_rotation = parent.get("_pending_master_password_rotation")
         if pending_rotation:
             readiness_master_pass = pending_rotation["old_password"]
-        # RDS action dispatch is synchronous and await-free, so this check and
+        # _create_db_instance serialises creates per cluster, so this check and
         # the shared metadata update cannot interleave with another create.
         resume_control_plane_only = (
             not docker_client
@@ -6324,9 +6356,10 @@ def _reboot_credentials(instance, cluster):
 def _refresh_restarted_container_address(client, container, instance, cluster):
     """Record the address Docker gave a restarted container.
 
-    Docker can assign a new IP on restart, so every record that carried the
-    old one (the instance, a shared cluster container and its other members)
-    moves to the new address.
+    Docker can assign a new IP on restart, so every record backed by this
+    container (the instance, a shared cluster container and its other members)
+    moves to the new address. Records are matched by container, not by the old
+    IP: containers restarting together can trade addresses.
     """
     ms_network = _get_ministack_network(client)
     if not ms_network:
@@ -6337,7 +6370,9 @@ def _refresh_restarted_container_address(client, container, instance, cluster):
     old_ip = instance.get("_internal_address")
     if not new_ip or not old_ip or new_ip == old_ip:
         return
-    records = [i for i in _instances.values() if i.get("_internal_address") == old_ip]
+    container_id = instance.get("_docker_container_id")
+    records = [i for i in _instances.values()
+               if container_id and i.get("_docker_container_id") == container_id and i.get("_internal_address") == old_ip]
     if instance not in records:
         records.append(instance)
     for record in records:

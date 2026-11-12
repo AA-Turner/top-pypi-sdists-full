@@ -447,7 +447,8 @@ class Case(Generic[OperationT]):
 
         Args:
             base_url: Override the schema's base URL.
-            session: Reuse an existing requests session.
+            session: Reuse an existing requests session. TLS verification follows the `tls-verify` option,
+                not `session.verify`; use `schema.config.update(tls_verify=False)` to disable it.
             headers: Additional headers.
             params: Additional query parameters.
             cookies: Additional cookies.
@@ -543,7 +544,7 @@ class Case(Generic[OperationT]):
         config = self.operation.schema.config.checks_config_for(
             operation=self.operation, phase=phase.value if phase is not None else None
         )
-        response_checks = run_checks_for(self.operation.schema).for_responses()
+        run_checks = run_checks_for(self.operation.schema)
         # Checks that re-send the request must reach the server that answered, even when the schema names none.
         if (
             sent_base_url is not None
@@ -558,8 +559,9 @@ class Case(Generic[OperationT]):
             config=config,
             transport_kwargs=transport_kwargs,
             recorder=recorder,
-            response_checks=response_checks,
+            response_checks=run_checks.for_responses(),
             phase=phase,
+            auth_enforced_operations=run_checks.auth_enforced_operations,
         )
         if not checks:
             # Default set: built-ins enabled in config + max_response_time + response checks.
@@ -608,7 +610,8 @@ class Case(Generic[OperationT]):
 
         Args:
             base_url: Override the schema's base URL.
-            session: Reuse an existing requests session.
+            session: Reuse an existing requests session. TLS verification follows the `tls-verify` option,
+                not `session.verify`; use `schema.config.update(tls_verify=False)` to disable it.
             headers: Additional headers to send.
             checks: Explicit set of checks to run.
             additional_checks: Additional custom checks to run.

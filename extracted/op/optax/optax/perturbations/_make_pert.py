@@ -16,7 +16,7 @@
 """Creates a differentiable approximation of a function with perturbations."""
 
 
-from typing import Callable
+from typing import Callable, Optional
 
 import jax
 import jax.numpy as jnp
@@ -135,13 +135,15 @@ def make_perturbed_fun(
     Reinforcement Learning <https://arxiv.org/abs/1703.03864>`_, 2017
 
   .. seealso::
-    * :doc:`../_collections/examples/perturbations` example.
+    * :doc:`/_collections/examples/perturbations` example.
   """  # noqa: E501
 
   def mc_estimator(key: base.PRNGKey, x: base.ArrayTree) -> base.ArrayTree:
 
     def stoch_estimator(
-        key: base.PRNGKey, x: base.ArrayTree, baseline: base.ArrayTree
+        key: base.PRNGKey,
+        x: base.ArrayTree,
+        baseline: Optional[base.ArrayTree],
     ) -> base.ArrayTree:
       sample = optax.tree.random_like(key, x, sampler=noise.sample)
       shifted_sample = jax.tree.map(lambda x, z: x + sigma * z, x, sample)

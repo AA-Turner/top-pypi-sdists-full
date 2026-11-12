@@ -1,10 +1,12 @@
 from typing import NamedTuple
 
+import numpy as np
 from numpy.testing import assert_allclose
 import pandas as pd
 import pytest
 from statsmodels.iolib.summary import Summary
 
+from arch.covariance.kernel import KERNELS, get_kernel_estimator
 from arch.unitroot.cointegration import CanonicalCointegratingReg, FullyModifiedOLS
 
 
@@ -48,7 +50,7 @@ def test_exceptions(trivariate_data, estimator):
     ):
         estimator(y[1:], x)
     mod = estimator(y, x)
-    with pytest.raises(ValueError, match=r"kernel is not a known kernel estimator"):
+    with pytest.raises(ValueError, match=r"kernel must be one of "):
         mod.fit(kernel="unknown")
 
 
@@ -344,6 +346,120 @@ def test_ccr_eviews(trivariate_data, test_key):
     assert_allclose(res.rsquared_adj, test_res.rsquared_adj, rtol=1e-4)
     # Loose tolerance since I use 1000 obs while Eviews drops 1
     assert_allclose(res.residual_variance, test_res.short_run, rtol=2e-3)
-    assert_allclose(res.long_run_variance, test_res.long_run, rtol=1e-3)
+    assert_allclose(res.long_run_variance, test_res.long_run, rtol=1e-5)
 
     assert isinstance(res.summary(), Summary)
+
+
+@pytest.mark.parametrize("estimator", [CanonicalCointegratingReg, FullyModifiedOLS])
+def test_df_adjust_scaling(estimator):
+    rs = np.random.RandomState(0)
+    nobs = 100
+    u = rs.standard_normal((nobs, 2))
+    x = np.cumsum(u, axis=0)
+    # Strongly endogenous regressors so that omega_12 is large
+    y = x @ np.array([1.0, 0.5]) + u @ np.array([2.0, -2.0])
+    y += 0.1 * rs.standard_normal(nobs)
+    mod = estimator(y, x)
+    res = mod.fit(bandwidth=4, df_adjust=False)
+    res_adj = mod.fit(bandwidth=4, df_adjust=True)
+    nobs_used = nobs - 1
+    scale = nobs_used / (nobs_used - res.params.shape[0])
+    assert_allclose(res_adj.long_run_variance, scale * res.long_run_variance)
+    assert_allclose(res_adj.cov, scale * res.cov)
+    assert_allclose(res_adj.params, res.params)
+
+
+def test_ccr_summary_title(trivariate_data):
+    y, x = trivariate_data
+    res = CanonicalCointegratingReg(y, x).fit()
+    assert "Canonical Cointegrating Regression" in str(res.summary())
+
+
+@pytest.mark.parametrize("estimator", [CanonicalCointegratingReg, FullyModifiedOLS])
+@pytest.mark.parametrize(
+    "kernel", ["quadratic-spectral", "Quadratic_Spectral", "Tukey-Hanning"]
+)
+def test_kernel_name_normalization(trivariate_data, estimator, kernel):
+    y, x = trivariate_data
+    mod = estimator(y, x)
+    res = mod.fit(kernel=kernel)
+    canonical = kernel.replace("-", "").replace("_", "").lower()
+    expected = mod.fit(kernel=canonical)
+    assert_allclose(res.params, expected.params)
+    assert_allclose(res.std_errors, expected.std_errors)
+    assert res.kernel == expected.kernel
+    assert isinstance(res.summary(), Summary)
+
+
+@pytest.mark.parametrize("estimator", [CanonicalCointegratingReg, FullyModifiedOLS])
+@pytest.mark.parametrize("kernel", KERNELS)
+def test_all_kernels(trivariate_data, estimator, kernel):
+    y, x = trivariate_data
+    res = estimator(y, x).fit(kernel=kernel)
+    # The names of the kernels are the names of the classes
+    assert res.kernel == kernel
+    assert res.kernel == estimator(y, x).fit(kernel=kernel.lower()).kernel
+
+
+def _fmols_eta(y, x):
+    # The series of the long-run covariance of FMOLS and CCR with a constant and
+    # diff=False: the residuals of y on a constant and x, after the first, and the
+    # differences of x
+    y = np.asarray(y, dtype=float).ravel()
+    x = np.asarray(x, dtype=float)
+    z = np.column_stack([np.ones(y.shape[0]), x])
+    resid = y - z @ np.linalg.lstsq(z, y, rcond=None)[0]
+    return np.column_stack([resid[1:], np.diff(x, axis=0)])
+
+
+@pytest.mark.parametrize("estimator", [CanonicalCointegratingReg, FullyModifiedOLS])
+@pytest.mark.parametrize("kernel", ["bartlett", "parzen", "quadratic-spectral"])
+@pytest.mark.parametrize("force_int", [True, False])
+def test_bandwidth_method(trivariate_data, estimator, kernel, force_int):
+    y, x = trivariate_data
+    mod = estimator(y, x)
+    default = mod.fit(kernel=kernel, force_int=force_int)
+    newey_west = mod.fit(
+        kernel=kernel, force_int=force_int, bandwidth_method="newey-west"
+    )
+    assert_allclose(default.bandwidth, newey_west.bandwidth, rtol=1e-13)
+    assert_allclose(default.params, newey_west.params, rtol=1e-12)
+    assert_allclose(default.cov, newey_west.cov, rtol=1e-12)
+    res = mod.fit(kernel=kernel, force_int=force_int, bandwidth_method="andrews")
+    expected = get_kernel_estimator(kernel)(
+        _fmols_eta(y, x), center=False, force_int=force_int, bandwidth_method="andrews"
+    )
+    assert_allclose(res.bandwidth, expected.bandwidth, rtol=1e-12)
+    assert res.bandwidth != default.bandwidth
+    assert res._kernel_est.bandwidth_method == "andrews"
+    # An explicit bandwidth is used whatever the method
+    fixed = mod.fit(kernel=kernel, bandwidth=4.0, force_int=force_int)
+    fixed_andrews = mod.fit(
+        kernel=kernel,
+        bandwidth=4.0,
+        force_int=force_int,
+        bandwidth_method="andrews",
+    )
+    assert fixed_andrews.bandwidth == 4.0
+    assert_allclose(fixed_andrews.params, fixed.params, rtol=1e-12)
+    assert_allclose(fixed_andrews.cov, fixed.cov, rtol=1e-12)
+
+
+@pytest.mark.parametrize("estimator", [CanonicalCointegratingReg, FullyModifiedOLS])
+@pytest.mark.parametrize(
+    ("spelling", "canonical"),
+    [
+        ("Newey-West", "newey-west"),
+        ("newey_west", "newey-west"),
+        ("NEWEYWEST", "newey-west"),
+        ("Andrews", "andrews"),
+    ],
+)
+def test_bandwidth_method_spellings(trivariate_data, estimator, spelling, canonical):
+    y, x = trivariate_data
+    mod = estimator(y, x)
+    res = mod.fit(bandwidth_method=spelling)
+    expected = mod.fit(bandwidth_method=canonical)
+    assert_allclose(res.bandwidth, expected.bandwidth, rtol=1e-13)
+    assert_allclose(res.params, expected.params, rtol=1e-14)

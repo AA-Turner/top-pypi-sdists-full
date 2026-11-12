@@ -9,13 +9,15 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
 use std::num::NonZeroUsize;
 use std::ops::Deref;
+use std::ops::Range;
 use std::sync::Arc;
 
-use jiter::JsonValue as JiterJsonValue;
-use jsonschema::{
+use crate::instance::{
     InstanceRef as JsonInstanceRef, ProjectedPythonKind, ProjectedPythonValue,
     PythonInstanceProvider,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use jiter::JsonValue as JiterJsonValue;
 use pyo3::Borrowed;
 use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::ffi;
@@ -31,10 +33,12 @@ use pyo3::{exceptions::PyAttributeError, types::PyModule};
 use super::prepared_schema::{NodeExt, PreparedSchema};
 
 mod input;
+mod link;
 mod output;
 mod prepared;
 mod projection;
 mod streaming;
+pub(crate) use streaming::http_number_fallback;
 pub(crate) use streaming::rounded_integer_float;
 
 // Keep recursive conversion comfortably inside the smallest native thread
@@ -76,6 +80,7 @@ impl BranchOrdinal {
 enum ScalarKind {
     Any,
     String,
+    Bytes,
     Integer,
     Number,
     Boolean,
@@ -146,7 +151,7 @@ impl<'a> IntoIterator for &'a UnionPlan {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 enum DiscriminatorKey {
     Null,
     Boolean(bool),
@@ -488,6 +493,7 @@ pub(crate) enum ConversionMismatch {
         actual: Option<String>,
     },
     JsonObjectKey,
+    BinaryEncoding,
     Literal,
     Depth,
     UnknownProperty(String),
@@ -508,6 +514,9 @@ impl std::fmt::Display for ConversionMismatch {
                 expected,
                 actual: None,
             } => write!(formatter, "expected {expected}"),
+            Self::BinaryEncoding => {
+                formatter.write_str("expected canonical base64 string for bytes")
+            }
             Self::JsonObjectKey => formatter.write_str("JSON object keys must be strings"),
             Self::Literal => formatter.write_str("value does not match the generated literal"),
             Self::Depth => {
@@ -532,9 +541,17 @@ impl std::fmt::Display for ConversionMismatch {
 }
 
 impl ConversionMismatch {
+    pub(crate) fn is_representation_error(&self) -> bool {
+        match self {
+            Self::BinaryEncoding => true,
+            Self::NoUnionBranch { first: Some(first) } => first.is_representation_error(),
+            _ => false,
+        }
+    }
+
     fn into_pyerr(self) -> PyErr {
         match self {
-            Self::Depth => PyErr::new::<PyValueError, _>(self.to_string()),
+            Self::Depth | Self::BinaryEncoding => PyErr::new::<PyValueError, _>(self.to_string()),
             _ => PyErr::new::<PyTypeError, _>(self.to_string()),
         }
     }
@@ -571,7 +588,7 @@ fn branch_attempt<T>(
     match result {
         Ok(value) => Ok(Some(value)),
         Err(ConversionFailure::Mismatch(error)) => {
-            if first_mismatch.is_none() {
+            if first_mismatch.is_none() || error.is_representation_error() {
                 *first_mismatch = Some(error);
             }
             Ok(None)
@@ -736,6 +753,7 @@ enum ConversionNode {
 }
 
 pub(crate) struct ModelConverterPlan {
+    origins: Vec<link::NodeOrigin>,
     nodes: Vec<ConversionNode>,
     conversion_validates: Vec<bool>,
     leaf_guards: Vec<Option<super::prepared_schema::Node>>,
@@ -751,6 +769,14 @@ pub(crate) struct ModelConverterPy {
     root: RootNode,
     output_overrides: Cell<bool>,
     checked_output: Cell<bool>,
+}
+
+/// A native envelope serialization, small materialized parameters, and its
+/// body's byte range. The body needs no intermediate Python value tree.
+pub(crate) struct SerializedFields {
+    pub(crate) json: String,
+    pub(crate) fields: Py<PyDict>,
+    pub(crate) body: Option<Range<usize>>,
 }
 
 #[derive(Clone, Copy)]
@@ -1004,6 +1030,7 @@ impl ModelConverterPlan {
 pub(crate) struct ModelProjection<'a> {
     converter: &'a ModelConverterPy,
     retained: RefCell<Vec<Py<PyAny>>>,
+    binary_strings: RefCell<HashMap<usize, Py<PyAny>>>,
     union_branches: RefCell<HashMap<(NodeId, usize), NodeId>>,
 }
 
@@ -1073,15 +1100,22 @@ impl RootedModelConverterPlan {
 
 impl ModelConverterPy {
     pub(crate) fn validate_emitted_json(&self, payload: &str) -> PyResult<bool> {
+        if !self.schema()?.requires_exact_json_numbers()
+            && self.conversion_validates[self.root.0.0]
+            && !self.output_overrides.get()
+        {
+            return Ok(true);
+        }
+        self.validate_complete_json(payload)
+    }
+
+    pub(crate) fn validate_complete_json(&self, payload: &str) -> PyResult<bool> {
         if self.schema()?.requires_exact_json_numbers() {
             let exact: serde_json::Value = serde_json::from_str(payload)
                 .map_err(|error| PyValueError::new_err(error.to_string()))?;
             return Ok(self
                 .schema()?
                 .is_valid_instance_assuming_json(JsonInstanceRef::from_serde(&exact)));
-        }
-        if self.conversion_validates[self.root.0.0] && !self.output_overrides.get() {
-            return Ok(true);
         }
         let parsed = JiterJsonValue::parse(payload.as_bytes(), false)
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
@@ -1102,6 +1136,7 @@ impl ModelConverterPy {
         ModelProjection {
             converter: self,
             retained: RefCell::new(Vec::new()),
+            binary_strings: RefCell::new(HashMap::new()),
             union_branches: RefCell::new(HashMap::new()),
         }
     }
@@ -1256,6 +1291,75 @@ impl ModelConverterPy {
         Ok(unsafe { String::from_utf8_unchecked(output) })
     }
 
+    pub(crate) fn serialize_fields_checked(
+        &self,
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        body_name: &str,
+    ) -> PyResult<SerializedFields> {
+        let ConversionNode::Model {
+            fields,
+            extra: None,
+            ..
+        } = self.node(self.root.0)
+        else {
+            return Err(PyTypeError::new_err(
+                "HTTP envelopes must be closed object models",
+            ));
+        };
+        let mut output = Vec::with_capacity(256);
+        let values = PyDict::new(py);
+        let mut body = None;
+        ActiveContainers::default().with_pyresult(value, |active| {
+            output.push(b'{');
+            for field in fields {
+                let item = field.attribute.get(value)?;
+                if field.presence.is_omittable() && item.is(self.missing_sentinel.bind(py)) {
+                    continue;
+                }
+                if !values.is_empty() {
+                    output.push(b',');
+                }
+                output.extend_from_slice(&field.json_prefix);
+                if field.json_name == body_name {
+                    let start = output.len();
+                    self.write_json_node(
+                        py,
+                        field.value_node,
+                        &item,
+                        MAX_MODEL_DEPTH - 1,
+                        active,
+                        &mut output,
+                    )?;
+                    body = Some(start..output.len());
+                    values.set_item(field.json_name.as_str(), py.None())?;
+                } else {
+                    // Object-valued HTTP parameters preserve insertion order.
+                    // Materialize them once, separately from the large body;
+                    // re-parsing canonical JSON would reorder their mappings.
+                    let item = self.to_python_value_node(
+                        py,
+                        field.value_node,
+                        &item,
+                        MAX_MODEL_DEPTH - 1,
+                        active,
+                    )?;
+                    write_serializable_json_value(&mut output, item.bind(py), MAX_MODEL_DEPTH - 1)?;
+                    values.set_item(field.json_name.as_str(), item)?;
+                }
+            }
+            output.push(b'}');
+            Ok(())
+        })?;
+        // The same writer and prepared prefixes as serialize_model_trusted.
+        let json = unsafe { String::from_utf8_unchecked(output) };
+        Ok(SerializedFields {
+            json,
+            fields: values.unbind(),
+            body,
+        })
+    }
+
     pub(crate) fn materialize_json_value(
         &self,
         py: Python<'_>,
@@ -1279,7 +1383,7 @@ fn convert_jiter_scalar_value(
 ) -> ConversionResult<Py<PyAny>> {
     let valid = match kind {
         ScalarKind::Any => true,
-        ScalarKind::String => matches!(value, JiterJsonValue::Str(_)),
+        ScalarKind::String | ScalarKind::Bytes => matches!(value, JiterJsonValue::Str(_)),
         ScalarKind::Integer => match value {
             JiterJsonValue::Int(_) | JiterJsonValue::BigInt(_) => true,
             JiterJsonValue::Float(value) => value.fract() == 0.0,
@@ -1301,6 +1405,12 @@ fn convert_jiter_scalar_value(
         ));
     }
 
+    if matches!(kind, ScalarKind::Bytes) {
+        let JiterJsonValue::Str(text) = value else {
+            unreachable!()
+        };
+        return binary_from_base64(py, text);
+    }
     let python_value = if matches!(kind, ScalarKind::Integer) {
         if let JiterJsonValue::Float(number) = value {
             number
@@ -1479,6 +1589,22 @@ fn write_serializable_json_value(
     value: &Bound<'_, PyAny>,
     remaining_depth: u16,
 ) -> PyResult<()> {
+    write_json_value(output, value, remaining_depth, true)
+}
+
+pub(crate) fn write_ordered_json_value(
+    output: &mut Vec<u8>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    write_json_value(output, value, MAX_MODEL_DEPTH, false)
+}
+
+fn write_json_value(
+    output: &mut Vec<u8>,
+    value: &Bound<'_, PyAny>,
+    remaining_depth: u16,
+    sort_keys: bool,
+) -> PyResult<()> {
     if remaining_depth == 0 {
         return Err(PyErr::new::<PyValueError, _>(
             "generated model serialization exceeds the maximum nesting depth",
@@ -1523,7 +1649,7 @@ fn write_serializable_json_value(
             if index != 0 {
                 output.push(b',');
             }
-            write_serializable_json_value(output, &value, remaining_depth - 1)?;
+            write_json_value(output, &value, remaining_depth - 1, sort_keys)?;
         }
         output.push(b']');
         return Ok(());
@@ -1534,7 +1660,7 @@ fn write_serializable_json_value(
             if index != 0 {
                 output.push(b',');
             }
-            write_serializable_json_value(output, &value, remaining_depth - 1)?;
+            write_json_value(output, &value, remaining_depth - 1, sort_keys)?;
         }
         output.push(b']');
         return Ok(());
@@ -1549,7 +1675,9 @@ fn write_serializable_json_value(
                 .to_owned();
             entries.push((key, value));
         }
-        entries.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        if sort_keys {
+            entries.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        }
         output.push(b'{');
         for (index, (key, value)) in entries.into_iter().enumerate() {
             if index != 0 {
@@ -1557,7 +1685,7 @@ fn write_serializable_json_value(
             }
             write_json_string(output, &key)?;
             output.push(b':');
-            write_serializable_json_value(output, &value, remaining_depth - 1)?;
+            write_json_value(output, &value, remaining_depth - 1, sort_keys)?;
         }
         output.push(b'}');
         return Ok(());
@@ -1623,6 +1751,21 @@ fn json_serialization_error(error: serde_json::Error) -> PyErr {
     PyErr::new::<PyValueError, _>(format!("JSON serialization failed: {error}"))
 }
 
+/// Decode the canonical JSON projection; malformed base64 is a union mismatch.
+fn binary_from_base64(py: Python<'_>, text: &str) -> ConversionResult<Py<PyAny>> {
+    let bytes = BASE64
+        .decode(text)
+        .map_err(|_| ConversionFailure::Mismatch(ConversionMismatch::BinaryEncoding))?;
+    Ok(PyBytes::new(py, &bytes).into_any().unbind())
+}
+
+fn binary_json_projection(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let bytes = value.cast::<PyBytes>()?;
+    Ok(PyString::new(py, &BASE64.encode(bytes.as_bytes()))
+        .into_any()
+        .unbind())
+}
+
 fn convert_scalar(
     py: Python<'_>,
     kind: ScalarKind,
@@ -1630,7 +1773,7 @@ fn convert_scalar(
 ) -> ConversionResult<Py<PyAny>> {
     let valid = match kind {
         ScalarKind::Any => true,
-        ScalarKind::String => value.is_instance_of::<PyString>(),
+        ScalarKind::String | ScalarKind::Bytes => value.is_instance_of::<PyString>(),
         ScalarKind::Integer => {
             (value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>())
                 || (value.is_instance_of::<PyFloat>() && {
@@ -1652,6 +1795,9 @@ fn convert_scalar(
         )?));
     }
 
+    if matches!(kind, ScalarKind::Bytes) {
+        return binary_from_base64(py, value.cast::<PyString>().map_err(PyErr::from)?.to_str()?);
+    }
     if matches!(kind, ScalarKind::Integer) && value.is_instance_of::<PyFloat>() {
         return Ok(py
             .get_type::<PyFloat>()
@@ -1672,6 +1818,19 @@ fn convert_direct_scalar(
     kind: ScalarKind,
     value: &Bound<'_, PyAny>,
 ) -> ConversionResult<Py<PyAny>> {
+    if matches!(kind, ScalarKind::Bytes) {
+        let bytes = value.cast::<PyBytes>().map_err(|_| {
+            ConversionFailure::Mismatch(ConversionMismatch::ExpectedType {
+                expected: "bytes".into(),
+                actual: None,
+            })
+        })?;
+        return Ok(if value.is_exact_instance_of::<PyBytes>() {
+            value.clone().unbind()
+        } else {
+            PyBytes::new(py, bytes.as_bytes()).into_any().unbind()
+        });
+    }
     if matches!(kind, ScalarKind::Integer)
         && (value.is_instance_of::<PyBool>() || !value.is_instance_of::<PyInt>())
     {
@@ -1686,6 +1845,7 @@ fn scalar_name(kind: ScalarKind) -> &'static str {
     match kind {
         ScalarKind::Any => "JSON value",
         ScalarKind::String => "str",
+        ScalarKind::Bytes => "base64 string",
         ScalarKind::Integer => "int",
         ScalarKind::Number => "number",
         ScalarKind::Boolean => "bool",
@@ -1814,11 +1974,36 @@ pub(crate) fn compile_model_converter_plan(
     let mut nodes = Vec::with_capacity(descriptors.len());
     let node_count = descriptors.len();
     let mut schemas = HashMap::new();
+    let mut dependencies = Vec::new();
     for descriptor in descriptors {
-        nodes.push(parse_node(py, &descriptor, node_count, &mut schemas)?);
+        let tuple = descriptor.cast::<PyTuple>()?;
+        if !tuple.is_empty() && tuple.get_item(0)?.extract::<String>()? == "external" {
+            require_arity(tuple, 2, "external model node")?;
+            let model = tuple.get_item(1)?.cast_into::<PyType>()?;
+            let runtime = model
+                .getattr("__dict__")?
+                .get_item("__jsoncompat_runtime__")?;
+            let converter = runtime
+                .extract::<PyRef<'_, super::ModelRuntimePy>>()?
+                .converter(py)?;
+            if !converter.model_type()?.bind(py).is(&model) {
+                return Err(PyTypeError::new_err(
+                    "external runtime belongs to a different model",
+                ));
+            }
+            dependencies.push((nodes.len(), converter));
+            // Install this module's precomputed local decisions before linking
+            // imported nodes, whose own decisions have already been installed.
+            nodes.push(ConversionNode::Scalar {
+                kind: ScalarKind::Any,
+            });
+        } else {
+            nodes.push(parse_node(py, &descriptor, node_count, &mut schemas)?);
+        }
     }
     let object_new = py.get_type::<PyAny>().getattr("__new__")?.unbind();
     let mut plan = ModelConverterPlan {
+        origins: Vec::new(),
         conversion_validates: vec![false; nodes.len()],
         leaf_guards: vec![None; nodes.len()],
         nodes,
@@ -1829,6 +2014,7 @@ pub(crate) fn compile_model_converter_plan(
         frozen_dict_items_attribute: ModelAttribute::compile(py, frozen_dict_type, "_items")?,
     };
     plan.install_prepared_plan(prepared_plan)?;
+    plan.link_dependencies(py, dependencies);
     Ok(Arc::new(plan))
 }
 
@@ -1977,6 +2163,7 @@ fn parse_node(
     match tag.as_str() {
         "any" => parse_scalar_node(descriptor, ScalarKind::Any),
         "str" => parse_scalar_node(descriptor, ScalarKind::String),
+        "bytes" => parse_scalar_node(descriptor, ScalarKind::Bytes),
         "int" => parse_scalar_node(descriptor, ScalarKind::Integer),
         "float" => parse_scalar_node(descriptor, ScalarKind::Number),
         "bool" => parse_scalar_node(descriptor, ScalarKind::Boolean),
@@ -2233,6 +2420,31 @@ fn load_branch_schema(
     prepared: &Bound<'_, PyAny>,
     schemas: &mut HashMap<Vec<u8>, Arc<PreparedSchema>>,
 ) -> PyResult<BranchSchema> {
+    // Shared programs include content identities. Always check the supplied
+    // handles so swapped/corrupt generated files fail
+    // during import instead of silently validating against another pattern.
+    if let Ok(pair) = prepared.cast::<PyTuple>() {
+        require_arity(pair, 2, "shared prepared schema")?;
+        let bytes = pair.get_item(0)?.cast_into::<PyBytes>()?;
+        let handles = pair.get_item(1)?.cast_into::<PyTuple>()?;
+        let patterns = handles
+            .iter()
+            .map(|handle| {
+                handle
+                    .extract::<PyRef<'_, super::prepared_schema::PreparedPatternPy>>()
+                    .map_err(Into::into)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let references = patterns
+            .iter()
+            .map(|pattern| &pattern.0)
+            .collect::<Vec<_>>();
+        let program = Arc::new(
+            PreparedSchema::load_shared(bytes.as_bytes(), &references)
+                .map_err(PyValueError::new_err)?,
+        );
+        return Ok(BranchSchema { program });
+    }
     let bytes = prepared.cast::<PyBytes>()?;
     if let Some(program) = schemas.get(bytes.as_bytes()) {
         return Ok(BranchSchema {

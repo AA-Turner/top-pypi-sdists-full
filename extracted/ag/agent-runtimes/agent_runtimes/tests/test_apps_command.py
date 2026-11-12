@@ -134,6 +134,8 @@ def test_every_application_of_the_catalogue_is_valid_and_says_its_setup() -> Non
         "sales",
         "sheet-maker",
         "ship-or-fix",
+        # Datalayer Steward for AWS (agentspecs 0.0.176, renamed from aws-account-agent).
+        "steward-aws",
         "supplier-comparison",
         "support-desk",
         "web-research",

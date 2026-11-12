@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from base64 import b64decode
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, cast
@@ -234,41 +235,63 @@ class XMLVerifier(XMLSignatureProcessor):
         transforms_node: etree._Element,
         signature: etree._Element,
     ):
-        transforms, c14n_applied = [], False
+        transforms = []
         if transforms_node is not None:
             transforms = self._findall(transforms_node, "Transform")
-
-        for transform in transforms:
-            if transform.get("Algorithm") == SignatureConstructionMethod.enveloped.value:
-                _remove_sig(signature, idempotent=True)
-
-        for transform in transforms:
-            if transform.get("Algorithm") == "http://www.w3.org/2000/09/xmldsig#base64":
-                payload = b64decode(payload.text)
-
+        signature_index = None
         for transform in transforms:
             algorithm = transform.get("Algorithm")
-            try:
-                c14n_algorithm_from_transform = CanonicalizationMethod(algorithm)
-            except ValueError:
+            if algorithm == "http://www.w3.org/2000/09/xmldsig#base64":
+                if isinstance(payload, etree._Element):
+                    # XMLDSig 6.6.2: concatenate text nodes in document order before decoding.
+                    payload = "".join(cast(Iterable[str], payload.itertext()))
+                payload = b64decode(payload or b"")
+                signature_index = None
                 continue
-            inclusive_ns_prefixes = self._get_inclusive_ns_prefixes(transform)
+            if algorithm != SignatureConstructionMethod.enveloped.value:
+                try:
+                    c14n_algorithm = CanonicalizationMethod(algorithm)
+                except ValueError:
+                    raise InvalidInput(f"Unsupported transform algorithm: {algorithm}")
 
-            # Create a separate copy of the node so we can modify the tree and avoid any c14n inconsistencies from
-            # namespaces propagating from parent nodes. The lxml docs recommend using copy.deepcopy for this, but it
-            # doesn't seem to preserve namespaces. It would be nice to find a less heavy-handed way of doing this.
-            payload = self._fromstring(self._tostring(payload))
+            # XMLDSig 4.4.3.2: XML transforms parse octet streams before processing.
+            if isinstance(payload, (str, bytes)):
+                payload = self._fromstring(payload)
+                self._reject_manifests(payload)
+                if signature_index is not None:
+                    signature = list(payload.iter(ds_tag("Signature")))[signature_index]
 
-            payload = self._c14n(
-                payload, algorithm=c14n_algorithm_from_transform, inclusive_ns_prefixes=inclusive_ns_prefixes
-            )
-            c14n_applied = True
+            if algorithm == SignatureConstructionMethod.enveloped.value:
+                if payload is signature:
+                    payload = None  # The enveloped transform can produce an empty node-set.
+                elif signature in (() if payload is None else payload.iter(ds_tag("Signature"))):
+                    _remove_sig(signature, idempotent=True)
+                signature_index = None
+            elif payload is None:
+                payload = b""
+            else:
+                # Preserve the containing signature's identity across canonicalization and reparsing.
+                signature_index = next(
+                    (i for i, node in enumerate(payload.iter(ds_tag("Signature"))) if node is signature), None
+                )
+                # Retain the existing subtree-copy behavior for canonicalization.
+                payload = self._fromstring(self._tostring(payload))
+                payload = self._c14n(
+                    payload,
+                    algorithm=c14n_algorithm,
+                    inclusive_ns_prefixes=self._get_inclusive_ns_prefixes(transform),
+                )
 
-        if not c14n_applied and not isinstance(payload, (str, bytes)):
-            # Create a separate copy of the node, see above
+        if payload is None:
+            return b""
+        if not isinstance(payload, (str, bytes)):
             payload = self._fromstring(self._tostring(payload))
             payload = self._c14n(payload, algorithm=self.config.default_reference_c14n_method)
         return payload
+
+    def _reject_manifests(self, root):
+        if next(root.iter(ds_tag("Manifest")), None) is not None:
+            raise InvalidInput("XMLDSig Manifest elements are not supported")
 
     def get_cert_chain_verifier(self, ca_pem_file, ee_policy, ca_policy):
         return X509CertChainVerifier(
@@ -374,6 +397,8 @@ class XMLVerifier(XMLSignatureProcessor):
         this requires the signature to be generated using a valid X.509 certificate. To enable other means of signature
         validation, set ``expect_config`` to a configuration with the **require_x509** parameter set to `False`.
 
+        XMLDSig ``Manifest`` elements are not supported and are rejected, including in resolved reference data.
+
         .. admonition:: See what is signed
 
          It is important to understand and follow the best practice rule of "See what is signed" when verifying XML
@@ -436,7 +461,9 @@ class XMLVerifier(XMLSignatureProcessor):
         :param ca_pem_file:
             Filename of a PEM file containing certificate authority information to use when verifying certificate-based
             signatures.
-        :param hmac_key: If using HMAC, a string containing the shared secret.
+        :param hmac_key:
+            If using HMAC, a string containing the shared secret. Only full-length HMAC signatures are supported;
+            an explicit ``HMACOutputLength`` must equal the hash output size in bits.
         :param validate_schema: Whether to validate **data** against the XML Signature schema.
         :param parser:
             Custom XML parser instance to use when parsing **data**. The default parser arguments used by SignXML are:
@@ -493,6 +520,7 @@ class XMLVerifier(XMLSignatureProcessor):
             self.id_attributes = (id_attribute,)
 
         root = self.get_root(data)
+        self._reject_manifests(root)
         signature_ref = self._get_signature(root)
 
         # We could do a deep copy here, but it wouldn't preserve root level namespaces
@@ -509,6 +537,19 @@ class XMLVerifier(XMLSignatureProcessor):
         signature_value = self._find(signature, "SignatureValue")
         signature_alg = SignatureMethod(signature_method.get("Algorithm"))
         self.check_signature_alg_expected(signature_alg)
+        hmac_output_lengths = self._findall(signature_method, "HMACOutputLength")
+        if hmac_output_lengths:
+            # Validate the XML Schema integer syntax and cardinality even if general schema validation is disabled.
+            try:
+                self.validate_schema(signature_method)
+            except etree.DocumentInvalid as exc:
+                raise InvalidInput("Invalid HMACOutputLength") from exc
+            if not signature_alg.name.startswith("HMAC_"):
+                raise InvalidInput("HMACOutputLength is only supported for HMAC signatures")
+            output_length = int(hmac_output_lengths[0].text)
+            hash_bits = digest_algorithm_implementations[signature_alg]().digest_size * 8
+            if output_length != hash_bits:
+                raise InvalidInput(f"HMACOutputLength must be {hash_bits} bits; truncated HMAC is not supported")
         raw_signature = b64decode(signature_value.text)
         x509_data = signature.find("ds:KeyInfo/ds:X509Data", namespaces=namespaces)
         key_value = signature.find("ds:KeyInfo/ds:KeyValue", namespaces=namespaces)
@@ -614,9 +655,14 @@ class XMLVerifier(XMLSignatureProcessor):
 
         verified_signed_info = self._fromstring(verified_signed_info_c14n)
         verify_results: list[VerifyResult] = []
-        for idx, reference in enumerate(self._findall(verified_signed_info, "Reference")):
+        references = self._findall(verified_signed_info, "Reference")
+        for idx, reference in enumerate(references):
+            # get_root() already isolated the input; multiple references need independent trees for their transforms.
+            root_to_verify = self._fromstring(self._tostring(root)) if len(references) > 1 else root
             verify_results.append(
-                self._verify_reference(reference, idx, root, uri_resolver, c14n_algorithm, signature, key_used)
+                self._verify_reference(
+                    reference, idx, root_to_verify, uri_resolver, c14n_algorithm, signature, key_used
+                )
             )
 
         if type(self.config.expect_references) is int and len(verify_results) != self.config.expect_references:
@@ -639,16 +685,20 @@ class XMLVerifier(XMLSignatureProcessor):
         signature,
         signature_key_used,
     ):
-        copied_root = self._fromstring(self._tostring(root))
-        copied_signature_ref = self._get_signature(copied_root)
+        signature_ref = self._get_signature(root)
         transforms = self._find(reference, "Transforms", require=False)
         digest_method_alg_name = self._find(reference, "DigestMethod").get("Algorithm")
         digest_value = self._find(reference, "DigestValue")
-        payload = self._resolve_reference(copied_root, reference, uri_resolver=uri_resolver)
+        payload = self._resolve_reference(root, reference, uri_resolver=uri_resolver)
+        if isinstance(payload, etree._Element):
+            self._reject_manifests(payload)
+        if reference.get("URI") == "" or reference.get("URI").startswith("#"):
+            # XMLDSig 4.4.3.3: same-document references omit comments before applying transforms.
+            etree.strip_tags(payload, etree.Comment)
         payload_c14n = self._apply_transforms(
             payload,
             transforms_node=transforms,
-            signature=copied_signature_ref,
+            signature=signature_ref,
         )
         digest_alg = DigestAlgorithm(digest_method_alg_name)
         self.check_digest_alg_expected(digest_alg)
@@ -663,6 +713,8 @@ class XMLVerifier(XMLSignatureProcessor):
             payload_c14n_xml = self._fromstring(payload_c14n)
         except etree.XMLSyntaxError:
             payload_c14n_xml = None
+        if payload_c14n_xml is not None:
+            self._reject_manifests(payload_c14n_xml)
 
         if isinstance(signature_key_used, bytes):
             signature_key = signature_key_used

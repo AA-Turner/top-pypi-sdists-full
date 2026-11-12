@@ -33,7 +33,7 @@ from types import EllipsisType
 from typing import Any, Dict, Tuple, Union
 
 from xdis.codetype import to_portable
-from xdis.cross_types import LongTypeForPython3, UnicodeForPython3
+from xdis.cross_types import LongTypeForPython3, UnicodeForPython3, FrozenDictPrePython315
 from xdis.magics import GRAAL3_MAGICS, PYPY3_MAGICS, RUSTPYTHON_MAGICS, magic_int2tuple
 
 
@@ -60,6 +60,7 @@ TYPE_CODE = "c"
 TYPE_CODE_OLD = "C"  # used in Python 1.0 - 1.2. Graal Python uses this too.
 TYPE_COMPLEX = "x"  # Version 0 only. Not in use after Python 2.4
 TYPE_DICT = "{"
+TYPE_FROZENDICT = "}"
 TYPE_ELLIPSIS = "."
 TYPE_FALSE = "F"
 TYPE_FLOAT = "f"  # Version 0 only. Not in use after Python 2.4
@@ -105,6 +106,7 @@ UNMARSHAL_DISPATCH_TABLE = {
     TYPE_CODE_OLD: "code_old",  # Older Python
     TYPE_COMPLEX: "complex",
     TYPE_DICT: "dict",
+    TYPE_FROZENDICT: "frozendict",
     TYPE_ELLIPSIS: "Ellipsis",
     TYPE_FALSE: "False",
     TYPE_FLOAT: "float",
@@ -189,6 +191,7 @@ class VersionIndependentUnmarshaller:
             self.marshal_version = 0
 
         self.intern_strings = []
+        self.intern_string_bytes = {}
         self.intern_objects = []
         self.is_pypy = magic_int in PYPY3_MAGICS
         self.is_rust = magic_int in RUSTPYTHON_MAGICS
@@ -225,6 +228,7 @@ class VersionIndependentUnmarshaller:
 
         if self.marshal_version == 0:
             self.intern_strings = []
+            self.intern_string_bytes = {}
         if self.marshal_version < 3:
             assert self.intern_objects == []
 
@@ -323,7 +327,7 @@ class VersionIndependentUnmarshaller:
         return self.r_ref(self.read_int32(), save_ref)
 
     def t_long(self, save_ref, bytes_for_s: bool = False):
-        n = self.read_uint32()
+        n = self.read_int32()
         if n == 0:
             return long(0)
         size = abs(n)
@@ -426,8 +430,15 @@ class VersionIndependentUnmarshaller:
 
     def t_interned(self, save_ref, bytes_for_s: bool = False):
         strsize = self.read_uint32()
-        interned = compat_str(self.fp.read(strsize))
+        raw = self.fp.read(strsize)
+        interned = compat_str(raw)
+        if self.version_triple < (3, 0):
+            # A string first read as text can later be referenced as bytecode.
+            # Keep the original bytes alongside the existing text representation.
+            self.intern_string_bytes[len(self.intern_strings)] = raw
         self.intern_strings.append(interned)
+        if bytes_for_s and self.version_triple < (3, 0):
+            interned = raw
         return self.r_ref(interned, save_ref)
 
     def t_unicode(self, save_ref, bytes_for_s: bool = False):
@@ -436,7 +447,12 @@ class VersionIndependentUnmarshaller:
         if self.version_triple < (3, 0):
             string = UnicodeForPython3(unicodestring)
         else:
-            string = unicodestring.decode()
+            # surrogatepass is needed because Python 3 supports surrogate
+            # code points in strings. CPython 3.15+ pulls in Pygments as a
+            # dependency (for colored CLI/REPL output), and its source
+            # contains surrogate code points that cause stdlib test
+            # disassembly to fail without this error handler.
+            string = unicodestring.decode("utf-8", "surrogatepass")
 
         return self.r_ref(string, save_ref)
 
@@ -487,6 +503,24 @@ class VersionIndependentUnmarshaller:
             setsize -= 1
         return self.r_ref_insert(set(ret), i)
 
+    def t_frozendict(self, save_ref, bytes_for_s: bool = False):
+        d, i = self.r_ref_reserve(dict(), save_ref)
+        # dictionary
+        while True:
+            key = self.r_object(bytes_for_s=bytes_for_s)
+            if key is None:
+                break
+            val = self.r_object(bytes_for_s=bytes_for_s)
+            d[key] = val
+            pass
+
+        try:
+            final_frozendict = frozendict(d)
+        except NameError:
+            final_frozendict = FrozenDictPrePython315(d)
+
+        return self.r_ref_insert(final_frozendict, i)
+
     def t_dict(self, save_ref, bytes_for_s: bool = False) -> dict:
         ret = self.r_ref(dict(), save_ref)
         # dictionary
@@ -495,15 +529,22 @@ class VersionIndependentUnmarshaller:
             if key is None:
                 break
             val = self.r_object(bytes_for_s=bytes_for_s)
-            if val is None:
-                break
             ret[key] = val
             pass
         return ret
 
     def t_python2_string_reference(self, save_ref, bytes_for_s: bool = False):
         refnum = self.read_uint32()
+        if bytes_for_s and self.version_triple < (3, 0):
+            return self.intern_string_bytes[refnum]
         return self.intern_strings[refnum]
+
+    def _reference_objects(self):
+        references = set(self.intern_objects + self.intern_strings)
+        if self.version_triple < (3, 0):
+            # The marshal writer can encounter either representation.
+            references.update(self.intern_string_bytes.values())
+        return references
 
     def t_slice(self, save_ref, bytes_for_s: bool = False):
         """TYPE_SLICE introducted in Marshal version 5"""
@@ -664,7 +705,7 @@ class VersionIndependentUnmarshaller:
             co_firstlineno = -1  # Bogus sentinel value
             co_lnotab = b""
 
-        reference_objects = set(self.intern_objects + self.intern_strings)
+        reference_objects = self._reference_objects()
 
         code = to_portable(
             co_argcount=co_argcount,
@@ -758,7 +799,7 @@ class VersionIndependentUnmarshaller:
         co_firstlineno = -1  # Bogus sentinel value
         co_lnotab = b""
 
-        reference_objects = set(self.intern_objects + self.intern_strings)
+        reference_objects = self._reference_objects()
 
         code = to_portable(
             co_argcount=co_argcount,

@@ -66,6 +66,7 @@ TrainingOptionKey: TypeAlias = Literal[
   "max_output_tokens_per_turn",
   "max_output_tokens_per_trajectory",
   "max_turns_per_trajectory",
+  "image_max_pixels",
 ]
 
 

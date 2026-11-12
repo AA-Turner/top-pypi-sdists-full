@@ -27,6 +27,38 @@ def generate_rename_path(root, ext, creation_time):
     return renamed_path
 
 
+def rename_file(path_in, path_out):
+    try:
+        os.rename(path_in, path_out)
+    except OSError as error:
+        raise OSError(
+            "Could not rename log file {!r} to {!r}.\n"
+            "Another handler or process may be using the same file and caused a "
+            "conflict.\n"
+            "Make sure no two active handlers were added with the same filename pattern (the "
+            "'{{time}}' field is not an effective differentiator): rotation, retention and "
+            "compression procedures may otherwise rename or delete each other's files.\n"
+            "A common cause is logger configuration being inadvertently repeated in spawned child "
+            "processes or Gunicorn workers.\n".format(path_in, path_out)
+        ) from error
+
+
+def remove_file(path):
+    try:
+        os.remove(path)
+    except OSError as error:
+        raise OSError(
+            "Could not delete log file {!r}.\n"
+            "Another handler or process may be using the same file and caused a "
+            "conflict.\n"
+            "Make sure no two active handlers were added with the same filename pattern (the "
+            "'{{time}}' field is not an effective differentiator): rotation, retention and "
+            "compression procedures may otherwise rename or delete each other's files.\n"
+            "A common cause is logger configuration being inadvertently repeated in spawned child "
+            "processes or Gunicorn workers.\n".format(path)
+        ) from error
+
+
 class FileDateFormatter:
     def __init__(self, datetime=None):
         self.datetime = datetime or aware_now()
@@ -62,9 +94,9 @@ class Compression:
             creation_time = get_ctime(path_out)
             root, ext_before = os.path.splitext(path_in)
             renamed_path = generate_rename_path(root, ext_before + ext, creation_time)
-            os.rename(path_out, renamed_path)
+            rename_file(path_out, renamed_path)
         compress_function(path_in, path_out)
-        os.remove(path_in)
+        remove_file(path_in)
 
 
 class Retention:
@@ -74,14 +106,14 @@ class Retention:
             return (-os.stat(log).st_mtime, log)
 
         for log in sorted(logs, key=key_log)[number:]:
-            os.remove(log)
+            remove_file(log)
 
     @staticmethod
     def retention_age(logs, seconds):
         t = datetime.datetime.now().timestamp()
         for log in logs:
             if os.stat(log).st_mtime <= t - seconds:
-                os.remove(log)
+                remove_file(log)
 
 
 class Rotation:
@@ -91,10 +123,8 @@ class Rotation:
 
     @staticmethod
     def forward_weekday(t, weekday):
-        while True:
-            t += datetime.timedelta(days=1)
-            if t.weekday() == weekday:
-                return t
+        days = (weekday - t.weekday()) % 7 or 7
+        return t + datetime.timedelta(days=days)
 
     @staticmethod
     def forward_interval(t, interval):
@@ -106,9 +136,10 @@ class Rotation:
         return file.tell() + len(message) > size_limit
 
     class RotationTime:
-        def __init__(self, step_forward, time_init=None):
+        def __init__(self, step_forward, time_target=None, day_target=None):
             self._step_forward = step_forward
-            self._time_init = time_init
+            self._time_target = time_target
+            self._day_target = day_target
             self._limit = None
 
         def __call__(self, message, file):
@@ -122,24 +153,29 @@ class Rotation:
                     creation_time, tz=datetime.timezone.utc
                 )
 
-                time_init = self._time_init
-
-                if time_init is None:
+                if self._time_target is None:
                     limit = start_time.astimezone(record_time.tzinfo).replace(tzinfo=None)
                     limit = self._step_forward(limit)
                 else:
-                    tzinfo = record_time.tzinfo if time_init.tzinfo is None else time_init.tzinfo
-                    limit = start_time.astimezone(tzinfo).replace(
-                        hour=time_init.hour,
-                        minute=time_init.minute,
-                        second=time_init.second,
-                        microsecond=time_init.microsecond,
+                    tzinfo = (
+                        record_time.tzinfo
+                        if self._time_target.tzinfo is None
+                        else self._time_target.tzinfo
                     )
+                    limit = start_time.astimezone(tzinfo).replace(
+                        hour=self._time_target.hour,
+                        minute=self._time_target.minute,
+                        second=self._time_target.second,
+                        microsecond=self._time_target.microsecond,
+                    )
+
+                    if self._day_target is not None and limit.weekday() != self._day_target:
+                        limit = Rotation.forward_weekday(limit, self._day_target)
 
                     if limit <= start_time:
                         limit = self._step_forward(limit)
 
-                    if time_init.tzinfo is None:
+                    if self._time_target.tzinfo is None:
                         limit = limit.replace(tzinfo=None)
 
                 self._limit = limit
@@ -152,6 +188,18 @@ class Rotation:
                     self._limit = self._step_forward(self._limit)
                 return True
             return False
+
+    class RotationGroup:
+        def __init__(self, rotations) -> None:
+            self._rotations = rotations
+
+        def __call__(self, message, file) -> bool:
+            # Don't early exit: all conditions must be evaluated as they have desired side-effects.
+            should_rotate = False
+            for rotation in self._rotations:
+                if rotation(message, file):
+                    should_rotate = True
+            return should_rotate
 
 
 class FileSink:
@@ -273,7 +321,7 @@ class FileSink:
                 creation_time = get_ctime(old_path)
                 root, ext = os.path.splitext(old_path)
                 renamed_path = generate_rename_path(root, ext, creation_time)
-                os.rename(old_path, renamed_path)
+                rename_file(old_path, renamed_path)
                 old_path = renamed_path
 
         if is_rotating or self._rotation_function is None:
@@ -310,6 +358,12 @@ class FileSink:
     def _make_rotation_function(rotation):
         if rotation is None:
             return None
+        if isinstance(rotation, (list, tuple, set)):
+            if len(rotation) == 0:
+                raise ValueError("Must provide at least one rotation condition")
+            return Rotation.RotationGroup(
+                [FileSink._make_rotation_function(rot) for rot in rotation]
+            )
         if isinstance(rotation, str):
             size = string_parsers.parse_size(rotation)
             if size is not None:
@@ -328,8 +382,13 @@ class FileSink:
                 if time is None:
                     time = datetime.time(0, 0, 0)
                 step_forward = partial(Rotation.forward_weekday, weekday=day)
-                return Rotation.RotationTime(step_forward, time)
+                return Rotation.RotationTime(step_forward, time, day)
             raise ValueError("Cannot parse rotation from: '%s'" % rotation)
+        if isinstance(rotation, bool):
+            raise TypeError(
+                "Invalid rotation, it should be a size, a time, a timedelta, or a callable, "
+                "not a bool (True would rotate at 1 byte)"
+            )
         if isinstance(rotation, (numbers.Real, decimal.Decimal)):
             return partial(Rotation.rotation_size, size_limit=rotation)
         if isinstance(rotation, datetime.time):
@@ -350,6 +409,11 @@ class FileSink:
             if interval is None:
                 raise ValueError("Cannot parse retention from: '%s'" % retention)
             return FileSink._make_retention_function(interval)
+        if isinstance(retention, bool):
+            raise TypeError(
+                "Invalid retention, it should be a count, a timedelta, or a callable, "
+                "not a bool (True would keep 1 file)"
+            )
         if isinstance(retention, int):
             return partial(Retention.retention_count, number=retention)
         if isinstance(retention, datetime.timedelta):

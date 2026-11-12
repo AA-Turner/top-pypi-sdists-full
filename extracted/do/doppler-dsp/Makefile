@@ -296,7 +296,7 @@ RUFF_PATHS = .
 # each object's results.md, written by that folder's own validate.py, so
 # reformatting it would drift against the next regeneration. vendor/ is not
 # ours.
-MD_EXCLUDE_RE = ^(vendor/|docs/c-api/|docs/domains/|docs/api/a-z\.md$$|docs/example-projects/|docs/guide/wfmgen/options\.md$$|docs/benchmarks\.md$$|docs/.*/archive/|examples/[^/]+/docs/|src/doppler/(.*/)?tests/validation/)
+MD_EXCLUDE_RE = ^(vendor/|docs/c-api/|docs/example-projects/|docs/guide/wfmgen/options\.md$$|docs/benchmarks\.md$$|docs/.*/archive/|examples/[^/]+/docs/|src/doppler/(.*/)?tests/validation/)
 
 LINT_ruff        = $(RUFF) check --fix --unsafe-fixes $(RUFF_PATHS)
 LINT_ruff-format = $(RUFF) format $(RUFF_PATHS)
@@ -902,7 +902,7 @@ TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
 TEST_EXAMPLES_CMD = $(MAKE) --no-print-directory test-examples-c
 
 TEST_ALL_DEPS = test test-examples test-python test-examples-python \
-                test-snippets test-stubs test-api-docs test-rust
+                test-snippets test-stubs test-rust
 
 # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
 # unreachable, so whether they RUN is a property of the environment, not of the
@@ -1056,7 +1056,7 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
                 drift-check doxygen-check docs-check \
                 gen-c-api-check \
                 validate-check \
-                test-all test-sweep test-stubs test-api-docs test-snippets \
+                test-all test-sweep test-stubs test-snippets \
                 test-rust bench-run-check \
                 abi-check link-check installed-headers-check \
                 exported-link-check symbol-prefix-check export-check \
@@ -1228,13 +1228,9 @@ DOCS_PREPARE = @rm -f zensical.toml && $(UV) run python scripts/check_docs_pytho
 # now expresses the shape directly, so the build line goes back to being the
 # standard's — one implementation again, which is what criterion 5 asked for.
 define DOCS_CHECK_PRE_CMDS
-$(UV) run python scripts/check_api_docs.py
 $(UV) run python scripts/bench_report.py --page --out docs/benchmarks.md --check
 $(UV) run python scripts/check_docstring_coverage.py --check
-$(UV) run python scripts/check_nav_index.py
 $(UV) run python scripts/check_wfmgen_flag_docs.py
-$(UV) run python scripts/gen_related_pages.py --check
-$(UV) run python scripts/gen_domains.py --check
 $(UV) run python scripts/gen_example_projects.py --check
 $(MAKE) -s user-docs-check USER_DOCS_FLAGS=--no-ratchet
 $(UV) run python scripts/gen_readme.py --check
@@ -1267,9 +1263,9 @@ endef
 #
 # The whole gate is ~11 s and most of that is zensical building the site; the
 # 13 checks above are 1.6 s together. That is cheap enough to run on every
-# commit, which matters because two of them -- check_api_docs and
-# check_docstring_coverage --check -- are what caught a new class arriving
-# undocumented in doppler#858, after a local run came back clean.
+# commit, which matters because one of them -- check_docstring_coverage
+# --check -- is what caught a new class arriving undocumented in
+# doppler#858, after a local run came back clean.
 #
 # Iterates DOCS_CHECK_PRE_CMDS itself rather than restating any of it, so this
 # target and docs-check cannot disagree about what an invariant is: adding a
@@ -1292,6 +1288,8 @@ docs-invariants: ## docs-check's fast invariants, no site build (pre-commit)
 
 define DOCS_CHECK_POST_CMDS
 $(UV) run python scripts/check_site_links.py
+$(UV) run python scripts/check_nav_reach.py
+$(UV) run python scripts/check_surface.py --no-ratchet
 endef
 
 # ── Doxygen ──────────────────────────────────────────────────────────────────
@@ -1943,6 +1941,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 gallery blazing \
                 gen-c-api just-build docs-invariants \
                 jm-apply jm-apply-downstream jm-adopt jm-adopt-downstream jm-revendor \
+                jm-status-docs \
                 jm-migrate-fragments \
                 jm-upgrade changelog-assemble changelog-assembled-check \
                 plot-rx-dynamics \
@@ -1970,7 +1969,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 test-examples-c test-examples-python test-example-downstream \
                 test-example-downstream-python \
                 package-starter-tarball test-starter-tarball \
-                test-stubs test-api-docs test-snippets lint-stubs \
+                test-stubs test-snippets lint-stubs \
                 test-ubsan test-tsan test-asan warnings-check \
                 check-docstring-coverage \
                 abi-check link-check consumer-faces-check \
@@ -1993,7 +1992,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 ccsds-isolation-check instrumented-sweep-check mem-guard-check \
                 container-mount-check \
                 cargo-lock-check design-pages-check wfmgen-flag-matrix \
-                gallery-scripts-check user-docs-check bench-commits-check \
+                gallery-scripts-check user-docs-check surface-check bench-commits-check \
                 nats-vendor-fresh-check \
                 ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
@@ -2106,7 +2105,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
       design-pages-check gallery-scripts-check user-docs-check \
-      bench-commits-check validate-spellings-check \
+      surface-check bench-commits-check validate-spellings-check \
       drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
@@ -2599,6 +2598,14 @@ plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness
 # --no-ratchet, because the Docs job checks out no base ref.
 USER_DOCS_BASE ?= origin/main
 USER_DOCS_FLAGS ?=
+# #3000: every public export has its entry in the built Python reference.
+# The built-site half runs in docs-check (DOCS_CHECK_POST_CMDS, --no-ratchet:
+# the Docs job has no base ref); this half runs on `lint`, which has one:
+# the source rules (every package declares __all__, a submodule exports only
+# what its package re-exports) and docs/.surface-unrendered's ratchet.
+surface-check: ## Python surface: every package declares __all__; the unrendered list only shrinks
+	@$(UV) run python scripts/check_surface.py --no-site --base $(USER_DOCS_BASE)
+
 user-docs-check: ## Verify every class has API, guide and example, and every example a gallery decision
 	@$(UV) run python scripts/check_user_docs.py --base $(USER_DOCS_BASE) \
 	     $(USER_DOCS_FLAGS) $(GALLERY_SCRIPTS)
@@ -3081,7 +3088,7 @@ gen-c-api-run: ## gen-c-api proper (re-entered with CI's doxygen on PATH)
 
 # docs/c-api/ is GENERATED and COMMITTED, and until now it was the one
 # generated tree with no --check behind it: `docs-drift-check` covers
-# gen_related_pages / gen_readme / gen_install_scripts / gen_validation_log
+# gen_readme / gen_install_scripts / gen_validation_log
 # and stops there. It drifted, exactly as an ungated generated tree does --
 # 22 pages, including `util__core_8h.md` missing `ema_step` and
 # `ema_alpha_decim` from the EMA primitive campaign, which merged with its C
@@ -3655,10 +3662,9 @@ ifndef VERSION
 endif
 	@scripts/release-notes.sh "$(VERSION)"
 
-# Regenerates every generated doc region: the "## Related pages" blocks on
-# docs/api/*.md, README.md's synced body from docs/index.md, the per-distro
-# install scripts from bootstrap.toml, and the release version stamped into
-# doc-version regions.
+# Regenerates every generated doc region: README.md's synced body from
+# docs/index.md, the per-distro install scripts from bootstrap.toml, and the
+# release version stamped into doc-version regions.
 # NOT part of docs-relink, and not on any pull request, for one reason: this
 # is the only generator whose input is off the machine. `--write` reads the
 # live issue list through `gh`, and the drift it can find is made by filing
@@ -3718,8 +3724,6 @@ wfmgen-flag-matrix: build ## Regenerate native/tests/wfmgen_flag_matrix.json
 	$(UV) run python scripts/gen_wfmgen_flag_matrix.py --exe $(WFMGEN_EXE)
 
 docs-relink: ## Regenerate every generated doc region
-	$(UV) run python scripts/gen_related_pages.py --write
-	$(UV) run python scripts/gen_domains.py --write
 	$(UV) run python scripts/gen_example_projects.py --write
 	$(UV) run python scripts/gen_readme.py --write
 	$(UV) run python scripts/gen_install_scripts.py --write
@@ -3728,13 +3732,11 @@ docs-relink: ## Regenerate every generated doc region
 	$(UV) run python scripts/gen_jm_pin.py --write
 	$(UV) run python scripts/gen_changelog_links.py --write
 
-# The pre-push half of docs-relink: the three regions a source edit can drift
+# The pre-push half of docs-relink: the regions a source edit can drift
 # without touching the generated file. The hook dispatches HERE rather than
-# inlining the three commands, so the hook and this target cannot disagree
+# inlining the commands, so the hook and this target cannot disagree
 # about what "drifted" means. If it trips: run `make docs-relink`.
 docs-drift-check: ## Check the generated doc regions are up to date
-	$(UV) run python scripts/gen_related_pages.py --check
-	$(UV) run python scripts/gen_domains.py --check
 	$(UV) run python scripts/gen_example_projects.py --check
 	$(UV) run python scripts/gen_readme.py --check
 	$(UV) run python scripts/gen_install_scripts.py --check
@@ -4057,6 +4059,9 @@ jm-revendor: ## Re-vendor every jm_*.h that is behind the pinned jm (both projec
 	$(UV) run python scripts/check_jm_status.py --fix
 	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) \
 	    python $(CURDIR)/scripts/check_jm_status.py --fix
+
+jm-status-docs: ## List members whose docstring falls back to their name (jm status --docs)
+	$(UV) run --group dev just-makeit status --docs
 
 jm-apply-downstream: ## Regenerate the downstream example's jm glue (same pin)
 	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) just-makeit apply
@@ -5145,9 +5150,6 @@ lint-stubs: ## Check generated .pyi stays within 79 cols (check-only; see jm#744
 check-docstring-coverage: ## Report docstring coverage across both Python faces
 	$(UV) run python scripts/check_docstring_coverage.py
 
-test-api-docs: ## Doctest the docs/api/*.md reference pages
-	$(UV) run python -m pytest --doctest-glob='*.md' -q docs/api/
-
 # python/C/shell fences under docs/. Run as one target and reported together:
 # a page usually breaks all three the same way, and stopping at the first costs
 # a whole round trip to see the rest. The C gate compiles every fence against
@@ -5383,7 +5385,7 @@ endif
 bench-ab: ## A/B two commits, per row min-of-K, band and verdict (A= B= [K>=3] [BUILD=])
 ifndef A
 	@echo "usage: make bench-ab A=<ref> B=<ref> [K=5] [BUILD=portable|native]"
-	@echo "       [JSON=out.json] [BENCH_ARGS=...]"
+	@echo "       [JSON=out.json] [CONFIRM=first.json] [BENCH_ARGS=...]"
 	@exit 2
 endif
 ifndef B
@@ -5391,7 +5393,8 @@ ifndef B
 	@exit 2
 endif
 	$(UV) run python scripts/bench_ab.py $(A) $(B) $(if $(K),-k $(K),) \
-	    $(if $(BUILD),--build $(BUILD),) $(if $(JSON),--json $(JSON),)
+	    $(if $(BUILD),--build $(BUILD),) $(if $(JSON),--json $(JSON),) \
+	    $(if $(CONFIRM),--confirm $(CONFIRM),)
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION

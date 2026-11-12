@@ -331,7 +331,43 @@ def export_trace(
             help="Pretty-print JSON for saving in output files with --output/-o flag",
             show_default=True
         )
-    ] = True
+    ] = True,
+    start_time: Annotated[
+        Optional[datetime],
+        typer.Option(
+            "--start-time",
+            help=(
+                "Start of the time window used when the trace was created (ISO 8601). "
+                "Required unless --last is used. Pass the same value you used with "
+                "'traces search --start-time'."
+            ),
+            show_default=False
+        )
+    ] = None,
+    end_time: Annotated[
+        Optional[datetime],
+        typer.Option(
+            "--end-time",
+            help=(
+                "End of the time window used when the trace was created (ISO 8601). "
+                "Required unless --last is used. Pass the same value you used with "
+                "'traces search --end-time'."
+            ),
+            show_default=False
+        )
+    ] = None,
+    last: Annotated[
+        Optional[str],
+        typer.Option(
+            "--last",
+            help=(
+                "Relative time window ending now. "
+                "Accepts minutes (30m), hours (3h), or days (10d). "
+                "Mutually exclusive with --start-time / --end-time."
+            ),
+            show_default=False
+        )
+    ] = None,
 ):
     """
     Export trace observations from the Watson Orchestrate observability platform.
@@ -342,19 +378,44 @@ def export_trace(
     The JSON output is compatible with trace analysis tools like Jaeger, Zipkin,
     and can be piped to tools like jq for processing in CI/CD pipelines.
 
+    The API requires a time window to locate the trace. Provide either --last
+    or both --start-time and --end-time (the same values you passed to
+    'orchestrate observability traces search').
+
     Examples:
-        # Print to stdout
-        orchestrate observability traces export -t 1234567890abcdef1234567890abcdef
+        # Export using the same time window you searched with
+        orchestrate observability traces export -t 1234567890abcdef1234567890abcdef \\
+            --start-time 2026-09-29T23:19:00 --end-time 2026-09-30T03:19:00
+
+        # Or use a relative window
+        orchestrate observability traces export -t 1234567890abcdef1234567890abcdef --last 4h
 
         # Pipe to jq for processing
-        orchestrate observability traces export -t 1234567890abcdef1234567890abcdef | jq '.observations | length'
+        orchestrate observability traces export -t 1234567890abcdef1234567890abcdef --last 1h | jq '.observations | length'
 
         # Export to JSON file
-        orchestrate observability traces export --trace-id 1234567890abcdef1234567890abcdef --output trace.json
+        orchestrate observability traces export --trace-id 1234567890abcdef1234567890abcdef \\
+            --start-time 2026-09-29T23:19:00 --end-time 2026-09-30T03:19:00 --output trace.json
 
     Note:
         - This endpoint is only accessible to Admins
         - Rate limit: 4 requests per minute
         - Trace ID must be a 32-character hexadecimal string
     """
-    traces_export(trace_id, output, pretty)
+    if last is not None:
+        if start_time is not None or end_time is not None:
+            raise typer.BadParameter(
+                "--last cannot be combined with --start-time or --end-time. "
+                "Use one or the other."
+            )
+        delta = parse_last_duration(last)
+        end_time = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+        start_time = end_time - delta
+    else:
+        if start_time is None or end_time is None:
+            raise typer.BadParameter(
+                "You must provide either --last or both --start-time and --end-time."
+            )
+
+    traces_export(trace_id, output, pretty,
+                  from_start_time=start_time, to_start_time=end_time)

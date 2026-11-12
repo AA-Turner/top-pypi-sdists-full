@@ -397,7 +397,20 @@ def _is_in(column: str, values: Collection[Any], dtype: DType | None) -> nw.Expr
     return nw.col(column).is_in(values)
 
 
-def _with_row_index(tbl: Any, name: str) -> nw.DataFrame[Any] | nw.LazyFrame[Any]:
+# The results columns of a step (whether each row passed, and what some steps add next to it)
+_RESULT_COLUMNS = (
+    "pb_is_good_",
+    "pb_score_",
+    "pb_cluster_",
+    "pb_match_",
+    "pb_reason_",
+    "pb_votes_",
+)
+
+
+def _with_row_index(
+    tbl: Any, name: str, ignore: tuple[str, ...] = ()
+) -> nw.DataFrame[Any] | nw.LazyFrame[Any]:
     """
     Add a zero-based row index column to a table, following the table's row order.
 
@@ -406,8 +419,10 @@ def _with_row_index(tbl: Any, name: str) -> nw.DataFrame[Any] | nw.LazyFrame[Any
     order rather than in their actual order), so the native Polars row index is used for those.
     Other LazyFrames (e.g., database tables) have no inherent row order, so they're ordered by
     their first column, with ties broken by the other columns that can be sorted (numeric,
-    temporal, string, and boolean ones) so that the numbering doesn't vary from run to run. A
-    results column (`pb_is_good_`) isn't used, so a table is numbered the same with or without it.
+    temporal, string, and boolean ones) so that the numbering doesn't vary from run to run. The
+    results columns (`pb_is_good_`, and the `pb_score_`, `pb_cluster_`, `pb_match_`, `pb_reason_`,
+    and `pb_votes_` columns that some steps add next to it) aren't used, so a table is numbered the
+    same with or without them.
 
     Parameters
     ----------
@@ -415,6 +430,9 @@ def _with_row_index(tbl: Any, name: str) -> nw.DataFrame[Any] | nw.LazyFrame[Any
         A native table or a Narwhals DataFrame/LazyFrame.
     name
         The name of the row index column.
+    ignore
+        Other columns that aren't used to order the rows of a database table (e.g., a row index
+        added earlier), so that the table is numbered the same with or without them.
 
     Returns
     -------
@@ -428,12 +446,13 @@ def _with_row_index(tbl: Any, name: str) -> nw.DataFrame[Any] | nw.LazyFrame[Any
     if is_polars_lazyframe(native):
         return nw.from_native(native.with_row_index(name=name))
     schema = tbl_nw.collect_schema()
-    first_col, *other_cols = schema.names()
+    first_col, *other_cols = [
+        c for c in schema.names() if c not in _RESULT_COLUMNS and c not in ignore
+    ]
     tie_breakers = [
         c
         for c in other_cols
-        if c != "pb_is_good_"
-        and (
+        if (
             schema[c].is_numeric()
             or schema[c].is_temporal()
             or schema[c] in (nw.String, nw.Boolean)
@@ -785,6 +804,18 @@ def _resolve_columns(columns: _PBUnresolvedColumn) -> _PBResolvedColumn:
         columns: list[Column] | list[str] = [columns]
 
     return columns
+
+
+def _resolve_columns_subset(
+    columns_subset: _PBUnresolvedColumn | None,
+) -> Column | list[str] | None:
+    # A selector becomes a `Column` that's resolved at interrogation, where all the columns it
+    # selects are used together in one step (unlike `columns=`, which makes a step per column)
+    if isinstance(columns_subset, (ColumnSelector, nw.selectors.Selector)):
+        return col(columns_subset)
+    if isinstance(columns_subset, str):
+        return [columns_subset]
+    return columns_subset
 
 
 def _narwhals_expr_nodes(expr: nw.Expr) -> list[Any]:

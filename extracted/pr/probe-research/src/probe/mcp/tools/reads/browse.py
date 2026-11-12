@@ -1,4 +1,4 @@
-"""browse mode=tree: what exists, annotated with kind, slug, uuid and dashboard link, minus the caller's own session work."""
+"""browse mode=projects: what exists, annotated with kind, slug, uuid and dashboard link, minus the caller's own session work."""
 
 from __future__ import annotations
 from dataclasses import replace as dataclass_replace

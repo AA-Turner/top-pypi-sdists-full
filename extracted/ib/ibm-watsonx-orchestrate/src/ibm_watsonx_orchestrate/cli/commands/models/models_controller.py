@@ -33,6 +33,7 @@ from ibm_watsonx_orchestrate.cli.commands.connections.connections_controller imp
 from ibm_watsonx_orchestrate.utils.environment import EnvService
 from ibm_watsonx_orchestrate.cli.common import ListFormats, rich_table_to_markdown
 from ibm_watsonx_orchestrate.utils.utils import check_file_in_zip
+from ibm_watsonx_orchestrate_core.types.models.types import CapabilityType
 from ibm_watsonx_orchestrate_core.types.spec.types import SpecVersion
 from ibm_watsonx_orchestrate_clients.models.models_client import CUSTOM_MODEL_TAG, DEFAULT_MODEL_TAG, \
     LLM_DISALLOWED_BY_ADMIN_TAG, RECOMMENDED_LLM_TAG, PREMIER_LLM_TAG
@@ -332,7 +333,7 @@ class ModelsController:
             validate_ProviderConfig(model.provider_config, app_id=app_id)
         return models
 
-    def create_model(self, name: str, display_name: str | None = None, description: str | None = None, provider_config_dict: dict = None, model_type: ModelType = ModelType.CHAT, app_id: str = None) -> VirtualModel:
+    def create_model(self, name: str, display_name: str | None = None, description: str | None = None, provider_config_dict: dict = None, model_type: ModelType = ModelType.CHAT, app_id: str = None, capabilities: List[CapabilityType] | None = None) -> VirtualModel:
         from ibm_watsonx_orchestrate.cli.commands.models.model_provider_mapper import validate_ProviderConfig # lazily import this because the lut building is expensive
         
         provider =next(filter(lambda x: x not in ('virtual-policy', 'virtual-model'), name.split('/')))
@@ -366,7 +367,8 @@ class ModelsController:
             provider_config=provider_config,
             config=config,
             model_type=model_type,
-            connection_id=get_connection_id(app_id, supported_schemas=supported_schemas)
+            connection_id=get_connection_id(app_id, supported_schemas=supported_schemas),
+            capabilities=capabilities
         )
 
         return model
@@ -384,7 +386,7 @@ class ModelsController:
         else:
             self.publish_model(model=model)
         
-        if not skip_validation and model.model_type != ModelType.EMBEDDING:
+        if not skip_validation:
             self.validate_model(model.name)
     
     def publish_model(self, model: VirtualModel) -> None:

@@ -804,7 +804,7 @@ class KLDivergenceWithLogTargetsTest(parameterized.TestCase):
 
 def _lengths_to_paddings(
     lengths: jax.typing.ArrayLike, maxlength: int) -> np.ndarray:
-  indices = jnp.arange(maxlength).reshape((1,) * lengths.ndim + (maxlength,))  # pytype: disable=attribute-error  # jax-arraylike   # noqa: E501
+  indices = jnp.arange(maxlength).reshape((1,) * lengths.ndim + (maxlength,))
   lengths = jnp.expand_dims(lengths, axis=-1)
   elem_valid = indices < lengths
   return np.logical_not(elem_valid).astype(np.float32)
@@ -962,6 +962,38 @@ class CTCTest(parameterized.TestCase):
       np.testing.assert_allclose(
           jnp.array(expected_loss), per_seq_loss[n], rtol=self._rtol
       )
+
+  def test_confident_alignment_nonnegative(self):
+    # Tests that CTC loss and forward log-probabilities do not violate their
+    # theoretical bounds due to float32 rounding for confident alignments.
+    # See https://github.com/google-deepmind/optax/issues/1771
+    logits = jnp.array([[[0.0, 17.0], [0.0, 17.0]]], dtype=jnp.float32)
+    loss, logalpha_phi, logalpha_emit = jax.jit(
+        _classification.ctc_loss_with_forward_probs,
+        static_argnames=('blank_id',),
+    )(
+        logits=logits,
+        logit_paddings=jnp.zeros((1, 2)),
+        labels=jnp.array([[1]], dtype=jnp.int32),
+        label_paddings=jnp.zeros((1, 1)),
+        blank_id=0,
+    )
+    self.assertTrue(jnp.all(loss >= 0.0))
+    self.assertTrue(jnp.all(logalpha_phi <= 0.0))
+    self.assertTrue(jnp.all(logalpha_emit <= 0.0))
+
+    loss_direct = jax.jit(
+        _classification.ctc_loss,
+        static_argnames=('blank_id',),
+    )(
+        logits=logits,
+        logit_paddings=jnp.zeros((1, 2)),
+        labels=jnp.array([[1]], dtype=jnp.int32),
+        label_paddings=jnp.zeros((1, 1)),
+        blank_id=0,
+    )
+    self.assertTrue(jnp.all(loss_direct >= 0.0))
+    np.testing.assert_allclose(loss_direct, 0.0, atol=1e-6)
 
 
 class SigmoidFocalLossTest(parameterized.TestCase):

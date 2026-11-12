@@ -29,6 +29,7 @@ from ..client.resources.runs.metrics import SOURCE_READ_CONTRACT
 from ..client.resources.projects.experiment_locator import _experiment_pages
 from ..client.resources.projects.experiments import _from_experiment_api
 from ..settings.settings import resolve
+from ..delivery.transport.pages import iter_pages
 from ..delivery.transport.transport import Transport
 
 
@@ -93,15 +94,8 @@ class Reader:
 
     # -- pagination ---------------------------------------------------------
     def _all(self, path: str, params: dict[str, Any] | None = None) -> list[dict]:
-        """Follow ``X-Next-Cursor`` and return every item across all pages."""
-        out: list[dict] = []
-        params = dict(params or {})
-        while True:
-            page = self._t.get_page(path, params=params)
-            out.extend(page.items)
-            if not page.next_cursor:
-                return out
-            params["cursor"] = page.next_cursor
+        """Every item across all pages (`iter_pages`)."""
+        return list(iter_pages(self._t, path, params))
 
     # -- enumeration --------------------------------------------------------
     def projects(self, *, workspace_id=None, slug=None, tags=None) -> list[dict]:

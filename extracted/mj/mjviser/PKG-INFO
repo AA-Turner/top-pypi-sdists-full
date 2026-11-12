@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mjviser
-Version: 0.0.16
+Version: 0.0.17
 Summary: Web-based MuJoCo viewer powered by viser.
 Keywords: mujoco,viser,visualization,robotics,simulation
 Author: The MjLab Developers
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Dist: mujoco>=3.6.0
+Requires-Dist: mujoco-core>=4.0.1
 Requires-Dist: numpy
 Requires-Dist: trimesh>=4.8.3
 Requires-Dist: viser>=1.1.1

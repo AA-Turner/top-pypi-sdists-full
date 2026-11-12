@@ -41,6 +41,11 @@ import zlib
 from http import client
 from typing import Iterable, List, Mapping, Tuple, Union
 
+try:
+    from compression import zstd
+except ImportError:
+    zstd = None
+
 from radicale import config, httputils, log, pathutils, types, utils
 from radicale.app import base as app_base
 from radicale.app.base import ApplicationBase
@@ -56,7 +61,7 @@ from radicale.app.propfind import ApplicationPartPropfind
 from radicale.app.proppatch import ApplicationPartProppatch
 from radicale.app.put import ApplicationPartPut
 from radicale.app.report import ApplicationPartReport
-from radicale.auth import AuthContext
+from radicale.auth import NO_LOGIN_NO_GROUPS, AuthContext
 from radicale.log import logger
 
 # Combination of types.WSGIStartResponse and WSGI application return value
@@ -292,7 +297,7 @@ class Application(ApplicationPartDelete, ApplicationPartHead,
             headers = dict(headers)
             content_encoding = "plain"
             # Set content length
-            answers = []
+            answers: list[bytes] = []
             if answer is not None:
                 if isinstance(answer, str):
                     if self._response_content_on_debug:
@@ -317,12 +322,18 @@ class Application(ApplicationPartDelete, ApplicationPartHead,
                     environ.get("HTTP_ACCEPT_ENCODING", "").split(",")
                     if encoding.strip()]
 
-                if "gzip" in accept_encoding:
+                if zstd is not None and "zstd" in accept_encoding:
+                    zcomp = zstd.ZstdCompressor()
+                    answer = zcomp.compress(answer) + zcomp.flush()
+                    headers["Content-Encoding"] = "zstd"
+                    content_encoding = "zstd"
+                elif "gzip" in accept_encoding:
                     zcomp = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
                     answer = zcomp.compress(answer) + zcomp.flush()
                     headers["Content-Encoding"] = "gzip"
                     content_encoding = "gzip"
 
+                assert isinstance(answer, bytes)
                 headers["Content-Length"] = str(len(answer))
                 answers.append(answer)
 
@@ -555,12 +566,13 @@ class Application(ApplicationPartDelete, ApplicationPartHead,
                 self.configuration, environ, base64.b64decode(
                     authorization.encode("ascii"))).split(":", 1)
 
-        user_groups: set = set([])
-        if login and not app_base._check_user_format(self._storage, login, self._validate_user_value, self._urldecode_username):
-            info = "not compliant to %r" % self._validate_user_value
-            user = ""
-        else:
-            (user, info, user_groups) = self._auth.login(login, password, context) or ("", "", set([])) if login else ("", "", set([]))
+        (user, user_groups) = NO_LOGIN_NO_GROUPS
+        if login:
+            if not app_base._check_user_format(self._storage, login, self._validate_user_value, self._urldecode_username):
+                info = "not compliant to %r" % self._validate_user_value
+                user = ""
+            else:
+                (user, user_groups, info) = self._auth.login(login, password, context)
         request_info: dict = {
                               "method": request_method,
                               "login": login, # not 'user' in this step

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify_client"
-version = "3.5.0"
+version = "3.5.1"
 description = "Apify API client for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -249,7 +249,7 @@ disable_timestamp = true
 keep_model_order = true
 
 [tool.apify.openapi-spec]
-version = "v2-2026-11-04T151257Z"
+version = "v2-2026-11-09T143926Z"
 
 [tool.uv]
 exclude-newer = "24 hours"

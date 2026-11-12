@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import tempfile
+from types import SimpleNamespace as NS
 from pathlib import Path
 
 from .. import paths as P
@@ -20,7 +21,8 @@ from ..image import dockerfile_from, rewrite_dockerfile
 from ..layout import Layout
 from ..models import (
     DatasetInstance, Feedback, IngestReport, ManifestEntry, OwnerReference,
-    PushManyReport, PushResult, RegistrationReport,
+    PushManyReport, PushResult, RegistrationReport, InstanceDeleteResult,
+    normalize_tag_values, _validate_tag_key, _normalize_tag_array,
 )
 from ..validate import (check_layout, check_swe_json, check_custom,
                         detect_format, validate_instance_id,
@@ -32,15 +34,60 @@ logger = logging.getLogger(__name__)
 
 def _registry_overrides(environment: str | None,
                         metadata_model: str | None,
-                        profile_model: str | None = None) -> dict:
+                        profile_model: str | None = None, *,
+                        allow_version_first: bool = False) -> dict:
     """Build explicit split-first registry parameters before any registry I/O."""
     overrides: dict = {
         "metadata_model": business_metadata_model(
-            metadata_model if metadata_model is not None else profile_model),
+            metadata_model if metadata_model is not None else profile_model,
+            allow_version_first=allow_version_first),
     }
     if environment is not None:
         overrides["environment"] = environment
     return overrides
+
+
+def _verify_native_write(data: dict | None, body: dict) -> None:
+    if "tags" not in body or not isinstance(data, dict) or "tags" not in data:
+        return
+    requested, returned = body["tags"], data["tags"]
+    confirmed = requested == returned
+    if not confirmed and isinstance(returned, dict) and all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in returned.items()):
+        # The service trims keys and comma-separated members, removes duplicate
+        # members in order, then joins them back into the legacy string protocol.
+        # Empty strings remain valid legacy values. Compare that receipt contract
+        # without rewriting the caller's valid tags input.
+        normalized = {
+            _validate_tag_key(key): ("" if not value.strip() else
+                ",".join(dict.fromkeys(member.strip() for member in value.split(","))))
+            for key, value in requested.items()
+        }
+        confirmed = normalized == returned
+    if not confirmed:
+        raise SchemaError(
+            "The service did not confirm the requested tags. "
+            "Check service support and read the instance before retrying.")
+
+
+def _legacy_tags_query(tags: dict[str, str] | str | None) -> str:
+    # Preserve master CSV encoding and key checks; never extend it with JSON.
+    if tags is not None and not isinstance(tags, (dict, str)):
+        raise SchemaError("tags must be a dict of strings or a CSV string")
+    if not tags:
+        return ""
+    if isinstance(tags, dict):
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in tags.items()):
+            raise SchemaError("legacy tags must contain string keys and values")
+        pairs = [f"{k}:{v}" for k, v in tags.items()]
+    else:
+        pairs = [p for p in tags.split(",") if p.strip()]
+    for pair in pairs:
+        key = pair.split(":", 1)[0]
+        if not key or "." in key or "$" in key:
+            raise SchemaError("legacy tag keys must not contain '.' or '$'")
+    return ",".join(pairs)
 
 
 def _validate_custom_asset_rel(rel: str) -> None:
@@ -225,7 +272,8 @@ class InstancesClient:
         # 保持缺省调用形态与历史一致,避免破坏既有实现。
         overrides = _registry_overrides(
             environment, metadata_model,
-            getattr(self._p, "metadata_model", None))
+            getattr(self._p, "metadata_model", None),
+            allow_version_first=True)
         try:
             result = self._reg.get(
                 dataset, version, instance_id, split, **overrides)
@@ -277,17 +325,9 @@ class InstancesClient:
                    environment: str | None = None,
                    metadata_model: str | None = None,
                    fallback_to_oss: bool = True) -> "PagedResult":
-        """instance 分页列表（单页原始语义，``GET /datasets/instances``）。
+        """Single-page listing: tags use key:value CSV format.
 
-        与 :meth:`list` 的自动翻页取全量互补：精确控制页码/过滤/搜索。
-        参数逐项对齐服务端（无 SDK 发明项）：``q`` 是 instance_id **子串**
-        模糊搜索（不区分大小写）；``instance_id`` 精确等值；``tags`` dict 或
-        CSV（"k1:v1,k2:v2"，key 含 ``.``/``$`` 服务端拒绝——SDK 前置校验并
-        给出修复提示）；``difficulty`` easy/medium/hard。**服务端无排序参数**
-        （固定 instance_id asc），SDK 不暴露。
-
-        **OSS 回退**：当 ``TransportError(biz_code=92001)`` 或 ``92023`` 时回退到 OSS 存储层，
-        在客户端做过滤（q/tags/difficulty/instance_id）+ 内存分页。
+        Only explicit dataset/split absence (92001/92023) allows OSS discovery.
         """
         from urllib.parse import quote
         from ..models import PagedResult
@@ -296,20 +336,7 @@ class InstancesClient:
         if (difficulty or "").strip() and difficulty.strip() not in ("easy", "medium", "hard"):
             raise SchemaError(
                 f"invalid difficulty {difficulty!r}; must be easy/medium/hard")
-        # tags 归一：dict → CSV；str 原样（仍校验 key 合法性）。
-        tags_q = ""
-        if tags:
-            if isinstance(tags, dict):
-                pairs = [f"{k}:{v}" for k, v in tags.items()]
-            else:
-                pairs = [p for p in str(tags).split(",") if p.strip()]
-            for p in pairs:
-                key = p.split(":", 1)[0]
-                if not key or "." in key or "$" in key:
-                    raise SchemaError(
-                        f"invalid tag key {key!r}: keys must not contain '.' or "
-                        f"'$' (server rejects them)")
-            tags_q = ",".join(pairs)
+        tags_q = _legacy_tags_query(tags)
         params: list[tuple[str, str]] = [("dataset_name", dataset.strip())]
         if (version or "").strip():
             params.append(("version", version.strip()))
@@ -337,8 +364,7 @@ class InstancesClient:
         params.append(("page_size", str(int(page_size))))
         query = "&".join(f"{k}={quote(v, safe='')}" for k, v in params)
         try:
-            data, pagination = self._t.request_with_meta(
-                "GET", f"{self._BASE}?{query}")
+            data, pagination = self._t.request_with_meta("GET", f"{self._BASE}?{query}")
         except TransportError as e:
             if (e.biz_code in (92001, 92023)
                     and fallback_to_oss and self._content is not None
@@ -346,7 +372,8 @@ class InstancesClient:
                 return self._discover_instances_paged(
                     dataset, version, split,
                     q=q, instance_id=instance_id,
-                    tags=tags, difficulty=difficulty,
+                    tags=tags,
+                    difficulty=difficulty,
                     page=page, page_size=page_size)
             raise
         rows = data.get("instances", data) if isinstance(data, dict) else data
@@ -371,21 +398,32 @@ class InstancesClient:
         return req == derived
 
     def _discover_instances(self, dataset: str, version: str,
-                            split: str | None = None) -> list[DatasetInstance]:
-        """OSS 回退的 instances.list — 从 OSS 列举指定 version/split 下的实例。"""
+                            split: str | None = None, *,
+                            read_content: bool = False,
+                            max_keys: int | None = None) -> list[DatasetInstance]:
+        """OSS 回退的 instances.list — 从 OSS 列举指定 version/split 下的实例。
+
+        ``max_keys`` 透传给 ``build_synthetic_instances`` 限制**有效实例**
+        数上限（P1-1c）：无过滤的分页请求只需服务到请求页，避免首页请求
+        的 LIST 开销随对象总量线性增长。有过滤（q/tags/difficulty）语义
+        优先，调用方不传该值保持全量列举。
+        """
         from ..store.oss_discovery import build_synthetic_instances
         return build_synthetic_instances(
             self._content, dataset, version, split,
-            oss_prefix=getattr(self, '_oss_prefix', 'swe/datasets'))
+            oss_prefix=getattr(self, '_oss_prefix', 'swe/datasets'),
+            read_content=read_content, max_keys=max_keys)
 
     def _discover_instance(self, dataset: str, version: str,
                            instance_id: str,
-                           split: str | None = None) -> DatasetInstance | None:
+                           split: str | None = None, *,
+                           read_content: bool = False) -> DatasetInstance | None:
         """OSS 回退的 instances.get — 精确查找单个实例。"""
         from ..store.oss_discovery import build_synthetic_instance
         return build_synthetic_instance(
             self._content, dataset, version, instance_id, split,
-            oss_prefix=getattr(self, '_oss_prefix', 'swe/datasets'))
+            oss_prefix=getattr(self, '_oss_prefix', 'swe/datasets'),
+            read_content=read_content)
 
     def _discover_instances_paged(
         self, dataset: str, version: str, split: str | None, *,
@@ -400,45 +438,66 @@ class InstancesClient:
         """
         from ..store.oss_discovery import _in_memory_paged
 
+        tags_dict = tags if isinstance(tags, dict) else self._parse_tags_csv(tags or "")
+        if tags_dict:
+            raise SchemaError(
+                "tag filtering is not supported in unregistered OSS fallback mode; "
+                "please register the dataset in AP first")
+        normalized_difficulty = (difficulty or "").strip()
+        # tags 过滤在 OSS 回退不支持；difficulty 过滤需要 GetObject；普通过滤/列表保持 list-only 零新增读取。
+        read_content = bool(normalized_difficulty)
         # 优化：instance_id 精确匹配时直接 GET，不列举全量
+        exhausted = True
         if instance_id:
-            inst = self._discover_instance(dataset, version, instance_id, split)
+            inst = self._discover_instance(
+                dataset, version, instance_id, split, read_content=read_content)
             items: list[DatasetInstance] = [inst] if inst else []
         else:
-            items = self._discover_instances(dataset, version, split)
+            # P1-1c + 复审 P1：无任何过滤时按**有效实例数**推进列举到
+            # 请求页（page*page_size 个有效实例），并用探针实例/OSS
+            # 耗尽状态确定 has_more——无效 key 不再挤占页容量，恰满页
+            # 且 OSS 耗尽时不再误报 has_more。有过滤时保持全量列举
+            # （过滤正确性优先于列举开销）。
+            unfiltered = not (q or normalized_difficulty)
+            if unfiltered:
+                from ..store.oss_discovery import build_synthetic_instances_paged
+                want = page * page_size
+                items, exhausted = build_synthetic_instances_paged(
+                    self._content, dataset, version, split,
+                    oss_prefix=getattr(self, '_oss_prefix', 'swe/datasets'),
+                    want=want)
+            else:
+                items = self._discover_instances(
+                    dataset, version, split, read_content=read_content)
+                exhausted = True  # 全量列举 → 已耗尽
 
         # 客户端过滤
         if q:
             q_lower = q.lower()
             items = [i for i in items
                      if q_lower in i.instance_id.lower()]
-        if difficulty:
+        if normalized_difficulty:
             items = [i for i in items
-                     if i.difficulty == difficulty]
-        if tags:
-            tags_dict = (
-                tags if isinstance(tags, dict)
-                else self._parse_tags_csv(tags)
-            )
-            items = [i for i in items
-                     if all(i.tags.get(k) == v
-                            for k, v in tags_dict.items())]
+                     if i.difficulty == normalized_difficulty]
 
-        return _in_memory_paged(items, int(page), int(page_size))
+        result = _in_memory_paged(items, int(page), int(page_size))
+        if not exhausted:
+            # OSS 未列举到底（探针实例证明还有更多有效实例）：真实总量
+            # 未知（-1，与无分页信封语义一致），请求页之后仍可能有数据。
+            result.total = -1
+            result.has_more = True
+        return result
 
     @staticmethod
     def _parse_tags_csv(tags_str: str) -> dict[str, str]:
-        """解析 ``"k1:v1,k2:v2"`` 格式的 tags CSV 字符串为 dict。"""
+        """The original master CSV parser (not the native-filter protocol)."""
         result: dict[str, str] = {}
         for pair in str(tags_str).split(","):
             pair = pair.strip()
             if not pair:
                 continue
             parts = pair.split(":", 1)
-            if len(parts) == 2:
-                result[parts[0]] = parts[1]
-            else:
-                result[parts[0]] = ""
+            result[parts[0]] = parts[1] if len(parts) == 2 else ""
         return result
 
     # ── 实例目录/文件列举（GET /datasets/objects）──────────────────
@@ -579,18 +638,27 @@ class InstancesClient:
                split: str | None = None,
                environment: str | None = None,
                metadata_model: str | None = None,
-               delete_files: bool = False) -> None:
-        """删除单个实例的元数据记录（``DELETE /datasets/instances/detail``）。
+               delete_files: bool = False) -> InstanceDeleteResult:
+        """删除单个实例；``delete_files=True`` 走服务端受限 STS 文件删除流程。
 
-        默认仅删除 MongoDB 记录，后续 ingest 可能重建记录。
+        纯元数据删除（默认）：``DELETE /datasets/instances/detail``，OSS 文件
+        保留，后续 ingest 可能重建记录。
 
-        ``delete_files=True`` 显式删除 canonical split-first 布局下该实例的
-        JSON、assets 和 report 子树，然后删除数据库记录。不会删除 ACR 镜像或
-        OSS 历史版本。仅走私网，要求服务端签发 ListObjects/DeleteObject 权限；
-        SDK 不授予或推断 Admin/Writer 权限，实际权限以服务端和 OSS 为准。
-        OSS 失败时保留数据库记录；数据库失败时文件可能已删，原参数可重试。
-        此操作不具备跨 OSS/数据库事务性，调用方必须先停止同实例的上传/ingest。
-        非 canonical storage_path 不支持文件删除，不能用 manifest 扩大删除范围。
+        ``delete_files=True``（Aone 88582969 新流程）：
+        1. ``POST /apis/v1/credentials``（``purpose=instance_delete``，按
+           instance 精确选择器）——服务端检查权限/存储布局/共享引用后返回
+           ``operation_id``、``delete_scope``（精确 key + 前缀清单）与仅含
+           ``oss:DeleteObject``/``ListObjects`` 的受限 STS（900s）；
+        2. SDK 按 ``delete_scope`` 删除 OSS 文件（主 JSON、assets；report
+           默认保留，``include_reports=True`` 才纳入）；
+        3. ``DELETE /datasets/instances/detail`` 携 ``delete_operation_id``——
+           服务端 HEAD/LIST 校验文件已清空后才在事务里删元数据。
+
+        OSS 失败时保留数据库记录；数据库完成调用失败（如 409 文件残留）时
+        文件可能已删，用**相同参数**重试即可收敛——幂等键相同则服务端返回
+        同一 operation，不重复签发/扣统计。此操作不具备跨 OSS/数据库事务性，
+        调用方必须先停止同实例的上传/ingest。非 canonical storage_path 不
+        支持文件删除。删除凭据独立于读写凭据缓存，绝不复用普通 writer 令牌。
         """
         from urllib.parse import quote
         if not (dataset or "").strip():
@@ -616,15 +684,19 @@ class InstancesClient:
                        business_metadata_model(requested_model)))
         if not isinstance(delete_files, bool):
             raise SchemaError("delete_files must be a bool")
+        operation = None
         if delete_files:
-            self._delete_instance_files(
+            operation = self._prepare_instance_deletion(
                 dataset.strip(), (version or "").strip(), instance_id.strip(),
-                split=split, environment=env,
-                metadata_model=requested_model)
+                split=split, environment=env, metadata_model=requested_model)
+            if operation.state != "completed":
+                self._delete_instance_files(operation)
+            params.append(("delete_operation_id", operation.operation_id))
         qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params)
         failure = None
+        completed: dict | None = None
         try:
-            self._t.delete(f"/apis/v1/datasets/instances/detail?{qs}")
+            completed = self._t.delete(f"/apis/v1/datasets/instances/detail?{qs}")
         except Exception as exc:
             if not delete_files:
                 raise
@@ -637,97 +709,312 @@ class InstancesClient:
                 biz_code=code if isinstance(code, int) else None)
         if failure is not None:
             raise failure from None
+        if not delete_files:
+            return InstanceDeleteResult(instance_id=instance_id.strip())
+        # 完成调用成功：服务端响应含 operation_id/state/stats_state。
+        result = (completed or {}) if isinstance(completed, dict) else {}
+        return InstanceDeleteResult(
+            instance_id=instance_id.strip(),
+            content_deleted=True,
+            metadata_deleted=True,
+            operation_id=str(result.get("operation_id") or operation.operation_id),
+            state=str(result.get("state") or "completed"),
+            stats_state=(str(result["stats_state"])
+                         if isinstance(result.get("stats_state"), str)
+                         and result.get("stats_state") else None))
 
-    def _delete_instance_files(self, dataset: str, version: str, instance_id: str, *,
-                               split: str | None, environment: str,
-                               metadata_model: str | None) -> None:
-        """Validate the complete locator before either storage or metadata mutation."""
-        lay = self._layout(metadata_model)
+    # ── 受限 STS 实例删除（Aone 88582969；服务端 113671c9 契约） ──
+
+    def _prepare_instance_deletion(self, dataset: str, version: str,
+                                   instance_id: str, *,
+                                   split: str | None, environment: str,
+                                   metadata_model: str | None):
+        """申请 instance_delete 受限删除凭据；返回 operation 元信息。
+
+        幂等键由 (dataset, version, split, instance_id, environment) 稳定派生
+        ——失败重试复用同一 operation，服务端不重复签发、不重复扣统计。
+        服务端仅接受 instance 精确选择器：oss_bucket/prefix/permission/
+        list_only/dataset_source 一律不传（传了即 400）。
+        """
         P.DatasetName.parse(dataset)
         validate_instance_id(instance_id)
-        # Reject aliases/traversal instead of letting Layout strip slashes.
         for name, value in (("version", version), ("split", split)):
             if name == "version" and not value:
                 continue
             if not isinstance(value, str) or value != value.strip():
                 raise SchemaError(f"{name} must be a canonical path segment")
             validate_instance_id(value)
-        P.DatasetName.parse(lay.prefix)
-        bound_env = (getattr(self._p, "dataset_environment", "") or "").strip()
-        if not bound_env or environment != bound_env:
+        model = business_metadata_model(metadata_model if metadata_model is not None
+                                        else getattr(self._p, "metadata_model", None))
+        if model != "split_first":
             raise SchemaError(
-                "file deletion requires environment to match the storage profile")
-        bucket = getattr(self._p, "oss_bucket", "")
-        if not bucket or getattr(self._content, "bucket_name", None) != bucket:
-            raise SchemaError("file deletion requires a matching OSS content store")
-        operation = getattr(self._content, "delete_instance", None)
-        if not callable(operation):
-            raise SchemaError("content store does not support instance file deletion")
-        # Read the registered record without OSS discovery. A custom storage_path
-        # must never turn a canonical-layout delete into deletion of other bytes.
-        meta = self.get(dataset, version, instance_id, split,
-                        environment=environment, metadata_model=lay.model,
-                        fallback_to_oss=False)
-        if meta is None or (
-                meta.dataset, meta.dataset_version, meta.instance_id, meta.split
-        ) != (dataset, version, instance_id, split):
-            raise SchemaError("file deletion requires the matching registered instance")
-        main = lay.metadata_key(dataset, instance_id, version=version, split=split)
-        assets = lay.assets_dir(dataset, instance_id, version=version, split=split)
-        report = lay.report_key(dataset, instance_id, version=version, split=split)
-        main_uri = f"oss://{bucket}/{main}"
-        allowed = (f"oss://{bucket}/{assets}",
-                   f"oss://{bucket}/{report.rsplit('/', 1)[0]}/")
-        if not any(entry.file_path == main_uri for entry in meta.manifest):
-            raise SchemaError("file deletion requires a canonical metadata JSON manifest")
-        for entry in meta.manifest:
-            uri = entry.file_path
-            if not isinstance(uri, str) or not (
-                    uri == main_uri or any(
-                        uri == prefix.rstrip("/") or uri.startswith(prefix)
-                        for prefix in allowed)):
-                raise SchemaError(
-                    "file deletion only supports canonical instance manifests")
+                "instance file deletion requires split_first metadata model")
+        digest = hashlib.sha256(
+            "\x00".join(("instance-delete", dataset, (version or "").strip(),
+                         split or "", instance_id, environment or "")).encode()
+        ).hexdigest()
+        body: dict = {
+            "resource": "oss",
+            "purpose": "instance_delete",
+            "metadata_model": "split_first",
+            "dataset_name": dataset,
+            "instance_id": instance_id,
+            "idempotency_key": f"sdk-{digest[:48]}",
+        }
+        if version:
+            body["version"] = version
+        if split:
+            body["split"] = split
+        if environment:
+            body["environment"] = environment
+        r = self._t.post("/apis/v1/credentials", body, idempotent=True)
+        if not isinstance(r, dict):
+            raise TransportError("instance deletion credential response invalid")
+        op_id = r.get("operation_id")
+        if not isinstance(op_id, str) or not op_id.strip():
+            raise TransportError(
+                "instance deletion credential response missing operation_id")
+        state = r.get("state")
+        if state not in ("issued", "completed"):
+            raise TransportError(
+                f"instance deletion operation state invalid: {state!r}")
+        scope = r.get("delete_scope")
+        if not isinstance(scope, dict):
+            raise TransportError("instance deletion scope missing")
+        keys = scope.get("keys")
+        prefixes = scope.get("prefixes")
+        bucket = scope.get("bucket")
+        for value, label in ((keys, "keys"), (prefixes, "prefixes")):
+            if not isinstance(value, list) or any(
+                    not isinstance(k, str) or not k for k in value):
+                raise TransportError(f"instance deletion scope {label} invalid")
+        if state == "issued":
+            for field in ("OSS_ACCESS_KEY_ID", "OSS_ACCESS_KEY_SECRET",
+                          "OSS_SECURITY_TOKEN", "OSS_ENDPOINT"):
+                if not isinstance(r.get(field), str) or not r.get(field):
+                    # 只报字段名，绝不把密钥值带进异常（对齐 transport._require）。
+                    raise TransportError(
+                        f"instance deletion credential response missing {field}")
+        return NS(operation_id=op_id.strip(), state=state, bucket=bucket,
+                  keys=keys, prefixes=prefixes,
+                  credentials=r if state == "issued" else None)
+
+    def _delete_instance_files(self, operation) -> None:
+        """按服务端返回的 delete_scope 删除 OSS 文件（受限 STS 直删）。
+
+        列举与删除使用**同一张受限删除令牌**（服务端 policy 同时含
+        oss:DeleteObject 与带 Prefix 条件的 ListObjects）。逐 key 直接删除；
+        前缀按服务端返回的目录范围分页列举后删除。此流程独立签发删除凭据、
+        独立开桶，不经读写凭据缓存——普通 writer 令牌不含 DeleteObject。
+        """
+        if not isinstance(operation.bucket, str) or not operation.bucket:
+            raise TransportError("instance deletion scope bucket missing")
+        delete_files = getattr(self._content, "delete_instance_files", None)
+        if not callable(delete_files):
+            raise SchemaError(
+                "content store does not support instance file deletion")
         failure = None
         try:
-            operation(dataset, version, instance_id, split=split, layout=lay)
-        except Exception as exc:
-            # Do not propagate OSS exceptions containing signed URLs/credentials.
+            delete_files(operation)
+        except Exception as exc:  # noqa: BLE001
+            # 不透传含签名 URL/凭据的 OSS 原始异常。
             status = getattr(exc, "status", None)
             failure = TransportError(
                 "instance file deletion failed; metadata was not deleted; "
-                "check server-issued ListObjects/DeleteObject permission and "
-                "private connectivity; files may be partially removed; "
-                "stop concurrent writers before retrying",
+                "retry with the same arguments to reuse the server operation; "
+                "files may be partially removed; stop concurrent writers first",
                 status=status if isinstance(status, int) else None)
         if failure is not None:
             raise failure from None
+
+    def _read_tag_record(self, dataset: str, version: str, instance_id: str, *,
+                         split: str | None, environment: str | None,
+                         metadata_model: str | None) -> DatasetInstance:
+        record = self.get(
+            dataset, version, instance_id, split=split,
+            environment=environment, metadata_model=metadata_model,
+            fallback_to_oss=False)
+        if record is None:
+            raise SchemaError(f"instance {instance_id!r} not found")
+        return record
+
+    def _read_tags(self, dataset: str, version: str, instance_id: str, *,
+                   split: str | None, environment: str | None,
+                   metadata_model: str | None) -> dict[str, list[str]]:
+        record = self._read_tag_record(
+            dataset, version, instance_id, split=split, environment=environment,
+            metadata_model=metadata_model)
+        return normalize_tag_values(record.tag_values or {})
+
+    def list_tags(self, dataset: str, version: str, instance_id: str, *,
+                  split: str | None = None, environment: str | None = None,
+                  metadata_model: str | None = None) -> dict[str, list[str]]:
+        """Read a detached native map; legacy tags never supply missing values."""
+        return self._read_tags(
+            dataset, version, instance_id, split=split, environment=environment,
+            metadata_model=metadata_model)
+
+    def _mutate_tag_values(self, dataset, version, instance_id, tags, *,
+                           operation, split, environment, metadata_model):
+        normalized = normalize_tag_values(tags, keep_empty=True)
+        record = self._read_tag_record(
+            dataset, version, instance_id, split=split, environment=environment,
+            metadata_model=metadata_model)
+        current = normalize_tag_values(record.tag_values or {})
+        merged = {key: list(values) for key, values in current.items()}
+        for key, values in normalized.items():
+            if not values:
+                if operation == "set":
+                    merged.pop(key, None)
+            elif operation == "set":
+                merged[key] = values
+            elif operation == "append":
+                existing = merged.setdefault(key, [])
+                existing.extend(value for value in values if value not in existing)
+            elif key in merged:
+                remaining = [value for value in merged[key] if value not in values]
+                if remaining:
+                    merged[key] = remaining
+                else:
+                    merged.pop(key)
+        merged = normalize_tag_values(merged)
+        if merged == current:
+            return record
+        merged_tags = {key: ",".join(values) for key, values in merged.items() if values}
+        return self.update(
+            dataset, version, instance_id, split=split, tags=merged_tags,
+            environment=environment, metadata_model=metadata_model)
+
+    def set_tags(self, dataset: str, version: str, instance_id: str,
+                 tags: dict[str, str | list[str]], *, split: str | None = None,
+                 environment: str | None = None,
+                 metadata_model: str | None = None) -> DatasetInstance:
+        """Set native keys by non-atomic whole-map read-modify-write; [] deletes a key."""
+        return self._mutate_tag_values(
+            dataset, version, instance_id, tags, operation="set", split=split,
+            environment=environment, metadata_model=metadata_model)
+
+    def append_tags(self, dataset: str, version: str, instance_id: str,
+                    tags: dict[str, str | list[str]], *, split: str | None = None,
+                    environment: str | None = None,
+                    metadata_model: str | None = None) -> DatasetInstance:
+        """Append unique native values in order; duplicate-only calls do not PATCH."""
+        return self._mutate_tag_values(
+            dataset, version, instance_id, tags, operation="append", split=split,
+            environment=environment, metadata_model=metadata_model)
+
+    def remove_tags(self, dataset: str, version: str, instance_id: str,
+                    tags: dict[str, str | list[str]], *, split: str | None = None,
+                    environment: str | None = None,
+                    metadata_model: str | None = None) -> DatasetInstance:
+        """Remove native values, deleting empty keys; missing values are no-ops."""
+        return self._mutate_tag_values(
+            dataset, version, instance_id, tags, operation="remove", split=split,
+            environment=environment, metadata_model=metadata_model)
+
+    def clear_tags(self, dataset: str, version: str, instance_id: str,
+                   keys: list[str], *, split: str | None = None,
+                   environment: str | None = None,
+                   metadata_model: str | None = None) -> DatasetInstance:
+        """Delete selected native keys; clear the whole map with update(tag_values={})."""
+        if isinstance(keys, (str, bytes)):
+            raise SchemaError("clear_tags keys must be an iterable of strings")
+        try:
+            selected = {_validate_tag_key(key): [] for key in keys}
+        except TypeError as exc:
+            raise SchemaError("clear_tags keys must be an iterable of strings") from exc
+        return self._mutate_tag_values(
+            dataset, version, instance_id, selected, operation="set", split=split,
+            environment=environment, metadata_model=metadata_model)
+
+    def create(self, dataset: str, version: str, instance_id: str, *,
+               split: str = "default", manifest: list[dict] | None = None,
+               tags: dict[str, str] | None = None,
+               tag_values: dict[str, str | list[str]] | None = None,
+               difficulty: str | None = None, docker_image: str | None = None,
+               extend_meta: dict | None = None,
+               environment: str | None = None,
+               metadata_model: str | None = None) -> DatasetInstance:
+        """Create metadata with the strict POST DTO; native values never replace tags."""
+        from urllib.parse import quote
+        from ..store.registry import _unimplemented
+
+        dataset = (dataset or "").strip()
+        version = (version or "").strip()
+        split = (split or "").strip()
+        instance_id = (instance_id or "").strip()
+        if not dataset or not instance_id:
+            raise SchemaError("instances.create requires dataset and instance_id")
+        if tags is not None and tag_values is not None:
+            raise SchemaError("cannot provide both tags and tag_values")
+        if tag_values is not None:
+            normalized = normalize_tag_values(tag_values)
+            tags = {k: ",".join(v) for k, v in normalized.items() if v}
+        elif tags is not None and (not isinstance(tags, dict) or not all(
+                isinstance(k, str) and isinstance(v, str) for k, v in tags.items())):
+            raise SchemaError("legacy tags must contain strings")
+        if difficulty is not None and difficulty not in ("", "easy", "medium", "hard"):
+            raise SchemaError("invalid difficulty")
+        body: dict = {"instance_id": instance_id, "split": split}
+        for key, value in (("manifest", manifest), ("tags", tags),
+                           ("difficulty", difficulty),
+                           ("docker_image", docker_image), ("extend_meta", extend_meta)):
+            if value is not None:
+                body[key] = value
+        overrides = _registry_overrides(
+            environment, metadata_model, getattr(self._p, "metadata_model", None))
+        env = (environment if environment is not None else
+               getattr(self._p, "dataset_environment", "")) or ""
+        env = env.strip()
+        params = [("dataset_name", dataset), ("version", version),
+                  ("split", split), ("metadata_model", overrides["metadata_model"])]
+        if env:
+            params.append(("environment", env))
+        query = "&".join(f"{k}={quote(v, safe='')}" for k, v in params)
+        with _unimplemented(
+                "POST /apis/v1/datasets/instances",
+                "Use an apiserver that supports instance metadata creation."):
+            data = self._t.post(f"{self._BASE}?{query}", body)
+        _verify_native_write(data, body)
+        return DatasetInstance.from_dict(data)
 
     def update(self, dataset: str, version: str, instance_id: str, *,
                split: str | None = None, dataset_split_id: str | None = None,
                manifest: list[dict] | None = None,
                tags: dict[str, str] | None = None,
+               tag_values: dict[str, str | list[str]] | None = None,
                difficulty: str | None = None,
                docker_image: str | None = None,
                extend_meta: dict | None = None,
-               environment: str | None = None) -> DatasetInstance:
+               environment: str | None = None,
+               metadata_model: str | None = None) -> DatasetInstance:
         """更新实例元数据（``PATCH /datasets/instances/detail``，不动 OSS 字节）。
 
         服务端 body 白名单（严格解析，未知字段 400）：``manifest``（整体替换，
         每项 {content_type, content_format, content_digest, file_path}）、
-        ``tags``（整体替换）、``difficulty``（"easy"/"medium"/"hard"，空串=清除）、
+        ``tags``（字符串 map，多值按逗号拼接，整体替换）、
+        ``difficulty``（"easy"/"medium"/"hard"，空串=清除）、
         ``docker_image``（空串=清除）、``extend_meta``（整体替换）。全部可选但
         **至少一项必填**（SDK 前置校验）。
 
         正常业务固定 split_first，使用 ``dataset_split_id`` 或
-        dataset+version+split+instance_id 寻址。
+        dataset+version+split+instance_id 寻址。``metadata_model=None`` 保持
+        split_first；显式 ``version_first`` 可读取并更新历史布局记录。
         """
         from urllib.parse import quote
         body: dict = {}
         if manifest is not None:
             body["manifest"] = manifest
-        if tags is not None:
-            body["tags"] = tags
+        if tags is not None and tag_values is not None:
+            raise SchemaError("cannot provide both tags and tag_values")
+        if tag_values is not None:
+            normalized = normalize_tag_values(tag_values)
+            body["tags"] = {k: ",".join(v) for k, v in normalized.items() if v}
+        elif tags is not None:
+            if not isinstance(tags, dict) or not all(
+                    isinstance(k, str) and isinstance(v, str) for k, v in tags.items()):
+                raise SchemaError("legacy tags must contain strings")
+            body["tags"] = dict(tags)
         if difficulty is not None:
             if difficulty not in ("", "easy", "medium", "hard"):
                 raise SchemaError(
@@ -740,9 +1027,11 @@ class InstancesClient:
             body["extend_meta"] = extend_meta
         if not body:
             raise SchemaError(
-                "instances.update requires at least one field (manifest / tags / "
+                "instances.update requires at least one field (manifest / tags / tag_values / "
                 "difficulty / docker_image / extend_meta)")
         # 寻址：dataset_split_id 优先（split_first 精确记录）；否则三元组。
+        model = business_metadata_model(
+            metadata_model, allow_version_first=True)
         if dataset_split_id:
             q = (f"dataset_split_id={quote(dataset_split_id, safe='')}"
                  f"&instance_id={quote(instance_id, safe='')}")
@@ -755,15 +1044,17 @@ class InstancesClient:
                  f"&instance_id={quote(instance_id, safe='')}")
             if (version or "").strip():
                 q += f"&version={quote(version.strip(), safe='')}"
-            if (split or "").strip():
-                q += f"&split={quote(split.strip(), safe='')}"
+            split_name = (split or "").strip()
+            if split_name and (model == "split_first" or split_name != "default"):
+                q += f"&split={quote(split_name, safe='')}"
         env = (environment or "").strip()
         if not env:
             env = (getattr(self._p, "dataset_environment", "") or "").strip()
         if env:
             q += f"&environment={quote(env, safe='')}"
-        q += "&metadata_model=split_first"
+        q += f"&metadata_model={quote(model, safe='')}"
         data = self._t.patch(f"{self._BASE}/detail?{q}", body)
+        _verify_native_write(data, body)
         return DatasetInstance.from_dict(data) if isinstance(data, dict) else DatasetInstance(
             instance_id=instance_id, dataset=dataset, dataset_version=version or "")
 
@@ -831,6 +1122,14 @@ class InstancesClient:
                                      verify=verify, content_hash=content_hash)
         # ── harbor 路径 ──
         report = check_layout(local_path)          # ① 本地校验（缺文件即抛）
+        if report.config.get("steps"):
+            from .._harbor import push_multi_step
+            return push_multi_step(
+                self, report, dataset, version, split=split,
+                owner_reference=owner_reference, push_image=push_image,
+                overwrite=overwrite, register=register, verify=verify,
+                image_release_dst_acr=image_release_dst_acr,
+                compress_level=compress_level)
         instance_id = report.instance_id
         lay = self._layout()                        # 写侧 key/镜像命名统一经 layout
         owner_ref = ("" if owner_reference is None
@@ -876,6 +1175,8 @@ class InstancesClient:
             difficulty=report.metadata.get("difficulty"),
             docker_image=docker_ref or None,
             tags=_tags(report.metadata),
+            tag_values=(normalize_tag_values(report.metadata["tag_values"])
+                        if report.metadata.get("tag_values") is not None else None),
             extend_meta=extend_meta,
             instance_status="draft",
         )
@@ -1167,6 +1468,8 @@ class InstancesClient:
 
         src = Path(local_dir)
         report = check_layout(src)
+        tag_values = (normalize_tag_values(report.metadata["tag_values"])
+                      if report.metadata.get("tag_values") is not None else None)
         instance_id = report.instance_id
         lay = self._layout()
 
@@ -1192,6 +1495,7 @@ class InstancesClient:
             split=split, docker_image=target_ref,
             difficulty=report.metadata.get("difficulty"),
             tags=_tags(report.metadata),
+            tag_values=tag_values,
             manifest=_manifest(self._p.oss_bucket, dataset, version,
                                instance_id, split, digest, lay),
             instance_status="ready",
@@ -1367,6 +1671,7 @@ class InstancesClient:
         # ── skip_unchanged：哈希比对 + 过滤 ──
         hashes_map: dict[str, str] = dict(content_hashes) if content_hashes else {}
         actual_ids: dict[str, str] = {}
+        multi_step_paths: set[str] = set()
         if dirs and (skip_unchanged or hashes_map):
             # ID 必须来自与push相同的validate路径；Path.name对JSON输入会多出扩展名，
             # 对目录内容声明的ID也不具权威性。校验失败项留给push按原错误语义处理。
@@ -1374,7 +1679,10 @@ class InstancesClient:
             # 否则 _one 的 content_hash 会退化为 None。
             for d in dirs:
                 try:
-                    actual_ids[str(Path(d))] = self.validate(d).instance_id
+                    validated = self.validate(d)
+                    actual_ids[str(Path(d))] = validated.instance_id
+                    if getattr(validated, "config", {}).get("steps"):
+                        multi_step_paths.add(str(Path(d)))
                 except Exception:  # noqa: BLE001
                     continue
         if skip_unchanged and dirs:
@@ -1403,7 +1711,7 @@ class InstancesClient:
                 iid = actual_ids.get(path_key)
                 local_h = hashes_map.get(iid, "") if iid else ""
                 remote_h = remote_hashes.get(iid, "") if iid else ""
-                if iid and local_h and local_h == remote_h:
+                if path_key not in multi_step_paths and iid and local_h and local_h == remote_h:
                     result_slots[index] = PushResult(
                         instance_id=iid, uploaded=False, skipped=True,
                         image_pushed=False, docker_image=None,

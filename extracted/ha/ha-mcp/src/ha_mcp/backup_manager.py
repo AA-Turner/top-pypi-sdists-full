@@ -95,6 +95,7 @@ from .backup_entity_ids import (
     update_with_registry_icon,
     with_registry_icon,
 )
+from .backup_files import _fetch_file, _fetch_file_as_stored, _restore_file
 from .backup_helper_target import fetch_helper as _fetch_helper
 from .backup_helper_target import note_no_safety_backup as _note_no_safety_backup
 from .backup_helper_target import (
@@ -2475,60 +2476,6 @@ async def _registry_snapshot(client: Any, helper_type: str, item: dict) -> Any:
 # ``edit_yaml_config``. Both store the content as ``kind: "text"``.
 
 
-async def _fetch_file(client: Any, entity_id: str) -> Any:
-    """Read a file's current content via the read_file service.
-
-    ``entity_id`` is the file path. Returns the content string, or None
-    when the file does not exist — a brand-new write has no prior content
-    to snapshot, so capture skips (same as creating a new entity). A
-    binary file also returns None: snapshots store text only, so capture
-    skips it instead of blocking the write or delete. Other read failures
-    raise so the capture pipeline logs them at WARNING.
-    """
-    from .tools.auto_backup import PathNotAllowedError
-    from .tools.tools_filesystem import call_mcp_tools_service
-    from .tools.util_helpers import unwrap_service_response
-
-    result = await call_mcp_tools_service(client, "read_file", {"path": entity_id})
-    if not isinstance(result, dict):
-        return None
-    result = unwrap_service_response(result)
-    if result.get("success", False):
-        content = result.get("content")
-        return content if isinstance(content, str) else None
-    error = str(result.get("error", ""))
-    skips = ("does not exist", "not a file", "Cannot read binary file")
-    if any(marker in error for marker in skips):
-        return None
-    if error.startswith("Path not allowed"):
-        raise PathNotAllowedError(entity_id, error)
-    raise HomeAssistantError(f"read_file failed for {entity_id!r}: {error}")
-
-
-async def _restore_file(client: Any, entity_id: str, config: Any) -> Any:
-    """Re-write a file's captured content via the write_file service."""
-    from .tools.tools_filesystem import call_mcp_tools_service
-    from .tools.util_helpers import unwrap_service_response
-
-    result = await call_mcp_tools_service(
-        client,
-        "write_file",
-        {
-            "path": entity_id,
-            "content": str(config),
-            "overwrite": True,
-            "create_dirs": True,
-        },
-    )
-    if isinstance(result, dict):
-        result = unwrap_service_response(result)
-        if not result.get("success", False):
-            raise HomeAssistantError(
-                f"write_file restore failed for {entity_id!r}: {result.get('error')}"
-            )
-    return result
-
-
 async def _fetch_yaml(client: Any, entity_id: str) -> Any:
     """Read the current YAML subtree for a ``{file}::{yaml_path}`` target.
 
@@ -2586,12 +2533,12 @@ async def _restore_yaml(client: Any, entity_id: str, config: Any) -> Any:
     and can therefore be left off.
     """
     from .config import get_global_settings
-    from .tools.tools_filesystem import (
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+    from .tools.yaml_extra_keys import (
         assert_extra_yaml_keys_supported,
-        call_mcp_tools_service,
         effective_extra_yaml_write_keys,
     )
-    from .tools.util_helpers import unwrap_service_response
 
     # Split on the LAST "::" (see _fetch_yaml) so an exotic file path
     # containing "::" still restores to the right file and key.
@@ -3032,7 +2979,7 @@ async def _restore_flow_helper(
     none of its forms offers (fixed at creation, like a template's type) must
     still match the stored one, or the restore is refused unapplied.
     """
-    from .tools.config_entry_flow import update_config_entry_options
+    from .tools.config_entry_flow import restore_config_entry_options
 
     label = _flow_label(helper_type)
     snapshot = _flow_snapshot_for_restore(entity_id, config, helper_type)
@@ -3053,13 +3000,11 @@ async def _restore_flow_helper(
     return await _apply_and_verify(
         f"{label} helper",
         partial(
-            update_config_entry_options,
+            restore_config_entry_options,
             client,
             entry_id,
             options,
             expected_domain=helper_type,
-            noun="helper",
-            keep_current_values=False,
             fixed_options=current["options"],
         ),
         partial(
@@ -3183,7 +3128,7 @@ async def _recreate_flow_helper(
     client: Any, entry_id: str, snapshot: dict[str, Any], helper_type: str
 ) -> dict[str, Any]:
     """Create through the ordinary helper flow; never retry uncertain writes."""
-    from .tools.config_entry_flow import CreationFlowError, create_flow_helper
+    from .tools.config_entry_flow import CreationFlowError, recreate_flow_helper
 
     label = _flow_label(helper_type)
     snapshot = _flow_snapshot_for_restore(entry_id, snapshot, helper_type)
@@ -3203,8 +3148,8 @@ async def _recreate_flow_helper(
     try:
         # A menu-rooted creation flow is answered from the snapshot's options
         # (a template's template_type names its branch).
-        result = await create_flow_helper(
-            client, helper_type, dict(snapshot["options"]), complete_snapshot=True
+        result = await recreate_flow_helper(
+            client, helper_type, dict(snapshot["options"])
         )
     except CreationFlowError as err:
         _log_flow_helper_failure("create_entry", err)
@@ -3601,12 +3546,12 @@ def register_default_handlers(mgr: BackupManager, _client: Any) -> None:
     mgr.register(DomainHandler("entity", fetch_entity, restore_entity))
     mgr.register(DomainHandler("device", _fetch_device, _restore_device))
     mgr.register(DomainHandler("integration", fetch_integration, restore_integration))
-    mgr.register(DomainHandler("file", _fetch_file, _restore_file))
+    mgr.register(DomainHandler("file", _fetch_file_as_stored, _restore_file))
     mgr.register(DomainHandler("yaml", _fetch_yaml, _restore_yaml))
     # Whole-file YAML config: same fetch as "file" (read_file), but restored via
     # edit_yaml_config(replace_file) since write_file rejects config files.
     # Backs the legacy-restore write path and its pre-restore safety snapshot.
-    mgr.register(DomainHandler("yaml_file", _fetch_file, _restore_yaml_file))
+    mgr.register(DomainHandler("yaml_file", _fetch_file_as_stored, _restore_yaml_file))
     # Blueprint files (#2329): the pre-write snapshot for
     # ha_manage_blueprints(action="delete" / "save").
     for blueprint_domain in ("automation", "script"):

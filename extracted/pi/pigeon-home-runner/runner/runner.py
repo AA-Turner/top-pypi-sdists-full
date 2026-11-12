@@ -108,6 +108,7 @@ def _required_load_mod(package, local, why=""):
     return mod
 
 __version__ = _load_attr("runner._version", "_version", "__version__", "unknown")
+__build__ = _load_attr("runner._build", "_build", "__build__", "unknown")
 
 class _JobCryptoErrorFallback(ValueError):
     """Fallback when jobcrypto.py is unavailable; never raised."""
@@ -155,6 +156,13 @@ _channel = _load_mod("runner.transport_extensions.channel",
 # the fifty-six documented defaults that motivated it.
 _confval = _load_mod("runner.guard.confval", "guard.confval")
 _defaulted = _load_mod("runner.guard.defaulted", "guard.defaulted")
+# The disclosure posture formats (the registry, the tagging, the
+# stamp): runner/tools/disclosure.py, loaded for the stamp
+# producer at the result-assembly seam (Q137). The frozen builds
+# carry it as a hidden import; a build without it refuses a
+# declared posture block at startup rather than running an
+# assigned deployment unstamped.
+_disclosure = _load_mod("runner.tools.disclosure", "tools.disclosure")
 # The one atomic writer for state files (Agent-Chat-Stamp
 # 50000c8e-1b3d-4f5a-9c7e-8d0b2a4c6e8f): runner/guard/atomicio.py.
 _atomicio = _required_load_mod("runner.guard.atomicio", "guard.atomicio")
@@ -332,13 +340,19 @@ verify_body_keyed = _verify.verify_body_keyed
 _job_encryption_setting = _verify._job_encryption_setting
 _outgoing_result_body = _verify._outgoing_result_body
 
-# Hardening M6: Linux confinement fallback chain. Returns
-# (argv, use_host_env, sandboxed). In enforce mode the job runs inside
-# bwrap; when bwrap is unavailable (non-Linux, missing binary, build
-# failure) it warns loudly, audits the fallback, and runs normally.
-# Audit mode runs normally and records what enforce would have done.
+# Hardening M6: Linux confinement. Returns
+# (argv, use_host_env, sandboxed). The decision is a pure query
+# (Q135): it returns a triple for every config and never raises.
+# In enforce mode the job runs inside bwrap; when confinement
+# cannot engage (non-Linux, missing binary, a build failure, a
+# malformed confinement block, a platform backend that cannot
+# engage) it warns loudly, audits the fallback, and answers a
+# denial -- the empty argv -- and the job-acceptance boundary
+# (ops/exec.py) refuses the job on it: under enforce the job
+# never runs unsandboxed. Audit mode runs normally and records
+# what enforce would have done.
 def _confinement_argv(cfg, base_dir, job_id, interpreter, script_path,
-                      work, args, env):
+                      work, args, env, backend=None):
     normal = ([*interpreter, script_path, *args], True, False)
     if _security is None or _sandbox is None:
         return normal
@@ -361,23 +375,114 @@ def _confinement_argv(cfg, base_dir, job_id, interpreter, script_path,
         # enforce would decide. Availability is an enforce-time concern.
         _audit("would_sandbox", "would_run_sandboxed")
         return normal
-    # enforce from here on
-    if not _sandbox.sandbox_available():
+    # enforce from here on. A denial is the empty argv (Q135):
+    # no command exists that this decision would run, and the
+    # job boundary turns the denial into the refusal. The log
+    # line and the fallback audit row are written here, exactly
+    # as the raising shape wrote them, so the record of a
+    # denial is the record the raise used to leave.
+    denial = ([], True, False)
+    if sys.platform == "win32":
+        # Windows confinement is not bwrap: the job is created
+        # under the backend's controls at the spawn seam
+        # (_confinement_spawn in ops/remediation_ops.py), so the
+        # argv is the normal one. What this gate decides is only
+        # whether the backend can engage; when it cannot, the
+        # refusal is the same shape as the unavailable-sandbox
+        # refusal below. Only a real backend's probe is consulted
+        # (an injected backend counts, for the suite); a simulated
+        # win32 keeps the refusal.
+        mod = _remediation_ops._windows_confine(backend)
+        engageable = False
+        if mod is not None and (backend is not None or getattr(
+                mod, "IS_WINDOWS_BACKEND", False)):
+            probe = getattr(mod, "windows_confinement_problem", None)
+            try:
+                engageable = probe is not None and probe(cfg) is None
+            except Exception:
+                engageable = False
+        if engageable:
+            return normal
         log(f"job {job_id}: confinement unavailable on this machine "
-            f"({sys.platform}); running unsandboxed", "WARN")
+            f"({sys.platform}); refusing the job under enforce", "WARN")
         _audit("fallback", "confinement_unavailable")
-        return normal
+        return denial
+    if sys.platform.startswith("freebsd"):
+        # FreeBSD confinement is not bwrap either: the job is
+        # started inside a jail at the spawn seam
+        # (_confinement_spawn in ops/remediation_ops.py), so the
+        # argv is the normal one, exactly as on win32. What this
+        # gate decides is only whether the backend can engage;
+        # when it cannot, the refusal is the same shape as the
+        # unavailable-sandbox refusal below. Only a real
+        # backend's probe is consulted (an injected backend
+        # counts, for the suite); a simulated FreeBSD keeps the
+        # refusal.
+        mod = _remediation_ops._freebsd_confine(backend)
+        engageable = False
+        if mod is not None and (backend is not None or getattr(
+                mod, "IS_FREEBSD_BACKEND", False)):
+            probe = getattr(mod, "freebsd_confinement_problem", None)
+            try:
+                engageable = probe is not None and probe(cfg) is None
+            except Exception:
+                engageable = False
+        if engageable:
+            return normal
+        log(f"job {job_id}: confinement unavailable on this machine "
+            f"({sys.platform}); refusing the job under enforce", "WARN")
+        _audit("fallback", "confinement_unavailable")
+        return denial
+    if sys.platform == "darwin":
+        # macOS confinement is not bwrap either: the job is
+        # started under a Seatbelt profile at the spawn seam
+        # (_confinement_spawn in ops/remediation_ops.py), so the
+        # argv is the normal one, exactly as on win32 and
+        # FreeBSD. What this gate decides is only whether the
+        # backend can engage; when it cannot, the refusal is the
+        # same shape as the unavailable-sandbox refusal below.
+        # Only a real backend's probe is consulted (an injected
+        # backend counts, for the suite); a simulated darwin
+        # keeps the refusal.
+        mod = _remediation_ops._macos_confine(backend)
+        engageable = False
+        if mod is not None and (backend is not None or getattr(
+                mod, "IS_MACOS_BACKEND", False)):
+            probe = getattr(mod, "macos_confinement_problem", None)
+            try:
+                engageable = probe is not None and probe(cfg) is None
+            except Exception:
+                engageable = False
+        if engageable:
+            return normal
+        log(f"job {job_id}: confinement unavailable on this machine "
+            f"({sys.platform}); refusing the job under enforce", "WARN")
+        _audit("fallback", "confinement_unavailable")
+        return denial
+    try:
+        available = _sandbox.sandbox_available()
+    except Exception:
+        available = False
+    if not available:
+        log(f"job {job_id}: confinement unavailable on this machine "
+            f"({sys.platform}); refusing the job under enforce", "WARN")
+        _audit("fallback", "confinement_unavailable")
+        return denial
     # enforce
     notes = []
     try:
         argv = _sandbox.build_bwrap_command(
             cfg, interpreter, os.path.basename(script_path),
             work, args, env, notes=notes)
-    except RuntimeError as e:
+    except Exception as e:
+        # The builder's own validation raises RuntimeError; the
+        # wider catch is the invariant's, not the builder's --
+        # a build that fails for any reason is a denial, never
+        # an exception out of a query (Q135).
         log(f"job {job_id}: cannot build sandbox ({e}); "
-            f"running unsandboxed", "WARN")
+            f"refusing the job under enforce", "WARN")
         _audit("fallback", "confinement_build_failed", str(e))
-        return normal
+        return denial
     for note in notes:
         log(f"job {job_id}: sandbox: {note}", "INFO")
     _audit("sandboxed", "sandboxed", "; ".join(notes))
@@ -386,8 +491,9 @@ def _confinement_argv(cfg, base_dir, job_id, interpreter, script_path,
 
 # Hardening M8: run jobs as a different POSIX user. Returns a preexec_fn
 # that drops privileges, or None. When a fn is returned the workdir has
-# been chown'd to the job user. Root-only; otherwise warns loudly,
-# audits the fallback, and runs as the current user.
+# been chown'd to the job user. Root-only; under enforce a demote that
+# cannot happen warns loudly, audits the fallback, and refuses the job
+# instead of running it as the current user.
 class _JobUserFace:
     """The syscalls job_user needs. Tests pass a fake; the runner uses this."""
 
@@ -430,7 +536,10 @@ class _JobUserFace:
 
 _remediation_ops = _required_load_mod("runner.ops.remediation_ops", "ops.remediation_ops")
 _job_user_preexec = _remediation_ops._job_user_preexec
+_job_user_postspawn = _remediation_ops._job_user_postspawn
 _job_user_startup_problem = _remediation_ops.job_user_startup_problem
+_confinement_startup_problem = _remediation_ops.confinement_startup_problem
+_confinement_spawn = _remediation_ops._confinement_spawn
 _finish_remediation = _remediation_ops._finish_remediation
 _learning_model_candidate = _remediation_ops._learning_model_candidate
 _retained_job_summary = _remediation_ops._retained_job_summary
@@ -658,12 +767,30 @@ def inference_config(cfg):
         return None
     if max_chars < 0 or timeout < 1:
         return None
-    return {
+    out = {
         "endpoint": endpoint.rstrip("/"),
         "model": model,
         "max_answer_chars": max_chars,
         "timeout_sec": timeout,
     }
+    # Documented inference keys read downstream from this dict
+    # (agent_wall_clock_sec by ask_model_agent, keep_alive by
+    # _apply_keep_alive): pass them through when configured, and
+    # omit them when absent so the readers' defaults still apply.
+    for key in ("agent_wall_clock_sec", "keep_alive"):
+        if key in inf:
+            out[key] = inf[key]
+    # F2: the Oracle run tool's mode is a top-level config key
+    # (oracle_tool_mode, or oracle.tool_mode nested), but every
+    # caller hands ask_model_agent this dict and nothing else, so
+    # the resolved mode rides it -- passed through only when one is
+    # configured, like the keys above, so the dispatcher's charter
+    # default (full) applies untouched everywhere else.
+    if isinstance(cfg.get("oracle_tool_mode"), str) or (
+            isinstance(cfg.get("oracle"), dict)
+            and isinstance(cfg["oracle"].get("tool_mode"), str)):
+        out["oracle_tool_mode"] = _oracle_ops._oracle_tool_mode(cfg)
+    return out
 
 def _as_text(value):
     """Stringify extension data. A value whose text form raises is empty."""
@@ -767,7 +894,7 @@ def _default_inference_open(req, timeout=60):
     opener = build_opener(_InferenceRedirectRefused)
     return opener.open(req, timeout=timeout)
 
-def ask_model(cfg, question, output_text, max_chars, patterns=None, opener=None, instructions=None):
+def ask_model(cfg, question, output_text, max_chars, patterns=None, opener=None, instructions=None, base_dir=None, briefing_scope="ask"):
     """ask_model with the answer-format guard.
 
     A reply that trips the guard (structured-data dump or a
@@ -776,9 +903,16 @@ def ask_model(cfg, question, output_text, max_chars, patterns=None, opener=None,
     If the re-ask also trips and produced an answer, the caller
     gets the mechanical fallback sentence, sanitized like any
     other reply; a rejection from either attempt passes through.
+
+    base_dir and briefing_scope steer the briefing assembled at
+    the seam (runner/ops/briefing.py): the layers resolve against
+    the deployment's local checkout under base_dir, and the scope
+    says which layers this surface receives.
     """
     result = _ask_model_once(cfg, question, output_text, max_chars,
-                             patterns, opener, instructions)
+                             patterns, opener, instructions,
+                             base_dir=base_dir,
+                             briefing_scope=briefing_scope)
     problem = _answer_format_problem(result.get("answer"))
     if not problem:
         return result
@@ -787,7 +921,9 @@ def ask_model(cfg, question, output_text, max_chars, patterns=None, opener=None,
     retry = _ask_model_once(cfg,
                             _as_text(question) + "\n\n" + _FORMAT_REASK,
                             output_text, max_chars, patterns, opener,
-                            instructions)
+                            instructions,
+                            base_dir=base_dir,
+                            briefing_scope=briefing_scope)
     if not _answer_format_problem(retry.get("answer")):
         return retry
     if "answer" not in retry:
@@ -807,6 +943,28 @@ _ask_model_once = _misc._ask_model_once
 _v2_ingest = _misc._v2_ingest
 _disk_owns = _misc._disk_owns
 oracle_window = _misc.oracle_window
+
+# The Oracle's briefing assembler (runner/ops/briefing.py): the
+# layers every model call on the box is briefed with, resolved
+# against the local checkout. Optional the way its siblings are:
+# a box whose module did not load is briefed the old way, from
+# the charters and owner_instructions alone.
+_briefing = _load_mod("runner.ops.briefing", "ops.briefing")
+if _briefing is not None:
+    assemble_oracle_briefing = _briefing.assemble_briefing
+    oracle_briefing_report = _briefing.briefing_report
+    oracle_briefing_tension_check = _briefing.tension_check
+else:
+    def assemble_oracle_briefing(base_dir=None, scope="ask",
+                                 owner_instructions=None):
+        return ""
+
+    def oracle_briefing_report(base_dir=None,
+                               owner_instructions=None):
+        return {"root": "", "commit": "", "layers": {}}
+
+    def oracle_briefing_tension_check(base_dir, owner_text):
+        return []
 
 
 def _sanitize_model_reply(reply, cap, scan_text, patterns, model):
@@ -1076,6 +1234,7 @@ def _tool_withheld(path, base_dir, withheld) -> bool:
 _oracle_ops = _required_load_mod("runner.ops.oracle_ops", "ops.oracle_ops")
 _oracle_brief = _oracle_ops._oracle_brief
 _run_oracle_tool = _oracle_ops._run_oracle_tool
+_oracle_tool_mode = _oracle_ops._oracle_tool_mode
 
 
 def _wire_tool_arguments(fargs) -> str:
@@ -1109,7 +1268,7 @@ def _apply_keep_alive(cfg, payload):
     Ollama unloads after a few idle minutes, and the next question
     then pays a multi-minute cold start. Explicit config wins; the
     Ollama default port gets a keep-alive without any config
-    (docs/oracle/configuring-oracle.md, `keep_alive`). One place for both
+    (docs/infrastructure-documents/oracle/configuring-oracle.md, `keep_alive`). One place for both
     ask paths: the plain ask used to build its payload without this
     and cold-started on the main query-answer path.
     """
@@ -1363,6 +1522,8 @@ _changes = _required_load_mod("runner.ops.changes", "ops.changes")
 _exec = _required_load_mod("runner.ops.exec", "ops.exec")
 ask_model_agent = _exec.ask_model_agent
 execute_job = _exec.execute_job
+reap_work_dir = _exec.reap_work_dir
+reap_work_orphans = _exec.reap_work_orphans
 _decode_inline = _exec._decode_inline
 MAX_OUTPUTS = _exec.MAX_OUTPUTS
 DEFAULT_MAX_OUTPUT_FILE_BYTES = _exec.DEFAULT_MAX_OUTPUT_FILE_BYTES
@@ -1626,9 +1787,28 @@ def stash_result(base_dir, skey, job, subject, body, to=None,
     the outbox before the first send. Returns True when the record is
     down. A failure to record is logged and False is returned: the
     caller then does not commit the job as seen, so a crash here is
-    the one re-execution window, stated in the module comment."""
+    the one re-execution window, stated in the module comment.
+
+    The write takes the key's stash guard, the same lock a
+    delivery claims under: a stash that landed between a
+    delivery's read of the waiting record and its claim move
+    was overwritten by the claim and lost without ever being
+    sent (the two-bodies-one-key race the corpus holds). Under
+    the guard the stash either lands before the claim — and is
+    the record the delivery sends — or after it, as the next
+    result waiting in the outbox."""
     if not _valid_base(base_dir):
         return False
+    with _stash_guard(skey):
+        return _stash_result_held(base_dir, skey, job, subject, body,
+                                  to=to, transport=transport,
+                                  key_id=key_id, encrypted=encrypted,
+                                  meta=meta)
+
+
+def _stash_result_held(base_dir, skey, job, subject, body, to=None,
+                       transport=None, key_id=None, encrypted=False,
+                       meta=None):
     rec = {"skey": _as_str(skey),
            "job_id": _as_str((job or {}).get("job_id")),
            "job_digest": _job_digest(job),
@@ -1804,9 +1984,17 @@ def undeliver_stash(base_dir, skey, reason):
     outbox write that failed after the capture): the record goes back
     from sent/ to the outbox with the failure on it, for the resend
     pass. The job stays seen -- it did execute. Returns True when a
-    record was moved back."""
+    record was moved back. The move back takes the key's stash
+    guard, like the stash and the delivery claim: writing the
+    record back over a fresher stash for the same key would lose
+    that stash the same way."""
     if not _valid_base(base_dir):
         return False
+    with _stash_guard(skey):
+        return _undeliver_stash_held(base_dir, skey, reason)
+
+
+def _undeliver_stash_held(base_dir, skey, reason):
     src = _sent_path(base_dir, skey)
     rec = _read_record(src)
     if rec is None:
@@ -1862,11 +2050,21 @@ def resend_stashed(base_dir, cfg, sender, now=None, limit=RESEND_PASS_CAP):
         created = float(rec.get("created") or now)
         send = _record_sender(base_dir, rec, sender)
         if now - created > retention:
-            _stash_fail(base_dir, skey, rec,
-                        f"not delivered within result_stash_retention_sec "
-                        f"({retention}s) after {rec.get('attempts', 0)} "
-                        f"attempt(s); last error: {rec.get('last_error')}",
-                        cfg)
+            # Give the record up under its guard, and only the
+            # record this pass read: a fresher stash for the
+            # same key is a different result and stays waiting.
+            with _stash_guard(skey):
+                current = load_stash(base_dir, skey)
+                if current is not None and \
+                        current.get("created") == rec.get("created"):
+                    _stash_fail(base_dir, skey, rec,
+                                f"not delivered within "
+                                f"result_stash_retention_sec "
+                                f"({retention}s) after "
+                                f"{rec.get('attempts', 0)} "
+                                f"attempt(s); last error: "
+                                f"{rec.get('last_error')}",
+                                cfg)
             counts["failed"] += 1
             counts["waiting"] -= 1
             continue
@@ -1926,7 +2124,7 @@ def outbox_lines(base_dir):
 _STUB_KEYS = ("v", "type", "job_id", "kind", "key_id", "completed_at",
               "exit_code", "timed_out", "duration_sec", "runner", "review",
               "judgment", "env_fingerprint", "result_seq",
-              "prev_result_sha384")
+              "prev_result_sha384", "posture_stamp")
 
 def _result_meta(result):
     if not isinstance(result, dict):
@@ -2020,6 +2218,196 @@ def chain_members(cfg, base_dir, owner, result):
     if prev:
         result["prev_result_sha384"] = prev
     return seq
+
+# ---- the disclosure posture stamp producer (Q137)
+#
+# The producer the posture helpers waited for: the helpers in
+# runner/tools/disclosure.py classify and refuse, and this is
+# where a stamp is minted onto a run's records. The deployment's
+# assignment is resolved ONCE, at startup, from runner-side
+# state alone (the config's disclosure_posture block: the
+# registry file, the tagging file, and this deployment's
+# project in it), and that resolution -- never anything a job
+# carried -- is what the completion seam stamps with. A stamp
+# field arriving on a job is never read: the job is the
+# untrusted party, and a stamp it could set, skip or forge
+# would attest nothing.
+_POSTURE_DECLARED = False
+_POSTURE_PROJECT = ""
+_POSTURE_STAMP = None
+
+
+def _set_posture_resolution(declared, project, stamp) -> None:
+    """Record main()'s startup resolution for this process.
+    Set once, before the poll loop; the seam below only reads
+    it, and a hot config reload does not move it."""
+    global _POSTURE_DECLARED, _POSTURE_PROJECT, _POSTURE_STAMP
+    _POSTURE_DECLARED = bool(declared)
+    _POSTURE_PROJECT = project if isinstance(project, str) else ""
+    _POSTURE_STAMP = stamp if isinstance(stamp, str) and stamp else None
+
+
+def _posture_stamp():
+    """The stamp this process resolved at startup, or None."""
+    return _POSTURE_STAMP
+
+
+def _resolve_posture_stamp(cfg, base_dir):
+    """(declared, project, stamp) for this deployment.
+
+    declared is False when the config carries no
+    disclosure_posture block (or an empty one): the deployment
+    stands outside the posture system and runs exactly as
+    before. stamp is None when the block is declared but the
+    tagging assigns this deployment's project nothing -- the
+    absence the seam records as unstamped, plainly; no default
+    posture is invented here, because an invented default
+    would forge the very classification the stamp exists to
+    fix.
+
+    A declared block that cannot be honored is a configuration
+    problem and raises RuntimeError: a key missing or not a
+    non-empty string, a registry or tagging file that cannot
+    be read or parsed, a tag the registry does not declare, an
+    assignment naming a retired posture (format_stamp's own
+    refusal, surfaced here, at startup), or a build that does
+    not carry the disclosure module. Relative registry and
+    tagging paths resolve against base_dir, the house rule
+    for operator files (transport_file, extensions_dir).
+    """
+    block = cfg.get("disclosure_posture") if isinstance(cfg, dict) else None
+    if block is None:
+        return False, "", None
+    if not isinstance(block, dict):
+        raise RuntimeError(
+            "config error: disclosure_posture must be an object "
+            "naming registry, tagging and project")
+    if not block:
+        return False, "", None
+    for key in ("registry", "tagging", "project"):
+        value = block.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise RuntimeError(
+                "config error: disclosure_posture.%s must be a "
+                "non-empty string" % key)
+    project = block["project"]
+    if _disclosure is None:
+        raise RuntimeError(
+            "config error: disclosure_posture is declared but "
+            "this build does not carry runner/tools/disclosure.py; "
+            "the deployment's assignment cannot be resolved")
+
+    def _path(raw):
+        return raw if os.path.isabs(raw) else os.path.join(base_dir, raw)
+
+    try:
+        registry = _disclosure.load_registry(_path(block["registry"]))
+    except _disclosure.RegistryError as e:
+        raise RuntimeError(
+            "config error: disclosure_posture registry: %s" % e)
+    try:
+        tagging = _disclosure.load_tagging(_path(block["tagging"]))
+    except _disclosure.TaggingError as e:
+        raise RuntimeError(
+            "config error: disclosure_posture tagging: %s" % e)
+    assignment = None
+    for entry in tagging.assignments:
+        if entry.project == project:
+            assignment = entry
+            break
+    if assignment is None:
+        return True, project, None
+    posture = registry.by_tag(assignment.posture)
+    if posture is None:
+        raise RuntimeError(
+            "config error: disclosure_posture: project %r is "
+            "assigned tag %r, which the registry does not declare"
+            % (project, assignment.posture))
+    try:
+        stamp = _disclosure.format_stamp(registry, posture.id)
+    except _disclosure.StampError as e:
+        raise RuntimeError("config error: disclosure_posture: %s" % e)
+    return True, project, stamp
+
+
+def _stamp_result_posture(base_dir, result, job_id, key_id="", cfg=None):
+    """The completion seam's posture fact: stamp the result and
+    write its audit row, after the job has exited.
+
+    Called where the runner assembles an executed job's result,
+    before the body is fitted and signed, so the stamp rides
+    inside what the runner signs. An undeclared deployment does
+    nothing at all: no member, no row, exactly as before. A
+    declared one writes one audit row per executed job --
+    "stamped", with the stamp as the detail, or "unstamped"
+    when the deployment's project has no assignment -- and a
+    stamped result carries the member. A rejected job is not
+    stamped: it records no run, and a posture on it would be
+    the posture of a run that never happened.
+    """
+    if not _POSTURE_DECLARED or not isinstance(result, dict):
+        return
+    if _POSTURE_STAMP:
+        result["posture_stamp"] = _POSTURE_STAMP
+        decision = "stamped"
+        reason = "deployment assignment"
+        detail = _POSTURE_STAMP
+    else:
+        decision = "unstamped"
+        reason = "no assignment for the deployment's project"
+        detail = _POSTURE_PROJECT
+    if _security is not None:
+        _security.write_audit_entry(
+            base_dir, "posture", decision, reason,
+            key_id=key_id, job_id=job_id, detail=detail, cfg=cfg)
+
+
+def _posture_id():
+    """The posture id this process resolved at startup, or None.
+
+    Read off the startup stamp (the stamp carries the id), so
+    the decision point's posture gate reads the same resolution
+    the producer computed -- it never re-resolves, and never
+    reads an inbound stamp."""
+    stamp = _POSTURE_STAMP
+    if not stamp or _disclosure is None:
+        return None
+    try:
+        return _disclosure.parse_stamp(stamp).posture_id
+    except Exception:
+        return None
+
+
+def _validate_v2_consult(cfg, base_dir):
+    """Startup validation for the consult keys (the decision
+    point): a bad v2_consult value, or a v2_question_postures
+    allowlist naming an undeclared or retired posture, is a
+    configuration problem named before any job work, in the
+    posture producer's refuse class. The registry ids are read
+    from the deployment's own registry file when a posture
+    block is declared."""
+    if _protocol_v2 is None:
+        return
+    active_ids = None
+    retired_ids = None
+    block = cfg.get("disclosure_posture") if isinstance(cfg, dict) \
+        else None
+    if isinstance(block, dict) and block and _disclosure is not None:
+        raw = block.get("registry")
+        if isinstance(raw, str) and raw:
+            path = raw if os.path.isabs(raw) \
+                else os.path.join(base_dir, raw)
+            try:
+                registry = _disclosure.load_registry(path)
+            except Exception:
+                registry = None
+            if registry is not None:
+                active_ids = {p.id for p in registry.postures
+                              if p.status == "active"}
+                retired_ids = {p.id for p in registry.postures
+                               if p.status == "retired"}
+    _protocol_v2.validate_consult_config(
+        cfg, active_ids=active_ids, retired_ids=retired_ids)
 
 # ---- the result's size, and what a permanent refusal gets instead
 MAX_RESULT_BYTES = 5 * 1024 * 1024   # 5 MiB on the wire; providers allow 10-25 for the whole message
@@ -2922,7 +3310,7 @@ def _check_script_path(script_path, root):
                           "directory")
 
 # ---------------------------------------------------------------- remediation
-# The acts are core (docs/design/remediation-design.md): only the runner
+# The acts are core (docs/steady/design/remediation-design.md): only the runner
 # holds the process tree, the workdir, and the result channel.
 # runner/oracle/remediation.py holds the policy; the glue below wires
 # the live probes in. Everything here is best-effort: a broken
@@ -2965,13 +3353,17 @@ def _remediation_event(base_dir, st, job_id, div, act, authority,
     except Exception:
         pass
 
-def _remediation_ask_fn(cfg, st):
+def _remediation_ask_fn(cfg, st, base_dir=None):
     """The Oracle's judgment call, wired for oracle mode only.
 
     Returns None when inference is not configured (Pi Light
     included): the monitor then records abstentions and only
     the reflexes act. The call is ask_model with the timeout
-    clamped to remediation_oracle_timeout_sec.
+    clamped to remediation_oracle_timeout_sec, briefed at the
+    oracle scope (shape 4, stage 4): the Oracle's own layer
+    rides, the discovery surface does not -- this ask judges a
+    divergence on this box, it does not answer questions about
+    the project.
     """
     inf = inference_config(cfg)
     if inf is None:
@@ -2987,7 +3379,8 @@ def _remediation_ask_fn(cfg, st):
     patterns = _redact_patterns(cfg)
 
     def ask(question, context):
-        res = ask_model(bounded, question, context, 400, patterns)
+        res = ask_model(bounded, question, context, 400, patterns,
+                        base_dir=base_dir, briefing_scope="oracle")
         if not isinstance(res, dict):
             return None
         ans = res.get("answer")
@@ -3043,7 +3436,7 @@ def _start_job_monitor(cfg, st, job_id, proc, work, base_dir,
         declared_credential_paths=declared_cred,
         initial_files=set((before_files or {}).keys()),
         kill_fn=lambda extra: kill_tree(proc, extra),
-        ask_fn=_remediation_ask_fn(cfg, st)
+        ask_fn=_remediation_ask_fn(cfg, st, base_dir)
         if st["mode"] == "oracle" else None,
         findings_fn=lambda text: _script_path_findings(
             text, base_dir, job_id),
@@ -3267,7 +3660,13 @@ def _admit_object(body_text, secrets, object_id):
     inner_text = _jobcrypto.decrypt_body(
         payload, secret, job_id=object_id, key_id=key_id)
     inner, inner_key = verify_body_keyed(inner_text, secrets)
-    if inner_key != key_id:
+    # The two key ids must name the same secret (the draft's
+    # Section 10 sense, which admits a secret's several names):
+    # the fingerprint on the envelope and the configured name
+    # inside, or either on both, is one key, and send_job's
+    # verifier reads the pair the same way.
+    if canonical_key_id(secrets, inner_key) != \
+            canonical_key_id(secrets, key_id):
         raise ValueError(
             "encrypted envelope key_id does not match its body")
     return inner, key_id, secret, True
@@ -3551,6 +3950,8 @@ def _mark(imap, seq, opts):
 
 _startup = _required_load_mod("runner.ops.startup", "ops.startup")
 log_startup = _startup.log_startup
+audit_owner_instruction_tensions = \
+    _startup.audit_owner_instruction_tensions
 handle_board_mail = _startup.handle_board_mail
 
 
@@ -4372,7 +4773,7 @@ def _opinion_env_facts(cfg, job):
         interpreter = platform_interpreter()
     return _opinion.gather_facts(job, interpreter, platform_interpreter())
 
-def _opinion_model_note(cfg, job):
+def _opinion_model_note(cfg, job, base_dir=None):
     """Tier-2 opinion note from the local model, or None.
 
     Only when the owner opted in (oracle_opinion_model) and
@@ -4392,7 +4793,8 @@ def _opinion_model_note(cfg, job):
             "Will this job succeed on this host? Answer in one or "
             "two plain sentences; if it will fail, say the obvious "
             "reason.",
-            _describe_job(job), 400, _redact_patterns(cfg))
+            _describe_job(job), 400, _redact_patterns(cfg),
+            base_dir=base_dir, briefing_scope="oracle")
     except Exception:
         return None
     if not isinstance(res, dict):
@@ -4561,6 +4963,15 @@ def _v2_hand_off(cfg, smtp, base_dir, subject, body, target):
     return []
 
 
+def _v2_model_consult(cfg, job, base_dir=None):
+    """The decision point's local model consult: the opinion
+    model tier, asked through its existing note, so the local
+    and remote sources answer one question. The note itself
+    keeps its home in the opinion member; the consult record
+    references only that the tier answered."""
+    return _opinion_model_note(cfg, job, base_dir)
+
+
 def _v2_before_execute(cfg, job, op_plan, secret, key_id, encrypted,
                        base_dir, send, pump=None):
     """Send a determination and, on Pi Light, a question.
@@ -4569,9 +4980,28 @@ def _v2_before_execute(cfg, job, op_plan, secret, key_id, encrypted,
     answer that arrives before the deadline. The returned
     segments ride the version 1 result. They do not change
     what runs.
+
+    In the consult modes (v2_consult "both" / "local") the
+    determination decision point runs instead: the routing is
+    consult_plan's, the question goes out first, the local
+    consult runs inside the deadline window, and the combined
+    picture rides home as a consult segment with its audit
+    row. Legacy "remote" mode is the path below, unchanged.
     """
     if _protocol_v2 is None:
         return []
+    # A protocol module without the consult surface (a
+    # stand-in carrying only the legacy functions, or an
+    # embedding that wraps the module) reads as the legacy
+    # remote mode it always was: the seam answers for
+    # whatever module it is handed, absent surface included
+    # (Q142).
+    _mode_of = getattr(_protocol_v2, "consult_mode_of", None)
+    _mode = _mode_of(cfg) if callable(_mode_of) else "remote"
+    if _mode != "remote":
+        return _v2_consult_before_execute(
+            cfg, job, op_plan, secret, key_id, encrypted,
+            base_dir, send, pump=pump)
     outbound = _protocol_v2.outbound_for(cfg, job, op_plan)
     segments = []
     question = None
@@ -4595,6 +5025,154 @@ def _v2_before_execute(cfg, job, op_plan, secret, key_id, encrypted,
             base_dir, question, time.time(), pump=pump,
             pending=still_out if question_paths else None))
     return segments
+
+
+def _v2_consult_before_execute(cfg, job, op_plan, secret, key_id,
+                               encrypted, base_dir, send, pump=None):
+    """The determination decision point, in consult mode.
+
+    The question is sent first, so the remote clock starts
+    immediately; the local consult (the tier-1 stance off the
+    plan, and the model tier where it is engaged) runs inside
+    the wait the deadline already bounds; the combined picture
+    is formed here, at the result seam, and recorded as a
+    consult segment plus one audit row. The wire
+    determination keeps its frozen shape, and the execution
+    decision is untouched: an answer never admits a job.
+
+    No arm raises: a failed hand-off degrades the remote
+    source to the local picture, a failed model consult
+    leaves the tier-1 stance standing, and no arm stalls the
+    worker past the deadline cap.
+    """
+    V = _protocol_v2
+    job_id = job.get("job_id") if isinstance(job, dict) else ""
+    if not isinstance(job_id, str):
+        job_id = ""
+    model_available = False
+    try:
+        model_available = bool(
+            _opinion is not None and _opinion.model_enabled(cfg)) \
+            and inference_config(cfg) is not None
+    except Exception:
+        model_available = False
+    cplan = V.consult_plan(
+        cfg, job, op_plan, posture_id=_posture_id(),
+        posture_declared=_POSTURE_DECLARED,
+        model_available=model_available)
+    if cplan["reason"] == "v2_off":
+        # The routing consults nothing when version 2 is off
+        # or the process is answer-only, so the seam records
+        # nothing here: no consult segment on the result and
+        # no audit row for a consult that never happened
+        # (Q141).
+        return []
+    if cplan["reason"] == "clean_pass_settled":
+        return []
+    sources = cplan["sources"]
+    reason = cplan["reason"]
+    segments = []
+    try:
+        outbound = V.outbound_for(cfg, job, op_plan)
+    except Exception:
+        outbound = []
+    question = None
+    question_subject = None
+    question_paths = []
+    remote_segments = []
+    remote_stance = "not_asked"
+    send_failed = False
+    for subj, obj in outbound:
+        if obj.get("type") == "determination":
+            try:
+                send(subj, _seal_reply(
+                    obj, secret, obj["msg_id"], key_id, encrypted))
+                segments.append(V.segment(
+                    "runner", "determination", obj.get("why") or ""))
+            except Exception as e:
+                log(f"version 2 determination hand-off failed for "
+                    f"{job_id}: {e}", "WARN")
+        elif obj.get("type") == "question":
+            question = obj
+            question_subject = subj
+    if "remote" in sources and question is None:
+        # outbound_for asks only in deterministic mode; the
+        # decision point asks wherever its routing says remote,
+        # with the same question the draft defines.
+        try:
+            question = V.question_for(cfg, job)
+            question_subject = ("[HOMING-PIGEON] question "
+                                + question["msg_id"])
+        except Exception:
+            question = None
+    if "remote" in sources and question is not None:
+        try:
+            sent_paths = send(question_subject, _seal_reply(
+                question, secret, question["msg_id"], key_id,
+                encrypted))
+            if isinstance(sent_paths, (list, tuple)):
+                question_paths.extend(
+                    p for p in sent_paths if isinstance(p, str) and p)
+        except Exception as e:
+            log(f"version 2 question hand-off failed for "
+                f"{job_id}: {e}", "WARN")
+            send_failed = True
+    # The local consult runs inside the wait window, after the
+    # question has gone out. The tier-1 stance is read off the
+    # plan (already computed, no cost); the model tier, where
+    # engaged, is asked the opinion tier's own question.
+    local_model = None
+    if "oracle_model" in sources:
+        try:
+            note = _v2_model_consult(cfg, job, base_dir)
+            local_model = "ok" if note else "unavailable"
+        except Exception:
+            local_model = "error"
+    elif cplan["model_skipped_deadline_zero"]:
+        local_model = "skipped_deadline_zero"
+    late = False
+    if "remote" in sources and question is not None \
+            and not send_failed:
+        def still_out(paths=tuple(question_paths)):
+            return any(os.path.exists(p) for p in paths)
+
+        remote_segments = V.await_answer(
+            base_dir, question, time.time(), pump=pump,
+            pending=still_out if question_paths else None)
+        remote_stance, late = V.remote_stance_of(
+            remote_segments, question)
+        segments.extend(remote_segments)
+    elif send_failed:
+        remote_stance = "send_failed"
+    local = cplan["local_stance"]
+    outcome, split = V.combined_outcome(
+        local, remote_stance if remote_stance != "not_asked"
+        else "none")
+    gate_token = None
+    if cplan["gate_reason"]:
+        if cplan["gate_would_block"] and "remote" in sources:
+            gate_token = "audit_would_block:" + cplan["gate_reason"]
+        elif cplan["gate_would_block"]:
+            gate_token = cplan["gate_reason"]
+    if send_failed:
+        outcome = "local_only" if local in (
+            "fail", "unknown", "proceed") else "none"
+        split = False
+        reason = "send_failed"
+    elif "remote" in sources and remote_stance == "no_answer":
+        reason = "deadline_zero_remote" if cplan["deadline"] == 0 \
+            else "no_answer"
+    text = V.consult_record_text(
+        cplan["mode"], sources, local, remote_stance, outcome,
+        split, cplan["deadline"], gate=gate_token,
+        local_model=local_model, late=late)
+    segments.append(V.segment("runner", "consult", text))
+    if _security is not None:
+        _security.write_audit_entry(
+            base_dir, "v2_consult", outcome, reason,
+            key_id=key_id, job_id=job_id, detail=text, cfg=cfg)
+    return segments
+
 
 def _auth_reject_event(base_dir, reason, **extra):
     """Record one auth_rejection in security-events.jsonl."""
@@ -4648,7 +5226,11 @@ def _verify_and_decrypt(msg, secrets, job_id):
         inner_text = _jobcrypto.decrypt_body(
             job, secret, job_id=job_id, key_id=key_id)
         job, inner_key_id = verify_body_keyed(inner_text, secrets)
-        if inner_key_id != key_id:
+        # The same-secret match of _admit_object: a secret's
+        # names are one key (Section 10), so the fingerprint
+        # outside and the configured name inside is one key.
+        if canonical_key_id(secrets, inner_key_id) != \
+                canonical_key_id(secrets, key_id):
             raise ValueError(
                 "encrypted envelope key_id does not match its body")
         secret = secret_named(secrets, key_id)
@@ -5144,9 +5726,10 @@ _YARA_RULES = _tables._YARA_RULES
 _CLI_OVERRIDE_COUNTS = frozenset(
     dest for dest, _key in _CLI_OVERRIDES
     if dest not in ("max_result_view", "judge", "dag_mode",
-                    "oracle_mode", "oracle_opinion",
+                    "oracle_mode", "oracle_opinion", "oracle_tool_mode",
                     "protocol_v2", "answer_only",
                     "remediation_mode", "require_review",
+                    "require_posture",
                     "local_signals", "oracle_log", "transports"))
 
 def _enabled_transports(cfg):
@@ -5496,6 +6079,23 @@ def run_inspect(cfg, args) -> int:
         # Results executed but not yet delivered, and the ones given
         # up on: job id, age, attempts, last error (review item 1).
         print(json.dumps(outbox_report(base), indent=2))
+        return 0
+    if args.inspect == "briefing":
+        # The Oracle's briefing as this box assembles it: which
+        # checkout it resolves against, which layers stand, and
+        # the assembled length per door scope. The report carries
+        # no prompt text -- sizes and sources only -- so it is
+        # safe to paste into a bug report.
+        report = oracle_briefing_report(
+            base, owner_instructions=cfg.get("owner_instructions")
+            if isinstance(cfg, dict) else None)
+        report["assembled_chars"] = {
+            scope: len(assemble_oracle_briefing(
+                base, scope,
+                owner_instructions=cfg.get("owner_instructions")
+                if isinstance(cfg, dict) else None))
+            for scope in ("ask", "agent", "oracle")}
+        print(json.dumps(report, indent=2))
         return 0
     if args.inspect == "budget":
         path = os.path.join(base, "query_times.json")

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import builtins
+import importlib.util
 import json
 import sys
 import time
@@ -3854,13 +3855,13 @@ def test_pod_wait_defaults_agree_across_the_two_files() -> None:
     """One physical event, one number — or the next reader asks which is right.
 
     The leg waits for the same reconcile twice: here, on the build-identity
-    route, and a step later in `application_sdk.testing.setup_routes` on the
+    route, and a step later in `application_sdk.testing._setup_routes` on the
     pod-served configmap routes. Two different ceilings for one event would be
     a question with no answer, and the SDK constant is the one carrying the
     derivation.
     """
     root = Path(__file__).resolve().parents[3]
-    sdk = (root / "application_sdk" / "testing" / "setup_routes.py").read_text()
+    sdk = (root / "application_sdk" / "testing" / "_setup_routes.py").read_text()
     assert f"DEFAULT_POD_RECONCILE_WAIT_SECONDS = {app.DEFAULT_POD_WAIT_SECONDS}" in sdk
 
 
@@ -3919,3 +3920,37 @@ def test_a_stubbed_sleep_still_moves_the_clock() -> None:
     before = time.monotonic()
     time.sleep(120)
     assert time.monotonic() - before >= 120
+
+
+# ── Build-identity module probe ──────────────────────────────────────────────
+
+
+def test_build_identity_probe_finds_the_module_at_either_sdk_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An SDK predating ``application_sdk.common`` still counts as serving it.
+
+    ``find_spec`` raises for a missing parent package; that must not end the
+    scan before the older ``application_sdk.app`` path is asked.
+    """
+
+    def old_sdk(name: str) -> object | None:
+        if name.startswith("application_sdk.common"):
+            raise ModuleNotFoundError(name)
+        return object() if name == "application_sdk.app.build_identity" else None
+
+    monkeypatch.setattr(importlib.util, "find_spec", old_sdk)
+    assert app._local_sdk_serves_build_identity() is True
+
+    # An SDK past v4.0.0, where only the common path is left.
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name: (
+            object() if name == "application_sdk.common.build_identity" else None
+        ),
+    )
+    assert app._local_sdk_serves_build_identity() is True
+
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    assert app._local_sdk_serves_build_identity() is False

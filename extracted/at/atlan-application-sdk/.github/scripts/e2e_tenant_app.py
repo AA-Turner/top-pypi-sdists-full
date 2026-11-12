@@ -451,7 +451,7 @@ _DESCRIBE_MAX_PODS = 6
 
 #: The configmap id the app pod answers with its build identity (FND-1684).
 #:
-#: Must match ``application_sdk.app.build_identity.BUILD_IDENTITY_CONFIGMAP_ID``.
+#: Must match ``application_sdk.common.build_identity.BUILD_IDENTITY_CONFIGMAP_ID``.
 #: Spelled here as a literal rather than imported, because this script must stay
 #: stdlib-only: ``install`` runs on the runner's system Python, where the SDK is
 #: not importable at all. ``test_build_identity_ids_agree`` asserts the two
@@ -461,7 +461,7 @@ BUILD_IDENTITY_CONFIGMAP_ID = "atlan-build-identity"
 
 #: Statuses on the build-identity route that mean "ask again", not "no".
 #:
-#: Same reasoning as ``setup_routes._RETRYABLE_STATUSES``, and deliberately the
+#: Same reasoning as ``_setup_routes._RETRYABLE_STATUSES``, and deliberately the
 #: same set: a 5xx or a 429 is the edge not having a pod to route to yet, while
 #: every 4xx is the route answering. Kept as a literal here rather than imported
 #: for the reason ``BUILD_IDENTITY_CONFIGMAP_ID`` is — this module must import on
@@ -480,7 +480,7 @@ _POD_TRANSIENT_STATUSES = (429, 500, 502, 503, 504)
 #: where the race bites, since ``verify`` runs in the leg immediately before the
 #: pod-served routes that FND-2057 watched time out.
 #:
-#: 300 matches ``setup_routes.DEFAULT_POD_RECONCILE_WAIT_SECONDS``, which bounds
+#: 300 matches ``_setup_routes.DEFAULT_POD_RECONCILE_WAIT_SECONDS``, which bounds
 #: the same wait one step later in the same leg; that constant carries the
 #: derivation. Two different numbers for one physical event would only invite
 #: the question of which is right.
@@ -488,9 +488,14 @@ DEFAULT_POD_WAIT_SECONDS = 300
 _POD_POLL_SECONDS = 10
 
 #: Where the SDK's build-identity module lives, for the diagnostic probe in
-#: :func:`_local_sdk_serves_build_identity`. A dotted path rather than an import:
-#: see that function for why it must not import anything.
-_BUILD_IDENTITY_MODULE = "application_sdk.app.build_identity"
+#: :func:`_local_sdk_serves_build_identity`. Dotted paths rather than imports:
+#: see that function for why it must not import anything. Both, because the
+#: harness SDK can be older than the move to ``common`` (FND-3280), and the
+#: ``app`` path is a deprecated alias that goes away in v4.0.0.
+_BUILD_IDENTITY_MODULES = (
+    "application_sdk.common.build_identity",
+    "application_sdk.app.build_identity",
+)
 
 #: Keys carrying a deployment id in an ``/apps/{id}/info`` payload. LM does not
 #: document the shape, so this reads whichever of them is present rather than
@@ -908,10 +913,20 @@ def _local_sdk_serves_build_identity() -> bool:
     runner's bare system Python, where ``install`` runs and no SDK exists.
     ``ModuleNotFoundError`` is what a missing PARENT package raises.
     """
+    return any(_module_exists(module) for module in _BUILD_IDENTITY_MODULES)
+
+
+def _module_exists(module: str) -> bool:
+    """``find_spec(module) is not None``, with a missing parent package as False.
+
+    Per module rather than around the whole scan: an SDK that predates
+    ``application_sdk.common`` raises for the first path and must still be asked
+    about the second.
+    """
     try:
         import importlib.util  # noqa: PLC0415 — lazy: diagnostic-only, and this module must import on a bare interpreter
 
-        return importlib.util.find_spec(_BUILD_IDENTITY_MODULE) is not None
+        return importlib.util.find_spec(module) is not None
     except (ImportError, ValueError):
         return False
 

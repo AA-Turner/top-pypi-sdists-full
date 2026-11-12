@@ -1,7 +1,7 @@
 """Fail-closed drift gate: every Python snippet in the docs must be tested.
 
-The API-reference pages (``docs/api/*.md``) and the ``.pyi`` stubs are gated as
-doctests in CI, and the 21 example scripts run under ``make
+The ``.pyi`` stubs are gated as doctests in CI (and the Python reference is
+generated from them), and the 21 example scripts run under ``make
 test-examples-python``. Everything else — the guides, gallery, and top-level
 prose — used plain ```` ```python ```` blocks that nothing executed, so they
 rot silently (the quickstart's ``HalfbandDecimator()`` broke exactly this way
@@ -12,7 +12,7 @@ page under ``docs/`` and runs its Python fences. A page is enforced the moment
 it exists — there is no opt-in list to forget. The only escapes are visible and
 reviewed: an inline ``skip=`` marker with a mandatory reason, or a temporary
 entry in the burn-down backlog ``docs/.doc-snippet-ignore`` (which must shrink
-to empty, mirroring ``.api-coverage-ignore`` / ``.serializable-ignore``).
+to empty, mirroring ``.serializable-ignore``).
 
 The four sanctioned states for a fence (see
 ``docs/dev/contributing/doc-examples.md``):

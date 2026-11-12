@@ -200,6 +200,7 @@ __all__ = (
     "ListServiceActionsInputPaginateTypeDef",
     "ListServiceActionsInputTypeDef",
     "ListServiceActionsOutputTypeDef",
+    "ListStackInstancesForProvisionedProductInputPaginateTypeDef",
     "ListStackInstancesForProvisionedProductInputTypeDef",
     "ListStackInstancesForProvisionedProductOutputTypeDef",
     "ListTagOptionsFiltersTypeDef",
@@ -1408,6 +1409,11 @@ class ListServiceActionsForProvisioningArtifactInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListServiceActionsInputPaginateTypeDef(TypedDict):
+    AcceptLanguage: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStackInstancesForProvisionedProductInputPaginateTypeDef(TypedDict):
+    ProvisionedProductId: str
     AcceptLanguage: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 

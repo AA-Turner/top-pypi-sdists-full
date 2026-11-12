@@ -9,7 +9,7 @@ from ._cosmosdb import Document, DocumentList
 from ._http import HttpRequest, HttpResponse
 from .decorators import (FunctionApp, Function, Blueprint,
                          DecoratorApi, DataType, AuthLevel,
-                         Cardinality, AccessRights, HttpMethod,
+                         Cardinality, AccessRights, HttpMethod, DeliveryMode,
                          AsgiFunctionApp, WsgiFunctionApp,
                          ExternalHttpFunctionApp, BlobSource, McpPropertyType,
                          CosmosDBChangeFeedMode, PromptArgument)
@@ -107,6 +107,7 @@ __all__ = (
     'DataType',
     'AuthLevel',
     'Cardinality',
+    'DeliveryMode',
     'AccessRights',
     'HttpMethod',
     'BlobSource',
@@ -117,4 +118,4 @@ __all__ = (
     'mcp_content',
 )
 
-__version__ = '2.3.0'
+__version__ = '2.4.0'

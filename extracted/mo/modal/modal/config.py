@@ -115,6 +115,7 @@ from .exception import AuthError, InvalidError, NotFoundError
 
 # By default, try api.modal.com and fail over to api.modal2.com
 DEFAULT_SERVER_URL = "https://api.modal.com,https://api.modal2.com"
+DEFAULT_STREAMS_URL = "https://modal-labs-streams--streams-service-proxy.modal.run"
 
 
 # Locate config file and read it
@@ -149,25 +150,36 @@ def _agent_environment() -> str | None:
         ("CLINE_ACTIVE", "cline"),
         ("AUGMENT_AGENT", "augment"),
         ("OPENCODE_CLIENT", "opencode"),
+        ("OPENCODE", "opencode"),
+        ("OPENCODE_SESSION_ID", "opencode"),
         ("GOOSE_TERMINAL", "goose"),  # honk
         ("TRAE_AI_SHELL_ID", "trae"),
         ("PI_CODING_AGENT", "pi"),
+        ("PI_SESSION_ID", "pi"),
         ("COPILOT_AGENT_SESSION_ID", "copilot"),
         ("ANTIGRAVITY_AGENT", "antigravity"),
         ("JUNIE_SHIM_PATH", "junie"),
         ("QWEN_CODE", "qwen-code"),
+        ("QWEN_CODE_SESSION_ID", "qwen-code"),
         ("MUSE_SESSION_ID", "muse-code"),
+        ("HERMES_AGENT", "hermes-agent"),
+        ("CRUSH", "crush"),
     ]
     for env_var, agent_name in _TOOL_SPECIFIC_ENV_VARS:
         if os.environ.get(env_var):
             return agent_name
 
+    # OpenClaw sets OPENCLAW_SHELL=tui-local for human-operated terminal commands.
+    if os.environ.get("OPENCLAW_SHELL") == "exec":
+        return "openclaw"
+
     # Emerging standards, checked last because neither value is normalized.
     # `AGENT` may be a bare `1` rather than a name (opencode), and `AI_AGENT`
     # may embed a version or suffix (e.g. `claude-code_2-1-268_agent`).
-    if agent := os.environ.get("AGENT"):
-        return agent
-    if agent := os.environ.get("AI_AGENT"):
+    if agent := os.environ.get("AGENT") or os.environ.get("AI_AGENT"):
+        for prefix in ("claude-code", "devin"):
+            if agent.startswith(prefix):
+                return prefix
         return agent
 
     return None
@@ -397,6 +409,7 @@ _SETTINGS = {
     "sandbox_channel_idle_timeout": _Setting(30, transform=float),
     "volume_block_read_timeout": _Setting(60, transform=float),
     # --- Internal configuration --------------------------------------------------
+    "streams_url": _Setting(DEFAULT_STREAMS_URL, internal=True),
     "sync_entrypoint": _Setting(internal=True),
     "heartbeat_interval": _Setting(15, float, internal=True),
     "function_runtime": _Setting(internal=True),
@@ -412,6 +425,10 @@ _SETTINGS = {
     "snapshot_debug": _Setting(False, transform=_to_boolean, internal=True),
     "override_headers": _Setting(None, transform=_transform_headers, internal=True),
 }
+
+
+def _env_var_name(key: str) -> str:
+    return f"MODAL_{key.upper()}" if key in _SETTINGS else key.upper()
 
 
 class Config:
@@ -474,13 +491,7 @@ class Config:
         # Override setting in this process by overriding environment variable for the setting
         #
         # Does NOT write back to settings file etc.
-        try:
-            self.get(key)
-            os.environ["MODAL_" + key.upper()] = value
-        except KeyError:
-            # Override env vars not available in config, e.g. NVIDIA_VISIBLE_DEVICES.
-            # This is used for restoring env vars from a memory snapshot.
-            os.environ[key.upper()] = value
+        os.environ[_env_var_name(key)] = value
 
     def __getitem__(self, key):
         return self.get(key)
@@ -523,6 +534,7 @@ def _store_user_config(
     """Internal method, used by the CLI to set tokens."""
     if profile is None:
         profile = _profile
+
     user_config = _read_user_config()
     user_config.setdefault(profile, {}).update(**new_settings)
     if active_profile is not None:

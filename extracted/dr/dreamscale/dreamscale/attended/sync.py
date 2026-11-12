@@ -64,13 +64,19 @@ async def run_sync(
     ):
         raise ValueError("strategy must match the adapter's execution contract")
     execution_size = contract.execution_chunk_size
+    fewest_rows = contract.fewest_chunk_rows
     # An episode history counts the robot's executed actions (InternW0-Δ): each request
     # carries the episode's first frames and those that many actions back. Sync observes
-    # once per chunk, so that frame is a previous request's observation.
+    # once per chunk, so that frame is a previous request's observation. An episode the server
+    # keeps (Praxis-1's EpisodeTicks) reads every executed step instead: sync observes after
+    # each action and sends that step's frames ahead (``push_history``), as the async loop does,
+    # and each request then carries the joints of every step it ran.
     history = getattr(policy, "observation_history", None)
     episode = history if callable(getattr(history, "executed", None)) else None
     if episode is not None:
         episode.clear()
+    every_step = episode is not None and getattr(episode, "pushes_ahead_in_steps", False)
+    push_history = getattr(policy, "push_history", None) if every_step else None
     hooks = hooks or RunHooks()
     telemetry = RunTelemetryAccumulator()
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="attended-sync")
@@ -112,20 +118,26 @@ async def run_sync(
                 request, instruction=instruction, timeout_s=strategy.timeout_s
             )
             received = time.monotonic_ns()
-            # Validate the entire qualified prefix, including rows beyond a run limit.
-            # A checkpoint may generate an unqualified tail which must never be queued.
-            if len(chunk.actions) != contract.chunk_size:
-                raise ValueError("Sync prediction must be a complete generated action chunk.")
-            values = np.asarray(chunk.actions[:execution_size])
+            # An answer holds between the model's fewest real rows and its chunk; the rows run
+            # are its real rows up to the executed count (a checkpoint may generate an
+            # unqualified tail, which is never queued). Validate every row that runs, including
+            # rows beyond a run limit.
+            if not fewest_rows <= len(chunk.actions) <= contract.chunk_size:
+                raise ValueError(
+                    "Sync prediction must be a complete generated action chunk: "
+                    f"{fewest_rows} to {contract.chunk_size} rows, got {len(chunk.actions)}."
+                )
+            run_rows = min(len(chunk.actions), execution_size)
+            values = np.asarray(chunk.actions[:run_rows])
             if (
-                values.shape != (execution_size, contract.action_dim)
+                values.shape != (run_rows, contract.action_dim)
                 or values.dtype.kind not in "fiu"
                 or not np.isfinite(values).all()
             ):
                 raise ValueError("Sync prediction must be a complete finite action chunk.")
             if chunk.action_indices is not None and (
-                len(chunk.action_indices) != contract.chunk_size
-                or tuple(chunk.action_indices[:execution_size]) != tuple(range(execution_size))
+                len(chunk.action_indices) != len(chunk.actions)
+                or tuple(chunk.action_indices[:run_rows]) != tuple(range(run_rows))
             ):
                 raise ValueError(
                     "Sync prediction must contain consecutive actions from index zero."
@@ -200,6 +212,13 @@ async def run_sync(
                 completed += 1
                 if episode is not None:
                     episode.executed()
+                more = remaining > 0 and (max_actions is None or completed < max_actions)
+                if push_history is not None and more and not _act_done(result):
+                    # This executed step's frames, sent ahead; the step after the chunk's last
+                    # is the next request's own observation.
+                    await push_history(await _call_user_callback(
+                        observe, context(chunk.observation_id, remaining), executor=executor,
+                    ))
                 emit(
                     "on_buffer",
                     BufferEvent(

@@ -16,20 +16,20 @@ el resumen. Cualquier escritura de algo que una condición de workflow puede lee
 
 from typing import Iterable, List, Optional
 from datetime import datetime
+from zoneinfo import ZoneInfo
+import json
 import logging
 import os
 
 from pymongo.errors import DuplicateKeyError
 
-from ..asset_service import AssetService, CacheConfig
 from ..collections import ChatCollection
 from ..collections.chat_messages_collection import AppendOutcome, ChatMessagesCollection
 from ..collections.chat_flow_state_collection import ChatFlowStateCollection
 from ..collections.client_collection import ClientCollection
-from ....models.cache import CacheProtocol
+from ....models.cache import CacheProtocol, NoCache, CacheConfig
 from ....models.chat.chat import Chat
 from ....models.chat.chat_summary import ChatSummary, counts_as_incoming_activity, opens_window
-from ....models.base_models import ChattyAssetPreview
 from ....models.data_base.mongo_connection import MongoConnection
 from ....models.messages.chatty_messages import ChattyMessage
 from ....models.utils import Status
@@ -38,8 +38,12 @@ from ....models.utils.types.identifier import StrObjectId
 from ....models.messages.meta_message_model.meta_status_json import ErrorDetail
 from ....models.execution.execution import ExecutionContext
 from ....models.utils.custom_exceptions.custom_exceptions import ChatAlreadyExists
+from ....models.utils.types.deletion_type import DeletionType
 
 logger = logging.getLogger("ChatAssetService")
+# The cache read and invalidation helpers below were `ChattyAssetContainerWithCollection`'s: their ERROR lines keep its logger name
+# (the «api-chatty · prod errores» alert and the Grafana queries look for it).
+_container_logger = logging.getLogger("ChattyAssetContainerWithCollection")
 
 #: Campos de `chats` que una condición de workflow puede leer. Escribir cualquiera despierta los
 #: workflows del chat que esperan un cambio. Es una lista cerrada a propósito: lo que no está
@@ -78,8 +82,12 @@ def _history_candidates(messages: List[ChattyMessage]) -> List[ChattyMessage]:
     return sorted(unique.values(), key=lambda m: m.created_at)
 
 
-class ChatAssetService(AssetService[Chat, ChattyAssetPreview]):
-    """Pre-configured service for Chat assets.
+class ChatAssetService:
+    """The Chat aggregate's store: composes `ChatCollection` (ENG-406: it no longer inherits `AssetService`).
+
+    Only what the Chat aggregate uses stayed: `get_by_id`, `insert`, `partial_update`, `delete`, `get_by_query` and
+    `collection`. The cache keys and their invalidation are the ones `AssetService` had, so the Redis calls do not change
+    (`chats:item:{id}` is no longer written by `get_by_id` in api-chatty, but it is still deleted).
 
     Note: No event configuration - Chat events are handled by ChatsEditor, not AssetService.
     """
@@ -92,15 +100,96 @@ class ChatAssetService(AssetService[Chat, ChattyAssetPreview]):
                  flow_states: Optional[ChatFlowStateCollection] = None,
                  clients: Optional[ClientCollection] = None):
         collection = ChatCollection(connection)
-        super().__init__(
-            collection=collection,
-            cache_config=cache_config,
-            cache=cache,
-        )
+        self.item_type = collection.type
+        self.preview_type = collection.preview_type
+        self.collection = collection
+        self.cache_config = cache_config or CacheConfig.default()
+        self.cache: CacheProtocol = cache or NoCache()
+        self._collection_name = collection.collection.name
         database = os.environ["MONGO_DB_NAME"]
         self.messages = messages or ChatMessagesCollection.from_connection(connection, database)
         self.flow_states = flow_states or ChatFlowStateCollection.from_connection(connection, database)
         self.clients = clients or ClientCollection(connection, chats=collection.collection)
+
+    # ── Cache keys and what a write lets go of (the same ones `AssetService` used) ──
+
+    def _item_key(self, item_id: str) -> str:
+        return f"{self._collection_name}:item:{item_id}"
+
+    def _previews_key(self, company_id: Optional[str]) -> str:
+        return f"{self._collection_name}:previews:{company_id or 'all'}"
+
+    def _all_key(self, company_id: Optional[str]) -> str:
+        return f"{self._collection_name}:all:{company_id or 'all'}"
+
+    def _list_keys(self, company_id: Optional[str]) -> list[str]:
+        keys = [self._previews_key(company_id), self._all_key(company_id)]
+        if company_id:
+            keys += [self._previews_key(None), self._all_key(None)]
+        return keys
+
+    async def _invalidate(self, item: Chat) -> None:
+        company_id = getattr(item, 'company_id', None)
+        await self._delete_cache_keys([self._item_key(item.id), *self._list_keys(company_id)])
+
+    async def _delete_cache_keys(self, keys: list[str]) -> None:
+        """Invalidate `keys` after a write that MongoDB already accepted: a failed delete does not fail the write,
+        it is logged at ERROR (the keys may serve the old value until their TTL)."""
+        try:
+            await self.cache.delete_many(keys)
+        except Exception as e:
+            _container_logger.error(
+                "Redis cache invalidation failed after a saved write, keys may be stale until their TTL: %s (%s: %s)",
+                keys, type(e).__name__, e,
+            )
+
+    async def _read_cache(self, key: str) -> Optional[str]:
+        """Read `key` from the cache; a failed read is a miss (CHAT-277), logged at ERROR."""
+        try:
+            return await self.cache.get(key)
+        except Exception as e:
+            _container_logger.error(
+                "Redis cache read failed, falling back to MongoDB: %s (%s: %s)",
+                key, type(e).__name__, e,
+            )
+            return None
+
+    # ── Base operations ──
+
+    async def get_by_id(self, id: str, ignore_cache: bool = False) -> Chat:
+        key = self._item_key(id)
+        if not ignore_cache:
+            cached = await self._read_cache(key)
+            if cached:
+                try:
+                    return self.item_type.model_validate(json.loads(cached))
+                except Exception:
+                    pass
+        item = await self.collection.get_by_id(id)
+        try:
+            await self.cache.set(key, json.dumps(item.model_dump(by_alias=True, mode='json')), ttl=self.cache_config.cache_ttl)
+        except Exception:
+            pass
+        return item
+
+    async def insert(self, item: Chat, execution_context: ExecutionContext) -> Chat:
+        if not isinstance(item, self.item_type):
+            raise TypeError(f"Expected item of type {self.item_type.__name__}, got {type(item).__name__}")
+        await self.collection.insert(item)
+        execution_context.set_event_time(item.created_at)
+        await self._invalidate(item)
+        return item
+
+    async def delete(self, id: str, execution_context: ExecutionContext, deletion_type: DeletionType = DeletionType.LOGICAL) -> Chat:
+        item = await self.get_by_id(id)
+        await self.collection.delete(id, deletion_type)
+        execution_context.set_event_time(datetime.now(ZoneInfo("UTC")))
+        await self._invalidate(item)
+        return item
+
+    async def get_by_query(self, query: dict, company_id: Optional[StrObjectId] = None) -> List[Chat]:
+        """Always hits MongoDB."""
+        return await self.collection.get_docs(query=query, company_id=company_id)
 
     @property
     def _chat_collection(self) -> ChatCollection:
@@ -192,7 +281,12 @@ class ChatAssetService(AssetService[Chat, ChattyAssetPreview]):
 
     async def partial_update(self, id: str, fields: dict, execution_context: ExecutionContext, invalidate_previews: bool = False, company_id: Optional[str] = None) -> None:
         """`$set` de campos del chat. Si alguno es condicionante, despierta sus workflows."""
-        await super().partial_update(id, fields, execution_context, invalidate_previews=invalidate_previews, company_id=company_id)
+        await self.collection.partial_update(id, fields)
+        execution_context.set_event_time(datetime.now(ZoneInfo("UTC")))
+        keys = [self._item_key(id)]
+        if invalidate_previews and company_id:
+            keys += self._list_keys(company_id)
+        await self._delete_cache_keys(keys)
         if touches_conditionable_field(fields):
             await self.flow_states.mark_chat_changed(id)
 

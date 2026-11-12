@@ -1,7 +1,7 @@
 use crate::cancel::check;
 use crate::{
-    Described, Error, Number, Span, Value, array::generated_len, element::read_as, keyed, number::Numeric, primitive::{numeric, pervade, real},
-    session, system::{Call, Valence::{Ambivalent, Dyadic, Monadic}, natives}
+    Described, Error, Number, Span, Value, array::generated_len, element::read_as, keyed, number::Numeric, primitive::{numeric, pervade, real}, session,
+    system::{Call, Valence::{Ambivalent, Dyadic, Monadic}, natives}
 };
 use rand::rngs::ChaCha8Rng;
 pub(crate) use rustymath::distribution::Distribution;
@@ -96,8 +96,10 @@ fn samples(d: &Distribution, shape: &[usize], len: usize, stream: &mut Stream) -
 
 fn kernel(d: &Distribution, op: Operation, width: FloatWidth) -> rustymath::operation::Kernel {
     let variant = rustymath::domain::Variant { dtype: rustymath::buffer::DType::Float(width), checked: false, wrapping: false };
-    match op { Operation::Density => rustymath::operation::Kernel::new(Pdf(*d), variant), Operation::Cdf => rustymath::operation::Kernel::new(Cdf(*d), variant),
-        _ => rustymath::operation::Kernel::new(Quantile(*d), variant) }
+    match op {
+        Operation::Density => rustymath::operation::Kernel::new(Pdf(*d), variant), Operation::Cdf => rustymath::operation::Kernel::new(Cdf(*d), variant),
+        _ => rustymath::operation::Kernel::new(Quantile(*d), variant)
+    }
 }
 
 /// The density, cdf or quantile of `d` at each number in `right`, computed at the width of `right`'s floats, or the session's float width for other numbers. An array of compact numbers goes to rustymath as one slice, and its result keeps the array's layout. A discrete quantile is an exact integer, so it goes one number at a time, as atoms and nested arrays do.
@@ -166,10 +168,12 @@ impl Stream {
 /// Each generator that the running batched try has drawn from, with its state before the try first drew from it (`Session::drawn`). Where the try falls back, `settle` puts each state back, so the run over cells draws the numbers it would draw had no try run.
 pub(crate) type Drawn = Mutex<Vec<(Generator, Counter)>>;
 
-/// Ends a batched try's record of its draws, putting each generator's state back where the try fell back (`batch::tried`).
-pub(crate) fn settle(drawn: &Drawn, fell_back: bool) {
+/// Ends a batched try's record of its draws. Restores each generator on fallback and reports whether there were draws.
+pub(crate) fn settle(drawn: &Drawn, fell_back: bool) -> bool {
     let drawn = std::mem::take(&mut *drawn.lock().unwrap_or_else(PoisonError::into_inner));
+    let drew = !drawn.is_empty();
     if fell_back { for (generator, counter) in drawn { locked(&generator).counter = counter; } }
+    drew
 }
 
 fn locked(generator: &Generator) -> std::sync::MutexGuard<'_, Stream> { generator.lock().unwrap_or_else(PoisonError::into_inner) }

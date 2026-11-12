@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import codecs
 import re
 from pathlib import Path
 
 import pytest
 
-from windows_mcp.infrastructure.config import ServerConfig, load_config, write_config
+from windows_mcp.infrastructure.config import (
+    ServerConfig,
+    WindowsMCPConfig,
+    load_config,
+    write_config,
+)
 
 
 @pytest.mark.parametrize(
@@ -83,6 +89,22 @@ def test_valid_server_config_loads_and_round_trips(tmp_path: Path) -> None:
     assert out.read_text(encoding="utf-8") == text
 
 
+def test_write_config_round_trips_strings_that_need_escaping(tmp_path: Path) -> None:
+    # `windows-mcp auth --with-tls` saves paths like C:\Users\me\.windows-mcp\cert.pem.
+    cfg = WindowsMCPConfig()
+    cfg.server.ssl_certfile = str(tmp_path / "cert.pem")
+    cfg.server.ssl_keyfile = str(tmp_path / "key.pem")
+    cfg.security.oauth_client_id = "tab\t newline\n delete\x7f"
+    cfg.security.oauth_client_secret = 'quote " backslash \\'
+    path = tmp_path / "config.toml"
+
+    write_config(cfg, path)
+    loaded = load_config(path)
+
+    assert loaded.server == cfg.server
+    assert loaded.security == cfg.security
+
+
 def test_empty_server_section_loads_defaults(tmp_path: Path) -> None:
     path = tmp_path / "config.toml"
     path.write_text("[server]\n", encoding="utf-8")
@@ -90,3 +112,11 @@ def test_empty_server_section_loads_defaults(tmp_path: Path) -> None:
     cfg = load_config(path)
 
     assert cfg.server == ServerConfig()
+
+
+def test_load_config_accepts_a_utf8_bom(tmp_path: Path) -> None:
+    # Set-Content -Encoding UTF8 in Windows PowerShell 5.1 starts the file with this BOM.
+    path = tmp_path / "config.toml"
+    path.write_bytes(codecs.BOM_UTF8 + b'[control]\npolicy = "strict"\n')
+
+    assert load_config(path).control.policy == "strict"

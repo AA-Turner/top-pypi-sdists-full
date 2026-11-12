@@ -18,7 +18,6 @@
 #include "picosha2.h"
 #include <functional>
 #include <memory>
-#include <new>
 
 // python >= 3.15 has PyAnyDict_Check. Under 3.15 defined it as PyDict_Check
 #if PY_VERSION_HEX < 0x030F0000
@@ -218,7 +217,6 @@ static PrivateAttrCreationData* get_creation_data(uintptr_t typ_id) noexcept;
 // get_creation_data() returning NULL (no pending install) and the type being
 // absent from all_type_attr_set, a non-zero count identifies a half-installed
 // type whose install() never completed.
-static int count_type_slot_objects(PyTypeObject* tp) noexcept;
 static std::string default_random_string(uintptr_t obj_id, const std::string& attr_name) noexcept;
 
 struct RestorePythonExceptionResult {
@@ -412,8 +410,10 @@ struct PrivateAttrCreationData
     bool use_parents = false;
     bool cleared = false;
     bool installed = false;
+    std::mutex clear_lock, install_lock;
 
     void clear() noexcept {
+        std::unique_lock<std::mutex> lock(clear_lock);
         if (cleared) {
             return;
         }
@@ -436,6 +436,7 @@ struct PrivateAttrCreationData
     }
 
     bool install(PyObject* new_type) noexcept {
+        std::unique_lock<std::mutex> lock(install_lock);
         if (installed) return true;
         if (!new_type) {
             return false;
@@ -468,7 +469,6 @@ struct PrivateAttrCreationData
                 "%s (%d): '__static_attributes__' will expose private attribute names and cannot be used in private attribute types", __FILE__, __LINE__);
             return false;
         }
-        ::AllData::all_type_attr_set[type_id] = private_attrs_set;
         ensure_tp(type_instance);
         if (::AllData::type_attr_dict.find(type_id) == ::AllData::type_attr_dict.end()) {
             ::AllData::type_attr_dict[type_id] = {};
@@ -508,7 +508,7 @@ struct PrivateAttrCreationData
             }
             // Do not wipe a parent's shadow already written for this class during
             // __init_subclass__ (e.g. `cls._value = ...` inside the parent's
-            // __init_subclass__ runs inside tp_new, before postprocess).
+            // __init_subclass__ runs inside tp_new, before install).
             if (::AllData::all_type_subclass_attr[i].find(type_id) == ::AllData::all_type_subclass_attr[i].end()) {
                 ::AllData::all_type_subclass_attr[i][type_id] = {};
             }
@@ -533,6 +533,7 @@ struct PrivateAttrCreationData
         if (private_func) {
             ::AllData::type_need_call[type_id] = private_func;
         }
+        ::AllData::all_type_attr_set[type_id] = private_attrs_set;
         installed = true;
         return true;
     }
@@ -547,7 +548,7 @@ static bool
 try_install_pending_creation(PyObject* new_type) noexcept
 {
     // Finish a pending private-attribute creation if one is still
-    // outstanding. prepare()/PrivateAttrType_new leave the five slot
+    // outstanding. PrivateAttrType_new leaves the five slot
     // objects carrying a pointer to the in-flight PrivateAttrCreationData
     // until install() runs; if creation is interrupted (e.g. an exception in
     // __init_subclass__) the type exists but is not yet registered in
@@ -561,16 +562,7 @@ try_install_pending_creation(PyObject* new_type) noexcept
     }
     PrivateAttrCreationData* data = get_creation_data((uintptr_t)new_type);
     if (!data) {
-        // No in-flight creation data is reachable from the type's slot
-        // objects. If the slot objects are nevertheless present (their data
-        // pointers have all been cleared) the type was left half-created:
-        // the slot structs were injected into its namespace but install()
-        // never completed, so it must NOT be allowed to proceed (no
-        // half-finished type may be created from or controlled). If there
-        // are no slot objects either, this is simply not one of our types.
-        if (count_type_slot_objects((PyTypeObject*)new_type) > 0) {
-            // Slot objects present but no pending pointer -> unrecoverable
-            // half-installed type.
+        if (::AllData::all_type_attr_set.find((uintptr_t)new_type) == ::AllData::all_type_attr_set.end()) {
             PyErr_Format(PyExc_RuntimeError,
                 "private-attribute type '%s' is not fully installed and cannot be used",
                 ((PyTypeObject*)new_type)->tp_name);
@@ -593,16 +585,14 @@ is_uninstallable_private_type(PyObject* base) noexcept
     if (!base || !PyType_Check(base)) {
         return false;
     }
+    if (get_creation_data((uintptr_t)base)) {
+        return false;
+    }
     // Already truly installed -> fine.
     if (::AllData::all_type_attr_set.find((uintptr_t)base) != ::AllData::all_type_attr_set.end()) {
         return false;
     }
-    // Still has a pending install -> recoverable, not uninstallable.
-    if (get_creation_data((uintptr_t)base)) {
-        return false;
-    }
-    // Slot objects present but no pending data -> half-installed, unrecoverable.
-    return count_type_slot_objects((PyTypeObject*)base) > 0;
+    return true;
 }
 
 static inline void
@@ -2551,7 +2541,7 @@ PrivateSuper_New(PyTypeObject* type, PyObject* args, PyObject* kwds) noexcept
 //                                `type` fields are populated via __set_name__.
 //   - PrivateAttrMetaSlotType  : for *registered metaclasses*. The `name`,
 //                                `type` and `callback` fields are passed in
-//                                explicitly during register_metaclass.
+//                                explicitly during metaclass registration.
 typedef struct PrivateAttrSlot {
     PyObject_HEAD
     PyObject* slot_name;    // special-method name ("__getattribute__", ...)
@@ -2824,6 +2814,9 @@ static PyObject* slot_setattr_impl(PrivateAttrSlot* self, PyObject* obj, PyObjec
 static PyObject* slot_delattr_impl(PrivateAttrSlot* self, PyObject* obj, PyObject* name) noexcept;
 static PyObject* slot_del_impl(PrivateAttrSlot* self, PyObject* obj) noexcept;
 static PyObject* slot_call_impl(PrivateAttrSlot* self, PyObject* args, PyObject* kwds) noexcept;
+// true iff `obj` is a PrivateAttrMetaNewSlotType descriptor (i.e. a create_new
+// slot); defined after PrivateAttrMetaNewSlotType.
+static bool is_meta_new_slot(PyObject* obj) noexcept;
 
 // Resolve the type id for an access target. For a metaclass slot the target
 // (obj) IS the class object; for a type slot the target is an instance and its
@@ -2883,6 +2876,47 @@ slot_new_impl(PrivateAttrSlot* self, PyObject* cls, PyObject* args, PyObject* kw
     if (!PyType_Check(cls)) {
         PyErr_SetString(PyExc_TypeError, "__new__ must be called with a type");
         return NULL;
+    }
+    // A create_new slot must be bound to a metaclass via __set_name__ before it
+    // can be invoked. An unbound slot (owner_type == NULL) has no parent type to
+    // delegate to, so running the class-creation machinery would be unsafe.
+    if (self->owner_type == NULL) {
+        PyErr_SetString(PyExc_TypeError,
+            "create_new slot is not bound to a metaclass; assign it in a metaclass body (e.g. __new__ = private_attribute.create_new())");
+        return NULL;
+    }
+    // Resolve the parent metaclass's __new__ exactly once and hold a strong
+    // reference (free-threading safe: a concurrent reassignment of the parent's
+    // __new__ cannot change what we dispatch on). The metaclass MRO always ends
+    // at `type`, whose __new__ always exists, so a missing __new__ here is a
+    // genuine failure — propagate the error rather than guessing.
+    PyObjectStorage super_obj = PyObjectStorage::from_new_ref(
+        PyObject_CallFunction((PyObject*)&PySuper_Type, "OO", self->owner_type, self->owner_type));
+    if (!super_obj) return NULL;
+    PyObjectStorage parent_new = PyObjectStorage::from_new_ref(
+        PyObject_GetAttrString(super_obj, "__new__"));
+    if (!parent_new) return NULL;
+
+    // If the parent metaclass's __new__ is itself a create_new slot, do NOT
+    // preprocess here — the parent slot performs the single preprocess +
+    // install. Instead:
+    //   - if this slot has a callback, call it directly with the raw
+    //     (cls, name, bases, attrs) + kwds; the callback's own super().__new__
+    //     resolves to the parent slot, which preprocesses and installs exactly
+    //     once.
+    //   - otherwise forward the whole class-creation flow to the parent slot
+    //     (the same `parent_new` object we already resolved).
+    if (is_meta_new_slot(parent_new)) {
+        if (self->callback) {
+            PyObjectStorage type_args = PyObjectStorage::from_new_ref(PyTuple_Pack(
+                4, cls,
+                PyTuple_GET_ITEM(args, 0),
+                PyTuple_GET_ITEM(args, 1),
+                PyTuple_GET_ITEM(args, 2)));
+            if (!type_args) return NULL;
+            return PyObject_Call(self->callback, type_args, kwds);
+        }
+        return slot_new_impl((PrivateAttrSlot*)parent_new.get(), cls, args, kwds);
     }
     PrivateAttrCreationData data;
     PyTypeObject* typ = (PyTypeObject*)cls;
@@ -3445,6 +3479,19 @@ static PyTypeObject PrivateAttrMetaNewSlotType = {
     PrivateAttrSlot_getsetters,                // tp_getset
 };
 
+// true iff `obj` is a PrivateAttrMetaNewSlotType descriptor (a create_new
+// slot). Pure type check — the caller resolves the object once and holds a
+// strong reference, so there is no re-resolution (and hence no TOCTOU window)
+// here.
+static bool
+is_meta_new_slot(PyObject* obj) noexcept
+{
+    if (!obj) {
+        return false;
+    }
+    return PyObject_IsInstance(obj, (PyObject*)&PrivateAttrMetaNewSlotType) == 1;
+}
+
 // v4: clear the pending-creation back-pointer on `count` slot objects. If
 // `expected` is non-NULL, only slots whose data equals `expected` are cleared.
 static void
@@ -3705,34 +3752,6 @@ clear_creation_data_from_slots(PyTypeObject* tp, PrivateAttrCreationData* expect
     return found;
 }
 
-// Count the per-type slot objects in `tp`'s tp_dict (the five structs injected
-// by inject_type_slots(), each an instance of PrivateAttrSlotType), regardless
-// of whether they still carry a pending PrivateAttrCreationData pointer. A
-// non-zero count means the type went through our slot-injection machinery. When
-// combined with get_creation_data() returning NULL (no pending install left)
-// AND the type not being present in all_type_attr_set, this identifies a
-// half-installed type whose install() never completed.
-static int count_type_slot_objects(PyTypeObject* tp) noexcept
-{
-    if (!tp) {
-        return 0;
-    }
-    PyObject* dict = tp->tp_dict;
-    if (!dict) {
-        return 0;
-    }
-    int count = 0;
-    for (int i = 0; type_slot_names[i]; i++) {
-        PyObject* slot = PyDict_GetItemString(dict, type_slot_names[i]);
-        if (slot && PyObject_IsInstance(slot, (PyObject*)&PrivateAttrSlotType)) {
-            count++;
-        }
-    }
-    return count;
-}
-
-
-
 // Install the special-method structs into a registered metaclass's dict.
 // The owner is passed explicitly. If the metaclass already defines one of the
 // names, its value becomes the callback. Must use the ORIGINAL type_setattro
@@ -3777,26 +3796,39 @@ install_metaclass_slots(PyTypeObject* metaclass) noexcept
     const char* new_name = "__new__";
     PyObject* existing = PyDict_GetItemString(dict, new_name);
     if (existing) {
-        if (!(PyObject_IsInstance(existing, (PyObject*)&PrivateAttrMetaNewSlotType) && (
+        // An already-installed slot of ours is left untouched.
+        if (PyObject_IsInstance(existing, (PyObject*)&PrivateAttrMetaNewSlotType) && (
             ((PrivateAttrSlot*)existing)->owner_type == NULL || ((PrivateAttrSlot*)existing)->owner_type == (PyObject*)metaclass
-        ))) {
-            goto make_slot;
+        )) {
+            return true;
         }
-    } else {
-make_slot:
-        PrivateAttrSlot* new_slot = create_type_new_slot((PyObject*)metaclass, NULL);
-        PyObjectStorage new_slot_storage = PyObjectStorage::from_new_ref((PyObject*)new_slot);
-        if (!new_slot_storage) {
-            return false;
+    }
+    // Wrap the original __new__ (if any) directly as the callback of the
+    // created slot, exactly like the six-slot loop above: the slot then
+    // dispatches class creation through the original function instead of
+    // dropping it.
+    PyObject* callback = NULL;
+    if (existing) {
+        callback = existing;
+        while (callback && (
+            PyObject_IsInstance(callback, (PyObject*)&PrivateAttrMetaSlotType) ||
+            PyObject_IsInstance(callback, (PyObject*)&PrivateAttrMetaNewSlotType) ||
+            PyObject_IsInstance(callback, (PyObject*)&PrivateAttrSlotType))) {
+            callback = ((PrivateAttrSlot*)callback) -> callback;
         }
-        PyObjectStorage name_obj = PyObjectStorage::from_new_ref(PyUnicode_FromString(new_name));
-        if (!name_obj) {
-            return false;
-        }
-        int r = real_setattro((PyObject*)metaclass, name_obj, new_slot_storage);
-        if (r < 0) {
-            return false;
-        }
+    }
+    PrivateAttrSlot* new_slot = create_type_new_slot((PyObject*)metaclass, callback);
+    PyObjectStorage new_slot_storage = PyObjectStorage::from_new_ref((PyObject*)new_slot);
+    if (!new_slot_storage) {
+        return false;
+    }
+    PyObjectStorage name_obj = PyObjectStorage::from_new_ref(PyUnicode_FromString(new_name));
+    if (!name_obj) {
+        return false;
+    }
+    int r = real_setattro((PyObject*)metaclass, name_obj, new_slot_storage);
+    if (r < 0) {
+        return false;
     }
     return true;
 }
@@ -5546,7 +5578,7 @@ new_type_tp_setattro(PyObject* self, PyObject* name, PyObject* value) noexcept
             }
             // Only rewrite into the callback field for a *user* value. If the
             // value is already one of our slot structs (the initial install
-            // done inside type.__new__ / register_metaclass), let the normal
+            // done inside type.__new__ / metaclass registration), let the normal
             // type_setattro path install it so update_one_slot wires the slots.
             if (slot_names) {
                 for (int i = 0; slot_names[i]; i++) {
@@ -5811,7 +5843,7 @@ PrivateAttrType_finalize(PyObject* cls) noexcept
     }
     ::AllData::all_type_mutex.erase(typ_id);
     // Clear the per-type buckets of the object-attr tables (created in
-    // PrivateAttrType_postprocess / PrivateAttr_object_init_private_dict);
+    // PrivateAttr_object_init_private_dict);
     // otherwise every class that ever got instances leaves an empty bucket
     // behind and all_object_attr / all_object_mutex grow forever.
     if (::AllData::all_object_attr.find(typ_id) != ::AllData::all_object_attr.end()) {
@@ -5879,211 +5911,6 @@ create_private_attr_base_simple(void) noexcept
     return base_type;
 }
 
-typedef struct {
-    PyObject_HEAD
-    PrivateAttrCreationData* tmp;
-} PrivateTempObject;
-
-static PyObject*
-PrivateTempObject_name(PyObject* self, void* /*closure*/) noexcept
-{
-    PyObject* name = ((PrivateTempObject*)self)->tmp->name;
-    if (!name) {
-        PyErr_SetString(PyExc_RuntimeError, "object not init or have been used");
-        return nullptr;
-    }
-    Py_INCREF(name);
-    return name;
-}
-
-static PyObject*
-PrivateTempObject_base(PyObject* self, void* /*closure*/) noexcept
-{
-    PyObject* base = ((PrivateTempObject*)self)->tmp->bases;
-    if (!base) {
-        PyErr_SetString(PyExc_RuntimeError, "object not init or have been used");
-        return nullptr;
-    }
-    Py_INCREF(base);
-    return base;
-}
-
-static PyObject*
-PrivateTempObject_attrs(PyObject* self, void* /*closure*/) noexcept
-{
-    PyObject* attrs = ((PrivateTempObject*)self)->tmp->attrs_copy;
-    if (!attrs) {
-        PyErr_SetString(PyExc_RuntimeError, "object not init or have been used");
-        return nullptr;
-    }
-    Py_INCREF(attrs);
-    return attrs;
-}
-
-static PyObject*
-PrivateTempObject_kwds(PyObject* self, void* /*closure*/) noexcept
-{
-    PyObject* kwds = ((PrivateTempObject*)self)->tmp->base_kwds;
-    if (!kwds) {
-        return PyDict_New();
-    }
-    Py_INCREF(kwds);
-    return kwds;
-}
-
-static PyGetSetDef PrivateTempObject_getsets[] = {
-    {"name", (getter)PrivateTempObject_name, NULL, "The name for submetaclass.__new__ argument 1", NULL},
-    {"bases", (getter)PrivateTempObject_base, NULL, "The base classes for submetaclass.__new__ argument 2", NULL},
-    {"attrs", (getter)PrivateTempObject_attrs, NULL, "The attributes for submetaclass.__new__ argument 3", NULL},
-    {"kwds", (getter)PrivateTempObject_kwds, NULL, "The keyword arguments for submetaclass.__new__", NULL},
-    {NULL}
-};
-
-static void
-PrivateTempObject_dealloc(PyObject* self) noexcept
-{
-    ((PrivateTempObject*)self)->tmp->clear();
-    delete ((PrivateTempObject*)self)->tmp;
-    Py_TYPE(self)->tp_free(self);
-}
-
-static PyObject*
-PrivateTempObject_postprocess(PyObject* self, PyObject* type) noexcept
-{
-    if (!PyType_Check(type)) {
-        PyErr_SetString(PyExc_TypeError, "type must be a type");
-        return NULL;
-    }
-    if ((((PrivateTempObject*)self)->tmp->cleared)) {
-        PyErr_SetString(PyExc_RuntimeError, "temp not init or have been used");
-        return NULL;
-    }
-    if (!(((PrivateTempObject*)self)->tmp->install(type))) {
-        return NULL;
-    }
-    ((PrivateTempObject*)self)->tmp->clear();
-    Py_RETURN_NONE;
-}
-
-static PyObject*
-PrivateTempObject_enter(PyObject* self, PyObject* /*args*/) noexcept
-{
-    Py_INCREF(self);
-    return self;
-}
-
-
-static PyObject*
-PrivateTempObject_exit(PyObject* self, PyObject* /*args*/) noexcept
-{
-    PrivateTempObject* obj = (PrivateTempObject*)self;
-    if (!obj->tmp->cleared) {
-        obj->tmp->clear();
-    }
-    Py_RETURN_NONE;
-}
-
-static PyMethodDef PrivateTempObject_methods[] = {
-    {"postprocess", (PyCFunction)PrivateTempObject_postprocess, METH_O, "postprocess the temp object"},
-    {"__enter__", (PyCFunction)PrivateTempObject_enter, METH_NOARGS, NULL},
-    {"__exit__", (PyCFunction)PrivateTempObject_exit, METH_VARARGS, NULL},
-    {NULL}
-};
-
-static int
-PrivateTempObject_traverse(PyObject* self, visitproc visit, void* arg) noexcept
-{
-    PrivateTempObject* tmp = (PrivateTempObject*)self;
-    if (tmp->tmp) {
-        PrivateAttrCreationData* data = tmp->tmp;
-        if (!data->cleared) {
-            Py_VISIT(data->attrs_copy);
-            Py_VISIT(data->base_kwds);
-        }
-    }
-    return 0;
-}
-
-static int
-PrivateTempObject_clear(PyObject* self) noexcept
-{
-    PrivateTempObject* tmp = (PrivateTempObject*)self;
-    if (tmp->tmp && !tmp->tmp->cleared) {
-        tmp->tmp->clear();
-    }
-    return 0;
-}
-
-static PyTypeObject PrivateTempType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "private_attribute._PrivateTemp",    // tp_name
-    sizeof(PrivateTempObject), // tp_basicsize
-    0, //tp_itemsize
-    PrivateTempObject_dealloc, //tp_dealloc
-    0, //tp_print
-    0, //tp_getattr
-    0, //tp_setattr
-    0, //tp_compare
-    0, //tp_repr
-    0, //tp_as_number
-    0, //tp_as_sequence
-    0, //tp_as_mapping
-    0, //tp_hash
-    0, //tp_call
-    0, //tp_str
-    0, //tp_getattro
-    0, //tp_setattro
-    0, //tp_as_buffer
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, //tp_flags
-    0, //tp_doc
-    PrivateTempObject_traverse, //tp_traverse
-    PrivateTempObject_clear, //tp_clear
-    0, //tp_richcompare
-    0, //tp_weaklistoffset
-    0, //tp_iter
-    0, //tp_iternext
-    PrivateTempObject_methods, //tp_methods
-    0, //tp_members
-    PrivateTempObject_getsets //tp_getset
-};
-
-static PyObject*
-prepare_for_PrivateAttr(PyObject* /*self*/, PyObject* args, PyObject* kwargs) noexcept
-{
-    PrivateAttrCreationData* tmp_data = new(std::nothrow) PrivateAttrCreationData();
-    if (!tmp_data) {
-        return PyErr_NoMemory();
-    }
-    if (!PrivateAttrType_preprocess(args, kwargs, *tmp_data, "private_attribute.prepare")) {
-        tmp_data->clear();
-        delete tmp_data;
-        return NULL;
-    }
-    PrivateTempObject* tmp = PyObject_GC_New(PrivateTempObject, &PrivateTempType);
-    if (!tmp) {
-        tmp_data->clear();
-        delete tmp_data;
-        return NULL;
-    }
-    tmp->tmp = tmp_data;
-    PyObject_GC_Track(tmp);
-    return (PyObject*)tmp;
-}
-
-static PyObject*
-postprocess_for_PrivateAttr(PyObject* /*self*/, PyObject* args) noexcept
-{
-    PyObject* type;
-    PyObject* tmp;
-    if (!PyArg_ParseTuple(args, "OO:private_attribute.postprocess", &type, &tmp)) {
-        return NULL;
-    }
-    if (!PyObject_IsInstance(tmp, (PyObject*)&PrivateTempType)) {
-        PyErr_SetString(PyExc_TypeError, "tmp must be a PrivateTempObject");
-        return NULL;
-    }
-    return PrivateTempObject_postprocess(tmp, type);
-}
 
 #define METACLASS_WEAKREF_CALLBACK_REMOVE_ITEM(name) do {\
     if (::AllData::all_type_##name.find(id) != ::AllData::all_type_##name.end()) {\
@@ -6238,28 +6065,6 @@ register_metaclass_head(PyObject* metaclass) noexcept
 }
 
 static PyObject*
-register_metaclass(PyObject* /*self*/, PyObject* metaclass) noexcept
-{
-    if (!register_metaclass_head(metaclass)) return NULL;
-    PyObjectStorage subclasses = PyObjectStorage::from_new_ref(PyObject_CallMethod((PyObject*)&PyType_Type, "__subclasses__", "O", metaclass));
-    if (!subclasses) {
-        PyErr_Clear();
-        Py_RETURN_NONE;
-    }
-    if (!PyList_Check(subclasses.get())) {
-        Py_RETURN_NONE;
-    }
-    Py_ssize_t list_len = PyList_GET_SIZE(subclasses.get());
-    for (Py_ssize_t i = 0; i < list_len; i++) {
-        PyObject* subclass = PyList_GET_ITEM(subclasses.get(), i);
-        if (!register_metaclass(0, subclass)) {
-            return NULL;
-        }
-    }
-    Py_RETURN_NONE;
-}
-
-static PyObject*
 ensure_type_tp(PyObject* /*self*/, PyObject* type) noexcept
 {
     if (!PyType_Check(type)) {
@@ -6375,15 +6180,12 @@ PrivateModule_dir(PyObject* self, PyObject* /*args*/) noexcept
 {
     PyObjectStorage parent_dir = PyObjectStorage::from_new_ref(PyObject_CallMethod((PyObject*)&PyModule_Type, "__dir__", "O", self));
     if (!parent_dir) return NULL;
-    PyObjectStorage attr_list = PyObjectStorage::from_new_ref(Py_BuildValue("[sssssssssssss]",
+    PyObjectStorage attr_list = PyObjectStorage::from_new_ref(Py_BuildValue("[ssssssssss]",
         "PrivateWrapProxy",
         "PrivateAttrType",
         "PrivateAttrBase",
         "PrivateSuper",
         "PrivateClassSuper",
-        "prepare",
-        "postprocess",
-        "register_metaclass",
         "ensure_type",
         "ensure_metaclass",
         "create_new",
@@ -6420,9 +6222,6 @@ PrivateModule_setattro(PyObject* self, PyObject* name, PyObject* value) noexcept
             "PrivateAttrBase",
             "PrivateSuper",
             "PrivateClassSuper",
-            "prepare",
-            "postprocess",
-            "register_metaclass",
             "ensure_type",
             "ensure_metaclass",
             "create_new",
@@ -6438,36 +6237,6 @@ PrivateModule_setattro(PyObject* self, PyObject* name, PyObject* value) noexcept
     return PyModule_Type.tp_setattro(self, name, value);
 }
 
-static const char* prepare_and_postprocess_doc = R"(function for custom metaclass to create private attributes class.
-
-def prepare(name: str, bases: tuple, attrs: dict, **kwds) -> tempobject:
-    the function to prepare for creating private attributes class. It will return a temporary object which has the same information as the arguments.
-
-def postprocess(type: type, tmp: tempobject) -> None:
-    the function to postprocess for creating private attributes class. The custom metaclass can call this
-
-def register_metaclass(metaclass: type) -> None:
-    the function to register custom metaclass. The custom metaclass must call this function to register itself before creating any private attributes class,
-    otherwise the private attributes class created by this custom metaclass will not work.
-
-All usage of this module should be like:
-```
-from abc import ABCMeta
-import private_attribute
-
-class PrivateAbcMeta(ABCMeta):
-    def __new__(cls, *args, **kwargs):
-        with private_attribute.prepare(*args, **kwargs) as temp:
-            typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-            private_attribute.postprocess(typ, temp) # or temp.postprocess(typ)
-            return typ
-
-private_attribute.register_metaclass(PrivateAbcMeta)
-```
-
-**NOTE**:
-    Deprecated. See "create_new".
-)";
 
 static const char* ensure_type_doc = R"(function for custom metaclass to ensure the type is a private attributes class.
 def ensure_type(type: type) -> None:
@@ -6556,9 +6325,6 @@ class MyClass(private_attribute.PrivateAttrBase):
 )";
 
 static PyMethodDef PrivateModule_methods[] = {
-    {"prepare", (PyCFunction)prepare_for_PrivateAttr, METH_VARARGS | METH_KEYWORDS | METH_STATIC, prepare_and_postprocess_doc},
-    {"postprocess", (PyCFunction)postprocess_for_PrivateAttr, METH_VARARGS | METH_STATIC, prepare_and_postprocess_doc},
-    {"register_metaclass", (PyCFunction)register_metaclass, METH_O | METH_STATIC, prepare_and_postprocess_doc},
     {"ensure_type", (PyCFunction)ensure_type_tp, METH_O | METH_STATIC, ensure_type_doc},
     {"ensure_metaclass", (PyCFunction)ensure_metaclass_tp, METH_O | METH_STATIC, ensure_metaclass_doc},
     {"create_new", (PyCFunction)register_type_create_new, METH_VARARGS, create_new_doc},
@@ -6568,63 +6334,33 @@ static PyMethodDef PrivateModule_methods[] = {
 };
 
 static PyObject*
-PrivateModule_get_prepare(PyObject* /*self*/, void* /*closure*/) noexcept
-{
-    // warning that it is deprecated. See "create_new"
-    if (PyErr_WarnEx(NULL, "private_attribute.prepare is deprecated. See 'private_attribute.create_new'.", 2) < 0) {
-        return NULL;
-    }
-    return PyCFunction_NewEx(&PrivateModule_methods[0], NULL, NULL);
-}
-
-static PyObject*
-PrivateModule_get_postprocess(PyObject* /*self*/, void* /*closure*/) noexcept
-{
-    // warning that it is deprecated. See "create_new"
-    if (PyErr_WarnEx(NULL, "private_attribute.postprocess is deprecated. See 'private_attribute.create_new'.", 2) < 0) {
-        return NULL;
-    }
-    return PyCFunction_NewEx(&PrivateModule_methods[1], NULL, NULL);
-}
-
-static PyObject*
-PrivateModule_get_register_metaclass(PyObject* /*self*/, void* /*closure*/) noexcept
-{
-    // warning that it is deprecated. See "create_new"
-    if (PyErr_WarnEx(NULL, "private_attribute.register_metaclass is deprecated. See 'private_attribute.create_new'.", 2) < 0) {
-        return NULL;
-    }
-    return PyCFunction_NewEx(&PrivateModule_methods[2], NULL, NULL);
-}
-
-static PyObject*
 PrivateModule_get_ensure_type(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    return PyCFunction_NewEx(&PrivateModule_methods[3], NULL, NULL);
+    return PyCFunction_NewEx(&PrivateModule_methods[0], NULL, NULL);
 }
 
 static PyObject*
 PrivateModule_get_ensure_metaclass(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    return PyCFunction_NewEx(&PrivateModule_methods[4], NULL, NULL);
+    return PyCFunction_NewEx(&PrivateModule_methods[1], NULL, NULL);
 }
 
 static PyObject*
 PrivateModule_get_create_new(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    return PyCFunction_NewEx(&PrivateModule_methods[5], NULL, NULL);
+    return PyCFunction_NewEx(&PrivateModule_methods[2], NULL, NULL);
 }
 
 static PyObject*
 PrivateModule_get_create_meta_slot(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    return PyCFunction_NewEx(&PrivateModule_methods[6], NULL, NULL);
+    return PyCFunction_NewEx(&PrivateModule_methods[3], NULL, NULL);
 }
 
 static PyObject*
 PrivateModule_get_create_slot(PyObject* /*self*/, void* /*closure*/) noexcept
 {
-    return PyCFunction_NewEx(&PrivateModule_methods[7], NULL, NULL);
+    return PyCFunction_NewEx(&PrivateModule_methods[4], NULL, NULL);
 }
 
 static PyGetSetDef PrivateModule_getsetters[] = {
@@ -6633,9 +6369,6 @@ static PyGetSetDef PrivateModule_getsetters[] = {
     {"PrivateAttrBase", (getter)PrivateModule_get_PrivateAttrBase, NULL, NULL, NULL},
     {"PrivateSuper", (getter)PrivateModule_get_PrivateSuper, NULL, NULL, NULL},
     {"PrivateClassSuper", (getter)PrivateModule_get_PrivateClassSuper, NULL, NULL, NULL},
-    {"prepare", (getter)PrivateModule_get_prepare, NULL, NULL, NULL},
-    {"postprocess", (getter)PrivateModule_get_postprocess, NULL, NULL, NULL},
-    {"register_metaclass", (getter)PrivateModule_get_register_metaclass, NULL, NULL, NULL},
     {"ensure_type", (getter)PrivateModule_get_ensure_type, NULL, NULL, NULL},
     {"ensure_metaclass", (getter)PrivateModule_get_ensure_metaclass, NULL, NULL, NULL},
     {"create_new", (getter)PrivateModule_get_create_new, NULL, NULL, NULL},
@@ -6665,9 +6398,6 @@ PrivateModule_getattro(PyObject* self, PyObject* name) noexcept
     PrivateModule_GETATTRO_CASE(PrivateAttrBase);
     PrivateModule_GETATTRO_CASE(PrivateSuper);
     PrivateModule_GETATTRO_CASE(PrivateClassSuper);
-    PrivateModule_GETATTRO_CASE(prepare);
-    PrivateModule_GETATTRO_CASE(postprocess);
-    PrivateModule_GETATTRO_CASE(register_metaclass);
     PrivateModule_GETATTRO_CASE(ensure_type);
     PrivateModule_GETATTRO_CASE(ensure_metaclass);
     PrivateModule_GETATTRO_CASE(create_new);
@@ -6825,15 +6555,12 @@ PrivateModule_exec(PyObject* m) noexcept
     if (PyModule_AddType(m, &PrivateWrapType) < 0) {
         return -1;
     }
-    PyObject* all = Py_BuildValue("[sssssssssssss]",
+    PyObject* all = Py_BuildValue("[ssssssssss]",
         "PrivateWrapProxy",
         "PrivateAttrType",
         "PrivateAttrBase",
         "PrivateSuper",
         "PrivateClassSuper",
-        "prepare",
-        "postprocess",
-        "register_metaclass",
         "ensure_type",
         "ensure_metaclass",
         "create_new",
@@ -6874,8 +6601,7 @@ PyInit_private_attribute(void) noexcept
         PyType_Ready(&PrivateSuperType) < 0 ||
         PyType_Ready(&PrivateClassSuperType) < 0 ||
         PyType_Ready(&PrivateAttrType) < 0 ||
-        PyType_Ready(&PrivateModuleType) < 0 ||
-        PyType_Ready(&PrivateTempType) < 0) {
+        PyType_Ready(&PrivateModuleType) < 0) {
         return NULL;
     }
     return PyModuleDef_Init(&def);

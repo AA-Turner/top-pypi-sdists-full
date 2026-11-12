@@ -47,7 +47,9 @@ core = [
 ]
 test = [
     {include-group = "core"},
-    "pytest>=7.0.0", 
+    # <9.2: pytest 9.2 removed Node._nodeid, which pytest-benchmark<=5.3.0 still uses
+    # (ionelmc/pytest-benchmark#321); drop once a fixed pytest-benchmark is released
+    "pytest>=7.0.0,<9.2",
     "pandas>=2.2.2",
     "pytest-benchmark"
 ]
@@ -62,10 +64,13 @@ typecheck = [
     "mypy>=2.3",
     "pandas-stubs",
 ]
+coverage = [
+    "coverage>=7.0.0",
+]
 ci = [
     {include-group = "core"},
     {include-group = "publish"},
-    "coverage>=7.0.0",
+    {include-group = "coverage"},
     "certifi", 
     "black"
 ]
@@ -85,8 +90,11 @@ devwheel = [
     {include-group = "dev"},
     "cibuildwheel>=4.1.0",
 ]
+# installed into the Pyodide test venv only (cibuildwheel test-groups); keep it to
+# runtime test deps, since host tooling (cibuildwheel, black, mypy...) is useless
+# there and can drag in packages that don't import under Emscripten
 devwheelpyodide = [
-    {include-group = "devwheel"},
+    {include-group = "test"},
     "pytest-randomly",
     "pyodide-http",
     "requests"
@@ -151,23 +159,6 @@ wheel.exclude = [
     "spiceypy/utils/cmake/cspice/*.cmake"
 ]
 
-# The cyice extension is not compiled for Emscripten/Pyodide (see CMakeLists.txt
-# `if(NOT DEFINED EMSCRIPTEN)`), so exclude its Cython sources/annotations from the
-# pyodide wheel since there is no compiled module to accompany them. We can't use
-# `if.platform-system = "emscripten"` here: during cross-compilation scikit-build-core
-# sees the host's sys.platform (linux), not the wasm target. Instead we key off the
-# SPICEYPY_PYODIDE env var set in [tool.cibuildwheel.pyodide].environment below.
-[[tool.scikit-build.overrides]]
-if.env.SPICEYPY_PYODIDE = true
-inherit.wheel.exclude = "append"
-wheel.exclude = [
-    "spiceypy/cyice/*.pyx",
-    "spiceypy/cyice/*.pxd",
-    "spiceypy/cyice/*.html",
-    # the only benchmark targets cyice, which isn't built for pyodide
-    "spiceypy/benchmarks/*",
-]
-
 # Scrape __version__ out of the package to satisfy project.dynamic = ["version"].
 # This is the standard top-level dynamic-metadata table; the older
 # [tool.scikit-build.metadata.version] form named the target field with the table
@@ -215,7 +206,9 @@ skip = ["*-win32", "*-manylinux_i686", "*-musllinux_i686", "*-musllinux_aarch64"
 build-verbosity = 2
 # parallel builds passthrough for build
 environment-pass = ["CMAKE_BUILD_PARALLEL_LEVEL"]
-test-groups = ["dev"]
+# only what test-command needs; host tooling (cibuildwheel, black, mypy, twine...)
+# has no business in the per-wheel test venvs
+test-groups = ["test", "coverage"]
 test-command = [
     "coverage run --source spiceypy -m pytest --pyargs spiceypy --benchmark-disable"
 ]
@@ -273,13 +266,12 @@ before-test = [
   "echo 'auditwheel exports results:'",
   "pyodide auditwheel exports --show-type {wheel}"
 ]
-test-command = "python -m pytest -s -vvv --pyargs spiceypy.tests.test_wrapper --benchmark-disable"
+test-command = "python -m pytest -s -vvv --pyargs spiceypy --benchmark-disable"
 # pyodide-version is left to cibuildwheel's default: every 314.0.x release shares
 # CPython 3.14.2 and Emscripten 5.0.3, so wheels stay loadable by the older 314.0.x
 # runtimes bundled with PyScript (docs) and jupyterlite's pyodide-kernel
-# disable some errors for pyodide only; SPICEYPY_PYODIDE drives the cyice-source
-# exclusion override in [tool.scikit-build.overrides] above
-environment = { CFLAGS="-Werror=implicit-function-declaration -Werror=incompatible-pointer-types -Werror=return-type", SPICEYPY_PYODIDE="1" }
+# disable some errors for pyodide only
+environment = { CFLAGS="-Werror=implicit-function-declaration -Werror=incompatible-pointer-types -Werror=return-type" }
 
 
 [tool.mypy]

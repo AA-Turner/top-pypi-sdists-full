@@ -7,6 +7,7 @@ from contextlib import suppress
 from typing import Any
 
 from dreamscale import wire
+from dreamscale.policy.runtime.server_report import real_rows
 from dreamscale.policy.types import ActionChunkResult, ActionTiming
 
 
@@ -46,11 +47,17 @@ def result_from_chunk(
     client_overhead_ms = (
         obs_to_action_ms - server_total_ms if server_total_ms is not None else None
     )
+    actions = tuple(tuple(action) for action in wire.chunk_actions(chunk))
+    indices = tuple(wire.chunk_action_indices(chunk))
+    rows = real_rows(chunk)
+    if rows is not None and rows < len(actions):
+        # An older worker padded its answer past the model's real rows: never run them.
+        actions, indices = actions[:rows], indices[:rows]
     return ActionChunkResult(
         observation_id=observation_id,
         chunk_id=getattr(chunk, "chunk_id", None),
-        actions=tuple(tuple(action) for action in wire.chunk_actions(chunk)),
-        action_indices=tuple(wire.chunk_action_indices(chunk)),
+        actions=actions,
+        action_indices=indices,
         timing=ActionTiming(
             obs_to_action_ms=obs_to_action_ms,
             transport_send_ms=(send_end_ns - send_start_ns) / 1_000_000.0,

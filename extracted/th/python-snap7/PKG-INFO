@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-snap7
-Version: 3.4.0
+Version: 3.5.0
 Summary: Pure Python S7 communication library for Siemens PLCs
 Author-email: Gijs Molenaar <gijsmolenaar@gmail.com>
 License-Expression: MIT
@@ -12,7 +12,7 @@ Classifier: Environment :: Console
 Classifier: Topic :: System :: Hardware
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Manufacturing
-Classifier: Operating System :: POSIX
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

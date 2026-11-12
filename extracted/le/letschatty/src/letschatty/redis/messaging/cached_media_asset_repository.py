@@ -15,7 +15,7 @@ from ...domain.messaging.media_assets import MediaAssetFilter, MediaAssetReposit
 from ...models.cache import CacheProtocol
 from ...models.company.assets import MediaAsset
 from ...models.utils.types import StrObjectId
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ..asset_cache import AssetCache
 
 

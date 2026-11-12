@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.12.1
+Version: 0.12.2
 Summary: Citations and bibliography formatter
 Author-email: Brecht Machiels <brecht@mos6581.org>
 License-Expression: BSD-2-Clause-Views
@@ -18,12 +18,11 @@ Classifier: Intended Audience :: Other Audience
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Printing
 Classifier: Topic :: Software Development :: Documentation
@@ -60,7 +59,7 @@ should not expect to see any major API changes soon.
 
 ## Requirements
 
-citeproc-py supports Python 3.9 and up. It depends on [lxml](https://lxml.de/) for parsing and
+citeproc-py supports Python 3.11 and up. It depends on [lxml](https://lxml.de/) for parsing and
 navigating the CSL style and locale files.
 
 # Installation
@@ -146,6 +145,18 @@ shown when running the test suite again.
 `citeproc-py` uses `ruff` for linting. You can run it directly using `ruff check`.
 Any test failures or linting errors will show up on the CI and will need to be
 fixed before a Pull Request can be merged.
+
+# v0.12.2 (Wed Nov 11 2026)
+
+#### 🐛 Bug Fix
+
+- Add support for 3.15 and remove 3.10 [#221](https://github.com/citeproc-py/citeproc-py/pull/221) ([@tmorrell](https://github.com/tmorrell))
+
+#### Authors: 1
+
+- Tom Morrell ([@tmorrell](https://github.com/tmorrell))
+
+---
 
 # v0.12.1 (Fri Oct 30 2026)
 

@@ -1,29 +1,35 @@
 use std::fmt;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use chrono_tz::Tz;
+use chrono::{DateTime, TimeZone as _, Utc};
+use chrono_tz::{OffsetComponents as _, Tz};
 use log::{debug, warn};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
+use tokio_stream::StreamExt as _;
 
 use crate::error::{Error, TapoResponseError};
 use crate::requests::{
     AddTimerParams, ControlChildParams, DeviceRebootParams, EmptyObjectParams, EmptyParams,
     EnergyDataInterval, GetChildDeviceListParams, GetEnergyDataParams, GetPowerDataParams,
-    GetScheduleRulesParams, LightingEffect, MultipleRequestParams, PlayAlarmParams,
-    PowerDataInterval, RemoveScheduleRulesParams, RemoveTimersParams, ScheduleRule,
-    ScheduleRuleRaw, SegmentEffect, SmartCamControlChildParams, SmartCamGetChildDeviceListParams,
-    SmartCamGetDeviceInfoParams, SmartCamSearchDetectionListParams, TapoParams, TapoRequest,
+    GetScheduleRulesParams, GetWirelessScanInfoParams, LightingEffect, MultipleRequestParams,
+    PlayAlarmParams, PowerDataInterval, RemoveScheduleRulesParams, RemoveTimersParams,
+    ScheduleRule, ScheduleRuleRaw, SegmentEffect, SetQsInfoParams, SmartCamControlChildParams,
+    SmartCamGetChildDeviceListParams, SmartCamGetDeviceInfoParams,
+    SmartCamSearchDetectionListParams, TapoParams, TapoRequest,
 };
 use crate::responses::{
     AddScheduleRuleResult, AddTimerResult, ControlChildResult, CurrentPowerResult,
     DecodableResultExt, DetectionListResultRaw, DetectionResult, EnergyDataResult,
-    EnergyDataResultRaw, EnergyMeterDataResult, EnergyUsageResult, PowerDataResult,
+    EnergyDataResultRaw, EnergyMeterDataResult, EnergyUsageResult, FirmwareUpdateStateResult,
+    FirmwareUpdateStateResultRaw, LatestFirmwareResult, LatestFirmwareResultRaw, PowerDataResult,
     PowerDataResultRaw, PowerState, RecordingDownloadResult, ScheduleRuleListResultRaw,
     ScheduleRuleResult, SmartCamControlChildResult, TapoMultipleResponse, TapoResponseExt,
-    TapoResult, Timer, TimerListResultRaw, TimezoneResult, TimezoneResultRaw, validate_response,
+    TapoResult, Timer, TimerListResultRaw, TimezoneResult, TimezoneResultRaw,
+    WifiConnStatusResultRaw, WifiJoinResult, WifiNetwork, WifiScanResultRaw, WifiSecurity,
+    validate_response,
 };
 use crate::utils::unix_timestamp_seconds;
 
@@ -35,31 +41,48 @@ use crate::responses::{
     ComponentListResult, SupportedAlarmTypeListResult,
 };
 
-use super::discovery::DeviceDiscovery;
+use super::discovery::{DeviceDiscovery, DeviceDiscoveryRaw};
 use super::protocol::media_stream;
 use super::protocol::media_stream::download::DownloadRequest;
 use super::protocol::{AuthProtocol, DeviceFamily, TapoProtocol};
+
+#[cfg(feature = "bluetooth")]
+use super::protocol::{BluetoothSetupDevice, discover_bluetooth_setup_devices};
 use super::{
     CameraHandler, CameraHubHandler, CameraPtzHandler, ColorLightHandler, HubHandler, HubIrHandler,
     LightHandler, PlugEnergyMonitoringHandler, PlugHandler, PowerStripEnergyMonitoringHandler,
-    PowerStripHandler, RgbLightStripHandler, RgbicLightStripHandler,
+    PowerStripHandler, RgbLightStripHandler, RgbicLightStripHandler, SetupHandler,
 };
-
-#[cfg(feature = "debug")]
-use super::discovery::DeviceDiscoveryRaw;
 
 const TERMINAL_UUID: &str = "00-00-00-00-00-00";
 /// Used when the caller does not set one via [`ApiClient::with_timeout`].
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a device in setup mode is given to answer the discovery query
+/// that starts its web server. The wait ends as soon as it answers, and the
+/// query is sent again every 3 seconds until then.
+const SETUP_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(10);
 /// Camera hubs (H200, H500) authenticate the local session and the media
 /// stream with this username and the TP-Link cloud password, rather than the
 /// cloud account username.
 const CAMERA_HUB_USERNAME: &str = "admin";
+/// A device in setup mode logs in to this account until it has joined a
+/// Wi-Fi network, as the Tapo app does.
+const SETUP_USERNAME: &str = "test@tp-link.net";
+const SETUP_PASSWORD: &str = "test";
 
 /// Backstop against a firmware whose reported rule count never lets the
 /// listing loop finish. A P110 returns 5 rules per page and stores at most 32,
 /// so a full device takes 7 pages.
 const MAX_SCHEDULE_RULE_PAGES: u32 = 16;
+
+/// Backstop against a firmware whose reported network count never lets the
+/// Wi-Fi scan loop finish.
+const MAX_WIFI_SCAN_PAGES: u32 = 16;
+
+/// How often, and for how long, a device that was set up over Bluetooth is
+/// asked whether it joined the Wi-Fi network, as the Tapo app does.
+const WIFI_JOIN_POLL_INTERVAL: Duration = Duration::from_secs(2);
+const WIFI_JOIN_POLL_TIMEOUT: Duration = Duration::from_secs(65);
 
 /// Implemented by all ApiClient implementations.
 #[async_trait]
@@ -1268,6 +1291,143 @@ impl ApiClient {
     }
 }
 
+/// Device setup.
+impl ApiClient {
+    /// Specializes the given [`ApiClient`] into a [`SetupHandler`] for a new
+    /// or factory-reset device that broadcasts a setup network. See
+    /// [`SetupHandler`] for how to reach the device.
+    ///
+    /// The device takes the client's credentials as its login once it joins
+    /// a Wi-Fi network. They need not be those of a TP-Link account.
+    ///
+    /// # Arguments
+    ///
+    /// * `ip_address` - the IP address of the device on its setup network,
+    ///   usually `192.168.0.1`
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use tapo::ApiClient;
+    /// # use tapo::responses::WifiSecurity;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let setup = ApiClient::new("tapo-username@example.com", "tapo-password")
+    ///     .setup_over_wifi("192.168.0.1")
+    ///     .await?;
+    ///
+    /// let networks = setup.scan_wifi().await?;
+    /// println!("Networks: {networks:?}");
+    ///
+    /// setup
+    ///     .join_wifi(
+    ///         "wifi-name",
+    ///         "wifi-password",
+    ///         WifiSecurity::Wpa2Psk,
+    ///         chrono_tz::Europe::London,
+    ///     )
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn setup_over_wifi(
+        mut self,
+        ip_address: impl Into<String>,
+    ) -> Result<SetupHandler, Error> {
+        let address = self.login_for_setup(&ip_address.into()).await?;
+
+        Ok(SetupHandler::new(self, Some(address)))
+    }
+
+    /// Discovers the new or factory-reset devices nearby that can be set up
+    /// over Bluetooth, such as the
+    /// [P110M](https://www.tapo.com/en/search/?q=P110M). A device that is
+    /// already set up is left out. Pass one to
+    /// [`ApiClient::setup_over_bluetooth`].
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout_s` - How long to scan for, in seconds. Must be between `1`
+    ///   and `60`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `timeout_s` is out of range, if the host has no
+    /// Bluetooth adapter, or if the scan fails.
+    #[cfg(feature = "bluetooth")]
+    pub async fn discover_bluetooth_setup_devices(
+        timeout_s: u64,
+    ) -> Result<Vec<BluetoothSetupDevice>, Error> {
+        if !(1..=60).contains(&timeout_s) {
+            return Err(Error::Validation {
+                field: "timeout_s".to_string(),
+                message: "Must be between 1 and 60 seconds".to_string(),
+            });
+        }
+
+        discover_bluetooth_setup_devices(Duration::from_secs(timeout_s)).await
+    }
+
+    /// Specializes the given [`ApiClient`] into a [`SetupHandler`] for a new
+    /// or factory-reset device that is set up over Bluetooth, as found by
+    /// [`ApiClient::discover_bluetooth_setup_devices`].
+    ///
+    /// The device takes the client's credentials as its login once it joins
+    /// a Wi-Fi network. They need not be those of a TP-Link account.
+    ///
+    /// Starting another setup of the same device ends this one, even if that
+    /// setup fails. This handler then returns an error.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - the device, as returned by [`ApiClient::discover_bluetooth_setup_devices`]
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use tapo::ApiClient;
+    /// # use tapo::responses::WifiSecurity;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let devices = ApiClient::discover_bluetooth_setup_devices(10).await?;
+    /// let device = devices.first().ok_or("No device to set up")?;
+    ///
+    /// let setup = ApiClient::new("tapo-username@example.com", "tapo-password")
+    ///     .setup_over_bluetooth(device)
+    ///     .await?;
+    ///
+    /// let networks = setup.scan_wifi().await?;
+    /// println!("Networks: {networks:?}");
+    ///
+    /// setup
+    ///     .join_wifi(
+    ///         "wifi-name",
+    ///         "wifi-password",
+    ///         WifiSecurity::Wpa2Psk,
+    ///         chrono_tz::Europe::London,
+    ///     )
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "bluetooth")]
+    pub async fn setup_over_bluetooth(
+        mut self,
+        device: &BluetoothSetupDevice,
+    ) -> Result<SetupHandler, Error> {
+        self.init_protocol(DeviceFamily::Smart, true)?;
+        let timeout = self.timeout();
+
+        let protocol = self
+            .protocol
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("The protocol should have been initialized"))?;
+        protocol.login_over_bluetooth(device, timeout).await?;
+
+        Ok(SetupHandler::new(self, None))
+    }
+}
+
 /// Tapo API Client private methods.
 impl ApiClient {
     /// Prepares the client for a camera hub (H200, H500). Must be called
@@ -1304,6 +1464,71 @@ impl ApiClient {
         device_family: DeviceFamily,
         auth_protocol: AuthProtocol,
     ) -> Result<(String, u16), Error> {
+        self.init_protocol(device_family, false)?;
+
+        let (protocol, tapo_username, tapo_password) = self.protocol_with_credentials()?;
+
+        protocol
+            .login(
+                ip_address,
+                port,
+                tapo_username,
+                tapo_password,
+                device_family,
+                auth_protocol,
+            )
+            .await
+    }
+
+    /// Logs in to a device in setup mode at `ip_address` with the login
+    /// that such a device takes, and returns the IP address and the port
+    /// that it was reached at. The client's own credentials are left for
+    /// the device to take as its login once it joins a Wi-Fi network.
+    pub(crate) async fn login_for_setup(
+        &mut self,
+        ip_address: &str,
+    ) -> Result<(String, u16), Error> {
+        // A device in setup mode starts its web server only once it gets a
+        // discovery query, and refuses connections until then. A failed
+        // query does not stop the login, because a device whose web server
+        // is already running can still be set up.
+        let ip = ip_address.parse::<IpAddr>().ok().or_else(|| {
+            ip_address
+                .parse::<SocketAddr>()
+                .ok()
+                .map(|address| address.ip())
+        });
+
+        if let Some(ip) = ip {
+            match DeviceDiscoveryRaw::new(ip, SETUP_DISCOVERY_TIMEOUT).await {
+                Ok(mut discovery) => match discovery.next().await {
+                    Some(Ok(_)) => debug!("The device answered the discovery query"),
+                    Some(Err(error)) => debug!("The discovery query failed: {error}"),
+                    None => debug!("The device did not answer the discovery query"),
+                },
+                Err(error) => debug!("The discovery query could not be sent: {error}"),
+            }
+        }
+
+        self.init_protocol(DeviceFamily::Smart, true)?;
+
+        let protocol = self
+            .protocol
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("The protocol should have been initialized"))?;
+
+        protocol
+            .login_for_setup(ip_address, SETUP_USERNAME, SETUP_PASSWORD)
+            .await
+    }
+
+    /// Builds the protocol, whose HTTP client opens a connection per request
+    /// for a camera or camera hub, and when `connection_per_request` is set.
+    fn init_protocol(
+        &mut self,
+        device_family: DeviceFamily,
+        connection_per_request: bool,
+    ) -> Result<(), Error> {
         if self.protocol.is_none() {
             let mut builder = Client::builder()
                 .http1_title_case_headers()
@@ -1318,25 +1543,27 @@ impl ApiClient {
             // session. Every request opens its own connection, not only the
             // ones around a login, because a session refresh can log in
             // again at any point.
-            if device_family == DeviceFamily::SmartCam {
+            //
+            // A device in setup mode gets one too. It leaves its setup
+            // network by dropping the connection of the request that puts it
+            // on a Wi-Fi network, and a request sent on a connection that it
+            // closed while idle, as when the user takes a while to pick a
+            // network, fails the same way without having reached it.
+            if device_family == DeviceFamily::SmartCam || connection_per_request {
                 builder = builder.pool_max_idle_per_host(0);
+            }
+
+            // `join_wifi` takes a timeout as sent, so a connection that is
+            // never made must fail as a connect error first. Half of the
+            // timeout always runs out before the whole.
+            if connection_per_request {
+                builder = builder.connect_timeout(self.timeout() / 2);
             }
 
             self.protocol = Some(TapoProtocol::new(builder.build()?));
         }
 
-        let (protocol, tapo_username, tapo_password) = self.protocol_with_credentials()?;
-
-        protocol
-            .login(
-                ip_address,
-                port,
-                tapo_username,
-                tapo_password,
-                device_family,
-                auth_protocol,
-            )
-            .await
+        Ok(())
     }
 
     pub(crate) async fn refresh_session(&mut self) -> Result<(), Error> {
@@ -1564,6 +1791,45 @@ impl ApiClient {
             .execute_request(request)
             .await?
             .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))
+    }
+
+    pub(crate) async fn get_latest_firmware(&self) -> Result<LatestFirmwareResult, Error> {
+        debug!("Get Latest firmware...");
+        let request = TapoRequest::GetLatestFw(TapoParams::new(EmptyParams));
+
+        let raw = self
+            .protocol()?
+            .execute_request::<LatestFirmwareResultRaw>(request)
+            .await?
+            .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+        Ok(raw.try_into()?)
+    }
+
+    pub(crate) async fn start_firmware_update(&self) -> Result<(), Error> {
+        debug!("Start Firmware update...");
+        let request = TapoRequest::FwDownload(TapoParams::new(EmptyParams));
+
+        self.protocol()?
+            .execute_request::<serde_json::Value>(request)
+            .await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn get_firmware_update_state(
+        &self,
+    ) -> Result<FirmwareUpdateStateResult, Error> {
+        debug!("Get Firmware update state...");
+        let request = TapoRequest::GetFwDownloadState(TapoParams::new(EmptyParams));
+
+        let raw = self
+            .protocol()?
+            .execute_request::<FirmwareUpdateStateResultRaw>(request)
+            .await?
+            .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+        Ok(raw.try_into()?)
     }
 
     pub(crate) async fn get_device_usage<R>(&self) -> Result<R, Error>
@@ -2051,6 +2317,182 @@ impl ApiClient {
             .await?;
 
         Ok(())
+    }
+
+    /// The Wi-Fi networks that a device in setup mode sees, all pages of them.
+    pub(crate) async fn scan_wifi(&self) -> Result<Vec<WifiNetwork>, Error> {
+        debug!("Scan Wi-Fi...");
+        let mut networks = Vec::new();
+
+        for _ in 0..MAX_WIFI_SCAN_PAGES {
+            let request = TapoRequest::GetWirelessScanInfo(TapoParams::new(
+                GetWirelessScanInfoParams::new(networks.len()),
+            ));
+
+            let page: WifiScanResultRaw = self
+                .protocol()?
+                .execute_request(request)
+                .await?
+                .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+            let received = page.ap_list.len();
+            for network in page.ap_list {
+                networks.push(WifiNetwork::try_from(network)?);
+            }
+
+            // The Tapo app asks for the next page, starting after the
+            // networks received so far, until it has `sum` of them.
+            if received == 0 || networks.len() >= page.sum {
+                return Ok(networks);
+            }
+        }
+
+        warn!(
+            "Wi-Fi scan stopped after {MAX_WIFI_SCAN_PAGES} pages; the device may have reported more networks"
+        );
+
+        Ok(networks)
+    }
+
+    /// Sends a device in setup mode the Wi-Fi network to join, with the
+    /// client's credentials as its login.
+    pub(crate) async fn join_wifi(
+        &self,
+        ssid: &str,
+        password: &str,
+        security: WifiSecurity,
+        timezone: Tz,
+    ) -> Result<WifiJoinResult, Error> {
+        debug!("Join Wi-Fi...");
+
+        if ssid.is_empty() {
+            return Err(Error::Validation {
+                field: "ssid".to_string(),
+                message: "Must not be empty".to_string(),
+            });
+        }
+        // `scan_wifi` puts U+FFFD in place of bytes of a network name that
+        // are not UTF-8, so such a name is not the network's, and the device
+        // would leave its setup network for a network that does not exist.
+        if ssid.contains(char::REPLACEMENT_CHARACTER) {
+            return Err(Error::Validation {
+                field: "ssid".to_string(),
+                message:
+                    "Must not hold U+FFFD, which scan_wifi puts in place of a name that is not UTF-8"
+                        .to_string(),
+            });
+        }
+        if security == WifiSecurity::Unknown {
+            return Err(Error::Validation {
+                field: "security".to_string(),
+                message: "Must be a security type that the library knows".to_string(),
+            });
+        }
+        // The device leaves its setup network without saying whether it
+        // could join, so a password left out by mistake would take a factory
+        // reset to undo.
+        if password.is_empty() && security != WifiSecurity::None {
+            return Err(Error::Validation {
+                field: "password".to_string(),
+                message: "Must not be empty for a network with security".to_string(),
+            });
+        }
+
+        // The device's clock reads the year 2000 in setup mode, so it is
+        // set from the host's. The Tapo app sends the standard offset,
+        // without daylight saving. chrono-tz takes the winter time of a
+        // zone whose summer time is its standard time, such as Europe/Dublin,
+        // as the daylight saving one, so the offset of such a zone is off by
+        // the difference between the two.
+        let now = Utc::now();
+        let standard_offset = timezone
+            .offset_from_utc_datetime(&now.naive_utc())
+            .base_utc_offset()
+            .num_minutes();
+
+        let request = TapoRequest::SetQsInfo(Box::new(TapoParams::new(SetQsInfoParams::new(
+            &self.tapo_username,
+            &self.tapo_password,
+            ssid,
+            password,
+            security,
+            now.timestamp(),
+            standard_offset,
+            timezone.name(),
+        ))));
+
+        let protocol = self.protocol()?;
+
+        // A device that is set up over Bluetooth answers, and says whether
+        // it joined when asked.
+        if protocol.is_bluetooth() {
+            protocol
+                .execute_request::<serde_json::Value>(request)
+                .await?;
+
+            return self.wait_for_wifi_join(ssid).await;
+        }
+
+        // A device that joins over its setup network leaves it without
+        // answering, so the request ends in a dropped connection or a
+        // timeout. Only a device that could not be reached at all did not
+        // get it.
+        match protocol.execute_request::<serde_json::Value>(request).await {
+            Ok(_) => Ok(WifiJoinResult::Sent),
+            Err(Error::Http(error)) if !error.is_connect() => {
+                debug!("The device left its setup network without answering: {error}");
+                Ok(WifiJoinResult::Sent)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Asks a device that was set up over Bluetooth whether it joined the
+    /// Wi-Fi network `ssid`, until it says so or the wait runs out.
+    async fn wait_for_wifi_join(&self, ssid: &str) -> Result<WifiJoinResult, Error> {
+        let deadline = tokio::time::Instant::now() + WIFI_JOIN_POLL_TIMEOUT;
+
+        let mut last_status: Option<WifiConnStatusResultRaw> = None;
+
+        loop {
+            let request = TapoRequest::GetWifiConnStatus(TapoParams::new(EmptyParams));
+            // A poll takes no longer than the time left, so that the wait
+            // ends at the deadline.
+            let Ok(response) =
+                tokio::time::timeout_at(deadline, self.protocol()?.execute_request(request)).await
+            else {
+                break;
+            };
+            let status: WifiConnStatusResultRaw =
+                response?.ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+            if status.status == "connected" {
+                return Ok(WifiJoinResult::Connected);
+            }
+            last_status = Some(status);
+
+            if tokio::time::Instant::now() + WIFI_JOIN_POLL_INTERVAL > deadline {
+                break;
+            }
+            tokio::time::sleep(WIFI_JOIN_POLL_INTERVAL).await;
+        }
+
+        let (status, reason) = last_status.map_or_else(
+            || ("unknown".to_string(), "none".to_string()),
+            |status| {
+                let reason = status
+                    .last_fail_reason
+                    .map_or_else(|| "none".to_string(), |reason| reason.to_string());
+                (status.status, reason)
+            },
+        );
+
+        Err(Error::Tapo(TapoResponseError::ResponseError {
+            description: format!(
+                "The device did not join {ssid} within {} seconds (status: {status}, last fail reason: {reason}). Check the password and factory reset the device to try again.",
+                WIFI_JOIN_POLL_TIMEOUT.as_secs(),
+            ),
+        }))
     }
 
     pub(crate) fn timeout(&self) -> Duration {

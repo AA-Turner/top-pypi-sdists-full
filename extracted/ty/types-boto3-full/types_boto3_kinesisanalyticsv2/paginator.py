@@ -16,6 +16,8 @@ Usage::
         ListApplicationSnapshotsPaginator,
         ListApplicationVersionsPaginator,
         ListApplicationsPaginator,
+        ListSnapshotOperationsPaginator,
+        ListSnapshotsPaginator,
     )
 
     session = Session()
@@ -25,6 +27,8 @@ Usage::
     list_application_snapshots_paginator: ListApplicationSnapshotsPaginator = client.get_paginator("list_application_snapshots")
     list_application_versions_paginator: ListApplicationVersionsPaginator = client.get_paginator("list_application_versions")
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
+    list_snapshot_operations_paginator: ListSnapshotOperationsPaginator = client.get_paginator("list_snapshot_operations")
+    list_snapshots_paginator: ListSnapshotsPaginator = client.get_paginator("list_snapshots")
     ```
 """
 
@@ -44,6 +48,10 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListApplicationVersionsRequestPaginateTypeDef,
     ListApplicationVersionsResponseTypeDef,
+    ListSnapshotOperationsRequestPaginateTypeDef,
+    ListSnapshotOperationsResponseTypeDef,
+    ListSnapshotsRequestPaginateTypeDef,
+    ListSnapshotsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -57,6 +65,8 @@ __all__ = (
     "ListApplicationSnapshotsPaginator",
     "ListApplicationVersionsPaginator",
     "ListApplicationsPaginator",
+    "ListSnapshotOperationsPaginator",
+    "ListSnapshotsPaginator",
 )
 
 
@@ -141,4 +151,46 @@ class ListApplicationsPaginator(_ListApplicationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/paginator/ListApplications.html#KinesisAnalyticsV2.Paginator.ListApplications.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/paginators/#listapplicationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSnapshotOperationsPaginatorBase = Paginator[ListSnapshotOperationsResponseTypeDef]
+else:
+    _ListSnapshotOperationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSnapshotOperationsPaginator(_ListSnapshotOperationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/paginator/ListSnapshotOperations.html#KinesisAnalyticsV2.Paginator.ListSnapshotOperations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/paginators/#listsnapshotoperationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSnapshotOperationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSnapshotOperationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/paginator/ListSnapshotOperations.html#KinesisAnalyticsV2.Paginator.ListSnapshotOperations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/paginators/#listsnapshotoperationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSnapshotsPaginatorBase = Paginator[ListSnapshotsResponseTypeDef]
+else:
+    _ListSnapshotsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSnapshotsPaginator(_ListSnapshotsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/paginator/ListSnapshots.html#KinesisAnalyticsV2.Paginator.ListSnapshots)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/paginators/#listsnapshotspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSnapshotsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSnapshotsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisanalyticsv2/paginator/ListSnapshots.html#KinesisAnalyticsV2.Paginator.ListSnapshots.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesisanalyticsv2/paginators/#listsnapshotspaginator)
         """

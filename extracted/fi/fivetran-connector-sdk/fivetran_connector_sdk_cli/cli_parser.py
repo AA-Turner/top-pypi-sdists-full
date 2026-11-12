@@ -43,6 +43,18 @@ class _UnsupportedDebugProxyAction(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+class _NonEmptyAction(argparse.Action):
+    """Reject an empty or whitespace-only value (typically an unset shell variable) instead of
+    letting resolution silently fall back to a lower-precedence source."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not values.strip():
+            # the flag as typed (e.g. --python), or the argument name for a positional
+            print_library_log(f"{option_string or self.dest} must not be empty", Logging.Level.SEVERE)
+            sys.exit(1)
+        setattr(namespace, self.dest, values)
+
+
 def _add_force(subparser):
     subparser.add_argument("-f", "--force", action="store_true", help=argparse.SUPPRESS)
 
@@ -50,11 +62,11 @@ def _add_yes(subparser):
     subparser.add_argument("--yes", action="store_true", help="Automatically answers yes to all confirmation prompts")
 
 def _add_state(subparser, hidden=False):
-    subparser.add_argument("--state", type=str, default=None, metavar="<state>",
+    subparser.add_argument("--state", type=str, action=_NonEmptyAction, default=None, metavar="<state>",
                            help=argparse.SUPPRESS if hidden else "Path to state JSON file")
 
 def _add_configuration(subparser, help_text=None):
-    subparser.add_argument("--configuration", type=str, default=None, metavar="<configuration>",
+    subparser.add_argument("--configuration", type=str, action=_NonEmptyAction, default=None, metavar="<configuration>",
                            help=help_text if help_text else "Path to configuration JSON file")
 
 def _add_record(subparser, hidden=False):
@@ -70,27 +82,27 @@ def _add_max_records(subparser, hidden=False):
                            help=argparse.SUPPRESS if hidden else f"(--record only) Stop after N write operations. Default: {DEFAULT_MAX_RECORDS}")
 
 def _add_destination_file(subparser):
-    subparser.add_argument("--destination-file", type=str, default=None, metavar="<destination-file>",
+    subparser.add_argument("--destination-file", type=str, action=_NonEmptyAction, default=None, metavar="<destination-file>",
                            help="Path to destination JSON file. Defaults to destination.json in the project folder")
 
 def _add_api_key(subparser):
-    subparser.add_argument("--api-key", type=str, default=None, metavar="<api-key>",
+    subparser.add_argument("--api-key", type=str, action=_NonEmptyAction, default=None, metavar="<api-key>",
                            help="Provide your base64-encoded API key for deployment")
 
 def _add_destination(subparser):
-    subparser.add_argument("--destination", type=str, default=None, metavar="<destination>",
+    subparser.add_argument("--destination", type=str, action=_NonEmptyAction, default=None, metavar="<destination>",
                            help="Destination name (aka 'group name')")
 
 def _add_connection(subparser):
-    subparser.add_argument("--connection", type=str, default=None, metavar="<connection>",
+    subparser.add_argument("--connection", type=str, action=_NonEmptyAction, default=None, metavar="<connection>",
                            help="Connection name (aka 'destination schema')")
 
 def _add_python_version(subparser):
-    subparser.add_argument("--python-version", "--python", type=str, metavar="<python-version>",
+    subparser.add_argument("--python-version", "--python", type=str, action=_NonEmptyAction, metavar="<python-version>",
                            help=f"Supported Python versions you can use: {SUPPORTED_PYTHON_VERSIONS}. Defaults to {DEFAULT_PYTHON_VERSION}")
 
 def _add_hd_agent_id(subparser):
-    subparser.add_argument("--hybrid-deployment-agent-id", type=str, metavar="<hybrid-deployment-agent-id>",
+    subparser.add_argument("--hybrid-deployment-agent-id", type=str, action=_NonEmptyAction, metavar="<hybrid-deployment-agent-id>",
                            help="Hybrid Deployment agent ID. Defaults to the destination's default agent.")
 
 def _add_proxy_id(subparser, hidden=False):
@@ -106,7 +118,7 @@ def _add_proxy_id(subparser, hidden=False):
         )
         return
 
-    subparser.add_argument("--proxy-id", type=str, default=None, metavar="<proxy-id>",
+    subparser.add_argument("--proxy-id", type=str, action=_NonEmptyAction, default=None, metavar="<proxy-id>",
                            help=argparse.SUPPRESS if hidden else "Proxy Agent ID for routing connector traffic through a Proxy Agent")
 
 def _add_proxy_host_config_key(subparser, hidden=False):
@@ -122,12 +134,12 @@ def _add_proxy_host_config_key(subparser, hidden=False):
         )
         return
 
-    subparser.add_argument("--proxy-host-config-key", type=str, default=None, metavar="<proxy-host-config-key>",
+    subparser.add_argument("--proxy-host-config-key", type=str, action=_NonEmptyAction, default=None, metavar="<proxy-host-config-key>",
                            help=argparse.SUPPRESS if hidden else "Configuration key that contains the host details to proxy")
 
 
 def _add_template(subparser):
-    subparser.add_argument("--template", type=str, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>",
+    subparser.add_argument("--template", type=str, action=_NonEmptyAction, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>",
                            help="Initialize a connector project from a template. Defaults to a path in fivetran/community_connectors. Use the examples/ prefix to reference a template from fivetran/connector_sdk")
 
 def _add_project_path(subparser):
@@ -135,20 +147,20 @@ def _add_project_path(subparser):
                            help="Path to connector project directory (optional, defaults to current directory)")
 
 def _add_naming(subparser):
-    subparser.add_argument("--naming", type=str, default=None, metavar="<naming>",
+    subparser.add_argument("--naming", type=str, action=_NonEmptyAction, default=None, metavar="<naming>",
                            help="Naming strategy for the connection schema. Options: FIVETRAN | SOURCE. Defaults to FIVETRAN.")
 
 def _add_deploy_package_id(subparser, hidden=False):
-    subparser.add_argument("--package-id", type=str, default=None, metavar="<package-id>",
+    subparser.add_argument("--package-id", type=str, action=_NonEmptyAction, default=None, metavar="<package-id>",
                            help=argparse.SUPPRESS if hidden else
                                 "ID of an existing package to use for this connection, skipping upload of new code")
 
 def _add_options_file(subparser):
-    subparser.add_argument("--options-file", type=str, default=None, metavar="<options-file>",
+    subparser.add_argument("--options-file", type=str, action=_NonEmptyAction, default=None, metavar="<options-file>",
                            help="Path to a local deployment options file that holds your deployment settings")
 
 def _add_profile(subparser):
-    subparser.add_argument("--profile", type=str, default="default", metavar="<profile>",
+    subparser.add_argument("--profile", type=str, action=_NonEmptyAction, default="default", metavar="<profile>",
                            help="Profile to use from the deployment options file. Defaults to 'default'")
 
 def _add_non_interactive(subparser):
@@ -163,7 +175,7 @@ def _add_disable_encryption(subparser):
                            help="Disable encryption for sensitive fields (not recommended when working with AI)")
 
 def _add_package_id(subparser):
-    subparser.add_argument("package_id", type=str, help="Unique ID of the package")
+    subparser.add_argument("package_id", type=str, action=_NonEmptyAction, help="Unique ID of the package")
 
 def _add_package_list_limit(subparser):
     subparser.add_argument("--limit", type=int, default=None, metavar="<limit>",
@@ -208,9 +220,9 @@ def _create_argument_parser():
     _add_proxy_id(debug_subparser, hidden=True)
     _add_proxy_host_config_key(debug_subparser, hidden=True)
     record_replay_group = debug_subparser.add_mutually_exclusive_group()
-    _add_record(record_replay_group, hidden=True)
-    _add_replay(record_replay_group, hidden=True)
-    _add_max_records(debug_subparser, hidden=True)
+    _add_record(record_replay_group)
+    _add_replay(record_replay_group)
+    _add_max_records(debug_subparser)
     _add_non_interactive(debug_subparser)
     _add_yes(debug_subparser)
 

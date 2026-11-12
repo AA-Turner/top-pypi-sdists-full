@@ -177,6 +177,17 @@ class AppSettings:
         return frozenset([self.LoginMethod(m) for m in methods])
 
     @property
+    def REAUTHENTICATION_METHODS(self) -> frozenset[str]:
+        methods = self._setting("REAUTHENTICATION_METHODS", None)
+        if methods is None:
+            methods = (
+                "password",
+                "code",
+                "mfa",
+            )
+        return frozenset(methods)
+
+    @property
     def EMAIL_MAX_LENGTH(self) -> int:
         """
         Adjust max_length of email addresses
@@ -245,6 +256,10 @@ class AppSettings:
             stacklevel=3,
         )
         return "password2" in self.SIGNUP_FIELDS
+
+    @property
+    def SIGNUP_ENABLED(self) -> bool:
+        return self._setting("SIGNUP_ENABLED", True)
 
     @property
     def SIGNUP_REDIRECT_URL(self) -> str:

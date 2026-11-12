@@ -22,11 +22,14 @@ from schemathesis.core.jsonschema import (
     VALIDATED_FORMATS_BY_DRAFT,
     BundleError,
     Bundler,
+    example_is_valid,
     make_validator,
     maybe_resolve_bundled,
+    resolve_bundled_ref,
     resolve_bundled_root,
     resolve_with_root_bundle,
     schema_with_bundle,
+    try_make_validator,
 )
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
 from schemathesis.core.jsonschema.resolver import Resolver
@@ -134,15 +137,6 @@ CONSTANTS_OVERLAY_PROBABILITY = 0.15
 _TYPE_DECIDING_KEYWORDS = ("anyOf", "oneOf", "allOf", "not", "$ref")
 
 
-def example_is_valid(value: object, validator: jsonschema_rs.Validator | None) -> bool:
-    if validator is None:
-        return True
-    try:
-        return validator.is_valid(value)
-    except Exception:
-        return True
-
-
 def build_semantic_overlay(
     inner_strategy: st.SearchStrategy,
     leaf_descriptors: list[LeafDescriptor],
@@ -171,13 +165,7 @@ def build_semantic_overlay(
             validator = None
         paired.append((descriptor, validator))
 
-    container_validator: jsonschema_rs.Validator | None = None
-    if container_schema is not None:
-        try:
-            container_validator = make_validator(container_schema, validator_cls)
-        except jsonschema_rs.ValidationError:
-            # Malformed container schema; substitutions skip the container-level revalidation.
-            container_validator = None
+    container_validator = None if container_schema is None else try_make_validator(container_schema, validator_cls)
 
     @st.composite
     def overlaid(draw: st.DrawFn) -> JsonValue | GeneratedValue:
@@ -298,6 +286,40 @@ def _is_generatable_constant(value: ConstantValue, generation_config: Generation
     return True
 
 
+def collect_object_properties(schema: JsonSchemaObject) -> tuple[dict[str, JsonSchema], list[str]]:
+    """Properties and required names an object schema declares, including those in its `allOf` branches.
+
+    Branches that reference the schema's bundle are followed; the first declaration of a property wins.
+    Without branches, the schema's own containers are returned, so the result must not be modified.
+    """
+    if "allOf" not in schema:
+        declared, names = schema.get("properties"), schema.get("required")
+        return (declared if isinstance(declared, dict) else {}), (names if isinstance(names, list) else [])
+    bundled = schema.get(BUNDLE_STORAGE_KEY)
+    properties: dict[str, JsonSchema] = {}
+    required: list[str] = []
+    visited: list[JsonSchemaObject] = []
+    pending = [schema]
+    while pending:
+        branch = pending.pop()
+        # A branch reached again, e.g. through a reference cycle, adds nothing new.
+        if branch in visited:
+            continue
+        visited.append(branch)
+        declared = branch.get("properties")
+        if isinstance(declared, dict):
+            properties = declared | properties
+        names = branch.get("required")
+        if isinstance(names, list):
+            required.extend(names)
+        branches = branch.get("allOf")
+        if isinstance(branches, list):
+            pending.extend(
+                [resolve_bundled_ref(item, bundled) for item in reversed(branches) if isinstance(item, dict)]
+            )
+    return properties, required
+
+
 def build_constants_overlay_strategy(
     inner: st.SearchStrategy,
     *,
@@ -326,13 +348,7 @@ def build_constants_overlay_strategy(
     candidates: dict[tuple[str, ...], list[tuple[ConstantValue, Origin | None]]] = {}
     if location == "body":
         root_schema = container_schema or {"type": "object", "properties": schema_properties}
-        excluded = root_schema.get("properties", {}).keys() - schema_properties.keys()
-        # Properties the caller leaves out get their values elsewhere and must not receive constants.
-        leaves = (
-            (path, schema)
-            for path, schema in _iter_constant_leaves(root_schema, root_schema=root_schema, validator_cls=validator_cls)
-            if path[0] not in excluded
-        )
+        leaves = _body_constant_leaves(root_schema, schema_properties, validator_cls)
     else:
         leaves = (((name,), schema) for name, schema in schema_properties.items() if isinstance(schema, dict))
     for path, schema in leaves:
@@ -438,6 +454,18 @@ def build_constants_overlay_strategy(
         return GeneratedValue(value=new_value, meta=None, constants_draws=tuple(new_draws))
 
     return overlay()
+
+
+def _body_constant_leaves(
+    root_schema: JsonSchemaObject, schema_properties: dict, validator_cls: type
+) -> Iterator[tuple[tuple[str, ...], JsonSchemaObject]]:
+    # Properties the caller leaves out get their values elsewhere and must not receive constants.
+    excluded = collect_object_properties(root_schema)[0].keys() - schema_properties.keys()
+    return (
+        (path, schema)
+        for path, schema in _iter_constant_leaves(root_schema, root_schema=root_schema, validator_cls=validator_cls)
+        if path[0] not in excluded
+    )
 
 
 def _iter_constant_leaves(
@@ -868,13 +896,11 @@ def build_hybrid_strategy(
     """
     from hypothesis import strategies as st
 
-    container_validator: jsonschema_rs.Validator | None = None
-    if container_schema is not None and validator_cls is not None:
-        try:
-            container_validator = make_validator(container_schema, validator_cls)
-        except jsonschema_rs.ValidationError:
-            # Malformed container schema; the merge goes in unchecked, as it did before.
-            container_validator = None
+    container_validator = (
+        try_make_validator(container_schema, validator_cls)
+        if container_schema is not None and validator_cls is not None
+        else None
+    )
 
     # Pre-compute keys for all variants
     variant_keys = [jsonschema_rs.canonical.json.to_string(v.overlay) for v in captured_variants]
@@ -1730,7 +1756,7 @@ class OpenApiBody(OpenApiComponent):
         if schema is None:
             return {}
         resolved = {}
-        for name, property_schema in schema.get("properties", {}).items():
+        for name, property_schema in collect_object_properties(schema)[0].items():
             if isinstance(property_schema, dict):
                 property_schema = resolve_with_root_bundle(property_schema, schema)
                 items = property_schema.get("items")
@@ -1739,6 +1765,23 @@ class OpenApiBody(OpenApiComponent):
                     property_schema = {**property_schema, "items": resolve_with_root_bundle(items, schema)}
             resolved[name] = property_schema
         return resolved
+
+    @property
+    def form_array_item_counts(self) -> dict[str, int]:
+        """Array form properties mapped to the fewest items sent for them: `minItems`, but at least one."""
+        counts: dict[str, int] = {}
+        for name, property_schema in self.form_properties.items():
+            # An untyped property admits arrays too, but nothing marks its values as items.
+            if isinstance(property_schema, dict) and "type" in property_schema and "array" in get_type(property_schema):
+                min_items = property_schema.get("minItems")
+                counts[name] = min_items if isinstance(min_items, int) and min_items > 1 else 1
+        return counts
+
+    @property
+    def required_form_properties(self) -> list[str]:
+        """Names of the body properties the schema or its `allOf` branches require."""
+        schema = self.resolved_schema
+        return collect_object_properties(schema)[1] if schema is not None else []
 
     def get_property_content_types(self, property_name: str) -> list[str]:
         """Get media types a form property declares via `encoding.contentType`."""
@@ -1899,7 +1942,9 @@ class OpenApiBody(OpenApiComponent):
             strategy = build_constants_overlay_strategy(
                 strategy,
                 source=constants_value_source,
-                schema_properties=container_schema.get("properties", {}) if container_schema is not None else {},
+                schema_properties=collect_object_properties(container_schema)[0]
+                if container_schema is not None
+                else {},
                 validator_cls=validator_cls,
                 location="body",
                 generation_config=generation_config,
@@ -1950,6 +1995,7 @@ class OpenApiBody(OpenApiComponent):
                 strategy,
                 bindings=body_bindings,
                 operation_label=operation.label,
+                container_schema=schema,
                 validator_cls=operation.schema.adapter.jsonschema_validator_cls,
                 generation_mode=generation_mode,
             )

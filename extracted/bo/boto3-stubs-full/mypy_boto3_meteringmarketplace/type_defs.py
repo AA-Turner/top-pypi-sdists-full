@@ -103,12 +103,14 @@ class ResolveCustomerResultTypeDef(TypedDict):
 
 
 class UsageAllocationOutputTypeDef(TypedDict):
-    AllocatedUsageQuantity: int
+    AllocatedUsageQuantity: NotRequired[int]
+    AllocatedUsageQuantityAsDecimal: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 
 
 class UsageAllocationTypeDef(TypedDict):
-    AllocatedUsageQuantity: int
+    AllocatedUsageQuantity: NotRequired[int]
+    AllocatedUsageQuantityAsDecimal: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -117,6 +119,7 @@ class UsageRecordOutputTypeDef(TypedDict):
     Dimension: str
     CustomerIdentifier: NotRequired[str]
     Quantity: NotRequired[int]
+    QuantityAsDecimal: NotRequired[str]
     UsageAllocations: NotRequired[list[UsageAllocationOutputTypeDef]]
     CustomerAWSAccountId: NotRequired[str]
     LicenseArn: NotRequired[str]
@@ -136,6 +139,7 @@ class MeterUsageRequestTypeDef(TypedDict):
     Timestamp: TimestampTypeDef
     UsageDimension: str
     UsageQuantity: NotRequired[int]
+    UsageQuantityAsDecimal: NotRequired[str]
     DryRun: NotRequired[bool]
     UsageAllocations: NotRequired[Sequence[UsageAllocationUnionTypeDef]]
     ClientToken: NotRequired[str]
@@ -146,6 +150,7 @@ class UsageRecordTypeDef(TypedDict):
     Dimension: str
     CustomerIdentifier: NotRequired[str]
     Quantity: NotRequired[int]
+    QuantityAsDecimal: NotRequired[str]
     UsageAllocations: NotRequired[Sequence[UsageAllocationUnionTypeDef]]
     CustomerAWSAccountId: NotRequired[str]
     LicenseArn: NotRequired[str]

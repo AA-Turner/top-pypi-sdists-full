@@ -1,6 +1,6 @@
 """Filter Criteria Collection - Pre-configured AssetCollection for Filter Criterias"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.company.assets.filter_criteria import FilterCriteria, FilterCriteriaPreview
 from ....models.data_base.mongo_connection import MongoConnection
 

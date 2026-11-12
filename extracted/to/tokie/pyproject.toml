@@ -4,11 +4,12 @@ build-backend = "maturin"
 
 [project]
 name = "tokie"
-version = "0.1.4"
+version = "0.3.0"
 description = "Blazingly fast tokenizer — 50x faster, 10x smaller, 100% accurate"
 readme = "README_PYPI.md"
 requires-python = ">=3.10"
 license = { text = "MIT OR Apache-2.0" }
+dependencies = ["numpy"]
 keywords = [
     "tokenizer",
     "tokenization",
@@ -48,10 +49,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chonkie-inc/tokie"
-Repository = "https://github.com/chonkie-inc/tokie"
+Homepage = "https://github.com/feyninc/tokie"
+Repository = "https://github.com/feyninc/tokie"
 Documentation = "https://docs.rs/tokie"
-"Bug Tracker" = "https://github.com/chonkie-inc/tokie/issues"
+"Bug Tracker" = "https://github.com/feyninc/tokie/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

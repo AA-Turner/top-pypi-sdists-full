@@ -23,7 +23,7 @@ import warnings
 from typing import Any, ClassVar
 
 from application_sdk.app.task import task
-from application_sdk.credentials import legacy_credential_ref
+from application_sdk.credentials.ref import _guid_credential_ref
 from application_sdk.observability.logger_adaptor import get_logger
 from application_sdk.templates._template_errors import (
     SqlQueryExtractorNotImplementedError,
@@ -110,11 +110,11 @@ class SqlQueryExtractor(BaseMetadataExtractor):
         logger.info("Starting SQL query extraction: %s", workflow_id)
 
         try:
-            # TODO(v3-cleanup): remove credential_guid fallback when all connectors use credential_ref.
-            # Prefer credential_ref; fall back to legacy credential_guid
+            # Prefer a prebuilt credential_ref; otherwise build the GUID ref
+            # from credential_guid (the direct-mode route).
             cred_ref = input.credential_ref
             if cred_ref is None and input.credential_guid:
-                cred_ref = legacy_credential_ref(input.credential_guid)
+                cred_ref = _guid_credential_ref(input.credential_guid)
 
             workflow_args = {
                 "workflow_id": workflow_id,
@@ -163,3 +163,33 @@ class SqlQueryExtractor(BaseMetadataExtractor):
             )
 
             raise SqlQueryExtractionError(workflow_id=str(workflow_id), cause=e) from e
+
+
+# ── Deprecated re-exports ────────────────────────────────────────────────────
+#: name -> (replacement, why). This module imported ``legacy_credential_ref``
+#: until FND-4691 switched it to the private GUID constructor, which left the
+#: name importable from here only by accident of that import. Served once more
+#: by ``__getattr__`` below (PEP 562) so the removal waits for v4.0.0.
+_DEPRECATED_CONSTANTS: dict[str, tuple[str, str]] = {
+    "legacy_credential_ref": (
+        "application_sdk.credentials.ref.legacy_credential_ref",
+        "it was only ever re-exported here as a side effect of an import",
+    ),
+}
+
+
+def __getattr__(name: str) -> object:
+    """Serve the removed re-exports once more, with a deprecation warning (PEP 562)."""
+    entry = _DEPRECATED_CONSTANTS.get(name)
+    if entry is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    replacement, note = entry
+    warnings.warn(
+        f"{name} is deprecated here; use {replacement} instead — {note}. "
+        "Will be removed in v4.0.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from application_sdk.credentials import ref as _ref  # noqa: PLC0415
+
+    return getattr(_ref, name)

@@ -39,6 +39,7 @@ machinery.
 from __future__ import annotations
 
 import weakref
+from datetime import datetime
 from typing import (
     Any,
     ContextManager,
@@ -58,7 +59,7 @@ from raindrop._state import ClientState
 from raindrop.handoff import TraceContext
 from raindrop.interaction import Interaction
 from raindrop.local_debugger import UNSET
-from raindrop.models import Attachment, PartialTrackAIEvent
+from raindrop.models import Attachment, FlushResult, PartialTrackAIEvent
 from raindrop.prompt_tools import ToolsInput
 from raindrop.subagent import SubagentRun
 
@@ -82,11 +83,14 @@ class Raindrop:
         debug_logs: bool = False,
         wizard_session: str | None = None,
         app_git: bool | AppGitOptions = True,
+        flush_timeout: float | None = None,
         **traceloop_kwargs: Any,
     ) -> None:
         """Create an independent client. Arguments mirror ``analytics.init()``.
 
         Additional per-instance knobs:
+            flush_timeout: Deadline in seconds for this client's ``flush()``
+                and ``shutdown()`` (default 10).
             max_queue_size: In-memory event buffer bound (default 10,000).
             redact_pii: Apply PII redaction to this client's events.
             debug_logs: Raise the SDK's process-wide log verbosity (logging
@@ -122,6 +126,7 @@ class Raindrop:
                 max_text_field_chars=max_text_field_chars,
                 project_id=project_id,
                 app_git=app_git,
+                flush_timeout=flush_timeout,
                 **traceloop_kwargs,
             )
         except Exception as e:
@@ -287,12 +292,15 @@ class Raindrop:
         convo_id: Optional[str] = None,
         model: Optional[str] = None,
         tools: Optional[ToolsInput] = None,
+        timestamp: Optional[Union[str, datetime]] = None,
     ) -> Interaction:
         """Start an interaction bound to this client (and bind the current
         execution context to this client's project for span routing).
 
         ``tools`` records the tool list as ``ai.prompt.tools`` on model spans
         started inside the interaction; see ``raindrop.analytics.prompt_tools``.
+        ``timestamp`` is the interaction's start (default: now); see
+        ``raindrop.analytics.begin``.
         """
         return _analytics.begin(
             user_id=user_id,
@@ -305,6 +313,7 @@ class Raindrop:
             model=model,
             state=self._state,
             tools=tools,
+            timestamp=timestamp,
         )
 
     def prompt_tools(
@@ -318,8 +327,28 @@ class Raindrop:
         """
         return _analytics.prompt_tools(tools, source=source)
 
-    def resume_interaction(self, event_id: str | None = None) -> Interaction:
-        return _analytics.resume_interaction(event_id, state=self._state)
+    def resume_interaction(
+        self,
+        event_id: str | None = None,
+        *,
+        user_id: str | None = None,
+        convo_id: str | None = None,
+        event_name: str | None = None,
+    ) -> Interaction:
+        """Continue an event by id, even one begun in another process.
+
+        Nothing is sent by this call. ``user_id``, ``convo_id`` and
+        ``event_name`` are optional; when given, every later update and the
+        finish for this event carry them. See
+        ``raindrop.analytics.resume_interaction``.
+        """
+        return _analytics.resume_interaction(
+            event_id,
+            state=self._state,
+            user_id=user_id,
+            convo_id=convo_id,
+            event_name=event_name,
+        )
 
     # -- detached sub-agents ---------------------------------------------------- #
 
@@ -426,13 +455,20 @@ class Raindrop:
 
     # -- lifecycle -------------------------------------------------------------- #
 
-    def flush(self) -> None:
-        """Drain this client's buffers to the API (blocking)."""
-        _analytics.flush(state=self._state)
+    def flush(self) -> FlushResult:
+        """Send this client's queued telemetry, within ``flush_timeout``.
 
-    def shutdown(self) -> None:
-        """Flush and stop this client under the standard 10s deadline."""
-        _analytics.shutdown(state=self._state)
+        Returns a ``FlushResult`` (truthy when everything was delivered); it
+        never raises and is safe to ignore.
+        """
+        return _analytics.flush(state=self._state)
+
+    def shutdown(self) -> FlushResult:
+        """Flush and stop this client within ``flush_timeout`` (default 10 s).
+
+        Returns a ``FlushResult``; it never raises and is safe to ignore.
+        """
+        return _analytics.shutdown(state=self._state)
 
     # Context-manager sugar: ``with Raindrop(...) as rd:`` flushes on exit.
     def __enter__(self) -> "Raindrop":

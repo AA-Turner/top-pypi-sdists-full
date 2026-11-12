@@ -10,6 +10,7 @@ from flask import Flask, jsonify, request
 import schemathesis
 import schemathesis.openapi
 from schemathesis.checks import not_a_server_error
+from schemathesis.core.errors import InvalidSchema, SerializationNotPossible
 from schemathesis.core.failures import FailureGroup
 from schemathesis.core.transforms import deepclone
 from schemathesis.engine import Status, events
@@ -25,6 +26,7 @@ from schemathesis.specs.openapi.checks import (
     response_schema_conformance,
     use_after_free,
 )
+from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource
 from test.apps.catalog.openapi.modifiers.stateful import (
     BearerAuth,
     CircularLinks,
@@ -324,7 +326,6 @@ def test_multiple_conformance_issues(engine_factory):
     }
 
 
-@pytest.mark.flaky(reruns=9)
 def test_find_use_after_free(engine_factory):
     engine = engine_factory(
         UseAfterFree(),
@@ -364,14 +365,12 @@ def _use_after_free_state_machine(ctx):
     return StateMachine
 
 
-@pytest.mark.flaky(reruns=9)
 def test_find_use_after_free_via_state_machine(ctx):
     with pytest.raises(FailureGroup) as exc_info:
         _use_after_free_state_machine(ctx).run(settings=_STATE_MACHINE_SETTINGS)
     assert any("Deleted resource still available" in str(e) for e in exc_info.value.exceptions)
 
 
-@pytest.mark.flaky(reruns=9)
 def test_find_use_after_free_via_state_machine_with_overridden_validate_response(ctx):
     class CustomStateMachine(_use_after_free_state_machine(ctx)):
         def validate_response(self, response, case, additional_checks=None, **kwargs):
@@ -470,10 +469,157 @@ def test_flaky_suite_retries_only_after_new_failure(ctx, stop_event):
 def test_unsatisfiable(engine_factory):
     engine = engine_factory(Unsatisfiable(), max_examples=1)
     result = collect_result(engine)
-    assert result.errors
-    assert isinstance(result.errors[0].value, hypothesis.errors.Unsatisfiable)
-    assert "Cannot generate test data for request body (application/json)" in str(result.errors[0].value)
+    assert [
+        (error.label, error.related_to_operation, type(error.value), str(error.value).splitlines()[0])
+        for error in result.errors
+    ] == [
+        (
+            "POST /users",
+            True,
+            hypothesis.errors.Unsatisfiable,
+            "Cannot generate test data for request body (application/json)",
+        )
+    ]
     assert result.events[-1].status == Status.ERROR
+
+
+INVALID_ITEMS = {"type": "array", "items": {"type": "string", "required": True}}
+NO_INTEGER = {"type": "integer", "minimum": 5, "maximum": 1}
+NAMED = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
+
+
+def _body(schema, media_type="application/json"):
+    return {"requestBody": {"required": True, "content": {media_type: {"schema": schema}}}}
+
+
+def _by_id(name):
+    return [{"name": name, "in": "path", "required": True, "schema": {"type": "integer"}}]
+
+
+def _created(links):
+    return {
+        "201": {
+            "description": "Created",
+            "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}},
+            "links": links,
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    ("create_item", "update_user", "expected"),
+    [
+        (
+            _body(INVALID_ITEMS),
+            _body(NAMED),
+            ("POST /items", InvalidSchema, "Invalid `requestBody` definition"),
+        ),
+        (
+            _body(NO_INTEGER),
+            _body(NAMED),
+            (
+                "POST /items",
+                hypothesis.errors.Unsatisfiable,
+                "Cannot generate test data for request body (application/json)",
+            ),
+        ),
+        (
+            {**_body(NAMED), "parameters": [{"name": "limit", "in": "query", "required": True, "schema": NO_INTEGER}]},
+            _body(NAMED),
+            ("POST /items", hypothesis.errors.Unsatisfiable, "Cannot generate test data for query parameter 'limit'"),
+        ),
+        (
+            _body(NAMED, media_type="application/x-unknown"),
+            _body(NAMED),
+            (
+                "POST /items",
+                SerializationNotPossible,
+                "No supported serializers for media types: application/x-unknown",
+            ),
+        ),
+        (
+            _body(NAMED),
+            _body(INVALID_ITEMS),
+            ("PUT /users/{userId}", InvalidSchema, "Invalid `requestBody` definition"),
+        ),
+        (
+            _body(NAMED),
+            _body(NO_INTEGER),
+            (
+                "PUT /users/{userId}",
+                hypothesis.errors.Unsatisfiable,
+                "Cannot generate test data for request body (application/json)",
+            ),
+        ),
+    ],
+    ids=[
+        "invalid-schema",
+        "unsatisfiable",
+        "unsatisfiable-query",
+        "unsupported-media-type",
+        "invalid-schema-link-target",
+        "unsatisfiable-link-target",
+    ],
+)
+def test_operation_without_generatable_data_is_reported_by_name(
+    ctx, app_runner, stop_event, create_item, update_user, expected
+):
+    # Items have no explicit links, so only inferred links reach them.
+    user_links = {
+        "GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}},
+        "UpdateUser": {"operationId": "updateUser", "parameters": {"userId": "$response.body#/id"}},
+    }
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {"post": {**_body(NAMED), "responses": _created(user_links)}},
+            "/users/{userId}": {
+                "get": {
+                    "operationId": "getUser",
+                    "parameters": _by_id("userId"),
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "put": {
+                    "operationId": "updateUser",
+                    "parameters": _by_id("userId"),
+                    **update_user,
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+            "/items": {"post": {**create_item, "responses": _created({})}},
+            "/items/{itemId}": {"get": {"parameters": _by_id("itemId"), "responses": {"200": {"description": "OK"}}}},
+        }
+    )
+
+    @app.route("/users", methods=["POST"])
+    @app.route("/items", methods=["POST"])
+    def create():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>", methods=["GET", "PUT"])
+    @app.route("/items/<int:item_id>", methods=["GET"])
+    def read_or_update(**_):
+        return jsonify({"id": 1})
+
+    result = _run_items_app(app, app_runner, stop_event, max_examples=10)
+    sent = {
+        event.recorder.cases[case_id].value.operation.label
+        for event in result.events
+        if isinstance(event, events.ScenarioFinished)
+        for case_id in event.recorder.interactions
+    }
+    errors = [
+        (error.label, error.related_to_operation, type(error.value), str(error.value).splitlines()[0])
+        for error in result.errors
+    ]
+    # The suite that met the operation ends; a fresh one never schedules it, so no scenario replays a draw of it.
+    suites = [event.status for event in result.events if isinstance(event, events.SuiteFinished)]
+    label, error_type, message = expected
+    assert (errors, suites, result.events[-1].status, "GET /users/{userId}" in sent) == (
+        [(label, True, error_type, message)],
+        [Status.ERROR, Status.SUCCESS],
+        Status.ERROR,
+        True,
+    )
 
 
 def test_custom_headers(engine_factory):
@@ -710,8 +856,6 @@ def test_negative_changing_to_positive(app_runner):
         CUSTOMERS[customer_id] = data
         return jsonify(customer_id), 201
 
-    app_port = app_runner.run_flask_app(app)
-
     config = schemathesis.Config.from_dict(
         {
             "checks": {
@@ -721,7 +865,7 @@ def test_negative_changing_to_positive(app_runner):
         }
     )
     schema = schemathesis.openapi.from_dict(schema, config=config)
-    schema.config.update(base_url=f"http://127.0.0.1:{app_port}/")
+    schema.config.update(base_url=app_runner.openapi_url(app, path="/"))
     schema.config.generation.update(database="none")
     engine = stateful.execute(
         engine=EngineContext(schema=schema, stop_event=threading.Event()),
@@ -768,11 +912,9 @@ def test_explicit_auth_header_does_not_trigger_negative_data_rejection(app_runne
             return auth_error()
         return jsonify({})
 
-    app_port = app_runner.run_flask_app(app)
-
     config = schemathesis.Config.from_dict(
         {
-            "base-url": f"http://127.0.0.1:{app_port}/",
+            "base-url": app_runner.openapi_url(app, path="/"),
             "headers": {"Authorization": "Bearer secret"},
             "checks": {
                 "enabled": False,
@@ -825,6 +967,26 @@ def test_explicit_hypothesis_default_max_steps(ctx):
     )
 
     assert [len(event.recorder.cases) for event in engine if isinstance(event, events.ScenarioFinished)][-1] == 50
+
+
+def test_stateful_harvest_flows_into_pool(ctx):
+    api = ctx.openapi.apps.stateful_users()
+    config = schemathesis.Config()
+    config.projects.override.phases.stateful.inference.algorithms = []
+    config.projects.override.generation.update(
+        modes=[GenerationMode.POSITIVE],
+        unique_inputs=False,
+        max_examples=10,
+        database="none",
+    )
+    schema = schemathesis.openapi.from_url(api.schema_url, config=config)
+    engine_context = EngineContext(schema=schema, stop_event=threading.Event())
+    list(stateful.execute(engine=engine_context, phase=Phase(name=PhaseName.STATEFUL_TESTING, is_enabled=True)))
+    extra_data_source = engine_context.extra_data_source
+    assert isinstance(extra_data_source, OpenApiExtraDataSource)
+    assert list(extra_data_source.repository.iter_instances("User")), (
+        "stateful 2xx bodies were not ingested into the pool at the suite boundary"
+    )
 
 
 def test_ignored_auth_valid(engine_factory):
@@ -1254,7 +1416,6 @@ def test_ensure_resource_availability_after_own_path_post(
     def get_user(user_id):
         return jsonify({"detail": "not found"}), 404
 
-    port = app_runner.run_flask_app(app)
     config = schemathesis.Config.from_dict(
         {
             "max-failures": 1,
@@ -1262,7 +1423,7 @@ def test_ensure_resource_availability_after_own_path_post(
             "generation": {"mode": "positive", "max-examples": 40, "database": "none"},
         }
     )
-    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json", config=config)
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app), config=config)
     result = collect_result(
         stateful.execute(
             engine=EngineContext(schema=schema, stop_event=stop_event),
@@ -1342,7 +1503,6 @@ def test_removal_by_non_delete_verb_suppresses_resource_availability(ctx, app_ru
             return jsonify({"detail": "not found"}), 404
         return jsonify({"userId": user_id}), 200
 
-    port = app_runner.run_flask_app(app)
     config = schemathesis.Config.from_dict(
         {
             "max-failures": 1,
@@ -1350,7 +1510,7 @@ def test_removal_by_non_delete_verb_suppresses_resource_availability(ctx, app_ru
             "generation": {"mode": "positive", "max-examples": 40, "database": "none"},
         }
     )
-    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json", config=config)
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app), config=config)
     result = collect_result(
         stateful.execute(
             engine=EngineContext(schema=schema, stop_event=stop_event),
@@ -1401,11 +1561,10 @@ def test_inferred_body_link_sends_a_listed_value(ctx, app_runner, stop_event, me
         sent.append((payload or {}).get("language"))
         return jsonify({}), 200
 
-    port = app_runner.run_flask_app(app)
     config = schemathesis.Config.from_dict(
         {"checks": {"enabled": False}, "generation": {"mode": "positive", "max-examples": 10, "database": "none"}}
     )
-    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json", config=config)
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app), config=config)
     collect_result(
         stateful.execute(
             engine=EngineContext(schema=schema, stop_event=stop_event),

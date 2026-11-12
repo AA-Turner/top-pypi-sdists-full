@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ibm-watsonx-orchestrate
-Version: 2.19.1
+Version: 2.20.0
 Summary: IBM watsonx.orchestrate ADK
 Author-email: IBM <support@ibm.com>
 License: MIT License
@@ -12,8 +12,8 @@ Requires-Dist: click<9.0.0,>=8.3.3
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: ibm-cloud-sdk-core>=3.24.2
-Requires-Dist: ibm-watsonx-orchestrate-clients==2.19.1
-Requires-Dist: ibm-watsonx-orchestrate-core==2.19.1
+Requires-Dist: ibm-watsonx-orchestrate-clients==2.20.0
+Requires-Dist: ibm-watsonx-orchestrate-core==2.20.0
 Requires-Dist: jsonref==1.1.0
 Requires-Dist: packaging>=24.2
 Requires-Dist: pydantic<3.0.0,>=2.10.3
@@ -28,7 +28,7 @@ Requires-Dist: typer<1.0.0,>=0.26.1
 Requires-Dist: urllib3>=2.7.0
 Requires-Dist: websocket-client<2.0.0,>=1.8.0
 Provides-Extra: agentops
-Requires-Dist: ibm-watsonx-orchestrate-evaluation-framework==1.5.2; extra == 'agentops'
+Requires-Dist: ibm-watsonx-orchestrate-evaluation-framework==1.6.7; extra == 'agentops'
 Provides-Extra: aws
 Requires-Dist: botocore>=1.34.0; extra == 'aws'
 Provides-Extra: dev

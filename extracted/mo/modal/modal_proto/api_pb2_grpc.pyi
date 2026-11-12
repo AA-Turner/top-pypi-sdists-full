@@ -72,6 +72,10 @@ class ModalClientStub:
         modal_proto.api_pb2.AppGetTagsRequest,
         modal_proto.api_pb2.AppGetTagsResponse,
     ]
+    AppGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AppGetTimeRangeStatsRequest,
+        modal_proto.api_pb2.AppGetTimeRangeStatsResponse,
+    ]
     AppHeartbeat: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AppHeartbeatRequest,
         google.protobuf.empty_pb2.Empty,
@@ -165,6 +169,11 @@ class ModalClientStub:
         modal_proto.api_pb2.ClassGetRequest,
         modal_proto.api_pb2.ClassGetResponse,
     ]
+    CliCommandSuggest: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.CliCommandSuggestRequest,
+        modal_proto.api_pb2.CliCommandSuggestResponse,
+    ]
+    """CLI guidance"""
     ClientHello: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.ClientHelloResponse,
@@ -407,6 +416,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionBindParamsRequest,
         modal_proto.api_pb2.FunctionBindParamsResponse,
     ]
+    FunctionBlobGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.BlobGetRequest,
+        modal_proto.api_pb2.BlobGetResponse,
+    ]
     FunctionCallCancel: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionCallCancelRequest,
         google.protobuf.empty_pb2.Empty,
@@ -607,6 +620,11 @@ class ModalClientStub:
         modal_proto.api_pb2.MountPutFileRequest,
         modal_proto.api_pb2.MountPutFileResponse,
     ]
+    ObjectSuggest: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ObjectSuggestRequest,
+        modal_proto.api_pb2.ObjectSuggestResponse,
+    ]
+    """Object name suggestions"""
     PersistentSandboxCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.PersistentSandboxCreateRequest,
         modal_proto.api_pb2.PersistentSandboxCreateResponse,
@@ -623,6 +641,10 @@ class ModalClientStub:
     PersistentSandboxTerminate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.PersistentSandboxTerminateRequest,
         modal_proto.api_pb2.PersistentSandboxTerminateResponse,
+    ]
+    PersistentSandboxTunnelsList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.PersistentSandboxTunnelsListRequest,
+        modal_proto.api_pb2.PersistentSandboxTunnelsListResponse,
     ]
     ProxyAddIp: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ProxyAddIpRequest,
@@ -742,6 +764,15 @@ class ModalClientStub:
     SandboxGetResourceUsage: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetResourceUsageRequest,
         modal_proto.api_pb2.SandboxGetResourceUsageResponse,
+    ]
+    SandboxGetStats: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetStatsRequest,
+        modal_proto.api_pb2.SandboxGetStatsResponse,
+    ]
+    """Statistics over available usage samples; ingestion can lag execution."""
+    SandboxGetStatsV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetStatsRequest,
+        modal_proto.api_pb2.SandboxGetStatsResponse,
     ]
     SandboxGetTaskId: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetTaskIdRequest,
@@ -983,6 +1014,14 @@ class ModalClientStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Tokens (web auth flow)"""
+    TokenDisable: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TokenDisableRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    TokenEnable: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TokenEnableRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
     TokenFlowCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenFlowCreateRequest,
         modal_proto.api_pb2.TokenFlowCreateResponse,
@@ -1248,6 +1287,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AppGetTagsResponse: ...
     @abc.abstractmethod
+    def AppGetTimeRangeStats(
+        self,
+        request: modal_proto.api_pb2.AppGetTimeRangeStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AppGetTimeRangeStatsResponse: ...
+    @abc.abstractmethod
     def AppHeartbeat(
         self,
         request: modal_proto.api_pb2.AppHeartbeatRequest,
@@ -1384,6 +1429,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.ClassGetRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ClassGetResponse: ...
+    @abc.abstractmethod
+    def CliCommandSuggest(
+        self,
+        request: modal_proto.api_pb2.CliCommandSuggestRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.CliCommandSuggestResponse:
+        """CLI guidance"""
     @abc.abstractmethod
     def ClientHello(
         self,
@@ -1743,6 +1795,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionBindParamsResponse: ...
     @abc.abstractmethod
+    def FunctionBlobGet(
+        self,
+        request: modal_proto.api_pb2.BlobGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.BlobGetResponse: ...
+    @abc.abstractmethod
     def FunctionCallCancel(
         self,
         request: modal_proto.api_pb2.FunctionCallCancelRequest,
@@ -2039,6 +2097,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.MountPutFileResponse: ...
     @abc.abstractmethod
+    def ObjectSuggest(
+        self,
+        request: modal_proto.api_pb2.ObjectSuggestRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ObjectSuggestResponse:
+        """Object name suggestions"""
+    @abc.abstractmethod
     def PersistentSandboxCreate(
         self,
         request: modal_proto.api_pb2.PersistentSandboxCreateRequest,
@@ -2063,6 +2128,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.PersistentSandboxTerminateRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.PersistentSandboxTerminateResponse: ...
+    @abc.abstractmethod
+    def PersistentSandboxTunnelsList(
+        self,
+        request: modal_proto.api_pb2.PersistentSandboxTunnelsListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.PersistentSandboxTunnelsListResponse: ...
     @abc.abstractmethod
     def ProxyAddIp(
         self,
@@ -2240,6 +2311,19 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SandboxGetResourceUsageRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxGetResourceUsageResponse: ...
+    @abc.abstractmethod
+    def SandboxGetStats(
+        self,
+        request: modal_proto.api_pb2.SandboxGetStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetStatsResponse:
+        """Statistics over available usage samples; ingestion can lag execution."""
+    @abc.abstractmethod
+    def SandboxGetStatsV2(
+        self,
+        request: modal_proto.api_pb2.SandboxGetStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetStatsResponse: ...
     @abc.abstractmethod
     def SandboxGetTaskId(
         self,
@@ -2596,6 +2680,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty:
         """Tokens (web auth flow)"""
+    @abc.abstractmethod
+    def TokenDisable(
+        self,
+        request: modal_proto.api_pb2.TokenDisableRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def TokenEnable(
+        self,
+        request: modal_proto.api_pb2.TokenEnableRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
     def TokenFlowCreate(
         self,

@@ -25,6 +25,7 @@ from ...agent_session import (
     RUN_WRITE_ORIGIN,
     WRITE_ORIGIN_HEADER,
     agent_session_headers,
+    build_switch_headers,
     recorded_session_headers,
     run_write_origin)
 
@@ -91,8 +92,11 @@ def queued_session_scope(recorded: str | None):
 
 
 def _session_headers() -> dict[str, str]:
+    """The session's headers, plus that chat's switch as this machine's files hold it now
+    (`build_switch_headers`): a queued op's chat too, since the outbox is this machine's."""
     recorded = _queued_session.get()
-    return agent_session_headers() if recorded is _OWN_SESSION else recorded_session_headers(recorded)
+    headers = agent_session_headers() if recorded is _OWN_SESSION else recorded_session_headers(recorded)
+    return {**headers, **build_switch_headers(headers.get(AGENT_SESSION_HEADER))} if headers else headers
 
 
 def _event_at_header() -> dict[str, str]:

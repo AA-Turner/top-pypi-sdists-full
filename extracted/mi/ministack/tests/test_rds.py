@@ -2957,6 +2957,117 @@ def test_rds_last_member_delete_wins_after_readiness_epoch_check(monkeypatch):
         m._clusters.clear()
 
 
+def test_rds_concurrent_cluster_instance_creates_start_one_shared_container(monkeypatch):
+    """Two concurrent CreateDBInstance calls into one new cluster start its container once; neither is `failed`."""
+    import threading
+
+    from ministack.services import rds as m
+
+    second_run = threading.Event()
+    cluster_runs = []
+    restarts = []
+
+    class FakeContainer:
+        id = "concurrent-create-shared-container"
+        attrs = {"NetworkSettings": {"Networks": {}}}
+        status = "running"
+
+        def reload(self):
+            pass
+
+        def start(self):
+            restarts.append(self.id)
+
+    container = FakeContainer()
+
+    class FakeContainers:
+        def run(self, **kwargs):
+            if kwargs.get("name") != m._rds_cluster_docker_name("concurrent-create-cluster"):
+                return container
+            cluster_runs.append(kwargs["name"])
+            if len(cluster_runs) > 1:
+                second_run.set()
+                raise Exception(
+                    '409 Client Error: Conflict ("The container name "/%s" is already in use")'
+                    % kwargs["name"],
+                )
+            # Let an unserialised second create reach Docker too.
+            second_run.wait(timeout=0.5)
+            return container
+
+        def get(self, identifier):
+            if identifier == container.id:
+                return container
+            raise Exception("not found")
+
+    class FakeDocker:
+        def __init__(self):
+            self.containers = FakeContainers()
+
+    monkeypatch.setattr(m, "_get_docker", lambda: FakeDocker())
+    monkeypatch.setattr(m, "_get_ministack_network", lambda _client: None)
+    monkeypatch.setattr(m, "_next_port", lambda: 16030)
+    monkeypatch.setattr(m, "_is_host_port_free", lambda _port: True)
+    monkeypatch.setattr(m, "_wait_for_database_ready", lambda *_args, **_kwargs: True)
+
+    register = m._register_instance_in_cluster
+
+    def _slow_register(instance):
+        # Widen the start-to-registration gap a second create could restart in.
+        time.sleep(0.2)
+        register(instance)
+
+    monkeypatch.setattr(m, "_register_instance_in_cluster", _slow_register)
+
+    m._instances.clear()
+    m._clusters.clear()
+    try:
+        m._create_db_cluster({
+            "DBClusterIdentifier": "concurrent-create-cluster",
+            "Engine": "aurora-postgresql",
+            "MasterUsername": "postgres",
+            "MasterUserPassword": "password123",
+        })
+        ids = ["concurrent-create-0", "concurrent-create-1"]
+        barrier = threading.Barrier(len(ids))
+        statuses = {}
+
+        def _create(db_id):
+            barrier.wait()
+            m._create_db_instance({
+                "DBInstanceIdentifier": db_id,
+                "DBClusterIdentifier": "concurrent-create-cluster",
+                "DBInstanceClass": "db.r6g.large",
+                "Engine": "aurora-postgresql",
+            })
+            statuses[db_id] = m._instances[db_id]["DBInstanceStatus"]
+
+        threads = [threading.Thread(target=_create, args=(i,)) for i in ids]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5)
+
+        assert len(cluster_runs) == 1
+        assert restarts == []
+        assert sorted(statuses) == ids
+        assert "failed" not in statuses.values(), statuses
+        members = {
+            mbr["DBInstanceIdentifier"]
+            for mbr in m._clusters["concurrent-create-cluster"]["DBClusterMembers"]
+        }
+        assert members == set(ids)
+        writers = [
+            mbr["DBInstanceIdentifier"]
+            for mbr in m._clusters["concurrent-create-cluster"]["DBClusterMembers"]
+            if mbr["IsClusterWriter"]
+        ]
+        assert len(writers) == 1, writers
+    finally:
+        m._instances.clear()
+        m._clusters.clear()
+
+
 def test_rds_stop_start_cluster_compute_lifecycle(monkeypatch):
     """StopDBCluster stops the shared container; StartDBCluster restarts it."""
     from ministack.services import rds as m
@@ -5385,9 +5496,14 @@ def test_rds_reboot_follows_container_to_its_new_address(monkeypatch, reboot_ins
                "_shared_endpoint": {"Address": "10.0.0.7", "Port": 3306}}
     reboot_instance.update({"_shared_cluster_id": "reboot-cluster", "_internal_address": "10.0.0.7",
                             "_internal_port": 3306, "Endpoint": {"Address": "10.0.0.7", "Port": 3306}})
-    sibling = {"DBInstanceIdentifier": "reboot-sibling", "_internal_address": "10.0.0.7",
-               "Endpoint": {"Address": "10.0.0.7", "Port": 3306}}
+    sibling = {"DBInstanceIdentifier": "reboot-sibling", "_docker_container_id": "owned",
+               "_internal_address": "10.0.0.7", "Endpoint": {"Address": "10.0.0.7", "Port": 3306}}
     monkeypatch.setitem(_imm_rds._instances, "reboot-sibling", sibling)
+    # Another cluster's container that restarted at the same time and took the
+    # old address keeps it.
+    neighbour = {"DBInstanceIdentifier": "reboot-neighbour", "_docker_container_id": "other",
+                 "_internal_address": "10.0.0.7", "Endpoint": {"Address": "10.0.0.7", "Port": 3306}}
+    monkeypatch.setitem(_imm_rds._instances, "reboot-neighbour", neighbour)
     monkeypatch.setattr(_imm_rds, "_ministack_network", "ms-net")
     seen = []
 
@@ -5409,6 +5525,7 @@ def test_rds_reboot_follows_container_to_its_new_address(monkeypatch, reboot_ins
     assert reboot_instance["DBInstanceStatus"] == "available"
     assert reboot_instance["Endpoint"]["Address"] == "10.0.0.4"
     assert sibling["_internal_address"] == "10.0.0.4" and sibling["Endpoint"]["Address"] == "10.0.0.4"
+    assert neighbour["_internal_address"] == "10.0.0.7" and neighbour["Endpoint"]["Address"] == "10.0.0.7"
     assert cluster["_shared_internal_address"] == "10.0.0.4"
     assert cluster["_shared_endpoint"]["Address"] == "10.0.0.4"
     assert cluster["Endpoint"] == "10.0.0.4"
@@ -18445,3 +18562,32 @@ def test_host_port_probe_sees_ports_the_daemon_publishes(monkeypatch):
     monkeypatch.setattr(m, "_published_cache", [0.0, frozenset()])
     assert not m._is_host_port_free(16381)
     assert m._is_host_port_free(16382)
+
+
+@pytest.mark.skipif(not os.environ.get("DOCKER_NETWORK"), reason="needs a live PostgreSQL container")
+@pytest.mark.data_plane
+def test_rds_aurora_postgresql_has_builtin_roles(rds):
+    """The master user is a member of rds_superuser, and rds_iam exists to grant."""
+    cluster_id = f"pgroles-{uuid.uuid4().hex[:8]}"
+    rds.create_db_cluster(DBClusterIdentifier=cluster_id, Engine="aurora-postgresql",
+                          MasterUsername="admin", MasterUserPassword=PASSWORD, DatabaseName=DATABASE)
+    rds.create_db_instance(DBInstanceIdentifier=f"{cluster_id}-1", DBClusterIdentifier=cluster_id,
+                           DBInstanceClass="db.r6g.large", Engine="aurora-postgresql")
+    try:
+        writer = _wait_for_instance(rds, f"{cluster_id}-1", timeout=180)
+        conn = _pg_connect(writer["Endpoint"])
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT pg_has_role('admin', 'rds_superuser', 'member')")
+            assert cur.fetchone() == (True,)
+            cur.execute("SELECT r.rolname, a.admin_option FROM pg_auth_members a JOIN pg_roles r ON r.oid = a.roleid "
+                        "JOIN pg_roles m ON m.oid = a.member WHERE m.rolname = 'rds_superuser' ORDER BY 1")
+            assert cur.fetchall() == [("rds_password", True), ("rds_replication", True)]
+            cur.execute("CREATE USER app_user; GRANT rds_iam TO app_user")
+            cur.execute("SELECT pg_has_role('app_user', 'rds_iam', 'member')")
+            assert cur.fetchone() == (True,)
+        finally:
+            conn.close()
+    finally:
+        rds.delete_db_instance(DBInstanceIdentifier=f"{cluster_id}-1", SkipFinalSnapshot=True)
+        rds.delete_db_cluster(DBClusterIdentifier=cluster_id, SkipFinalSnapshot=True)

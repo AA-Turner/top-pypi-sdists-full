@@ -481,92 +481,145 @@ class OssContentStore(BaseContentStore):
         )
 
     def list_objects(self, prefix: str, *, list_only: bool = False,
-                     dataset: str | None = None) -> list[str]:
+                     dataset: str | None = None,
+                     max_keys: int | None = None) -> list[str]:
+        """List object keys under *prefix*.
+
+        ``max_keys``（有限值时）在收集到该数量的键后提前停止翻页，
+        不再拉取剩余 OSS 分页——分页发现路径（P1-1c）用它把首页
+        请求的网络开销从“随对象总量线性”降为“随请求页数”。
+        返回条数可能少于桶内实际对象数（截断语义由调用方处理）。
+        """
+        return self._list_objects_state(prefix, list_only=list_only,
+                                        dataset=dataset, max_keys=max_keys)[0]
+
+    def list_objects_with_exhausted(self, prefix: str, *, list_only: bool = False,
+                                    dataset: str | None = None,
+                                    max_keys: int | None = None,
+                                    start_after: str = "") -> tuple[list[str], bool]:
+        """Same as :meth:`list_objects` but also reports OSS exhaustion.
+
+        Returns ``(keys, exhausted)``: *exhausted* is ``True`` when the OSS
+        listing reached its natural end (no further pages under *prefix*),
+        and ``False`` when it stopped early because *max_keys* keys were
+        collected. ``start_after`` resumes the listing after that raw key
+        (OSS marker semantics; only keys strictly greater are returned).
+        Lets paged discovery advance by *valid* instances instead of raw
+        keys and decide ``has_more`` without guessing.
+        """
+        return self._list_objects_state(prefix, list_only=list_only,
+                                        dataset=dataset, max_keys=max_keys,
+                                        start_after=start_after)
+
+    def _list_objects_state(self, prefix: str, *, list_only: bool = False,
+                            dataset: str | None = None,
+                            max_keys: int | None = None,
+                            start_after: str = "") -> tuple[list[str], bool]:
+        bounded = isinstance(max_keys, int) and not isinstance(max_keys, bool) \
+            and max_keys >= 0
+
         def list_all(bucket):
             keys: list[str] = []
-            marker = ""
+            if bounded and max_keys == 0:
+                return keys, False  # stopped by cap, OSS state unknown → not exhausted
+            marker = start_after
             seen = {marker}
             while True:
+                page_size = 1000
+                if bounded:
+                    page_size = min(1000, max(1, max_keys - len(keys)))
                 result = bucket.list_objects(
-                    prefix=prefix, marker=marker, max_keys=1000)
+                    prefix=prefix, marker=marker, max_keys=page_size)
                 keys.extend(obj.key for obj in result.object_list)
+                if bounded and len(keys) >= max_keys:
+                    return keys[:max_keys], False  # stopped by cap
                 marker = _next_listing_marker(result, seen)
                 if marker is None:
-                    break
-            return keys
+                    return keys, True  # listing reached its natural end
+            return keys, True  # unreachable
 
         return self._execute_oss(
             _OperationIntent.NON_DOWNLOAD, prefix, dataset, list_all,
             list_only=list_only)
 
-    def delete_instance(self, dataset: str, version: str, instance_id: str, *,
-                        split: str, layout) -> None:
-        """Delete only one canonical instance, using server-issued STS privately.
+    def delete_instance_files(self, operation) -> None:
+        """Delete exactly the server-scoped objects of one instance deletion.
 
-        Per subtree: at most 1000 pages of 200 objects, O(200) memory, sequential
-        requests and existing bounded transport retries. Stop writers/ingesters
-        before calling; this is not an atomic delete or a version-history purge.
+        ``operation`` carries the server-issued restricted credentials (policy
+        bundles ``oss:DeleteObject`` for exact keys plus ``ListObjects``
+        conditioned on the scope prefixes) and the ``delete_scope`` manifest:
+        ``keys`` are exact objects, ``prefixes`` are directory subtrees. The
+        restricted delete credentials are opened directly here — they never
+        enter the read/write credential cache, and a normal writer token is
+        never used for deletion (the server does not grant DeleteObject to
+        read/write policies).
+
+        Per subtree: at most 1000 pages of 200 objects, O(200) memory,
+        sequential requests and existing bounded transport retries. Stop
+        writers/ingesters before calling; this is not an atomic delete or a
+        version-history purge.
         """
         from ..errors import SchemaError
-        from ..validate import validate_instance_id
 
-        P.DatasetName.parse(dataset)
-        P.DatasetName.parse(layout.prefix)
-        for value in (instance_id, split):
-            validate_instance_id(value)
-        if version:
-            validate_instance_id(version)
-        scope = layout.sts_prefix(dataset)
-        metadata = layout.metadata_key(dataset, instance_id, version=version, split=split)
-        prefixes = (
-            layout.assets_dir(dataset, instance_id, version=version, split=split),
-            layout.report_key(dataset, instance_id, version=version, split=split)
-            .rsplit("/", 1)[0] + "/",
-        )
-        if not all(key.startswith(scope) for key in (metadata, *prefixes)):
-            raise SchemaError("instance deletion escaped the dataset root")
+        credentials = getattr(operation, "credentials", None)
+        bucket_name = getattr(operation, "bucket", "")
+        keys = list(getattr(operation, "keys", None) or [])
+        prefixes = list(getattr(operation, "prefixes", None) or [])
+        if not isinstance(credentials, dict) or not bucket_name:
+            raise TransportError("instance deletion credentials missing")
+        endpoint = credentials.get("OSS_ENDPOINT", "")
+        route = _plan_oss_route(endpoint)
+        if not route.standard:
+            raise _unconfirmed_private_endpoint_error(endpoint)
+        private_endpoint = route.private_endpoint
+        # 与下载同一安全纪律：删除只走私网（受限 STS 900s，公网回退无意义且
+        # 令牌作用域不应离开内网）。3s 探测快速失败，避免公网环境傻等 TCP 超时。
+        if not self._probe_cached(private_endpoint):
+            raise _private_endpoint_error(
+                private_endpoint, ConnectionRefusedError(
+                    f"TCP probe failed for {private_endpoint} within 3s"))
+        # 独立开桶：不进 bucket 缓存（删除令牌 900s 短时效、单次使用；缓存
+        # 会把它与读写令牌混入同一淘汰池）。factory 直收标准 STS dict。
+        sts = {
+            "access_key_id": credentials.get("OSS_ACCESS_KEY_ID", ""),
+            "access_key_secret": credentials.get("OSS_ACCESS_KEY_SECRET", ""),
+            "security_token": credentials.get("OSS_SECURITY_TOKEN", ""),
+            "endpoint": private_endpoint,
+            "bucket": bucket_name,
+        }
+        bucket = self._make_bucket(sts, private_download=True)
 
-        def remove(list_bucket, delete_bucket):
+        def remove():
+            for key in keys:
+                self._do(lambda key=key: bucket.delete_object(key))
             for prefix in prefixes:
                 marker = ""
                 for _ in range(1000):
-                    page = self._do(lambda: list_bucket.list_objects(
+                    page = self._do(lambda: bucket.list_objects(
                         prefix=prefix, marker=marker, max_keys=200))
                     objects = list(page.object_list)
                     if len(objects) > 200:
                         raise SchemaError("OSS deletion page exceeds the requested limit")
-                    keys = [obj.key for obj in objects]
+                    page_keys = [obj.key for obj in objects]
                     if any(not isinstance(key, str) or not key.startswith(prefix)
-                           or (marker and key <= marker) for key in keys):
+                           or (marker and key <= marker) for key in page_keys):
                         raise SchemaError("OSS deletion listing escaped its instance subtree")
                     next_marker = page.next_marker
                     if page.is_truncated and (
                             not isinstance(next_marker, str)
                             or not next_marker.startswith(prefix)
                             or next_marker <= marker
-                            or (keys and next_marker < max(keys))):
+                            or (page_keys and next_marker < max(page_keys))):
                         raise SchemaError("OSS deletion listing returned an invalid marker")
-                    for key in keys:
-                        self._do(lambda key=key: delete_bucket.delete_object(key))
+                    for key in page_keys:
+                        self._do(lambda key=key: bucket.delete_object(key))
                     if not page.is_truncated:
                         break
                     marker = next_marker
                 else:
                     raise SchemaError("OSS deletion page budget exceeded; retry after quiescing writers")
-            # Remove the ingest source only after both scoped subtrees succeed.
-            self._do(lambda: delete_bucket.delete_object(metadata))
 
-        # Reuse the existing strict private-endpoint path (also used by downloads),
-        # without the public fallback used for ordinary non-download operations.
-        # Listing and object mutation are distinct grants on the server. Do not
-        # assume a normal writer/admin token includes ListObjects, or try to
-        # mutate with the discovery-only token.
-        list_bucket = self._execute_oss(
-            _OperationIntent.DOWNLOAD, scope, dataset, lambda bucket: bucket,
-            list_only=True)
-        delete_bucket = self._execute_oss(
-            _OperationIntent.DOWNLOAD, scope, dataset, lambda bucket: bucket)
-        remove(list_bucket, delete_bucket)
+        remove()
 
     def list_prefixes(self, prefix: str, *, list_only: bool = False,
                        dataset: str | None = None) -> list[str]:
@@ -635,6 +688,59 @@ class OssContentStore(BaseContentStore):
                 if marker is None:
                     break
             return names, keys
+
+        return self._execute_oss(
+            _OperationIntent.NON_DOWNLOAD, prefix, dataset, list_one_level,
+            list_only=list_only)
+
+    def list_direct_objects_paged(self, prefix: str, *,
+                                  list_only: bool = False,
+                                  dataset: str | None = None,
+                                  max_keys: int | None = None,
+                                  start_after: str = "") -> tuple[list[str], bool]:
+        """Page over **direct-level** object keys using ``delimiter='/'``.
+
+        Returns ``(direct_keys, exhausted)``:
+
+        - *direct_keys*: object keys directly under *prefix* (sub-directory
+          contents are skipped entirely — one subtree costs one prefix entry,
+          not one entry per nested object). Marker ordering is preserved, so
+          ``start_after`` (a raw direct key) resumes strictly after it.
+        - *exhausted*: ``True`` when the single-level listing reached its
+          natural end; ``False`` when it stopped early because *max_keys*
+          direct keys were collected.
+
+        Paged instance discovery uses this so a sparse directory (few direct
+        JSONs beside huge nested subtrees) costs a handful of LISTs instead
+        of one per two raw keys.
+        """
+        bounded = isinstance(max_keys, int) and not isinstance(max_keys, bool) \
+            and max_keys >= 0
+
+        def list_one_level(bucket):
+            keys: list[str] = []
+            if bounded and max_keys == 0:
+                return keys, False
+            marker = start_after
+            seen = {marker}
+            while True:
+                # Request a full OSS page of *entries* (direct objects and
+                # same-level sub-directory prefixes together): under the
+                # delimiter the server folds each subtree into one entry, so
+                # a full page is cheap regardless of subtree sizes. The
+                # caller's cap applies to *direct keys* only — dense
+                # directories stop after one page, directories dominated by
+                # sibling sub-dirs page at O(entries/1000) which is bounded
+                # by the listing's 1000-page budget.
+                result = bucket.list_objects(
+                    prefix=prefix, marker=marker, delimiter="/", max_keys=1000)
+                keys.extend(obj.key for obj in result.object_list)
+                if bounded and len(keys) >= max_keys:
+                    return keys[:max_keys], False  # stopped by cap
+                marker = _next_listing_marker(result, seen)
+                if marker is None:
+                    return keys, True  # listing reached its natural end
+            return keys, True  # unreachable
 
         return self._execute_oss(
             _OperationIntent.NON_DOWNLOAD, prefix, dataset, list_one_level,

@@ -2,36 +2,35 @@
 
 from __future__ import annotations
 
-__lazy_modules__ = {"humanize.i18n", "math"}
-
-from math import log
+__lazy_modules__ = {"humanize.i18n"}
 
 from humanize.i18n import _gettext as _
+from humanize.i18n import _gettext_noop as N_
 
 suffixes = {
     "decimal": (
-        "kB",
-        "MB",
-        "GB",
-        "TB",
-        "PB",
-        "EB",
-        "ZB",
-        "YB",
-        "RB",
-        "QB",
+        N_("kB"),
+        N_("MB"),
+        N_("GB"),
+        N_("TB"),
+        N_("PB"),
+        N_("EB"),
+        N_("ZB"),
+        N_("YB"),
+        N_("RB"),
+        N_("QB"),
     ),
     "binary": (
-        "KiB",
-        "MiB",
-        "GiB",
-        "TiB",
-        "PiB",
-        "EiB",
-        "ZiB",
-        "YiB",
-        "RiB",
-        "QiB",
+        N_("KiB"),
+        N_("MiB"),
+        N_("GiB"),
+        N_("TiB"),
+        N_("PiB"),
+        N_("EiB"),
+        N_("ZiB"),
+        N_("YiB"),
+        N_("RiB"),
+        N_("QiB"),
     ),
     "gnu": "KMGTPEZYRQ",
 }
@@ -97,6 +96,8 @@ def naturalsize(
 
     if abs_bytes < base:
         return f"{int(bytes_)}B" if gnu else _("%d Bytes") % int(bytes_)
+
+    from math import log
 
     exp = int(min(log(abs_bytes, base), len(suffix)))
     # The suffix is chosen from the unrounded byte count, but `format` rounds the

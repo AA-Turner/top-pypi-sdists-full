@@ -48,6 +48,10 @@ class Check:
                 `failure`. A client decides what each word means and what to do
                 with one it doesn't know.
 
+                `startup_failure` is a workflow run that never started. It has no
+                jobs, so the check carries the workflow's name, `url` is the run's
+                page, and there is no `jobId`.
+
                 `action_required` means the job needs someone's approval, and `url`
                 is where to give it. The page shows it as waiting for approval,
                 the same as a held run whose `status` is "waiting".
@@ -100,6 +104,10 @@ class Check:
                 while the list is built: ask for it through
                 GET /api/v1/checks/log with `excerpt=true`. The whole output is read
                 through GET /api/v1/checks/log.
+            not_reported (bool | Unset): Set on a required check the base branch names that nothing on the
+                head commit has reported: no job, no status. It is not a job. Its
+                `status` is "queued", `url` is empty, `required` is true, and it is
+                in none of a pull request's counts. Absent otherwise. GitHub only.
      """
 
     name: str
@@ -116,6 +124,7 @@ class Check:
     run_attempt: int | Unset = UNSET
     failed_step: str | Unset = UNSET
     excerpt: str | Unset = UNSET
+    not_reported: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -155,6 +164,8 @@ class Check:
 
         excerpt = self.excerpt
 
+        not_reported = self.not_reported
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -185,6 +196,8 @@ class Check:
             field_dict["failedStep"] = failed_step
         if excerpt is not UNSET:
             field_dict["excerpt"] = excerpt
+        if not_reported is not UNSET:
+            field_dict["notReported"] = not_reported
 
         return field_dict
 
@@ -240,6 +253,8 @@ class Check:
 
         excerpt = d.pop("excerpt", UNSET)
 
+        not_reported = d.pop("notReported", UNSET)
+
         check = cls(
             name=name,
             status=status,
@@ -255,6 +270,7 @@ class Check:
             run_attempt=run_attempt,
             failed_step=failed_step,
             excerpt=excerpt,
+            not_reported=not_reported,
         )
 
 

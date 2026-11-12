@@ -212,6 +212,28 @@ def test_operation_auth_and_headers_stay_with_their_operation(ctx, cli, tmp_path
     }
 
 
+def test_configured_authorization_headers_win_over_netrc(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success_and_text()
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login netrc password secret\n")
+    cli.main(
+        "run",
+        api.schema_url,
+        "--phases=fuzzing",
+        "--max-examples=1",
+        "--checks=not_a_server_error",
+        "-H",
+        "Authorization: Bearer project",
+        env={"NETRC": str(netrc)},
+        config={"operations": [{"include-name": "GET /api/text", "headers": {"Authorization": "Bearer text"}}]},
+    )
+    assert {
+        (request.path, request.headers.get("Authorization"))
+        for request in api.requests
+        if request.path.startswith("/api/")
+    } == {("/api/success", "Bearer project"), ("/api/text", "Bearer text")}
+
+
 @pytest.fixture
 def verify_auth(ctx):
     return ctx.write_pymodule("""
@@ -289,3 +311,16 @@ class BrokenAuth:
     )
     # Then the error should be caught and displayed clearly
     assert cli.main("run", api.schema_url, "--max-examples=1", hooks=module) == snapshot_cli
+
+
+@pytest.mark.parametrize(
+    "extra_kwargs",
+    [
+        {},
+        {"config": {"auth": {"openapi": {"BearerAuth": {"bearer": "real-token"}}}}},
+    ],
+    ids=["no-creds", "with-creds"],
+)
+def test_auth_inference_toggles_protected_access(ctx, cli, snapshot_cli, extra_kwargs):
+    api = ctx.openapi.apps.under_declared_security()
+    assert cli.run(api.schema_url, "--max-examples=10", **extra_kwargs) == snapshot_cli

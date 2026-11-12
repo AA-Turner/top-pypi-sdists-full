@@ -12,7 +12,7 @@ from ...domain.crm.chat_funnels import ChatFunnelRepository
 from ...models.cache import CacheProtocol
 from ...models.company.CRM.funnel import ChatFunnel
 from ...models.utils.types import StrObjectId
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ..asset_cache import AssetCache
 
 

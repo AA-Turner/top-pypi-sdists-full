@@ -2,7 +2,7 @@
 
 import re
 import unicodedata
-from typing import Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 from terminaltables3.terminal_io import terminal_size
 
@@ -24,18 +24,19 @@ def visible_width(string: str) -> int:
     if "\033" in string:
         string = RE_COLOR_ANSI.sub("", string)
 
-    # Convert to unicode.
-    try:
-        string = string.decode("u8")
-    except (AttributeError, UnicodeEncodeError):
-        pass
-
     width = 0
+    previous_width = 0
+    joined = False
     for char in string:
-        if unicodedata.east_asian_width(char) in ("F", "W"):
-            width += 2
+        if char == "\u200d":
+            joined = True
+        elif unicodedata.category(char) in ("Mn", "Me"):
+            continue
         else:
-            width += 1
+            char_width = 2 if unicodedata.east_asian_width(char) in ("F", "W") else 1
+            width += max(0, char_width - previous_width) if joined else char_width
+            previous_width = char_width
+            joined = False
 
     return width
 
@@ -46,7 +47,7 @@ def align_and_pad_cell(
     inner_dimensions: Tuple,
     padding: Sequence[int],
     space: str = " ",
-) -> list[str]:
+) -> List[str]:
     """Align a string horizontally and vertically. Also add additional padding in both dimensions.
 
     :param str string: Input string to operate on.
@@ -131,7 +132,7 @@ def max_dimensions(
             inner_heights[j] = max(inner_heights[j], cell.count("\n") + 1)
             inner_widths[i] = max(
                 inner_widths[i],
-                *[visible_width(the_line) for the_line in cell.splitlines()]
+                *[visible_width(the_line) for the_line in cell.splitlines()],
             )
 
     # Calculate with padding.

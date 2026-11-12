@@ -26,6 +26,7 @@ from .literals import (
     DomainStatusType,
     FieldNamespaceType,
     FieldTypeType,
+    MergeStatusType,
     OrderType,
     RelatedItemTypeType,
     RuleTypeType,
@@ -45,6 +46,7 @@ __all__ = (
     "AuditEventFieldValueUnionTypeDef",
     "AuditEventPerformedByTypeDef",
     "AuditEventTypeDef",
+    "AuditMergeMetadataTypeDef",
     "BasicLayoutOutputTypeDef",
     "BasicLayoutTypeDef",
     "BatchCreateRelatedItemErrorEntryTypeDef",
@@ -145,6 +147,7 @@ __all__ = (
     "FieldValueUnionOutputTypeDef",
     "FieldValueUnionTypeDef",
     "FieldValueUnionUnionTypeDef",
+    "FieldsConfigurationTypeDef",
     "FileContentTypeDef",
     "FileFilterTypeDef",
     "GetCaseAuditEventsRequestTypeDef",
@@ -159,6 +162,8 @@ __all__ = (
     "GetFieldResponseTypeDef",
     "GetLayoutRequestTypeDef",
     "GetLayoutResponseTypeDef",
+    "GetMergeCasesStatusRequestTypeDef",
+    "GetMergeCasesStatusResponseTypeDef",
     "GetTemplateRequestTypeDef",
     "GetTemplateResponseTypeDef",
     "HiddenCaseRuleOutputTypeDef",
@@ -200,6 +205,7 @@ __all__ = (
     "RelatedItemTypeFilterPaginatorTypeDef",
     "RelatedItemTypeFilterTypeDef",
     "RelatedItemUpdateContentTypeDef",
+    "RelatedItemsConfigurationTypeDef",
     "RequiredCaseRuleOutputTypeDef",
     "RequiredCaseRuleTypeDef",
     "RequiredFieldTypeDef",
@@ -225,6 +231,7 @@ __all__ = (
     "SlaInputConfigurationTypeDef",
     "SlaInputContentTypeDef",
     "SortTypeDef",
+    "StartMergeCasesRequestTypeDef",
     "TagFilterTypeDef",
     "TagPropagationConfigurationOutputTypeDef",
     "TagPropagationConfigurationTypeDef",
@@ -257,6 +264,12 @@ class AuditEventFieldValueUnionTypeDef(TypedDict):
 class UserUnionTypeDef(TypedDict):
     userArn: NotRequired[str]
     customEntity: NotRequired[str]
+
+
+class AuditMergeMetadataTypeDef(TypedDict):
+    mergeEventId: str
+    primaryCaseId: str
+    secondaryCaseId: str
 
 
 class CaseIdentifierTypeDef(TypedDict):
@@ -531,6 +544,11 @@ class GetLayoutRequestTypeDef(TypedDict):
     layoutId: str
 
 
+class GetMergeCasesStatusRequestTypeDef(TypedDict):
+    domainId: str
+    caseId: str
+
+
 class GetTemplateRequestTypeDef(TypedDict):
     domainId: str
     templateId: str
@@ -605,6 +623,13 @@ class ListTemplatesRequestTypeDef(TypedDict):
 class SlaFilterTypeDef(TypedDict):
     name: NotRequired[str]
     status: NotRequired[SlaStatusType]
+
+
+class RelatedItemsConfigurationTypeDef(TypedDict):
+    comment: NotRequired[bool]
+    connectCase: NotRequired[bool]
+    contact: NotRequired[bool]
+    custom: NotRequired[bool]
 
 
 class SearchAllRelatedItemsSortTypeDef(TypedDict):
@@ -735,6 +760,13 @@ class GetDomainResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetMergeCasesStatusResponseTypeDef(TypedDict):
+    status: MergeStatusType
+    primaryCaseId: str
+    secondaryCaseIds: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -756,6 +788,11 @@ class CaseEventIncludedDataOutputTypeDef(TypedDict):
 
 class CaseEventIncludedDataTypeDef(TypedDict):
     fields: Sequence[FieldIdentifierTypeDef]
+
+
+class FieldsConfigurationTypeDef(TypedDict):
+    fieldIds: Sequence[FieldIdentifierTypeDef]
+    sourceCaseId: str
 
 
 class GetCaseRequestTypeDef(TypedDict):
@@ -912,6 +949,7 @@ AuditEventTypeDef = TypedDict(
         "fields": list[AuditEventFieldTypeDef],
         "relatedItemType": NotRequired[RelatedItemTypeType],
         "performedBy": NotRequired[AuditEventPerformedByTypeDef],
+        "mergeMetadata": NotRequired[AuditMergeMetadataTypeDef],
     },
 )
 
@@ -936,6 +974,15 @@ class EventIncludedDataOutputTypeDef(TypedDict):
 class EventIncludedDataTypeDef(TypedDict):
     caseData: NotRequired[CaseEventIncludedDataTypeDef]
     relatedItemData: NotRequired[RelatedItemEventIncludedDataTypeDef]
+
+
+class StartMergeCasesRequestTypeDef(TypedDict):
+    domainId: str
+    caseId: str
+    secondaryCaseIds: Sequence[str]
+    fieldsConfiguration: NotRequired[Sequence[FieldsConfigurationTypeDef]]
+    relatedItemsConfiguration: NotRequired[RelatedItemsConfigurationTypeDef]
+    performedBy: NotRequired[UserUnionTypeDef]
 
 
 class BooleanConditionOutputTypeDef(TypedDict):

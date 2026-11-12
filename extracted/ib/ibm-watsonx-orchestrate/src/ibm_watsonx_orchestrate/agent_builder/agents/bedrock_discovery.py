@@ -160,12 +160,13 @@ class BedrockDiscoveryService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def convert_to_wxo_external_agent_dict(agent: dict, region: str) -> dict:
+    def convert_to_wxo_external_agent_dict(agent: dict, region: str, control_plane_only: bool = True) -> dict:
         """Convert a raw Bedrock agentSummary dict to a WXO ExternalAgentSpec-compatible dict.
 
         Args:
             agent: Raw agentSummary dict from the Bedrock ListAgents API.
             region: AWS region — used to construct the runtime resource URL.
+            control_plane_only: Whether the agent is registered for control plane only (default: True).
 
         Returns:
             Dict suitable for ``ExternalAgent.model_validate()``.
@@ -203,6 +204,9 @@ class BedrockDiscoveryService:
             "api_url": api_url,
             "auth_scheme": "NONE",
             "auth_config": {},
+            "config": {
+                "control_plane_only": control_plane_only,
+            },
         }
 
     def discover_and_convert(
@@ -210,6 +214,7 @@ class BedrockDiscoveryService:
         raw_agents: list[dict],
         agents: Optional[list[str]],
         region: str,
+        control_plane_only: Optional[bool] = None,
     ) -> list[dict]:
         """Filter raw agents by agent name and convert to WXO dicts.
 
@@ -217,10 +222,12 @@ class BedrockDiscoveryService:
             raw_agents: Agents returned by :meth:`list_agents`.
             agents: List of agent names to keep (case-insensitive). ``None`` = all.
             region: AWS region, forwarded to :meth:`convert_to_wxo_external_agent_dict`.
+            control_plane_only: Optional override for control plane only registration.
 
         Returns:
             List of WXO-compatible agent dicts.
         """
+        cpo = control_plane_only if control_plane_only is not None else True
         if agents is not None:
             filter_set = {a.lower() for a in agents}
             matched = [
@@ -235,7 +242,7 @@ class BedrockDiscoveryService:
             raw_agents = matched
 
         return [
-            self.convert_to_wxo_external_agent_dict(a, region)
+            self.convert_to_wxo_external_agent_dict(a, region, control_plane_only=cpo)
             for a in raw_agents
         ]
 

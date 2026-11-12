@@ -523,6 +523,7 @@ class AgentCreateParams(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -537,6 +538,7 @@ class AgentCreateParams(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]

@@ -141,7 +141,8 @@ class PullRequest:
                 looks like while the forge rechecks it. The row says "Checking for
                 conflicts" for about 90 seconds. It is time limited: if the flag
                 stays false for the same head and base, the status becomes
-                "conflicting".
+                "conflicting", with conflictConfirmed false unless a refused merge or
+                update named a conflict.
                 "unstable" is GitHub's UNSTABLE: the pull request can be merged, but
                 a check that branch protection doesn't require is failing or still
                 running. Merge stays available.
@@ -229,6 +230,16 @@ class PullRequest:
                 Forgejo's source and has not been tried on a live instance. Only a
                 pull request aimed at its repo's default branch closes anything,
                 so one aimed elsewhere always lists none.
+            refs_issues (list[MentionedIssue]): The issues the title or description references with a keyword,
+                work on a ticket that stays open: `Refs`, `Ref`, `Related to` or
+                `See`, with an optional colon, then `#NUMBER` or
+                `owner/repo#NUMBER` (several may follow one keyword, as in
+                `Refs #3, #4 and #5`), at most 20, in order of first appearance and
+                without repeats. Each entry has `relation` `refs`. A ticket the
+                pull request also closes is only in `closesIssues`. Read from the
+                title and description on both forges, with the same rules as
+                `mentionsIssues` for code, comments and link text. Always present,
+                and empty when there are none.
             mentions_issues (list[MentionedIssue]): The issues and pull requests the title or description mentions
                 without closing them, in order of first appearance and without
                 repeats, at most 20. Always present, and empty when there are none.
@@ -301,6 +312,15 @@ class PullRequest:
                 itself: the pull request's own choice when it has one
                 (`POST /api/v1/pull-requests/auto-update`), else its repo's
                 auto-update setting. Always present.
+            conflict_confirmed (bool | Unset): Forgejo only, and only with mergeStatus "conflicting". True when a
+                merge or update of this pull request was refused naming a
+                conflict. False when no refusal has, and the status is only the
+                forge's mergeable flag staying false for about 90 seconds on the
+                same head and base. Left out on GitHub, which reports conflicts
+                itself, and on every other status. It is dropped when the pull
+                request gets a new head or its base moves.
+            conflict_files (list[str] | Unset): The files the refusal named, when it named any. Left out unless
+                conflictConfirmed is true.
             bot_request (BotRequest | None | Unset): A Dependabot or Renovate rebase asked for through this app and not
                 settled yet, or null. The server keeps it, so a reload during the
                 wait still shows it, and moves it along on every snapshot that
@@ -335,6 +355,17 @@ class PullRequest:
                 Cancel clears both. Omitted means unknown: a client must not
                 guess it from other fields, and should treat a value it doesn't
                 know like an omitted one.
+            base_requires_up_to_date (bool | Unset): Whether the base branch's protection requires a pull request to be
+                up to date before it merges: GitHub's branch protection "Require
+                branches to be up to date before merging" (`strict`), Forgejo's
+                "Block merge if the pull request is outdated"
+                (`block_on_outdated_branch`). A fact about the branch, read once
+                per repository and cached, and only for a pull request that is
+                `behind`, since that is the only one it matters for. Omitted when
+                unknown (the protection can't be read with this token, GitHub's
+                branch has no classic rule so a ruleset may require it instead, or
+                the pull request isn't behind). A client must not guess it, and
+                must not blame being behind for a hold unless this is true.
             auto_merge_allowed (bool | Unset): Whether GitHub will accept an "Enable auto-merge" request for
                 this pull request from the signed-in viewer, read from the
                 GraphQL `PullRequest.viewerCanEnableAutoMerge` field. GitHub
@@ -402,6 +433,7 @@ class PullRequest:
     review_comments: int
     conversation_comments: int
     closes_issues: list[ClosingIssue]
+    refs_issues: list[MentionedIssue]
     mentions_issues: list[MentionedIssue]
     unresolved_threads: int | None
     review_requested_from_me: bool
@@ -412,11 +444,14 @@ class PullRequest:
     failing_ci: bool
     needs_review: bool
     auto_update: AutoUpdate
+    conflict_confirmed: bool | Unset = UNSET
+    conflict_files: list[str] | Unset = UNSET
     bot_request: BotRequest | None | Unset = UNSET
     update_request: None | Unset | UpdateRequest = UNSET
     queued: None | QueuedAction | Unset = UNSET
     auto_merge_enabled: bool | Unset = UNSET
     auto_merge_held_by: str | Unset = UNSET
+    base_requires_up_to_date: bool | Unset = UNSET
     auto_merge_allowed: bool | Unset = UNSET
     review: ReviewState | Unset = UNSET
     auto_merge: AutoMergeStatus | Unset = UNSET
@@ -523,6 +558,13 @@ class PullRequest:
 
 
 
+        refs_issues = []
+        for refs_issues_item_data in self.refs_issues:
+            refs_issues_item = refs_issues_item_data.to_dict()
+            refs_issues.append(refs_issues_item)
+
+
+
         mentions_issues = []
         for mentions_issues_item_data in self.mentions_issues:
             mentions_issues_item = mentions_issues_item_data.to_dict()
@@ -558,6 +600,14 @@ class PullRequest:
 
         auto_update = self.auto_update.to_dict()
 
+        conflict_confirmed = self.conflict_confirmed
+
+        conflict_files: list[str] | Unset = UNSET
+        if not isinstance(self.conflict_files, Unset):
+            conflict_files = self.conflict_files
+
+
+
         bot_request: dict[str, Any] | None | Unset
         if isinstance(self.bot_request, Unset):
             bot_request = UNSET
@@ -585,6 +635,8 @@ class PullRequest:
         auto_merge_enabled = self.auto_merge_enabled
 
         auto_merge_held_by = self.auto_merge_held_by
+
+        base_requires_up_to_date = self.base_requires_up_to_date
 
         auto_merge_allowed = self.auto_merge_allowed
 
@@ -635,6 +687,7 @@ class PullRequest:
             "reviewComments": review_comments,
             "conversationComments": conversation_comments,
             "closesIssues": closes_issues,
+            "refsIssues": refs_issues,
             "mentionsIssues": mentions_issues,
             "unresolvedThreads": unresolved_threads,
             "reviewRequestedFromMe": review_requested_from_me,
@@ -646,6 +699,10 @@ class PullRequest:
             "needsReview": needs_review,
             "autoUpdate": auto_update,
         })
+        if conflict_confirmed is not UNSET:
+            field_dict["conflictConfirmed"] = conflict_confirmed
+        if conflict_files is not UNSET:
+            field_dict["conflictFiles"] = conflict_files
         if bot_request is not UNSET:
             field_dict["botRequest"] = bot_request
         if update_request is not UNSET:
@@ -656,6 +713,8 @@ class PullRequest:
             field_dict["autoMergeEnabled"] = auto_merge_enabled
         if auto_merge_held_by is not UNSET:
             field_dict["autoMergeHeldBy"] = auto_merge_held_by
+        if base_requires_up_to_date is not UNSET:
+            field_dict["baseRequiresUpToDate"] = base_requires_up_to_date
         if auto_merge_allowed is not UNSET:
             field_dict["autoMergeAllowed"] = auto_merge_allowed
         if review is not UNSET:
@@ -817,6 +876,16 @@ class PullRequest:
             closes_issues.append(closes_issues_item)
 
 
+        refs_issues = []
+        _refs_issues = d.pop("refsIssues")
+        for refs_issues_item_data in (_refs_issues):
+            refs_issues_item = MentionedIssue.from_dict(refs_issues_item_data)
+
+
+
+            refs_issues.append(refs_issues_item)
+
+
         mentions_issues = []
         _mentions_issues = d.pop("mentionsIssues")
         for mentions_issues_item_data in (_mentions_issues):
@@ -876,6 +945,11 @@ class PullRequest:
         auto_update = AutoUpdate.from_dict(d.pop("autoUpdate"))
 
 
+
+
+        conflict_confirmed = d.pop("conflictConfirmed", UNSET)
+
+        conflict_files = cast(list[str], d.pop("conflictFiles", UNSET))
 
 
         def _parse_bot_request(data: object) -> BotRequest | None | Unset:
@@ -942,6 +1016,8 @@ class PullRequest:
 
         auto_merge_held_by = d.pop("autoMergeHeldBy", UNSET)
 
+        base_requires_up_to_date = d.pop("baseRequiresUpToDate", UNSET)
+
         auto_merge_allowed = d.pop("autoMergeAllowed", UNSET)
 
         _review = d.pop("review", UNSET)
@@ -1006,6 +1082,7 @@ class PullRequest:
             review_comments=review_comments,
             conversation_comments=conversation_comments,
             closes_issues=closes_issues,
+            refs_issues=refs_issues,
             mentions_issues=mentions_issues,
             unresolved_threads=unresolved_threads,
             review_requested_from_me=review_requested_from_me,
@@ -1016,11 +1093,14 @@ class PullRequest:
             failing_ci=failing_ci,
             needs_review=needs_review,
             auto_update=auto_update,
+            conflict_confirmed=conflict_confirmed,
+            conflict_files=conflict_files,
             bot_request=bot_request,
             update_request=update_request,
             queued=queued,
             auto_merge_enabled=auto_merge_enabled,
             auto_merge_held_by=auto_merge_held_by,
+            base_requires_up_to_date=base_requires_up_to_date,
             auto_merge_allowed=auto_merge_allowed,
             review=review,
             auto_merge=auto_merge,

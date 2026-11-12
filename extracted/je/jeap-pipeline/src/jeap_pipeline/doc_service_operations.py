@@ -57,6 +57,7 @@ CONFIGURATION_ROOT_KEYS: FrozenSet[str] = frozenset(
 #: The keys one documentation set may carry: what that folder is, which differs from set to set.
 DOCUMENTATION_SET_KEYS: FrozenSet[str] = frozenset({
     "path", "type", "template", "source-format", "location", "topic", "label",
+    "sidebar-position", "sidebar-after", "sidebar-before",
 })
 
 #: The keys one entry of generated documentation may carry: what the folder is, and what it is
@@ -82,7 +83,8 @@ _VALIDATION_PATH = "/api/uploads/docs/validation"
 # reach the doc service stringified - `system=42` - and come back as a refusal about a system
 # nobody named, rather than as the configuration error it is.
 _STRING_KEYS = ("path", "type", "system", "template", "source_format", "component", "library",
-                "location", "topic", "label", "version", "site")
+                "location", "topic", "label", "version", "site",
+                "sidebar_position", "sidebar_after", "sidebar_before")
 
 
 class DocumentationConfigError(ValueError):
@@ -156,6 +158,9 @@ class DocumentationSet:
     location: Optional[str] = None
     topic: Optional[str] = None
     label: Optional[str] = None
+    sidebar_position: Optional[str] = None
+    sidebar_after: Optional[str] = None
+    sidebar_before: Optional[str] = None
     version: Optional[str] = None
     site: Optional[str] = None
 
@@ -248,10 +253,10 @@ class DocumentationSet:
         """
         The query parameters of an upload - what the set is, plus where it comes from.
 
-        An upload says everything a validation says and four things more: which commit of which
-        repository the documents were taken from, which version of the component or library they
-        document, and which site they belong to. The label of an HTML microsite belongs here too,
-        because a menu label is not part of a path tree.
+        An upload says everything a validation says and more: which commit of which repository the
+        documents were taken from, which version of the component or library they document, and
+        which site they belong to. An HTML microsite's label and its place in the sidebar order
+        belong here too, because neither is part of a path tree.
 
         Args:
             provenance (dict): The commit and the run the documentation comes from, keyed as the
@@ -277,6 +282,9 @@ class DocumentationSet:
             parameters["site"] = self.site
         if self.source_format == "html":
             parameters["label"] = self.label
+            for name in _OPTIONAL_HTML_PLACEMENT:
+                if getattr(self, name) is not None:
+                    parameters[name.replace("_", "-")] = getattr(self, name)
 
         version = version or self.version
         if self.type in ("component-docs", "library-docs"):
@@ -809,22 +817,68 @@ def _check_subject(documentation_set: DocumentationSet) -> None:
                     f"itself.")
 
 
+#: Where an HTML microsite is embedded, required because it has no folder names of its own.
+_REQUIRED_HTML_PLACEMENT = ("location", "topic", "label")
+
+#: Where an HTML microsite sits among the items of its chapter. Optional, unlike the keys above: a
+#: microsite naming none of them is sorted by its label among the items without a reference, as a
+#: page without them is by its title.
+_OPTIONAL_HTML_PLACEMENT = ("sidebar_position", "sidebar_after", "sidebar_before")
+
+# An integer or a decimal, as an upload parameter carries it. Narrower than what a float parser
+# reads - no exponent, no `nan`, no `inf`, no digit separators - so nothing passes here that the
+# doc service would refuse as not a finite number.
+_POSITION_PATTERN = re.compile(r"^-?[0-9]+(\.[0-9]+)?$")
+
+
 def _check_html_placement(documentation_set: DocumentationSet) -> None:
-    """An HTML microsite says where it is embedded; Markdown is placed by its folders."""
-    placement = ("location", "topic", "label")
+    """An HTML microsite says where it is embedded; Markdown is placed by its folders and pages."""
     if documentation_set.source_format == "html":
-        for name in placement:
+        for name in _REQUIRED_HTML_PLACEMENT:
             if not getattr(documentation_set, name):
                 raise DocumentationConfigError(
                     f"'{name}' is required for source-format 'html' and is missing: an HTML "
                     f"microsite cannot be sorted into a chapter by its folder names, so the upload "
                     f"says where it goes.")
+        _check_html_sidebar_order(documentation_set)
     else:
-        for name in placement:
+        for name in _REQUIRED_HTML_PLACEMENT:
             if getattr(documentation_set, name):
                 raise DocumentationConfigError(
                     f"'{name}' belongs to source-format 'html' only. Where a Markdown page is "
                     f"published is decided by the chapter folder it sits in.")
+        for name in _OPTIONAL_HTML_PLACEMENT:
+            if getattr(documentation_set, name):
+                raise DocumentationConfigError(
+                    f"'{name.replace('_', '-')}' belongs to source-format 'html' only. Where a "
+                    f"Markdown page sits among its siblings is said in the page's own front "
+                    f"matter, not in the upload configuration.")
+
+
+def _check_html_sidebar_order(documentation_set: DocumentationSet) -> None:
+    """
+    The shape of a microsite's sidebar order: a finite number, one non-blank name, one direction.
+
+    Whether the name exists is not checked: the doc service resolves it against what is stored for
+    the chapter, which a pipeline cannot see.
+    """
+    position = documentation_set.sidebar_position
+    if position is not None and not _POSITION_PATTERN.match(position):
+        raise DocumentationConfigError(
+            f"'sidebar-position' is '{position}', which is not a number. Write an integer or a "
+            f"decimal as a string, for instance \"2\" or \"2.5\".")
+
+    for name in ("sidebar_after", "sidebar_before"):
+        value = getattr(documentation_set, name)
+        if value is not None and not value.strip():
+            raise DocumentationConfigError(
+                f"'{name.replace('_', '-')}' is blank. Write the name of one other item of the "
+                f"chapter, or leave the key out.")
+
+    if documentation_set.sidebar_after is not None and documentation_set.sidebar_before is not None:
+        raise DocumentationConfigError(
+            "'sidebar-after' and 'sidebar-before' are both set. A microsite is placed relative to "
+            "one other item of its chapter, so name one of the two.")
 
 
 def _check_path(path: str) -> None:

@@ -15,12 +15,13 @@ MAX_PAGINATION_PAGES = 100  # Safety limit to prevent runaway pagination
 
 class PaginationMeta(BaseModel):
     """Pagination metadata for agentops-v3 API responses."""
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="allow")
 
-    page: int = Field(..., description="Current page number")
-    limit: int = Field(..., description="Items per page")
-    totalItems: int = Field(..., description="Total number of items")
-    totalPages: int = Field(..., description="Total number of pages")
+    page: Optional[int] = Field(None, description="Current page number")
+    limit: Optional[int] = Field(None, description="Items per page")
+    totalItems: Optional[int] = Field(None, description="Total number of items")
+    totalPages: Optional[int] = Field(None, description="Total number of pages")
+    cursor: Optional[str] = Field(None, description="Cursor for next page")
 
 
 class Observation(BaseModel):
@@ -46,8 +47,9 @@ class ObservationsResponse(BaseModel):
     """Response from GET /v1/agentops-v3/observations."""
     model_config = ConfigDict(frozen=True)
 
-    data: List[Observation] = Field(..., description="List of observations")
-    meta: PaginationMeta = Field(..., description="Pagination metadata")
+    data: List[Observation] = Field(default_factory=list, description="List of observations")
+    meta: Optional[PaginationMeta] = Field(None, description="Pagination metadata (page-based endpoints)")
+    cursor: Optional[str] = Field(None, description="Cursor for next page (cursor-based endpoints)")
 
 
 class TraceItem(BaseModel):
@@ -200,7 +202,9 @@ class TracesClient(BaseWXOClient):
         self,
         trace_id: str,
         page_size: int = 50,
-        fetch_all: bool = True
+        fetch_all: bool = True,
+        from_start_time: Optional[Union[str, datetime]] = None,
+        to_start_time: Optional[Union[str, datetime]] = None,
     ) -> ObservationsExportResponse:
         """
         Retrieve all observations for a specific trace ID using agentops-v3 API.
@@ -209,6 +213,12 @@ class TracesClient(BaseWXOClient):
             trace_id: Trace ID (32-character hexadecimal string)
             page_size: Number of observations per page (1-1000, default: 50)
             fetch_all: If True, automatically fetches all pages (default: True)
+            from_start_time: Lower bound of the observation time window (ISO 8601 or datetime).
+                Required by the API when the time window is known (e.g. pass the search
+                --start-time value here).
+            to_start_time: Upper bound of the observation time window (ISO 8601 or datetime).
+                Required by the API when the time window is known (e.g. pass the search
+                --end-time value here).
 
         Returns:
             ObservationsExportResponse containing observations and pagination info
@@ -239,17 +249,42 @@ class TracesClient(BaseWXOClient):
         if page_size < 1 or page_size > 1000:
             raise ValueError("page_size must be between 1 and 1000")
 
+        def _to_iso(value: Optional[Union[str, datetime]]) -> Optional[str]:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                # Normalize to UTC then produce a Z-suffixed string
+                if value.tzinfo is not None:
+                    from datetime import timezone as _tz
+                    value = value.astimezone(_tz.utc).replace(tzinfo=None)
+                return value.isoformat() + "Z"
+            return value
+
         all_observations = []
         current_page = 1
         total_count = None
         total_pages = None
+        next_cursor = None
+
+        from_iso = _to_iso(from_start_time)
+        to_iso = _to_iso(to_start_time)
 
         while current_page <= MAX_PAGINATION_PAGES:
             params: Dict[str, Any] = {
-                "page": current_page,
                 "limit": page_size,
                 "traceId": trace_id,
             }
+
+            if from_iso:
+                params["fromStartTime"] = from_iso
+            if to_iso:
+                params["toStartTime"] = to_iso
+
+            # Use cursor if available (cursor-based pagination), otherwise page number
+            if next_cursor:
+                params["cursor"] = next_cursor
+            else:
+                params["page"] = current_page
 
             # Add workspace_id if in IBM Cloud environment
             try:
@@ -263,14 +298,25 @@ class TracesClient(BaseWXOClient):
 
             all_observations.extend(obs_response.data)
 
-            if total_count is None:
-                total_count = obs_response.meta.totalItems
-                total_pages = obs_response.meta.totalPages
+            # Resolve cursor from either top-level or meta
+            resolved_cursor = obs_response.cursor or (obs_response.meta.cursor if obs_response.meta else None)
 
-            if not fetch_all or current_page >= obs_response.meta.totalPages:
+            # Handle cursor-based pagination
+            if resolved_cursor is not None:
+                if not fetch_all or not resolved_cursor:
+                    break
+                next_cursor = resolved_cursor
+            # Handle page-based pagination
+            elif obs_response.meta is not None and obs_response.meta.totalPages is not None:
+                if total_count is None:
+                    total_count = obs_response.meta.totalItems
+                    total_pages = obs_response.meta.totalPages
+                if not fetch_all or current_page >= obs_response.meta.totalPages:
+                    break
+                current_page += 1
+            else:
+                # No pagination info — single page response
                 break
-
-            current_page += 1
 
         if current_page > MAX_PAGINATION_PAGES:
             logger.warning(

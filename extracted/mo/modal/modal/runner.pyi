@@ -1,4 +1,5 @@
 import modal._load_context
+import modal._output.manager
 import modal.app
 import modal.client
 import modal.running_app
@@ -31,6 +32,7 @@ async def _create_all_objects(
     running_app: modal.running_app.RunningApp,
     local_app_state: modal.app._LocalAppState,
     load_context: modal._load_context.LoadContext,
+    output_mgr: modal._output.manager.OutputManager,
 ) -> None:
     """Create objects that have been defined but not created on the server.
 
@@ -82,6 +84,7 @@ def _run_app(
     environment_name: typing.Optional[str] = None,
     interactive: bool = False,
     deployment_strategy: str = "rolling",
+    stream_output: bool = True,
 ) -> typing.AsyncContextManager[modal.app._App]:
     """mdmd:hidden"""
     ...
@@ -185,6 +188,7 @@ class __run_app_spec(typing_extensions.Protocol):
         environment_name: typing.Optional[str] = None,
         interactive: bool = False,
         deployment_strategy: str = "rolling",
+        stream_output: bool = True,
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[modal.app.App]:
         """mdmd:hidden"""
         ...
@@ -200,6 +204,7 @@ class __run_app_spec(typing_extensions.Protocol):
         environment_name: typing.Optional[str] = None,
         interactive: bool = False,
         deployment_strategy: str = "rolling",
+        stream_output: bool = True,
     ) -> typing.AsyncContextManager[modal.app.App]:
         """mdmd:hidden"""
         ...

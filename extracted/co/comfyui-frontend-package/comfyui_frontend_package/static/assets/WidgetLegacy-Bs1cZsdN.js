@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetLegacy-Bcknin39.js";export{e as default};

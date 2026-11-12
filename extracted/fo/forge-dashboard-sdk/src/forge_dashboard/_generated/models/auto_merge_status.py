@@ -34,7 +34,10 @@ class AutoMergeStatus:
 
         Attributes:
             state (AutoMergeStatusState): `waiting` clears by itself: checks still running, a draft, a
-                stack parent that hasn't merged, a rate limit. `stopped` needs the
+                stack parent that hasn't merged, a rate limit. It also covers a
+                behind pull request in a repo that requires up-to-date branches
+                (code `behind`): the forge doesn't update the branch itself, so it
+                waits for Update branch or the automatic update. `stopped` needs the
                 person: a failing check, a conflict, or a merge Forgejo refused
                 (including a token without merge permission). A stopped pull
                 request stays armed and merges once the cause is gone, or the
@@ -42,7 +45,7 @@ class AutoMergeStatus:
             message (str): Plain words, safe to show a person.
             code (str | Unset): The same codes as `ActionError.code` (`checks_pending`,
                 `checks_failing`, `conflict`, `stacked`, `permission`,
-                `rate_limited`, `not_mergeable`). Omitted when the pull request
+                `rate_limited`, `not_mergeable`, `behind`). Omitted when the pull request
                 is simply waiting for the next refresh to merge it.
      """
 

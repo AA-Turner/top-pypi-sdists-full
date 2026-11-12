@@ -33,6 +33,7 @@ def _get_kwargs(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     concurrency_key: Union[Unset, None, str] = UNSET,
+    has_null_parent: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
@@ -88,6 +89,8 @@ def _get_kwargs(
     params["per_page"] = per_page
 
     params["concurrency_key"] = concurrency_key
+
+    params["has_null_parent"] = has_null_parent
 
     params["all_workspaces"] = all_workspaces
 
@@ -149,6 +152,7 @@ def sync_detailed(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     concurrency_key: Union[Unset, None, str] = UNSET,
+    has_null_parent: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
@@ -177,6 +181,7 @@ def sync_detailed(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         concurrency_key (Union[Unset, None, str]):
+        has_null_parent (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -211,6 +216,7 @@ def sync_detailed(
         page=page,
         per_page=per_page,
         concurrency_key=concurrency_key,
+        has_null_parent=has_null_parent,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     )
@@ -247,6 +253,7 @@ def sync(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     concurrency_key: Union[Unset, None, str] = UNSET,
+    has_null_parent: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
@@ -275,6 +282,7 @@ def sync(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         concurrency_key (Union[Unset, None, str]):
+        has_null_parent (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -310,6 +318,7 @@ def sync(
         page=page,
         per_page=per_page,
         concurrency_key=concurrency_key,
+        has_null_parent=has_null_parent,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     ).parsed
@@ -340,6 +349,7 @@ async def asyncio_detailed(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     concurrency_key: Union[Unset, None, str] = UNSET,
+    has_null_parent: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
@@ -368,6 +378,7 @@ async def asyncio_detailed(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         concurrency_key (Union[Unset, None, str]):
+        has_null_parent (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -402,6 +413,7 @@ async def asyncio_detailed(
         page=page,
         per_page=per_page,
         concurrency_key=concurrency_key,
+        has_null_parent=has_null_parent,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     )
@@ -436,6 +448,7 @@ async def asyncio(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     concurrency_key: Union[Unset, None, str] = UNSET,
+    has_null_parent: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
@@ -464,6 +477,7 @@ async def asyncio(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         concurrency_key (Union[Unset, None, str]):
+        has_null_parent (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -500,6 +514,7 @@ async def asyncio(
             page=page,
             per_page=per_page,
             concurrency_key=concurrency_key,
+            has_null_parent=has_null_parent,
             all_workspaces=all_workspaces,
             is_not_schedule=is_not_schedule,
         )

@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport import VectorRobotState, families
+from dreamscale_transport import VectorRobotState, catalog, families
 
 from dreamscale import errors
 from dreamscale.policy.exported_deployments import exported_base
@@ -30,6 +30,7 @@ from dreamscale.policy.exported_deployments import exported_base
 # again, so the control plane may offer it on any Modal session. ``follows_keep_warm_v1``: a
 # session on a kept-warm deployment stays open while the code holds the policy and is
 # released by close() or exit, so the control plane's idle reap passes it by.
+# Then the catalog models' own client features no family declares.
 # Each deployment family's own features come from its transport contract module (the family
 # manifest's ``contract``): its runtime contract, then RTC, then the catalog models it serves.
 _FAMILY_FEATURES = ("CLIENT_FEATURE", "RTC_CLIENT_FEATURE", "CATALOG_CLIENT_FEATURE")
@@ -45,10 +46,22 @@ def _family_features() -> tuple[str, ...]:
     return tuple(out)
 
 
+def _catalog_features(already: tuple[str, ...]) -> tuple[str, ...]:
+    """The client features catalog models need that no deployment family declares, in catalog
+    order (Praxis-1's episode states)."""
+    out: list[str] = []
+    for entry in catalog.CATALOG:
+        feature = entry.client_feature[0] if entry.client_feature else None
+        if feature and feature not in already and feature not in out:
+            out.append(feature)
+    return tuple(out)
+
+
 CLIENT_FEATURES = (
     "deployment_runtime_v1", "model_defined_actions_v1", *_family_features(),
     "punched_quic_fallback_v2", "follows_keep_warm_v1",
 )
+CLIENT_FEATURES += _catalog_features(CLIENT_FEATURES)
 # Every units family's deployment host, by its id or its public name: `dreamscale run <robot>
 # --deployment` drives each at its session's rate and chunk.
 _DEPLOYMENT_HOSTS = frozenset(

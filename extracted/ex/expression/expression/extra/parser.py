@@ -2,36 +2,30 @@ from __future__ import annotations
 
 import string
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, overload
 
 from expression.collections import Block, block
-from expression.core import Error, Nothing, Ok, Option, Result, Some, curry, fst, pipe
+from expression.core import NOTHING, Error, Ok, Option, Result, Some, curry, fst, pipe
 
 
-_A = TypeVar("_A")
-_B = TypeVar("_B")
-_C = TypeVar("_C")
-_D = TypeVar("_D")
-_E = TypeVar("_E")
-
-Remaining = tuple[str, int]
-ParseResult = Result[tuple[_A, Remaining], str]
+type Remaining = tuple[str, int]
+type ParseResult[A] = Result[tuple[A, Remaining], str]
 
 
-class Parser(Generic[_A]):
+class Parser[A]:
     """The Parser class."""
 
     __slots__ = ["_name", "_run"]
 
-    def __init__(self, run: Callable[[Remaining], ParseResult[_A]], name: str | None = None) -> None:
+    def __init__(self, run: Callable[[Remaining], ParseResult[A]], name: str | None = None) -> None:
         self._run = run
         self._name = name or "parser"
 
-    def __call__(self, input: str) -> Result[_A, str]:
+    def __call__(self, input: str) -> Result[A, str]:
         """Returns result without the remaining string."""
         return self._run((input, 0)).map(fst)
 
-    def run(self, input: Remaining) -> ParseResult[_A]:
+    def run(self, input: Remaining) -> ParseResult[A]:
         """Returns parser result and the remaining string."""
         return self._run(input)
 
@@ -47,42 +41,42 @@ class Parser(Generic[_A]):
     def any_of(list_of_chars: str) -> Parser[str]:
         return any_of(list_of_chars)
 
-    def and_then(self, p2: Parser[_B]) -> Parser[tuple[_A, _B]]:
+    def and_then[B](self, p2: Parser[B]) -> Parser[tuple[A, B]]:
         return pipe(self, and_then(p2))
 
-    def ignore_then(self, p2: Parser[_B]) -> Parser[_B]:
+    def ignore_then[B](self, p2: Parser[B]) -> Parser[B]:
         return pipe(self, ignore_then(p2))
 
-    def then_ignore(self, p2: Parser[Any]) -> Parser[_A]:
+    def then_ignore(self, p2: Parser[Any]) -> Parser[A]:
         return pipe(self, then_ignore(p2))
 
-    def or_else(self, parser2: Parser[_A]) -> Parser[_A]:
+    def or_else(self, parser2: Parser[A]) -> Parser[A]:
         return or_else(self)(parser2)
 
-    def map(self, mapper: Callable[[_A], _B]) -> Parser[_B]:
+    def map[B](self, mapper: Callable[[A], B]) -> Parser[B]:
         mapped = map(mapper)
         return pipe(self, mapped)
 
     @overload
-    def starmap(self: Parser[tuple[_B, _C]], mapper: Callable[[_B, _C], _D]) -> Parser[_D]: ...
+    def starmap[B, C, D](self: Parser[tuple[B, C]], mapper: Callable[[B, C], D]) -> Parser[D]: ...
 
     @overload
-    def starmap(self: Parser[tuple[_B, _C, _D]], mapper: Callable[[_B, _C, _D], _E]) -> Parser[_E]: ...
+    def starmap[B, C, D, E](self: Parser[tuple[B, C, D]], mapper: Callable[[B, C, D], E]) -> Parser[E]: ...
 
     def starmap(self: Parser[Any], mapper: Callable[..., Any]) -> Parser[Any]:
         return pipe(self, starmap(mapper))
 
-    def opt(self) -> Parser[Option[_A]]:
+    def opt(self) -> Parser[Option[A]]:
         return opt(self)
 
     def ignore(self) -> Parser[None]:
         return ignore(self)
 
-    def bind(self, binder: Callable[[_A], Parser[_B]]) -> Parser[_B]:
+    def bind[B](self, binder: Callable[[A], Parser[B]]) -> Parser[B]:
         bound = bind(binder)
         return pipe(self, bound)
 
-    def between(self, p2: Parser[_A], p3: Parser[Any]) -> Parser[_A]:
+    def between(self, p2: Parser[A], p3: Parser[Any]) -> Parser[A]:
         return between(p2)(p3)(self)
 
     def __repr__(self) -> str:
@@ -111,43 +105,43 @@ def pchar(char: str) -> Parser[str]:
 
 
 @curry(1)
-def and_then(p2: Parser[_B], p1: Parser[_A]) -> Parser[tuple[_A, _B]]:
+def and_then[B, A](p2: Parser[B], p1: Parser[A]) -> Parser[tuple[A, B]]:
     """And then.
 
     The parser p1 .>>. p2 applies the parsers p1 and p2 in sequence and
     returns the results in a tuple.
 
     Args:
-        p2 (Parser[_B]): Second parser.
-        p1 (Parser[_A]): First parser.
+        p2 (Parser[B]): Second parser.
+        p1 (Parser[A]): First parser.
 
     Returns:
-        Parser[Tuple[_A, _B]]: Result parser.
+        Parser[Tuple[A, B]]: Result parser.
     """
 
-    def run(input: Remaining) -> ParseResult[tuple[_A, _B]]:
+    def run(input: Remaining) -> ParseResult[tuple[A, B]]:
         result1 = p1.run(input)
         match result1:
-            case Result(tag="error", error=error):
+            case Error(error):
                 return Error(error)
-            case Result(ok=(value1, remaining1)):
+            case Ok((value1, remaining1)):
                 result2 = p2.run(remaining1)
 
                 match result2:
-                    case Result(tag="error", error=error):
+                    case Error(error):
                         return Error(error)
-                    case Result(ok=(value2, remaining2)):
+                    case Ok((value2, remaining2)):
                         return Ok(((value1, value2), remaining2))
 
     return Parser(run, f"and_then({p2}, {p1}")
 
 
 @curry(1)
-def or_else(p1: Parser[_A], p2: Parser[_A]) -> Parser[_A]:
-    def run(input: Remaining) -> ParseResult[_A]:
+def or_else[A](p1: Parser[A], p2: Parser[A]) -> Parser[A]:
+    def run(input: Remaining) -> ParseResult[A]:
         result1 = p1.run(input)
         match result1:
-            case Result(tag="ok"):
+            case Ok():
                 return result1
             case _:
                 result2 = p2.run(input)
@@ -156,7 +150,7 @@ def or_else(p1: Parser[_A], p2: Parser[_A]) -> Parser[_A]:
     return Parser(run, f"or_else({p2}, {p1}")
 
 
-def choice(list_of_parsers: Block[Parser[_A]]) -> Parser[_A]:
+def choice[A](list_of_parsers: Block[Parser[A]]) -> Parser[A]:
     return list_of_parsers.reduce(lambda a, b: or_else(a)(b))
 
 
@@ -175,19 +169,19 @@ parse_digit = any_of(string.digits)
 
 
 @curry(1)
-def map(mapper: Callable[[_A], _B], parser: Parser[_A]) -> Parser[_B]:
-    def run(input: Remaining) -> ParseResult[_B]:
+def map[B, A](mapper: Callable[[A], B], parser: Parser[A]) -> Parser[B]:
+    def run(input: Remaining) -> ParseResult[B]:
         # run parser with the input
         result = parser.run(input)
 
         # test the result for Failure/Success
         match result:
-            case Result(tag="ok", ok=(value, remaining)):
+            case Ok((value, remaining)):
                 # if success, return the value transformed by f
                 new_value = mapper(value)
                 return Ok((new_value, remaining))
 
-            case Result(error=error):
+            case Error(error):
                 # if failed, return the error
                 return Error(error)
 
@@ -196,12 +190,12 @@ def map(mapper: Callable[[_A], _B], parser: Parser[_A]) -> Parser[_B]:
 
 @curry(1)
 @overload
-def starmap(mapper: Callable[[_A, _B], _C], parser: Parser[tuple[_A, _B]]) -> Parser[_C]: ...
+def starmap[C, A, B](mapper: Callable[[A, B], C], parser: Parser[tuple[A, B]]) -> Parser[C]: ...
 
 
 @curry(1)
 @overload
-def starmap(mapper: Callable[[_A, _B, _C], _D], parser: Parser[tuple[_A, _B, _C]]) -> Parser[_D]: ...
+def starmap[D, A, B, C](mapper: Callable[[A, B, C], D], parser: Parser[tuple[A, B, C]]) -> Parser[D]: ...
 
 
 @curry(1)
@@ -215,8 +209,8 @@ def starmap(mapper: Callable[..., Any], parser: Parser[Any]) -> Parser[Any]:
     )
 
 
-def preturn(x: _A) -> Parser[_A]:
-    def run(input: Remaining) -> ParseResult[_A]:
+def preturn[A](x: A) -> Parser[A]:
+    def run(input: Remaining) -> ParseResult[A]:
         return Ok((x, input))
 
     return Parser(run, f"preturn({x})")
@@ -229,8 +223,8 @@ def fail(error: str) -> Parser[Any]:
     return Parser(run, f'fail("{error}")')
 
 
-def apply(f_p: Parser[Callable[[_A], _B]], x_p: Parser[_A]) -> Parser[_B]:
-    def mapper(fx: tuple[Callable[[_A], _B], _A]) -> _B:
+def apply[B, A](f_p: Parser[Callable[[A], B]], x_p: Parser[A]) -> Parser[B]:
+    def mapper(fx: tuple[Callable[[A], B], A]) -> B:
         return fx[0](fx[1])
 
     # create a Parser containing a pair (f,x)
@@ -243,14 +237,14 @@ def apply(f_p: Parser[Callable[[_A], _B]], x_p: Parser[_A]) -> Parser[_B]:
 
 
 @curry(2)
-def lift2(fn: Callable[[_A], Callable[[_B], _C]], xP: Parser[_A], yP: Parser[_B]) -> Parser[_C]:
+def lift2[A, C, B](fn: Callable[[A], Callable[[B], C]], xP: Parser[A], yP: Parser[B]) -> Parser[C]:
     return apply(apply(preturn(fn), xP), yP)
 
 
-def sequence(parser_list: Block[Parser[_A]]) -> Parser[Block[_A]]:
+def sequence[A](parser_list: Block[Parser[A]]) -> Parser[Block[A]]:
     # define the "cons" function, which is a two parameter function
     @curry(1)
-    def cons(head: _A, tail: Block[_A]) -> Block[_A]:
+    def cons(head: A, tail: Block[A]) -> Block[A]:
         return tail.cons(head)
 
     # lift it to Parser World
@@ -277,24 +271,24 @@ def pstring(string_input: str) -> Parser[str]:
     )
 
 
-def parse_zero_or_more(parser: Parser[_A], input: Remaining) -> tuple[Block[_A], Remaining]:
-    # run parser with the input
-    first_result = parser.run(input)
-
-    # test the result for Failure/Success
-    match first_result:
-        case Result(tag="ok", ok=(first_value, input_after_first_parse)):
-            # if parse succeeds, call recursively
-            # to get the subsequent values
-            subsequent_values, remaining_input = parse_zero_or_more(parser, input_after_first_parse)
-            values = subsequent_values.cons(first_value)
-            return values, remaining_input
-        case _:
-            return (block.empty, input)
+def parse_zero_or_more[A](parser: Parser[A], input: Remaining) -> tuple[Block[A], Remaining]:
+    values: list[A] = []
+    remaining = input
+    while True:
+        match parser.run(remaining):
+            case Ok((value, next_input)):
+                if next_input == remaining:
+                    raise ValueError("Repeated parser must consume input")
+                values.append(value)
+                remaining = next_input
+            case Error():
+                return Block(values), remaining
 
 
-def many(parser: Parser[_A]) -> Parser[Block[_A]]:
-    def run(input: Remaining) -> ParseResult[Block[_A]]:
+def many[A](parser: Parser[A]) -> Parser[Block[A]]:
+    """Parse zero or more occurrences, rejecting success without input consumption."""
+
+    def run(input: Remaining) -> ParseResult[Block[A]]:
         # parse the input -- wrap in Success as it always succeeds
         ok = parse_zero_or_more(parser, input)
         return Ok(ok)
@@ -302,35 +296,37 @@ def many(parser: Parser[_A]) -> Parser[Block[_A]]:
     return Parser(run, f"many({parser})")
 
 
-def many1(parser: Parser[_A]) -> Parser[Block[_A]]:
-    def run(input: Remaining) -> ParseResult[Block[_A]]:
+def many1[A](parser: Parser[A]) -> Parser[Block[A]]:
+    """Parse one or more occurrences, rejecting success without input consumption."""
+
+    def run(input: Remaining) -> ParseResult[Block[A]]:
         # run parser with the input
         firstResult = parser.run(input)
         # test the result for Failure/Success
         match firstResult:
-            case Result(tag="ok", ok=(first_value, input_after_first_parse)):
+            case Ok((first_value, input_after_first_parse)):
                 # if first found, look for zeroOrMore now
                 subsequent_values, remaining_input = parse_zero_or_more(parser, input_after_first_parse)
                 values = subsequent_values.cons(first_value)
                 return Ok((values, remaining_input))
 
-            case Result(error=err):
+            case Error(err):
                 return Error(err)  # failed
 
     return Parser(run, f"many({parser})")
 
 
-def sep_by1(p: Parser[_A], sep: Parser[Any]) -> Parser[Block[_A]]:
+def sep_by1[A](p: Parser[A], sep: Parser[Any]) -> Parser[Block[A]]:
     """Parses one or more occurrences of p separated by sep."""
     sep_then_p = sep.ignore_then(p)
 
-    def mapper(p: _A, plist: Block[_A]) -> Block[_A]:
+    def mapper(p: A, plist: Block[A]) -> Block[A]:
         return plist.cons(p)
 
     return p.and_then(many(sep_then_p)).starmap(mapper)
 
 
-def sep_by(p: Parser[_A], sep: Parser[Any]) -> Parser[Block[_A]]:
+def sep_by[A](p: Parser[A], sep: Parser[Any]) -> Parser[Block[A]]:
     """Parses zero or more occurrences of p separated by sep."""
     return sep_by1(p, sep).or_else(preturn(block.empty))
 
@@ -339,36 +335,36 @@ def sep_by(p: Parser[_A], sep: Parser[Any]) -> Parser[Block[_A]]:
 digits = many1(parse_digit)
 
 
-def opt(p: Parser[_A]) -> Parser[Option[_A]]:
-    nothing: Option[_A] = Nothing
+def opt[A](p: Parser[A]) -> Parser[Option[A]]:
+    nothing: Option[A] = NOTHING
 
-    def mapper(a: _A) -> Option[_A]:
+    def mapper(a: A) -> Option[A]:
         return Some(a)
 
-    some: Parser[Option[_A]] = pipe(p, map(mapper))
-    none: Parser[Option[_A]] = preturn(nothing)
+    some: Parser[Option[A]] = pipe(p, map(mapper))
+    none: Parser[Option[A]] = preturn(nothing)
     return or_else(some)(none)
 
 
 @curry(1)
-def then_ignore(
+def then_ignore[A](
     p2: Parser[Any],
-    p1: Parser[_A],
-) -> Parser[_A]:
+    p1: Parser[A],
+) -> Parser[A]:
     """Then ignore.
 
     The parser p1 .>> p2 applies the parsers p1 and p2 in sequence and
     returns the result of p1.
 
     Args:
-        p2 (Parser[_B]): Second parser.
-        p1 (Parser[_A]): First parser.
+        p2 (Parser[B]): Second parser.
+        p1 (Parser[A]): First parser.
 
     Returns:
-        Parser[_A]: Result parser.
+        Parser[A]: Result parser.
     """
 
-    def mapper(value: tuple[_A, Any]) -> _A:
+    def mapper(value: tuple[A, Any]) -> A:
         return value[0]
 
     return pipe(
@@ -379,21 +375,21 @@ def then_ignore(
 
 
 @curry(1)
-def ignore_then(p2: Parser[_B], p1: Parser[Any]) -> Parser[_B]:
+def ignore_then[B](p2: Parser[B], p1: Parser[Any]) -> Parser[B]:
     """Ignore then.
 
     The parser p1 >>. p2 applies the parsers p1 and p2 in sequence and
     returns the result of p2.
 
     Args:
-        p2 (Parser[_B]): Second parser
-        p1 (Parser[_A]): First parser.
+        p2 (Parser[B]): Second parser
+        p1 (Parser[A]): First parser.
 
     Returns:
-        Parser[_B]: Result parser.
+        Parser[B]: Result parser.
     """
 
-    def mapper(value: tuple[Any, _B]) -> _B:
+    def mapper(value: tuple[Any, B]) -> B:
         return value[1]
 
     return pipe(
@@ -471,7 +467,7 @@ whitespace = many1(whitespace_char)
 
 
 @curry(2)
-def between(popen: Parser[Any], pclose: Parser[Any], p: Parser[_A]) -> Parser[_A]:
+def between[A](popen: Parser[Any], pclose: Parser[Any], p: Parser[A]) -> Parser[A]:
     """Parse between.
 
     The parser between popen pclose p applies the parsers popen, p and
@@ -480,10 +476,10 @@ def between(popen: Parser[Any], pclose: Parser[Any], p: Parser[_A]) -> Parser[_A
     Args:
         popen (Parser[Any]): First parser
         pclose (Parser[Any]): Last parser
-        p (Parser[_A]): Parser in between.
+        p (Parser[A]): Parser in between.
 
     Returns:
-        Parser[_A]: Result of the middle (p) parser.
+        Parser[A]: Result of the middle (p) parser.
     """
     return pipe(
         popen,
@@ -501,14 +497,14 @@ starts_with = lift2(_starts_with)
 
 
 @curry(1)
-def bind(f: Callable[[_A], Parser[_B]], p: Parser[_A]) -> Parser[_B]:
-    def run(input: Remaining) -> ParseResult[_B]:
+def bind[A, B](f: Callable[[A], Parser[B]], p: Parser[A]) -> Parser[B]:
+    def run(input: Remaining) -> ParseResult[B]:
         result1 = p.run(input)
         match result1:
-            case Result(tag="ok", ok=(value1, remaning_input)):
+            case Ok((value1, remaning_input)):
                 p2 = f(value1)
                 return p2.run(remaning_input)
-            case Result(error=err):
+            case Error(err):
                 return Error(err)  # failed
             case _:  # type: ignore
                 return Error("parser error")

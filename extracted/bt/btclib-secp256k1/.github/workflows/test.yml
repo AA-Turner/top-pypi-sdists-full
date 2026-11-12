@@ -19,9 +19,9 @@ name: test
 # A pull request and a push to main build the wheels of every image but
 # one: the x86_64 macOS image, macos-26-intel, builds on a release and a
 # dispatch, and check-dist refuses those runs unless its wheels are there.
-# Section 10 of the organization standard in btclib-org/.github says why,
-# and CONTRIBUTING.md's *What gates a merge, and what only reports* says
-# how this tree applies it.
+# Section 10 of the organization's standard in btclib-org/.github says
+# why, and CONTRIBUTING.md's *What gates a merge, and what only reports*
+# says how this tree applies it.
 #
 # macOS was where the wait first showed, and the split is a measurement
 # rather than a preference. Over six pull request runs of this workflow,
@@ -158,12 +158,12 @@ jobs:
   # every job below already does.
   #
   # The event handling, the pagination and the decision are btclib-org/.github's
-  # own, called at a tagged commit (section 10 of btclib-org/.github's
-  # README.md); what stays here is which of this tree's own files are prose, in
+  # own, called at a tagged commit (section 10 of the organization's
+  # standard); what stays here is which of this tree's own files are prose, in
   # `with:` below (issue btclib-org/.github#35)
   changes:
     name: Decide whether the matrix has anything to check
-    uses: btclib-org/.github/.github/workflows/reusable-changes.yml@72e0222ef466daf096e3ac8d07e2ba59c0544b1a # v2026.10.28
+    uses: btclib-org/.github/.github/workflows/reusable-changes.yml@305b1840909ffd49d653d20cc6f5f9e1ab6a3382 # v2026.11.10
     # A job's permissions replace the workflow's map rather than adding
     # to it. This job held only pull-requests: read before the call --
     # it made no checkout of its own, so contents: read cost nothing to
@@ -239,7 +239,7 @@ jobs:
   # here meets the ratchet alone, each carrying --cov-fail-under=0 for
   # what it does not reach, so the Report the union, gated at 100% step
   # below is where the ratchet is asked for. That is section 8 of the
-  # organization standard, at "where an optional native dependency
+  # organization's standard, at "where an optional native dependency
   # splits the code", and the alternative it rejects is an exclude_also
   # naming the linked-in branch -- honest only where the dynamic build
   # is not shipped, and this repository ships both
@@ -282,7 +282,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # the wheels of the test group, not the extension: the root
           # project is installed editable, so its build hook (and the
@@ -415,7 +415,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
 
@@ -482,7 +482,7 @@ jobs:
         # of their own. The vendored library is built with CMake
         # everywhere, provisioned as a build requirement: no runner needs
         # a toolchain installed by hand.
-        # Section 10 of the organization standard in btclib-org/.github
+        # Section 10 of the organization's standard in btclib-org/.github
         # says when the x86_64 macOS images leave
         os:
           - ubuntu-latest
@@ -516,14 +516,14 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
-          # section 1 of the organization standard counts a release
+          # section 1 of the organization's standard counts a release
           # candidate as released, and setup-python matches one only under
           # this flag, which leaves a version with a final release on that
           # final. Every setup-python step below carries it for that reason
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       # skipped on every trigger but a release rehearsal: the inputs
       # context is empty unless this workflow was called, and an empty
@@ -679,7 +679,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -783,17 +783,17 @@ jobs:
 
       - name: Setup uv
         if: ${{ !inputs.use-signed-dist }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       # what the build below and the normalizer after it both read.
       # hatchling's sdist writer honours this when it is set and falls
       # back to a fixed constant, 1580601600, when it is not -- so this
       # step is what makes the mtime the commit's own date rather than
       # that constant, as reusable-build.yml's step does for the sdist a
-      # release publishes, section 12 of the organization standard asking
-      # every publisher for it regardless of what its own backend already
-      # does. The commit date, not the tag's: a lightweight tag has none
-      # of its own to prefer
+      # release publishes, section 12 of the organization's standard
+      # asking every publisher for it regardless of what its own backend
+      # already does. The commit date, not the tag's: a lightweight tag
+      # has none of its own to prefer
       - name: Pin the build timestamp to the commit
         if: ${{ !inputs.use-signed-dist }}
         run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
@@ -1012,7 +1012,7 @@ jobs:
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       # see build-cibuildwheel
       - name: Make the version unique for TestPyPI (rehearsal only)
@@ -1086,7 +1086,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # the wheels of the check group, the three tools below among
           # them, keyed on uv.lock

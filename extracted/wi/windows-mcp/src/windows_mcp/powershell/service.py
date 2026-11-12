@@ -1,4 +1,4 @@
-""" PowerShell command executor service """
+"""PowerShell command executor service"""
 
 import base64
 import ctypes
@@ -8,13 +8,39 @@ import os
 import winreg
 import shutil
 import subprocess
+from collections.abc import Callable
+from time import perf_counter
 
 from windows_mcp.desktop.utils import is_elevated
-from windows_mcp.powershell.utils import run_with_graceful_timeout
+from windows_mcp.powershell.utils import decode_clixml, run_with_graceful_timeout
 
-__all__ = ["PowerShellExecutor"]
+__all__ = ["COMMAND_TIMED_OUT", "PowerShellExecutor"]
 
 logger = logging.getLogger(__name__)
+
+#: Status returned when the tool's timeout ended the command. Windows exit
+#: codes are unsigned, so no real process can exit with this value, letting
+#: callers tell a timeout apart from an ordinary failure (#583).
+COMMAND_TIMED_OUT = -1
+
+
+def _timeout_partial_output(exc: subprocess.TimeoutExpired) -> str:
+    """Decode whatever the timed-out command printed before it was ended.
+
+    ``run_with_graceful_timeout`` refills ``exc.stdout``/``exc.stderr`` with the
+    output gathered during its graceful-shutdown attempts; the plain timeout
+    path used to drop it.
+    """
+    chunks: list[str] = []
+    for stream in (exc.stdout, exc.stderr):
+        if not stream:
+            continue
+        if isinstance(stream, bytes):
+            stream = stream.decode("utf-8", errors="replace")
+        chunk = decode_clixml(stream).strip()
+        if chunk:
+            chunks.append(chunk)
+    return "\n".join(chunks)
 
 
 def _read_reg_env(hkey: int, subkey: str) -> tuple[dict[str, str], str, str]:
@@ -120,7 +146,18 @@ def _prepare_env() -> dict[str, str]:
 
         # Supplement missing vars. User-level (HKCU) takes precedence over
         # system-level (HKLM) for same-named keys, matching Windows' resolution order.
-        for name, value in {**machine_vars, **user_vars}.items():
+        # Names are matched without case, as Windows does. os.environ.copy()
+        # upper-cases them ("ONEDRIVE"), while the registry keeps the case they
+        # were created with ("OneDrive", "PSModulePath"). A second key that
+        # differs only in case also reaches the child, and there the later key
+        # wins, so the registry value would replace the inherited one.
+        names = {name.upper(): name for name in env}
+        registry_vars = {
+            name.upper(): (name, value)
+            for name, value in (*machine_vars.items(), *user_vars.items())
+        }
+        for upper, (name, value) in registry_vars.items():
+            name = names.get(upper, name)
             if not env.get(name):
                 env[name] = value
 
@@ -170,13 +207,65 @@ def _prepare_env() -> dict[str, str]:
     return env
 
 
+_WINDOWS_POWERSHELL = os.path.join("System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+
+
+def _resolve_shell(shell: str | None, env: dict[str, str]) -> str:
+    """Resolve the PowerShell executable to launch against the child's PATH.
+
+    Windows looks a bare program name up on the *server's* PATH, not on the
+    environment handed to the child, so the PATH repaired by ``_prepare_env()``
+    does not decide which executable is found. ``System32\\WindowsPowerShell\\v1.0``
+    is not on the default search list either, so when the MCP host strips the
+    server's PATH a bare ``powershell`` fails with WinError 2 (#411).
+
+    Args:
+        shell: The shell the caller asked for, or ``None`` to prefer ``pwsh`` and
+            fall back to Windows PowerShell.
+        env: The environment the child will run with.
+
+    Returns:
+        An absolute path when the shell can be found; otherwise Windows
+        PowerShell's well-known location for a PowerShell request, or the name
+        unchanged for any other shell so the launch error names it.
+    """
+    search_path = env.get("PATH")
+    for name in (shell,) if shell else ("pwsh", "powershell"):
+        found = shutil.which(name, path=search_path)
+        if found:
+            return found
+
+    if shell and os.path.basename(shell).lower().removesuffix(".exe") != "powershell":
+        return shell
+    system_root = env.get("SystemRoot") or os.environ.get("SystemRoot") or r"C:\Windows"
+    return os.path.join(system_root, _WINDOWS_POWERSHELL)
+
+
 class PowerShellExecutor:
     """Static utility class for executing PowerShell commands."""
 
     @staticmethod
     def execute_command(
-            command: str, timeout: int = 10, shell: str | None = None
+        command: str,
+        timeout: int = 10,
+        shell: str | None = None,
+        *,
+        on_output: Callable[[str, bytes], None] | None = None,
     ) -> tuple[str, int]:
+        """Run *command* in PowerShell and return its output and exit status.
+
+        Args:
+            command: The PowerShell command or script to run.
+            timeout: Seconds before the command is ended.
+            shell: The shell to launch, or ``None`` to prefer ``pwsh``.
+            on_output: Optional callback that sees the raw output as it arrives
+                (``run_with_graceful_timeout``'s ``on_output``), for reporting
+                progress while the command runs. It does not change the result.
+
+        Returns:
+            The output and the exit status, or ``COMMAND_TIMED_OUT`` when the
+            timeout ended the command.
+        """
         try:
             # $OutputEncoding: controls how PS5.1 encodes output written to its stdout pipe.
             # Without this set to UTF-8, PS5.1 uses the system codepage and native process
@@ -194,7 +283,7 @@ class PowerShellExecutor:
             # https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_ansi_terminals#disabling-ansi-output
             env["NO_COLOR"] = "1"
 
-            shell = shell or ("pwsh" if shutil.which("pwsh") else "powershell")
+            shell = _resolve_shell(shell, env)
 
             args = [shell, "-NoProfile"]
             # Only older Windows PowerShell (5.1) uses -OutputFormat Text successfully here
@@ -203,6 +292,7 @@ class PowerShellExecutor:
                 args.extend(["-OutputFormat", "Text"])
             args.extend(["-EncodedCommand", encoded])
 
+            started_at = perf_counter()
             result = run_with_graceful_timeout(
                 args,
                 stdin=subprocess.DEVNULL,  # Prevent child processes from inheriting the MCP pipe stdin
@@ -210,6 +300,7 @@ class PowerShellExecutor:
                 timeout=timeout,
                 cwd=os.path.expanduser(path="~"),
                 env=env,
+                on_output=on_output,
             )
             # Handle both bytes and str output (subprocess behavior varies by environment)
             stdout = result.stdout
@@ -218,6 +309,7 @@ class PowerShellExecutor:
                 stdout = stdout.decode("utf-8", errors="replace")
             if isinstance(stderr, bytes):
                 stderr = stderr.decode("utf-8", errors="replace")
+            stderr = decode_clixml(stderr or "")
             output = stdout or stderr
             # If the command failed with "Access is denied" and we aren't elevated, add a helpful hint
             if result.returncode != 0 and "Access is denied" in output and not is_elevated():
@@ -226,7 +318,23 @@ class PowerShellExecutor:
                     "The Windows-MCP server is currently running at a lower integrity level."
                 )
             return output, result.returncode
-        except subprocess.TimeoutExpired:
-            return "Command execution timed out", 1
+        except subprocess.TimeoutExpired as exc:
+            # Report the timeout under a status no real process can exit with
+            # (#583): the command may have done part of its work, and retrying
+            # with a longer timeout is the usual fix — a different reaction
+            # than for a command that ran and failed. Include how long it ran
+            # and whatever it printed before ending.
+            elapsed = perf_counter() - started_at
+            partial = _timeout_partial_output(exc)
+            message = (
+                f"Command execution timed out after {elapsed:.1f}s (timeout limit: {timeout}s)"
+            )
+            if partial:
+                message += f". Output collected before the timeout:\n{partial}"
+            else:
+                message += ". No output was collected before the timeout."
+            return message, COMMAND_TIMED_OUT
         except Exception as e:
-            return f"Command execution failed: {type(e).__name__}: {e}", 1
+            # WinError 2 does not say which file was missing, so name the shell.
+            logger.warning("PowerShell command failed to run (shell=%s)", shell, exc_info=True)
+            return f"Command execution failed: {type(e).__name__}: {e} (shell: {shell})", 1

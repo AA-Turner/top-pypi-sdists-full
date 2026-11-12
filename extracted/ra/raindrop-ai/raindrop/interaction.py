@@ -39,6 +39,47 @@ _FINISH_PASSTHROUGH_FIELDS = frozenset(
 _FINISH_AI_DATA_ALIASES = frozenset({"model", "input", "convo_id"})
 
 
+
+def _epoch_ns(value: datetime | int | float | str | None) -> int | None:
+    """A time as epoch nanoseconds: a datetime, an ISO-8601 string, or epoch
+    seconds / milliseconds (values below ~1973-in-ms are taken as seconds)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if isinstance(value, datetime):
+        dt = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+        delta = dt - datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return ((delta.days * 86400 + delta.seconds) * 1_000_000 + delta.microseconds) * 1_000
+    if isinstance(value, (int, float)):
+        v = float(value)
+        return int(round(v * 1_000_000_000)) if abs(v) < 1e11 else int(round(v * 1_000_000))
+    return None
+
+
+def _parent_ids(parent: Any) -> tuple[str, str] | None:
+    """``(trace_id, span_id)`` as lowercase hex from a saved parent, or None."""
+    if parent is None:
+        return None
+    if isinstance(parent, dict):
+        trace_id, span_id = parent.get("trace_id"), parent.get("span_id")
+    else:
+        trace_id, span_id = getattr(parent, "trace_id", None), getattr(parent, "span_id", None)
+    if not isinstance(trace_id, str) or not isinstance(span_id, str):
+        return None
+    trace_id, span_id = trace_id.lower(), span_id.lower()
+    try:
+        int(trace_id, 16)
+        int(span_id, 16)
+    except ValueError:
+        return None
+    if len(trace_id) != 32 or len(span_id) != 16:
+        return None
+    return trace_id, span_id
+
 class Interaction:
     """
     Thin helper returned by analytics.begin().
@@ -247,6 +288,17 @@ class Interaction:
         unrecognized key is dropped with a loud, rate-limited warning while
         the valid fields — ``output`` above all — still ship.
         """
+        if self._finish_called and not self._disabled:
+            # Still sent: ingest handles repeated finishes (CONTRACT 10.2),
+            # but two finishes usually mean two interactions share an id.
+            self._analytics._rate_limited_log(
+                "interaction-repeated-finish",
+                logging.WARNING,
+                "[raindrop] event %s was already finished in this process; "
+                "sending the update anyway. Use a separate event id per "
+                "interaction, or keep it pending until its last update.",
+                self._event_id,
+            )
         self._finish_called = True
         if self._disabled:
             return
@@ -510,13 +562,22 @@ class Interaction:
         input: Any | None = None,
         output: Any | None = None,
         duration_ms: float | int | None = None,
-        start_time: datetime | int | float | None = None,
+        start_time: datetime | int | float | str | None = None,
         error: BaseException | str | None = None,
         properties: Dict[str, Any] | None = None,
         version: int | None = None,
+        end_time: datetime | int | float | str | None = None,
+        parent: Any = None,
     ) -> None:
         """
         Retroactively log a tool span tied to this interaction.
+
+        Give ``start_time`` plus ``duration_ms`` or ``end_time`` (datetimes, ISO-8601
+        strings or epoch seconds or milliseconds); when both are
+        given, ``end_time`` wins (CONTRACT 12.1). ``parent`` places the span
+        under a saved span, for example ids another process saved with the
+        event: anything with ``trace_id`` and ``span_id`` (lowercase hex), as
+        attributes or keys, such as a ``TraceContext`` (CONTRACT 12.2).
         """
         if self._disabled:
             return
@@ -530,34 +591,20 @@ class Interaction:
             dur_ms = 0.0
         duration_ns = int(round(dur_ms * 1_000_000))
 
-        # start_time normalization (epoch nanoseconds)
-        start_ns: int | None = None
-        if isinstance(start_time, datetime):
-            dt = start_time
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt = dt.astimezone(timezone.utc)
-
-            epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-            delta = dt - epoch
-            total_us = (
-                delta.days * 86400 + delta.seconds
-            ) * 1_000_000 + delta.microseconds
-            start_ns = total_us * 1_000
-        elif isinstance(start_time, (int, float)):
-            v = float(start_time)
-            # Heuristic: values smaller than ~1973 in ms are likely epoch-seconds
-            start_ns = (
-                int(round(v * 1_000_000_000))
-                if abs(v) < 1e11
-                else int(round(v * 1_000_000))
-            )
-
-        if start_ns is None:
-            start_ns = time.time_ns() - duration_ns
-
-        end_ns = start_ns + duration_ns
+        start_ns = _epoch_ns(start_time)
+        end_ns = _epoch_ns(end_time)
+        if end_ns is not None:
+            if start_ns is None:
+                start_ns = end_ns - duration_ns
+            end_ns = max(end_ns, start_ns)
+            dur_ms = (end_ns - start_ns) / 1_000_000
+            if duration_ms is None:
+                duration_ms = dur_ms
+        else:
+            if start_ns is None:
+                start_ns = time.time_ns() - duration_ns
+            end_ns = start_ns + duration_ns
+        parent_ids = _parent_ids(parent)
 
         tlp_kind = _core.TraceloopSpanKindValues.TOOL
         span_name = f"{name}.{tlp_kind.value}"
@@ -646,6 +693,7 @@ class Interaction:
                 if key not in _core.APP_GIT_PROPERTIES
             }
             direct_span = _core._build_direct_tool_span(
+                parent_ids=parent_ids,
                 span_name=span_name,
                 tool_name=name,
                 version=version,
@@ -673,7 +721,19 @@ class Interaction:
             scoped_app_git, client_identity=id(st)
         ):
             tracer = _core.trace.get_tracer("traceloop.tracer")
-            span = tracer.start_span(span_name, start_time=start_ns)
+            parent_context = None
+            if parent_ids is not None:
+                parent_context = _core.trace.set_span_in_context(
+                    _core.trace.NonRecordingSpan(
+                        _core.trace.SpanContext(
+                            trace_id=int(parent_ids[0], 16),
+                            span_id=int(parent_ids[1], 16),
+                            is_remote=True,
+                            trace_flags=_core.trace.TraceFlags(_core.trace.TraceFlags.SAMPLED),
+                        )
+                    )
+                )
+            span = tracer.start_span(span_name, context=parent_context, start_time=start_ns)
 
             try:
                 span.set_attribute(_core.SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)

@@ -26,6 +26,8 @@ use crate::api::_helpers::resources::{
     person_operations::rerun,
     person_operations::change_trigger,
     person_operations::recent_runs,
+    person_operations::acknowledge,
+    person_operations::acknowledgements,
     person_reads::run_nodes,
     person_reads::nodes,
     person_reads::node_runs,
@@ -57,6 +59,7 @@ use crate::api::_helpers::resources::{
     person_bootstrap::read,
     person_maintenance::coverage,
     person_location_work::request,
+    person_location_work::request_sync,
     person_location_work::result,
     person_plans::request,
     person_plans::read,
@@ -94,6 +97,7 @@ use crate::api::_helpers::resources::{
     trigger_reads::ticks,
     warehouse_metadata::report,
     warehouse_metadata::statistics_due,
+    warehouse_metadata::sync_due,
     warehouse_metadata::watermark
 ))]
 pub(crate) struct ControlApi;

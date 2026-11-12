@@ -3,15 +3,70 @@
 from __future__ import annotations
 
 import datetime as dt
+import gettext
 import importlib
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 from freezegun import freeze_time
 
 import humanize
 
+LOCALE_DIR = Path(humanize.i18n.__file__).parent / "locale"
+
 with freeze_time("2020-02-02"):
-    NOW = dt.datetime.now(tz=dt.timezone.utc)
+    NOW = dt.datetime.now(tz=dt.UTC)
+
+
+@pytest.mark.parametrize("locale, one", [("de_DE", "eins"), ("fr_FR", "un")])
+def test_update_translations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, locale: str, one: str
+) -> None:
+    for command in ("bash", "xgettext", "msgmerge", "msgfmt"):
+        if shutil.which(command) is None:
+            pytest.skip(f"Translation updates require {command}")
+
+    root = Path(__file__).resolve().parents[1]
+    source = root / "src" / "humanize"
+    destination = tmp_path / "src" / "humanize"
+    messages = destination / "locale" / locale / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    for path in source.glob("*.py"):
+        shutil.copy2(path, destination)
+    catalog = messages / "humanize.po"
+    shutil.copy2(source / "locale" / locale / "LC_MESSAGES" / "humanize.po", catalog)
+    binary = catalog.with_suffix(".mo")
+    subprocess.run(["msgfmt", "--check", "-o", str(binary), str(catalog)], check=True)
+
+    results = []
+    try:
+        for updated in (False, True):
+            if updated:
+                subprocess.run(
+                    ["bash", str(root / "scripts" / "update-translations.sh")],
+                    cwd=tmp_path,
+                    check=True,
+                )
+            with binary.open("rb") as stream:
+                translation = gettext.GNUTranslations(stream)
+            # Replace the cached catalog so the second pass uses the updated one.
+            monkeypatch.setitem(humanize.i18n._TRANSLATIONS, locale, translation)
+            humanize.activate(locale)
+            results.append(
+                [humanize.apnumber(value) for value in range(10)]
+                + [
+                    humanize.ordinal(value, gender=gender)
+                    for gender in ("male", "female")
+                    for value in range(10)
+                ]
+            )
+    finally:
+        humanize.deactivate()
+
+    assert results[0][1] == one
+    assert results[1] == results[0]
 
 
 @freeze_time("2020-02-02")
@@ -33,14 +88,48 @@ def test_i18n() -> None:
         assert humanize.ordinal(5) == "5ый"
         assert humanize.precisedelta(one_min_three_seconds) == "1 минута и 7 секунд"
 
+        humanize.i18n.activate("si_LK")
+        assert humanize.naturaltime(three_seconds) == "තත්පර 3කට පෙර"
+        assert humanize.precisedelta(one_min_three_seconds) == "විනාඩි 1යි තත්පර 7ක්"
+
+        humanize.i18n.activate("bn_BD")
+        assert humanize.naturaltime(three_seconds) == "3 সেকেন্ড সময় আগে"
+        assert humanize.precisedelta(one_min_three_seconds) == "1 মিনিট আর 7 সেকেন্ড"
+
+        humanize.i18n.activate("tr_TR")
+        assert humanize.naturaltime(three_seconds) == "3 saniye önce"
+        in_three_days = NOW + dt.timedelta(days=3)
+        assert humanize.naturaltime(in_three_days, when=NOW) == "3 gün sonra"
+
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
 
     finally:
         humanize.i18n.deactivate()
         assert humanize.naturaltime(three_seconds) == "3 seconds ago"
         assert humanize.ordinal(5) == "5th"
         assert humanize.precisedelta(one_min_three_seconds) == "1 minute and 7 seconds"
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (-60, "یک دقیقه پیش"),
+        (-3, "3 ثانیه پیش"),
+        (0, "اکنون"),
+        (3, "3 ثانیه دیگر"),
+        (60, "یک دقیقه دیگر"),
+    ],
+)
+def test_naturaltime_persian(seconds: int, expected: str) -> None:
+    try:
+        humanize.activate("fa_IR")
+        value = NOW + dt.timedelta(seconds=seconds)
+        assert humanize.naturaltime(value, when=NOW) == expected
+    except FileNotFoundError:
+        pytest.skip("Generate .mo with tox -e compile-translations")
+    finally:
+        humanize.deactivate()
 
 
 def test_intcomma() -> None:
@@ -59,14 +148,20 @@ def test_intcomma() -> None:
 
         humanize.i18n.activate("fr_FR")
         assert humanize.intcomma(number) == "10 000 000"
-        assert humanize.intcomma(1_234_567.89) == "1 234 567.89"
-        assert humanize.intcomma("1 234 567.89") == "1 234 567.89"
+        assert humanize.intcomma(1_234_567.89) == "1 234 567,89"
+        assert humanize.intcomma("1 234 567,89") == "1 234 567,89"
 
         humanize.i18n.activate("pt_BR")
         assert humanize.intcomma(number) == "10.000.000"
 
+        humanize.i18n.activate("tr_TR")
+        assert humanize.intcomma(number) == "10.000.000"
+        assert humanize.intcomma(1_234_567.89) == "1.234.567,89"
+        assert humanize.intcomma("1234567,89") == "1.234.567,89"
+        assert humanize.intcomma("1.234.567,89") == "1.234.567,89"
+
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
 
     finally:
         humanize.i18n.deactivate()
@@ -85,7 +180,7 @@ def test_naturaldelta() -> None:
         assert humanize.naturaldelta(seconds) == "1,234 años"
 
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
 
     finally:
         humanize.i18n.deactivate()
@@ -95,11 +190,31 @@ def test_naturaldelta() -> None:
 @pytest.mark.parametrize(
     "locale, number, expected_result",
     [
+        # Quadrillion is 10**15, or a thousand times a trillion.
+        ("zh_CN", 10**12, "1.0 兆"),
+        ("zh_CN", 10**15 - 1, "1.0 千万亿"),
+        ("zh_CN", 10**15, "1.0 千万亿"),
+        ("zh_CN", 2 * 10**15, "2.0 千万亿"),
+        ("zh_CN", -(10**15), "-1.0 千万亿"),
+        ("zh_CN", 10**18, "1.0 百京"),
+        ("zh_HK", 10**12, "1.0 兆"),
+        ("zh_HK", 10**15 - 1, "1.0 千萬億"),
+        ("zh_HK", 10**15, "1.0 千萬億"),
+        ("zh_HK", 2 * 10**15, "2.0 千萬億"),
+        ("zh_HK", -(10**15), "-1.0 千萬億"),
+        ("zh_HK", 10**18, "1.0 百京"),
         # Italian uses comma as decimal separator
         ("it_IT", 1_000_000, "1,0 milione"),
         ("it_IT", 1_200_000, "1,2 milioni"),
         ("it_IT", 1_000_000_000, "1,0 miliardo"),
         ("it_IT", 3_500_000_000, "3,5 miliardi"),
+        # Turkish uses comma as decimal separator
+        ("tr_TR", 1_000_000, "1,0 milyon"),
+        ("tr_TR", 1_200_000, "1,2 milyon"),
+        # Sinhala uses borrowed scale words with a dot decimal separator
+        ("si_LK", 1_000_000, "1.0 මිලියන"),
+        ("si_LK", 1_200_000, "1.2 මිලියන"),
+        ("si_LK", 3_500_000_000, "3.5 බිලියන"),
         # Spanish uses dot as decimal separator
         ("es_ES", 1_000_000, "1.0 millón"),
         ("es_ES", 3_500_000, "3.5 millones"),
@@ -117,46 +232,50 @@ def test_naturaldelta() -> None:
         ("lv", 2_000_000, "2,0 miljoni"),
         ("lv", 11_000_000, "11,0 miljoni"),
         ("lv", 21_000_000, "21,0 miljons"),
-        ("fr_FR", "1_000", "1.0 mille"),
-        ("fr_FR", "12_400", "12.4 milles"),
-        ("fr_FR", "12_490", "12.5 milles"),
-        ("fr_FR", "1_000_000", "1.0 million"),
-        ("fr_FR", "-1_000_000", "-1.0 million"),
-        ("fr_FR", "1_200_000", "1.2 millions"),
-        ("fr_FR", "1_290_000", "1.3 millions"),
-        ("fr_FR", "999_999_999", "1.0 milliard"),
-        ("fr_FR", "1_000_000_000", "1.0 milliard"),
-        ("fr_FR", "-1_000_000_000", "-1.0 milliard"),
-        ("fr_FR", "2_000_000_000", "2.0 milliards"),
-        ("fr_FR", "999_999_999_999", "1.0 billion"),
-        ("fr_FR", "1_000_000_000_000", "1.0 billion"),
-        ("fr_FR", "6_000_000_000_000", "6.0 billions"),
-        ("fr_FR", "-6_000_000_000_000", "-6.0 billions"),
-        ("fr_FR", "999_999_999_999_999", "1.0 billiard"),
-        ("fr_FR", "1_000_000_000_000_000", "1.0 billiard"),
-        ("fr_FR", "1_300_000_000_000_000", "1.3 billiards"),
-        ("fr_FR", "-1_300_000_000_000_000", "-1.3 billiards"),
-        ("fr_FR", "3_500_000_000_000_000_000_000", "3.5 trilliards"),
-        ("fr_FR", "8_100_000_000_000_000_000_000_000_000_000_000", "8.1 quintilliards"),
+        ("bn_BD", 2_000_000, "2.0 মিলিয়ন"),
+        ("bn_BD", 1_000_000_000_000_000_000_000_000_000_000, "1.0 ননিলিয়ন"),
+        ("bn_BD", 1_000_000_000_000_000_000_000_000_000_000_000, "1.0 ডেসিলিয়ন"),
+        ("bn_BD", 10**100, "1.0 গুগল"),
+        ("fr_FR", "1_000", "1,0 mille"),
+        ("fr_FR", "12_400", "12,4 milles"),
+        ("fr_FR", "12_490", "12,5 milles"),
+        ("fr_FR", "1_000_000", "1,0 million"),
+        ("fr_FR", "-1_000_000", "-1,0 million"),
+        ("fr_FR", "1_200_000", "1,2 millions"),
+        ("fr_FR", "1_290_000", "1,3 millions"),
+        ("fr_FR", "999_999_999", "1,0 milliard"),
+        ("fr_FR", "1_000_000_000", "1,0 milliard"),
+        ("fr_FR", "-1_000_000_000", "-1,0 milliard"),
+        ("fr_FR", "2_000_000_000", "2,0 milliards"),
+        ("fr_FR", "999_999_999_999", "1,0 billion"),
+        ("fr_FR", "1_000_000_000_000", "1,0 billion"),
+        ("fr_FR", "6_000_000_000_000", "6,0 billions"),
+        ("fr_FR", "-6_000_000_000_000", "-6,0 billions"),
+        ("fr_FR", "999_999_999_999_999", "1,0 billiard"),
+        ("fr_FR", "1_000_000_000_000_000", "1,0 billiard"),
+        ("fr_FR", "1_300_000_000_000_000", "1,3 billiards"),
+        ("fr_FR", "-1_300_000_000_000_000", "-1,3 billiards"),
+        ("fr_FR", "3_500_000_000_000_000_000_000", "3,5 trilliards"),
+        ("fr_FR", "8_100_000_000_000_000_000_000_000_000_000_000", "8,1 quintilliards"),
         (
             "fr_FR",
             "-8_100_000_000_000_000_000_000_000_000_000_000",
-            "-8.1 quintilliards",
+            "-8,1 quintilliards",
         ),
         (
             "fr_FR",
             1_000_000_000_000_000_000_000_000_000_000_000_000,
-            "1000.0 quintilliards",
+            "1000,0 quintilliards",
         ),
         (
             "fr_FR",
             1_100_000_000_000_000_000_000_000_000_000_000_000,
-            "1100.0 quintilliards",
+            "1100,0 quintilliards",
         ),
         (
             "fr_FR",
             2_100_000_000_000_000_000_000_000_000_000_000_000,
-            "2100.0 quintilliards",
+            "2100,0 quintilliards",
         ),
     ],
 )
@@ -164,7 +283,7 @@ def test_intword_i18n(locale: str, number: int, expected_result: str) -> None:
     try:
         humanize.i18n.activate(locale)
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
     else:
         assert humanize.intword(number) == expected_result
     finally:
@@ -176,6 +295,15 @@ def test_intword_i18n(locale: str, number: int, expected_result: str) -> None:
     [
         ("fr_FR", 1, "1 octet"),
         ("fr_FR", 42, "42 octets"),
+        ("fa_IR", 0, "0 بایت"),
+        ("fa_IR", 1, "1 بایت"),
+        ("fa_IR", -1, "-1 بایت"),
+        ("fa_IR", 42, "42 بایت"),
+        ("fa_IR", -42, "-42 بایت"),
+        ("si_LK", 1, "බයිට් 1"),
+        ("si_LK", 42, "බයිට් 42"),
+        ("bn_BD", 1, "1 বাইট"),
+        ("bn_BD", 42, "42 বাইট"),
         ("fr_FR", 42_000, "42.0 Ko"),
         ("fr_FR", 42_000_000, "42.0 Mo"),
         ("fr_FR", 42_000_000_000, "42.0 Go"),
@@ -186,7 +314,7 @@ def test_naturalsize_i18n(locale: str, value: float, expected_result: str) -> No
     try:
         humanize.i18n.activate(locale)
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
     else:
         assert humanize.naturalsize(value) == expected_result
     finally:
@@ -197,9 +325,31 @@ def test_naturalsize_i18n_binary() -> None:
     try:
         humanize.i18n.activate("fr_FR")
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
     else:
         assert humanize.naturalsize(3000, binary=True) == "2.9 Kio"
+    finally:
+        humanize.i18n.deactivate()
+
+
+@pytest.mark.parametrize(
+    "locale, days, expected_result",
+    [
+        ("bn_BD", 365, "এক বছর"),
+        ("bn_BD", 370, "1 বছর, 5 দিন"),
+        ("bn_BD", 396, "1 বছর, 1 মাস"),
+        ("bn_BD", 425, "1 বছর, 2 মাস"),
+    ],
+)
+def test_naturaldelta_one_year_i18n(
+    locale: str, days: int, expected_result: str
+) -> None:
+    try:
+        humanize.i18n.activate(locale)
+    except FileNotFoundError:
+        pytest.skip("Generate .mo with tox -e compile-translations")
+    else:
+        assert humanize.naturaldelta(dt.timedelta(days=days)) == expected_result
     finally:
         humanize.i18n.deactivate()
 
@@ -220,7 +370,7 @@ def test_langauge_codes(locale: str, expected_result: str) -> None:
     try:
         humanize.i18n.activate(locale)
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
     else:
         assert humanize.ordinal(5) == expected_result
     finally:
@@ -245,7 +395,7 @@ def test_ordinal_genders(
     try:
         humanize.i18n.activate(locale)
     except FileNotFoundError:
-        pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+        pytest.skip("Generate .mo with tox -e compile-translations")
     else:
         assert humanize.ordinal(number, gender=gender) == expected_result
     finally:
@@ -318,9 +468,23 @@ class TestActivate:
             test_str = humanize.naturaltime(three_seconds)
             assert test_str == "3 seconds ago"
         except FileNotFoundError:
-            pytest.skip("Generate .mo with scripts/generate-translation-binaries.sh")
+            pytest.skip("Generate .mo with tox -e compile-translations")
 
         finally:
             humanize.i18n.deactivate()
 
         assert test_str == humanize.naturaltime(three_seconds)
+
+
+@pytest.mark.parametrize(
+    "locale", sorted(p.name for p in LOCALE_DIR.iterdir() if p.is_dir())
+)
+def test_intword_unit_has_no_format_placeholder(locale: str) -> None:
+    try:
+        humanize.i18n.activate(locale)
+        for value in (1_000, 1_000_000, 1_000_000_000, 10**12, 10**15, 10**100):
+            assert "%" not in humanize.intword(value)
+    except FileNotFoundError:
+        pytest.skip("Generate .mo with tox -e compile-translations")
+    finally:
+        humanize.i18n.deactivate()

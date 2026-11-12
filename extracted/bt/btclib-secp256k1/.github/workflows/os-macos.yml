@@ -24,6 +24,7 @@ name: os-macos
 #
 # It gates no commit and no merge -- a macOS regression sits on main for at
 # most a week -- but release.yml calls it, so one cannot be published
+# over a platform this never answered for
 
 on:
   schedule:
@@ -32,7 +33,7 @@ on:
     # them is the tree; red in one is that platform, which is the whole
     # of what running them apart buys.
     # The time is the organization grid -- section 10 of
-    # btclib-org/.github's README.md -- and not this file's to restate.
+    # the organization's standard -- and not this file's to restate.
     # Only the default branch schedules workflows, so on any other branch
     # this is reachable through the dispatch below, and through the
     # workflow_call trigger above it.
@@ -82,12 +83,13 @@ jobs:
       # whole answer, and stopping at the first one hides the rest
       fail-fast: false
       matrix:
-        # both images, and not the newest alone: one is Apple silicon and
-        # the other Intel, and what differs between them is the
-        # architecture the vendored library and the extension are compiled
-        # for
+        # arm64 alone, the one macOS section 10 of the organization's
+        # standard in btclib-org/.github supports. The static x86_64
+        # wheels a release still publishes are built and tested by
+        # test.yml, whose cibuildwheel runs the suite against each one;
+        # the dynamic x86_64 wheel build-dynamic builds runs no suite
+        # anywhere before it is published
         os:
-          - macos-26-intel
           - macos-latest
         # every interpreter this package claims. os-ubuntu.yml and
         # os-windows.yml carry the same list, so that the platform is the
@@ -114,7 +116,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # the wheels of the test group, not the extension, which is built
           # from the tree twice below whatever the cache holds

@@ -15,7 +15,9 @@ from . import (
     failure_state,
     file_events,
     github_failures,
+    mention_events,
     notes,
+    notification_events,
     own_edits,
     own_pushes,
     path_presence,
@@ -114,6 +116,36 @@ def _reviews_poller(
     return poll
 
 
+def _interval_poller(
+    spec: subscriptions.Subscription,
+    root: Path,
+    deliver: abc.Callable[[str], bool],
+    debounce: float,
+    label: str,
+    read: abc.Callable[[], bool | None],
+) -> abc.Callable[[], object]:
+    """Runs *read* once per `spec.interval`; *read* returns None when GitHub can't be read."""
+    failed = failure_state.path(root, spec, "github")
+    next_at = 0.0
+
+    def poll() -> None:
+        nonlocal next_at
+        if time.monotonic() < next_at:
+            return
+
+        if read() is None:
+            _log.warning("Cannot read GitHub for %s", label)
+            next_at = time.monotonic() + github_failures.failed(
+                root, failed, label, deliver, spec.interval, debounce
+            )
+            return
+
+        github_failures.recovered(root, failed)
+        next_at = time.monotonic() + spec.interval
+
+    return poll
+
+
 def open_poller(
     spec: subscriptions.Subscription,
     root: Path,
@@ -204,6 +236,28 @@ def open_poller(
         return _repo_poller(spec, root, directory, me, deliver, settings.github_debounce)
     if spec.kind == "reviews":
         return _reviews_poller(spec, root, directory, me, deliver, settings.github_debounce)
+    if spec.kind == "mentions":
+        stem = mention_events.state_stem(directory, spec.target[1:], me)
+        return _interval_poller(
+            spec,
+            root,
+            deliver,
+            settings.github_debounce,
+            "mentions",
+            lambda: mention_events.poll(
+                stem, spec.target[1:], deliver, pr_poller.hears_comments, spec.backlog
+            ),
+        )
+    if spec.kind == "notifications":
+        stem = notification_events.state_stem(directory, spec.target[1:], me)
+        return _interval_poller(
+            spec,
+            root,
+            deliver,
+            settings.github_debounce,
+            "notifications",
+            lambda: notification_events.poll(stem, spec.target[1:], deliver, spec.backlog),
+        )
 
     repo, number = spec.target
     stem = pr_wait.state_stem(directory, repo, int(number), me)
@@ -225,7 +279,9 @@ def open_poller(
         if finished or time.monotonic() < retry_at:
             return
 
-        pr_poller.interested(repo, int(number), root.name)
+        pr_poller.interested(
+            repo, int(number), root.name, comments=spec.comments and roles.COMMENTS in wake
+        )
         snapshot = pr_activity.fetch(
             repo,
             int(number),
@@ -255,6 +311,7 @@ def open_poller(
             trusted=trusted,
             wake=wake,
             mentioned=spec.mentioned,
+            repo=repo,
         )
         head = ""
         # a closed PR can reopen, so it is still read unless the brief only links to it

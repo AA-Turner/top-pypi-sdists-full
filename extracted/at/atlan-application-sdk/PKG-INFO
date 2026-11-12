@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk
-Version: 3.55.3
+Version: 3.56.0
 Summary: Atlan Application SDK is a Python library for developing applications on the Atlan Platform
 Project-URL: Repository, https://github.com/atlanhq/application-sdk
 Project-URL: Documentation, https://github.com/atlanhq/application-sdk/README.md
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
-Requires-Dist: atlan-application-sdk-api==3.55.3
-Requires-Dist: authlib<2,>=1.9.4
+Requires-Dist: atlan-application-sdk-api==3.56.0
+Requires-Dist: authlib<2,>=1.9.5
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3<2.0.0,>=1.38.6
 Requires-Dist: certifi>=2026.10.19
@@ -88,6 +88,8 @@ Provides-Extra: tests
 Requires-Dist: httpx2<3.0.0,>=2.16.0; extra == 'tests'
 Requires-Dist: httpx<0.29.0,>=0.27.0; extra == 'tests'
 Requires-Dist: pandera[io]<0.36.0,>=0.35.0; extra == 'tests'
+Requires-Dist: pytest-asyncio<2.0.0,>=1.4.0; extra == 'tests'
+Requires-Dist: pytest<10.0.0,>=8.3.3; extra == 'tests'
 Provides-Extra: workflows
 Requires-Dist: orjson<4.0.0,>=3.11.6; extra == 'workflows'
 Requires-Dist: temporalio<2.0.0,>=1.35.0; extra == 'workflows'

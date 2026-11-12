@@ -3,7 +3,6 @@ import asyncio.locks
 import collections.abc
 import google.protobuf.message
 import grpclib.client
-import modal._utils.async_utils
 import modal._utils.auth_token_manager
 import modal._utils.grpc_utils
 import modal_proto.modal_api_grpc
@@ -73,12 +72,11 @@ ResponseType = typing.TypeVar("ResponseType", bound="google.protobuf.message.Mes
 class _Client:
     _client_from_env: typing.ClassVar[typing.Optional[_Client]]
     _client_from_env_lock: typing.ClassVar[typing.Optional[asyncio.locks.Lock]]
-    _cancellation_context: modal._utils.async_utils.TaskContext
-    _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
     _control_plane_stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
     _auth_token_manager: typing.Optional[modal._utils.auth_token_manager._AuthTokenManager]
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
+    _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
     client_type: int
     server_url: str
 
@@ -87,7 +85,7 @@ class _Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.3",
+        version: str = "1.6.4",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -143,7 +141,16 @@ class _Client:
         ...
 
     async def _open(self): ...
-    async def _close(self, prep_for_restore: bool = False): ...
+    async def _prep_for_snapshot(self): ...
+    async def _release_connections(self): ...
+    async def close(self) -> None:
+        """Close this client and release its connections and background tasks.
+
+        Calling this method more than once is safe. The client cannot be used for requests after closing.
+        Clients can also be used as context managers to close them automatically on exit.
+        """
+        ...
+
     async def hello(self):
         """Connect to server and retrieve version information; raise appropriate error for various failures.
 
@@ -237,7 +244,7 @@ class _Client:
         ...
 
     @classmethod
-    def set_env_client(cls, client: typing.Optional[_Client]):
+    def _set_env_client(cls, client: typing.Optional[_Client]):
         """mdmd:hidden"""
         ...
 
@@ -290,12 +297,11 @@ class _Client:
 class Client:
     _client_from_env: typing.ClassVar[typing.Optional[Client]]
     _client_from_env_lock: typing.ClassVar[typing.Optional[asyncio.locks.Lock]]
-    _cancellation_context: modal._utils.async_utils.TaskContext
-    _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
     _control_plane_stub: typing.Optional[modal_proto.modal_api_grpc.ModalClientModal]
     _auth_token_manager: typing.Optional[modal._utils.auth_token_manager._AuthTokenManager]
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
+    _cancellation_context_event_loop: typing.Optional[asyncio.events.AbstractEventLoop]
     client_type: int
     server_url: str
 
@@ -304,7 +310,7 @@ class Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.3",
+        version: str = "1.6.4",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -388,11 +394,36 @@ class Client:
 
     _open: ___open_spec
 
-    class ___close_spec(typing_extensions.Protocol):
-        def __call__(self, /, prep_for_restore: bool = False): ...
-        async def aio(self, /, prep_for_restore: bool = False): ...
+    class ___prep_for_snapshot_spec(typing_extensions.Protocol):
+        def __call__(self, /): ...
+        async def aio(self, /): ...
 
-    _close: ___close_spec
+    _prep_for_snapshot: ___prep_for_snapshot_spec
+
+    class ___release_connections_spec(typing_extensions.Protocol):
+        def __call__(self, /): ...
+        async def aio(self, /): ...
+
+    _release_connections: ___release_connections_spec
+
+    class __close_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> None:
+            """Close this client and release its connections and background tasks.
+
+            Calling this method more than once is safe. The client cannot be used for requests after closing.
+            Clients can also be used as context managers to close them automatically on exit.
+            """
+            ...
+
+        async def aio(self, /) -> None:
+            """Close this client and release its connections and background tasks.
+
+            Calling this method more than once is safe. The client cannot be used for requests after closing.
+            Clients can also be used as context managers to close them automatically on exit.
+            """
+            ...
+
+    close: __close_spec
 
     class __hello_spec(typing_extensions.Protocol):
         def __call__(self, /):
@@ -590,7 +621,7 @@ class Client:
     verify: typing.ClassVar[__verify_spec]
 
     @classmethod
-    def set_env_client(cls, client: typing.Optional[Client]):
+    def _set_env_client(cls, client: typing.Optional[Client]):
         """mdmd:hidden"""
         ...
 

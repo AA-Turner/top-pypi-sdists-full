@@ -44,6 +44,13 @@ Delivery discipline mirrors the pre-extension mail path:
     HelloRetryRequest answered on a later poll still validates
     after this process restarted. It is a secret of the
     responder, never derived from a mail session-id.
+  - a flight mail whose raw object exceeds the mail size cap
+    (max_job_bytes, the version 1 cap for mail) is refused
+    before any base64 is decoded: consumed as malformed DTLS
+    mail and dropped, never reinterpreted as a job. The core
+    applies the same cap to the mail it takes in; flight mail
+    never reaches the core, so the cap is applied here, in
+    the lane that owns the mailbox.
 """
 
 import json
@@ -168,9 +175,27 @@ class EmailPipe:
             else 7 * 86400.0)
         self._session_result_max_count = 64
         self._session_result_max_bytes = 16 * 1024 * 1024
+        # The version 1 mail size cap, read the way the core
+        # reads it (an unusable value reads as the default; a
+        # cap of 0 means no limit). pass_once applies it to
+        # flight mail before the frame is decoded.
+        raw_cap = cfg.get("max_job_bytes", 4194304) \
+            if isinstance(cfg, dict) else 4194304
+        try:
+            self._max_mail_bytes = int(raw_cap)
+        except (TypeError, ValueError, OverflowError):
+            self._max_mail_bytes = 4194304
         if self.dtls_enabled:
             self._load_session_holds()
             self._dtls_server = self._build_dtls_server()
+
+    def _poll_interval_sec(self):
+        # docs/FAQ.md: poll_interval_sec default 20. A usable number
+        # is floored at 1s; a boolean, a huge integer (once a raw
+        # OverflowError out of this loop), infinity or NaN is not
+        # an interval and polls at the documented default.
+        return max(1.0, float(_confval.number(
+            self.cfg.get("poll_interval_sec"), 20.0, lo=0)))
 
     def _build_dtls_server(self):
         if not self.cfg.get("shared_secret") \
@@ -192,7 +217,8 @@ class EmailPipe:
             secret_lookup=lookup,
             platform_payload=_dtls_ext.build_platform_payload(
                 tier, self.cfg),
-            log=ch.log)
+            log=ch.log,
+            poll_period_sec=self._poll_interval_sec())
         key = self._cookie_key()
         if key is not None:
             server.core.cookie_secret = key
@@ -568,11 +594,42 @@ class EmailPipe:
             self._waiting_session.discard(ident)
             self._retire_session_hold(ident)
 
+    def _flight_mail_over_cap(self, raw):
+        """True when this raw message is flight mail -- by its
+        subject alone; no body is decoded to decide -- and its
+        raw object exceeds the mail size cap. The version 3
+        draft's Section 5.3: the version 1 size cap for mail
+        applies 1st, before any base64 is decoded, any
+        reassembly state is allocated, or any octet is fed to
+        a DTLS stack."""
+        if not self._max_mail_bytes \
+                or len(raw) <= self._max_mail_bytes:
+            return False
+        import email as _email
+        try:
+            message = _email.message_from_bytes(raw)
+            subject = str(message["Subject"] or "")
+        except Exception:
+            return False
+        if _dtls_mailbox._flight_subject_match(subject) \
+                is not None:
+            return True
+        return subject.strip() == _dtls_mailbox.FLIGHT_SUBJECT
+
     def pass_once(self):
         imap = self._imap_factory(self.cfg)
         try:
             mails = _mailbox.fetch_job_mails(imap)
             for seq, raw in mails:
+                if self.dtls_enabled \
+                        and self._flight_mail_over_cap(raw):
+                    ch.log("email transport: flight mail of "
+                           f"{len(raw)} octets exceeds the mail "
+                           f"size cap ({self._max_mail_bytes}); "
+                           "consumed and dropped before any "
+                           "decoding", "WARN")
+                    _mailbox.mark_seen(imap, seq)
+                    continue
                 if self.dtls_enabled:
                     classified = _dtls_mailbox.parse_message(raw)
                     if classified.kind in (
@@ -729,12 +786,7 @@ class EmailPipe:
                 pass
 
     def run(self):
-        # FAQ.md: poll_interval_sec default 20. A usable number
-        # is floored at 1s; a boolean, a huge integer (once a raw
-        # OverflowError out of this loop), infinity or NaN is not an
-        # interval and polls at the documented default.
-        interval = max(1.0, float(_confval.number(
-            self.cfg.get("poll_interval_sec"), 20.0, lo=0)))
+        interval = self._poll_interval_sec()
         ch.log(f"email transport: polling "
                f"{self.mailbox_addr or 'mailbox'} every "
                f"{interval:.0f}s")

@@ -40,6 +40,37 @@ class TestValidationUtils(unittest.TestCase):
                                             'Invalid string used for the schema name.'):
                     base._check_schema_name(schema_name)
 
+    def test_check_schema_name_with_path_traversal_is_invalid(self):
+        for schema_name in ('x/../victim', '../../app', '..', '.', 'a/b', '/abs'):
+            with self.subTest(schema_name=schema_name):
+                with self.assertRaisesRegex(ValidationError,
+                                            'Invalid string used for the schema name.'):
+                    base._check_schema_name(schema_name)
+
+    def test_check_schema_name_with_dots_is_valid(self):
+        for schema_name in ('a.b', '.hidden', '...', 'tenant.'):
+            with self.subTest(schema_name=schema_name):
+                self.assertIsNone(base._check_schema_name(schema_name))
+
+    def test_check_schema_name_over_63_bytes_is_invalid(self):
+        # 33 characters but 64 bytes: PostgreSQL would truncate it to the
+        # 63-byte name of another tenant.
+        for schema_name in ('\u00e9' * 31 + 'ab', '\u00e9' * 32, '\U0001f600' * 16):
+            with self.subTest(schema_name=schema_name):
+                self.assertGreater(len(schema_name.encode('utf-8')), 63)
+                with self.assertRaisesRegex(ValidationError,
+                                            'Invalid string used for the schema name.'):
+                    base._check_schema_name(schema_name)
+
+    def test_check_schema_name_63_bytes_is_valid(self):
+        for schema_name in ('\u00e9' * 31 + 'a', 'a' * 63, 'caf\u00e9'):
+            with self.subTest(schema_name=schema_name):
+                self.assertIsNone(base._check_schema_name(schema_name))
+
+    def test_check_schema_name_lone_surrogate_is_invalid(self):
+        with self.assertRaises(ValidationError):
+            base._check_schema_name('tenant\ud800')
+
     def test_quote_schema_name_escapes_double_quotes(self):
         self.assertEqual(quote_schema_name('Tenant 1'), '"Tenant 1"')
         self.assertEqual(quote_schema_name('a"b'), '"a""b"')

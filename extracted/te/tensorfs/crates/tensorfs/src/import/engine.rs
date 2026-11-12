@@ -23,7 +23,7 @@ macro_rules! table {
 }
 
 /// The built-in tables.
-pub(crate) const TABLES: [&str; 16] = [
+pub(crate) const TABLES: [&str; 20] = [
     table!("sdxl.single_file"),
     table!("anima.single_file"),
     table!("qwenimage21.comfy"),
@@ -36,8 +36,12 @@ pub(crate) const TABLES: [&str; 16] = [
     table!("flux2.lora"),
     table!("flux3klein.lora"),
     table!("fibo2.lora"),
+    table!("moss.lora"),
+    table!("anima.lora"),
+    table!("qwenimage.lora"),
     table!("seedvr2"),
     table!("h3.latent_upscaler"),
+    table!("relayvsr"),
     table!("ideogram4.fp8"),
     table!("qwen3.6-35b-a3b.experts"),
 ];
@@ -146,6 +150,10 @@ pub(crate) struct Component {
     pub folders: BTreeMap<String, String>,
     #[serde(default)]
     pub cast: Option<Dtype>,
+    /// The source file's `__metadata__` field whose JSON object is this component's config
+    /// (RelayVSR writes its model config there).
+    #[serde(default)]
+    pub config_from: Option<String>,
     /// Source keys every matching source has and the output does not take.
     #[serde(default)]
     pub drop: Vec<String>,

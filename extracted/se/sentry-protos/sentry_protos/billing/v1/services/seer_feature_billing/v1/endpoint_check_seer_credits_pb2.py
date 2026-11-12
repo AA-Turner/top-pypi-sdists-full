@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n[sentry_protos/billing/v1/services/seer_feature_billing/v1/endpoint_check_seer_credits.proto\x12\x39sentry_protos.billing.v1.services.seer_feature_billing.v1\"z\n\x17\x43heckSeerCreditsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x12\n\nfeature_id\x18\x02 \x01(\t\x12\x1e\n\x16predicted_credit_usage\x18\x03 \x01(\x04\x12\x12\n\ntake_lease\x18\x04 \x01(\x08\"Z\n\x18\x43heckSeerCreditsResponse\x12\x1a\n\x12has_enough_credits\x18\x01 \x01(\x08\x12\x15\n\x08lease_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_lease_idb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n[sentry_protos/billing/v1/services/seer_feature_billing/v1/endpoint_check_seer_credits.proto\x12\x39sentry_protos.billing.v1.services.seer_feature_billing.v1\"z\n\x17\x43heckSeerCreditsRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x12\n\nfeature_id\x18\x02 \x01(\t\x12\x1e\n\x16predicted_credit_usage\x18\x03 \x01(\x04\x12\x12\n\ntake_lease\x18\x04 \x01(\x08\"\xce\x02\n\x18\x43heckSeerCreditsResponse\x12\x1a\n\x12has_enough_credits\x18\x01 \x01(\x08\x12\x15\n\x08lease_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x12w\n\rdenial_reason\x18\x03 \x01(\x0e\x32`.sentry_protos.billing.v1.services.seer_feature_billing.v1.CheckSeerCreditsResponse.DenialReason\"y\n\x0c\x44\x65nialReason\x12\x1d\n\x19\x44\x45NIAL_REASON_UNSPECIFIED\x10\x00\x12$\n DENIAL_REASON_NOT_ENOUGH_CREDITS\x10\x01\x12$\n DENIAL_REASON_DAILY_CAP_EXCEEDED\x10\x02\x42\x0b\n\t_lease_idb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,6 +33,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CHECKSEERCREDITSREQUEST']._serialized_start=154
   _globals['_CHECKSEERCREDITSREQUEST']._serialized_end=276
-  _globals['_CHECKSEERCREDITSRESPONSE']._serialized_start=278
-  _globals['_CHECKSEERCREDITSRESPONSE']._serialized_end=368
+  _globals['_CHECKSEERCREDITSRESPONSE']._serialized_start=279
+  _globals['_CHECKSEERCREDITSRESPONSE']._serialized_end=613
+  _globals['_CHECKSEERCREDITSRESPONSE_DENIALREASON']._serialized_start=479
+  _globals['_CHECKSEERCREDITSRESPONSE_DENIALREASON']._serialized_end=600
 # @@protoc_insertion_point(module_scope)

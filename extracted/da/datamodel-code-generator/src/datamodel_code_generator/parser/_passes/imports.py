@@ -135,6 +135,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.imports import Imports, _ImportKey
     from datamodel_code_generator.model._render_plan import RenderReady
     from datamodel_code_generator.model.base import DataModelFieldBase
+    from datamodel_code_generator.model.output import OutputModelContext
     from datamodel_code_generator.model_metadata import ModelMetadata
     from datamodel_code_generator.parser._imports_plan import ModuleImportLedger
     from datamodel_code_generator.parser._model_shapes import ReuseGroups
@@ -249,6 +250,14 @@ class FinishHost(ReuseOptionsHost, RootModelHost, OutputOptionsHost, TagPlanHost
     @property
     def _construction_keys(self) -> ConstructionKeys:
         """The class names that the options read while models are built key (``_user_keys.py``)."""
+
+    @property
+    def _output_model_context(self) -> OutputModelContext:
+        """The capabilities of the output model types."""
+
+    @property
+    def use_bounds_for_float_const(self) -> bool:
+        """Whether a float const is fixed by equal bounds (``--use-bounds-for-float-const``)."""
 
     @property
     def generation_store(self) -> GenerationStore:
@@ -1163,17 +1172,20 @@ def warn_about_decimal_defaults(parser: FinishHost) -> None:
     warn_as_parser_base(message, DefaultValueTypeWarning, stacklevel=2)
 
 
-def widened_values_warning(field: DataModelFieldBase) -> str | None:
+def widened_values_warning(parser: FinishHost, field: DataModelFieldBase) -> str | None:
     """Return a warning for the enum or const values a field's type is written in place of, as no Literal holds them.
 
-    The parser keeps them on the type (``record_widened_values``), which admits other values of their types.
+    The parser keeps them on the type (``record_widened_values``), which admits other values of their types, but a
+    value of the field's own type that the bounds of the field fix (``_bounds_fixed_value``) is held exactly.
     """
+    fixed = _bounds_fixed_value(parser, field)
     if not (
         widened := (
             *dict.fromkeys(
                 stable_repr(value)
                 for data_type in field.data_type.all_data_types
                 for value in data_type.__dict__.get(WIDENED_VALUES_KEY, ())
+                if not (data_type is field.data_type and isinstance(value, float) and value == fixed)
             ),
         )
     ):
@@ -1187,6 +1199,22 @@ def widened_values_warning(field: DataModelFieldBase) -> str | None:
     )
 
 
+def _bounds_fixed_value(parser: FinishHost, field: DataModelFieldBase) -> object:
+    """Return the value an output that checks constraints admits alone by the field's equal minimum and maximum.
+
+    Under ``--use-bounds-for-float-const`` a float const takes them on its field under ``--field-constraints``
+    (``const_bounds``); None when they differ or without the option (row ``legacy-float-const-unbounded``).
+    """
+    if (
+        not parser.use_bounds_for_float_const
+        or not parser._output_model_context.checks_constraints  # noqa: SLF001
+        or field.constraints is None
+    ):
+        return None
+    values = field.constraints.set_values()
+    return minimum if (minimum := values.get("minimum")) == values.get("maximum") else None
+
+
 def warn_about_dropped_constraints(parser: FinishHost, contexts: Sequence[ModuleContextView]) -> None:
     """Warn once per field whose constraints the output model leaves out on its type, and keep each warning."""
     fields: set[tuple[ModulePath, str]] = set()
@@ -1198,7 +1226,7 @@ def warn_about_dropped_constraints(parser: FinishHost, contexts: Sequence[Module
                         None,
                         (
                             field.dropped_constraints_warning,
-                            widened_values_warning(field),
+                            widened_values_warning(parser, field),
                             tuple_unique_items_warning(parser, field),
                         ),
                     )
@@ -1413,13 +1441,15 @@ def record_pydantic_floor(parser: FinishHost, contexts: Sequence[ModuleContextVi
     Every fact the constructs read is final here, after the last writer before rendering. A model or field owns
     each construct, named with its module when the parse writes more than one. Output that Pydantic does not
     build has no floor to state. The fields that write a ``bytes`` pattern Pydantic 2.14 refuses at import, as no
-    config selects ``python-re`` for it (#6673), are recorded too.
+    config selects ``python-re`` for it (#6673), are recorded too. Without an explicit target there is no floor,
+    so the constructs are collected only with one.
     """
     if (record := _PYDANTIC_FLOORS.get()) is None:
         return
     if not parser.data_model_type._READ_BY_PYDANTIC:  # noqa: SLF001
         record.record(parser, None, ())
         return
+    target = parser.target_pydantic_version
     used: list[tuple[PydanticConstruct, str]] = []
     refused: list[str] = []
     for ctx in contexts:
@@ -1427,17 +1457,17 @@ def record_pydantic_floor(parser: FinishHost, contexts: Sequence[ModuleContextVi
         for model in ctx.models:
             owner = f"{prefix}{model.class_name}"
             names_fields = not model.IS_ROOT_MODEL and not model.IS_ALIAS
-            used.extend(
-                (construct, owner if field_name is None else f"{owner}.{field_name}")
-                for construct, field_name in model._pydantic_constructs()  # noqa: SLF001
-            )
+            if target is not None:
+                used.extend(
+                    (construct, owner if field_name is None else f"{owner}.{field_name}")
+                    for construct, field_name in model._pydantic_constructs()  # noqa: SLF001
+                )
             if not model._builds_patterns_with_python_engine():  # noqa: SLF001
                 refused.extend(
                     f"{owner}.{field.name}" if names_fields else owner
                     for field in model.fields
                     if field._writes_bytes_pattern_rust_rejects()  # noqa: SLF001
                 )
-    target = parser.target_pydantic_version
     record.record(parser, None if target is None else pydantic_floor(target, used), tuple(dict.fromkeys(refused)))
 
 

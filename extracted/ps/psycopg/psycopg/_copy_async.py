@@ -6,6 +6,7 @@ Objects to support the COPY protocol (async version).
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
@@ -15,7 +16,7 @@ from . import errors as e
 from . import pq
 from ._compat import Self
 from ._acompat import AQueue, AWorker, agather, aspawn
-from ._copy_base import MAX_BUFFER_SIZE, PREFER_FLUSH, QUEUE_SIZE, BaseCopy
+from ._copy_base import FLUSH_THRESHOLD, MAX_BUFFER_SIZE, QUEUE_SIZE, BaseCopy
 from .generators import copy_end, copy_to
 
 if TYPE_CHECKING:
@@ -27,6 +28,8 @@ COPY_IN = pq.ExecStatus.COPY_IN
 COPY_OUT = pq.ExecStatus.COPY_OUT
 
 ACTIVE = pq.TransactionStatus.ACTIVE
+
+logger = logging.getLogger("psycopg")
 
 
 class AsyncCopy(BaseCopy["AsyncConnection[Any]"]):
@@ -132,27 +135,34 @@ class AsyncCopy(BaseCopy["AsyncConnection[Any]"]):
         by exit. It is available if, despite what is documented, you end up
         using the `Copy` object outside a block.
         """
-        if self._direction == COPY_IN:
-            if not exc:
-                if data := self.formatter.end():
-                    await self._write(data)
-            await self.writer.finish(exc)
-            self._finished = True
-        else:
-            if not exc:
-                return
+        try:
+            if self._direction == COPY_IN:
+                if not exc:
+                    if data := self.formatter.end():
+                        await self._write(data)
+                await self.writer.finish(exc)
+                self._finished = True
+            else:
+                if not exc:
+                    return
 
-            if self._pgconn.transaction_status != ACTIVE:
-                # The server has already finished to send copy data. The connection
-                # is already in a good state.
-                return
+                if self._pgconn.transaction_status != ACTIVE:
+                    # The server has already finished to send copy data. The
+                    # connection is already in a good state.
+                    return
 
-            # Throw a cancel to the server, then consume the rest of the copy data
-            # (which might or might not have been already transferred entirely to
-            # the client, so we won't necessary see the exception associated with
-            # canceling).
-            await self.connection._try_cancel()
-            await self.connection.wait(self._end_copy_out_gen())
+                # Throw a cancel to the server, then consume the rest of the copy
+                # data (which might or might not have been already transferred
+                # entirely to the client, so we won't necessary see the exception
+                # associated with canceling).
+                await self.connection._try_cancel()
+                await self.connection.wait(self._end_copy_out_gen())
+        except Exception as exc2:
+            if not exc:
+                raise
+            # Don't clobber the exception that terminated the copy, which
+            # might be an interruption.
+            logger.warning("error ignored terminating %r: %s", self, exc2)
 
 
 class AsyncWriter(ABC):
@@ -177,29 +187,43 @@ class AsyncWriter(ABC):
 class AsyncLibpqWriter(AsyncWriter):
     """
     An `AsyncWriter` to write copy data to a Postgres database.
+
+    :param cursor: the cursor where the copy operation is performed.
+    :param flush_threshold: number of bytes to send to the libpq before waiting
+        for them to be flushed to the server. A lower value limits the memory
+        used if the server consumes data slower than it is produced. If 0,
+        wait for every block of data to be flushed.
     """
 
     __module__ = "psycopg.copy"
 
-    def __init__(self, cursor: AsyncCursor[Any]):
+    def __init__(
+        self, cursor: AsyncCursor[Any], *, flush_threshold: int = FLUSH_THRESHOLD
+    ):
         self.cursor = cursor
         self.connection = cursor.connection
+        self.flush_threshold = flush_threshold
         self._pgconn = self.connection.pgconn
+        self._unflushed = 0
 
     async def write(self, data: Buffer) -> None:
         if len(data) <= MAX_BUFFER_SIZE:
             # Most used path: we don't need to split the buffer in smaller
             # bits, so don't make a copy.
-            await self.connection.wait(copy_to(self._pgconn, data, flush=PREFER_FLUSH))
+            await self._put(data)
         else:
             # Copy a buffer too large in chunks to avoid causing a memory
             # error in the libpq, which may cause an infinite loop (#255).
             for i in range(0, len(data), MAX_BUFFER_SIZE):
-                await self.connection.wait(
-                    copy_to(
-                        self._pgconn, data[i : i + MAX_BUFFER_SIZE], flush=PREFER_FLUSH
-                    )
-                )
+                await self._put(data[i : i + MAX_BUFFER_SIZE])
+
+    async def _put(self, data: Buffer) -> None:
+        # Wait for the data to be flushed if we have sent enough of it, in
+        # order to avoid growing the libpq output buffer indefinitely.
+        self._unflushed += len(data)
+        if flush := (self._unflushed >= self.flush_threshold):
+            self._unflushed = 0
+        await self.connection.wait(copy_to(self._pgconn, data, flush=flush))
 
     async def finish(self, exc: BaseException | None = None) -> None:
         bmsg: bytes | None
@@ -232,8 +256,10 @@ class AsyncQueuedLibpqWriter(AsyncLibpqWriter):
 
     __module__ = "psycopg.copy"
 
-    def __init__(self, cursor: AsyncCursor[Any]):
-        super().__init__(cursor)
+    def __init__(
+        self, cursor: AsyncCursor[Any], *, flush_threshold: int = FLUSH_THRESHOLD
+    ):
+        super().__init__(cursor, flush_threshold=flush_threshold)
 
         self._queue: AQueue[Buffer] = AQueue(maxsize=QUEUE_SIZE)
         self._worker: AWorker | None = None
@@ -249,12 +275,14 @@ class AsyncQueuedLibpqWriter(AsyncLibpqWriter):
         """
         try:
             while data := (await self._queue.get()):
-                await self.connection.wait(
-                    copy_to(self._pgconn, data, flush=PREFER_FLUSH)
-                )
+                await self._put(data)
         except BaseException as ex:
             # Propagate the error to the main thread.
             self._worker_error = ex
+            # Keep consuming the queue, or write() would block forever on put()
+            # once the queue is full, never seeing the error.
+            while await self._queue.get():
+                pass
 
     async def write(self, data: Buffer) -> None:
         if not self._worker:

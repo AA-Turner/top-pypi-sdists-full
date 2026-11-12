@@ -587,6 +587,7 @@ class BiomeOptions:
         "pre_build_steps": "preBuildSteps",
         "workflow_triggers": "workflowTriggers",
         "mutable_build": "mutableBuild",
+        "mutable_build_options": "mutableBuildOptions",
         "mutable_install": "mutableInstall",
         "runs_on": "runsOn",
         "runs_on_group": "runsOnGroup",
@@ -602,6 +603,7 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_triggers: typing.Optional[typing.Union["_workflows_2b7f1587.Triggers", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_build_options: typing.Optional[typing.Union["_build_c2d06a81.MutableBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_install: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -613,7 +615,8 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
         :param permissions: (experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.WRITE }``
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
         :param workflow_triggers: (experimental) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
-        :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
+        :param mutable_build: (experimental) Automatically push files modified during builds to pull request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. A build that modifies files still fails. A separate ``self-mutation`` workflow then pushes the changes to the pull request branch using the projen credentials, which starts a new build. Default: true
+        :param mutable_build_options: (experimental) Options for pushing files modified during builds back to pull request branches. Only used if ``mutableBuild`` is enabled. Default: - default options
         :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
@@ -624,6 +627,8 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
             permissions = _workflows_2b7f1587.JobPermissions(**permissions)
         if isinstance(workflow_triggers, dict):
             workflow_triggers = _workflows_2b7f1587.Triggers(**workflow_triggers)
+        if isinstance(mutable_build_options, dict):
+            mutable_build_options = _build_c2d06a81.MutableBuildOptions(**mutable_build_options)
         if isinstance(runs_on_group, dict):
             runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
@@ -634,6 +639,7 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
             check_type(argname="argument pre_build_steps", value=pre_build_steps, expected_type=type_hints["pre_build_steps"])
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
+            check_type(argname="argument mutable_build_options", value=mutable_build_options, expected_type=type_hints["mutable_build_options"])
             check_type(argname="argument mutable_install", value=mutable_install, expected_type=type_hints["mutable_install"])
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
             check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
@@ -650,6 +656,8 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
             self._values["workflow_triggers"] = workflow_triggers
         if mutable_build is not None:
             self._values["mutable_build"] = mutable_build
+        if mutable_build_options is not None:
+            self._values["mutable_build_options"] = mutable_build_options
         if mutable_install is not None:
             self._values["mutable_install"] = mutable_install
         if runs_on is not None:
@@ -716,12 +724,14 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically update files modified during builds to pull-request branches.
+        '''(experimental) Automatically push files modified during builds to pull request branches.
 
         This means that any files synthesized by projen or e.g. test snapshots will
         always be up-to-date before a PR is merged.
 
-        Implies that PR builds do not have anti-tamper checks.
+        A build that modifies files still fails. A separate ``self-mutation``
+        workflow then pushes the changes to the pull request branch using the
+        projen credentials, which starts a new build.
 
         :default: true
 
@@ -729,6 +739,21 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
         '''
         result = self._values.get("mutable_build")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def mutable_build_options(
+        self,
+    ) -> typing.Optional["_build_c2d06a81.MutableBuildOptions"]:
+        '''(experimental) Options for pushing files modified during builds back to pull request branches.
+
+        Only used if ``mutableBuild`` is enabled.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("mutable_build_options")
+        return typing.cast(typing.Optional["_build_c2d06a81.MutableBuildOptions"], result)
 
     @builtins.property
     def mutable_install(self) -> typing.Optional[builtins.bool]:
@@ -30416,6 +30441,7 @@ def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb573
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_triggers: typing.Optional[typing.Union[_workflows_2b7f1587.Triggers, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_build_options: typing.Optional[typing.Union[_build_c2d06a81.MutableBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_install: typing.Optional[builtins.bool] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,

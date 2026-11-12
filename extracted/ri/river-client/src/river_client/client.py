@@ -26,7 +26,7 @@ import time
 import uuid
 import warnings
 import weakref
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as _UrlRequest
 from urllib.request import urlopen as _urlopen
@@ -820,8 +820,16 @@ _GRPC_CHANNEL_BASE_OPTIONS: list[tuple[str, object]] = [
 ]
 
 
-def _grpc_channel_options(*, enable_retries: bool) -> list[tuple[str, object]]:
+def _grpc_channel_options(
+    *, enable_retries: bool, compression: Literal["gzip"] | None = None
+) -> list[tuple[str, object]]:
     options = list(_GRPC_CHANNEL_BASE_OPTIONS)
+    if compression == "gzip":
+        # A channel option covers unary RPCs, streamed results, and every
+        # dedicated upload connection. gRPC also decodes compressed responses.
+        options.append(
+            ("grpc.default_compression_algorithm", int(grpc.Compression.Gzip))
+        )
     if enable_retries:
         options.extend(
             (
@@ -4371,6 +4379,10 @@ class Session:
             )
         except RiverConnectionError as error:
             if error.status_code == "UNIMPLEMENTED":
+                # With opt-in compression this can be a transport rejection,
+                # not evidence that the upload API is missing. Fail explicitly.
+                if self._client._compression is not None:
+                    raise
                 self._client._chunked_upload_unsupported = True
                 if _REQUIRE_CHUNKED_UPLOAD:
                     raise
@@ -4415,7 +4427,10 @@ class Session:
                     )
                     return
                 except grpc.RpcError as error:
-                    if attempt + 1 == _UPLOAD_CHUNK_RETRIES:
+                    if (
+                        error.code() == grpc.StatusCode.UNIMPLEMENTED
+                        or attempt + 1 == _UPLOAD_CHUNK_RETRIES
+                    ):
                         raise RiverConnectionError.from_grpc_error(
                             error, f"Uploading chunk {index}"
                         ) from None
@@ -4432,7 +4447,10 @@ class Session:
             ) as pool:
                 list(pool.map(send, range(chunk_count)))
         except RiverConnectionError as error:
-            if _REQUIRE_CHUNKED_UPLOAD:
+            if _REQUIRE_CHUNKED_UPLOAD or (
+                self._client._compression is not None
+                and error.status_code == "UNIMPLEMENTED"
+            ):
                 raise
             # Same principle as above; the abandoned session expires on TTL.
             _logger.warning("Chunked upload failed (%s); sending request inline", error)
@@ -5054,6 +5072,7 @@ class Client:
         use_ssl: bool = True,
         enable_retries: bool = True,
         image_upload_concurrency: int = 4,
+        compression: Literal["gzip"] | None = None,
     ):
         """Create a River client.
 
@@ -5067,15 +5086,22 @@ class Client:
             enable_retries: Whether submit RPCs and gRPC transport may retry
                 transient failures. Disable this for fail-closed evaluation
                 protocols that require one server submission per model turn.
+            compression: Set to "gzip" to compress gRPC requests. The server
+                must enable compression; otherwise calls fail with UNIMPLEMENTED
+                instead of falling back. Compressed responses are decoded
+                automatically. None preserves uncompressed requests.
         """
+        if compression not in (None, "gzip"):
+            raise ValueError('compression must be None or "gzip"')
         self._api_key = api_key
         self._endpoint = endpoint
         self._port = port
         self._timeout = timeout
         self._use_ssl = use_ssl
         self._enable_retries = bool(enable_retries)
+        self._compression = compression
         self._channel_options = _grpc_channel_options(
-            enable_retries=self._enable_retries
+            enable_retries=self._enable_retries, compression=compression
         )
         self._channel: grpc.Channel | None = None
         self._stub: pb2_grpc.RiverServiceStub | None = None
@@ -5202,7 +5228,9 @@ class Client:
         """Return a stub whose transport cannot retry ambiguous session creation."""
         if self._session_stub is None:
             target = f"{self._endpoint}:{self._port}"
-            options = _grpc_channel_options(enable_retries=False)
+            options = _grpc_channel_options(
+                enable_retries=False, compression=self._compression
+            )
             if self._use_ssl:
                 self._session_channel = grpc.secure_channel(
                     target, grpc.ssl_channel_credentials(), options=options

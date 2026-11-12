@@ -63,10 +63,61 @@ pub(crate) fn peft_key(key: &str) -> Option<String> {
     None
 }
 
+/// LyCORIS's adapters other than LoRA, by their factors' leaf names, and what they are called.
+const LYCORIS: [(&str, &str); 4] = [("lokr_", "LoKr"), ("hada_", "LoHa"), ("oft_", "OFT"), ("diff", "full-difference")];
+
+/// Why `group`, which no table claimed, is an adapter nothing can apply, or `None`: another LyCORIS kind than LoRA
+/// (LoKr's Kronecker factors, LoHa's Hadamard ones: TensorD and the Runtime apply a LoRA's and a DoRA's update only),
+/// or LoRA factors in kohya's flattened names, which only a converter table maps onto a model's modules.
+pub(crate) fn unusable(group: &Group) -> Option<String> {
+    let keys = || group.tensors.keys().map(String::as_str);
+    let kind = |k: &str| {
+        let leaf = k.rsplit('.').next().unwrap_or(k);
+        LYCORIS.iter().find(|(prefix, _)| leaf.starts_with(prefix)).map(|(_, name)| *name)
+    };
+    let kinds: BTreeSet<&str> = keys().filter_map(kind).collect();
+    let adapter = keys().all(|k| kind(k).is_some() || peft_key(k).is_some());
+    if !kinds.is_empty() && adapter {
+        let kinds: Vec<&str> = kinds.into_iter().collect();
+        return Some(format!("a LyCORIS {} adapter; Cozy applies LoRA and DoRA adapters only", kinds.join(" and ")));
+    }
+    let kohya = keys().any(|k| KOHYA.iter().any(|p| k.starts_with(p)));
+    (kohya && adapter).then(|| {
+        "a LoRA in kohya's flattened names (lora_unet_…, lora_te…), which only a converter table maps onto a model's \
+         modules, and none knows these"
+            .to_owned()
+    })
+}
+
+/// Ordinary tensors explicitly named by PEFT's modules_to_save belong to this adapter.
+fn saved_key(key: &str, config: &Config) -> Option<String> {
+    let key = key.strip_prefix(PEFT_PREFIX).unwrap_or(key);
+    let canonical = match key.split_once(".modules_to_save.") {
+        Some((module, tail)) => format!("{module}.{}", tail.split_once('.')?.1),
+        None => key.to_owned(),
+    };
+    let module = canonical.rsplit_once('.')?.0;
+    config.get("modules_to_save")?.as_array()?.iter().filter_map(Json::as_str)
+        .any(|name| module == name || module.ends_with(&format!(".{name}")))
+        .then_some(canonical)
+}
+
+#[cfg(test)]
+mod saved_tests {
+    #[test]
+    fn ordinary_saved_tensors_are_part_of_the_declared_adapter() {
+        let config = serde_json::from_str(r#"{"modules_to_save":["head"]}"#).unwrap();
+        for key in ["base_model.model.head.weight", "base_model.model.head.modules_to_save.default.weight"] {
+            assert_eq!(super::saved_key(key, &config).as_deref(), Some("head.weight"));
+        }
+        assert!(super::saved_key("base_model.model.unrelated.weight", &config).is_none());
+    }
+}
+
 /// PEFT's `adapter_config.json` for LoRA `modules` (module, rank): `source`'s fields where it
 /// states them (its patterns as they are: a caller that folds them into `.alpha` empties them),
 /// else `r` the commonest rank, `target_modules` the modules, `lora_alpha` `r` when every rank is
-/// `r` (omitted otherwise: each module's own rank is its `α`), and `base_model_name_or_path`
+/// `r` (omitted otherwise: each module states its own `.alpha`), and `base_model_name_or_path`
 /// `base_model`, else the source's, else kohya's `ss_sd_model_name`. Kohya's `ss_network_alpha`
 /// is never a scale: its loaders, and ComfyUI's, read only `.alpha` tensors (none is `α = r`).
 pub(crate) fn adapter_config(
@@ -133,12 +184,24 @@ pub(crate) fn normalize(
         if (mine.iter().map(|i| &planned[*i].key)).any(|k| KOHYA.iter().any(|p| k.starts_with(p))) {
             continue;
         }
+        let path = super::join(&group.folder, ADAPTER_CONFIG);
+        let source = match (files.get(&path), group.metadata.get(DIFFUSERS_CONFIG)) {
+            (Some(bytes), _) => {
+                read.insert(path.clone());
+                Some(parse(&path, bytes)?)
+            }
+            (None, Some(text)) => Some(unpacked(component, parse(DIFFUSERS_CONFIG, text.as_bytes())?)),
+            (None, None) => None,
+        };
         let mut seen = BTreeSet::new();
         let (mut modules, mut kept, mut magnitudes, mut strays) = (BTreeMap::new(), BTreeSet::new(), BTreeSet::new(), vec![]);
         for i in &mine {
             let p = &mut planned[*i];
             match peft_key(&p.key) {
                 Some(key) => p.key = key,
+                None if source.as_ref().and_then(|config| saved_key(&p.key, config)).is_some() => {
+                    p.key = saved_key(&p.key, source.as_ref().expect("checked")).expect("checked");
+                }
                 None if !tabled.contains(component) => strays.push(p.key.clone()),
                 None => {}
             }
@@ -167,15 +230,6 @@ pub(crate) fn normalize(
         if let Some(m) = magnitudes.iter().find(|m| !modules.contains_key(*m)) {
             return refuse(Code::UNPLACED_KEYS, format!("{component}: {m}{MAGNITUDE} has no A and B factor pair to apply"));
         }
-        let path = super::join(&group.folder, ADAPTER_CONFIG);
-        let source = match (files.get(&path), group.metadata.get(DIFFUSERS_CONFIG)) {
-            (Some(bytes), _) => {
-                read.insert(path.clone());
-                Some(parse(&path, bytes)?)
-            }
-            (None, Some(text)) => Some(unpacked(component, parse(DIFFUSERS_CONFIG, text.as_bytes())?)),
-            (None, None) => None,
-        };
         // Each `.alpha` the source holds, as the F32 scalar its loaders read.
         let mut stated: BTreeMap<String, f64> = BTreeMap::new();
         for i in &mine {
@@ -191,7 +245,10 @@ pub(crate) fn normalize(
             Some(source) => Some(fold(component, source, &modules, &kept, &magnitudes, &mut alphas)?),
             None => None,
         };
-        if source.is_none() && !stated.is_empty() {
+        // A module with no α gets its rank, as its loaders apply it, stated as its own `.alpha` (xs-183): beside modules that
+        // state theirs, and wherever ranks differ, since one `lora_alpha` cannot say it.
+        let ranks: BTreeSet<u64> = modules.values().map(|m| m.rank).collect();
+        if source.is_none() && (!stated.is_empty() || ranks.len() > 1) {
             for (name, m) in modules.iter().filter(|(name, _)| !kept.contains(*name)) {
                 alphas.push((m.b, component.to_owned(), name.clone(), m.rank as f32));
             }

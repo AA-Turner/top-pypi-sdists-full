@@ -37,14 +37,19 @@ from .literals import (
     OperationStatusType,
     RecordFormatTypeType,
     RuntimeEnvironmentType,
+    SnapshotInitiatorOperationType,
+    SnapshotInitiatorType,
+    SnapshotModeType,
+    SnapshotOperationStatusType,
+    SnapshotOperationType,
     SnapshotStatusType,
     UrlTypeType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AddApplicationCloudWatchLoggingOptionRequestTypeDef",
@@ -71,6 +76,7 @@ __all__ = (
     "ApplicationEncryptionConfigurationUpdateTypeDef",
     "ApplicationMaintenanceConfigurationDescriptionTypeDef",
     "ApplicationMaintenanceConfigurationUpdateTypeDef",
+    "ApplicationOperationDescriptionTypeDef",
     "ApplicationOperationInfoDetailsTypeDef",
     "ApplicationOperationInfoTypeDef",
     "ApplicationRestoreConfigurationTypeDef",
@@ -102,6 +108,8 @@ __all__ = (
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
     "CreateApplicationSnapshotRequestTypeDef",
+    "CreateSnapshotRequestTypeDef",
+    "CreateSnapshotResponseTypeDef",
     "CustomArtifactConfigurationDescriptionTypeDef",
     "CustomArtifactConfigurationTypeDef",
     "DeleteApplicationCloudWatchLoggingOptionRequestTypeDef",
@@ -116,6 +124,8 @@ __all__ = (
     "DeleteApplicationSnapshotRequestTypeDef",
     "DeleteApplicationVpcConfigurationRequestTypeDef",
     "DeleteApplicationVpcConfigurationResponseTypeDef",
+    "DeleteSnapshotRequestTypeDef",
+    "DeleteSnapshotResponseTypeDef",
     "DeployAsApplicationConfigurationDescriptionTypeDef",
     "DeployAsApplicationConfigurationTypeDef",
     "DeployAsApplicationConfigurationUpdateTypeDef",
@@ -127,13 +137,21 @@ __all__ = (
     "DescribeApplicationSnapshotResponseTypeDef",
     "DescribeApplicationVersionRequestTypeDef",
     "DescribeApplicationVersionResponseTypeDef",
+    "DescribeSnapshotOperationRequestTypeDef",
+    "DescribeSnapshotOperationResponseTypeDef",
+    "DescribeSnapshotRequestTypeDef",
+    "DescribeSnapshotResponseTypeDef",
     "DestinationSchemaTypeDef",
     "DiscoverInputSchemaRequestTypeDef",
     "DiscoverInputSchemaResponseTypeDef",
+    "EncryptionConfigurationDescriptionTypeDef",
     "EnvironmentPropertiesTypeDef",
     "EnvironmentPropertyDescriptionsTypeDef",
     "EnvironmentPropertyUpdatesTypeDef",
     "ErrorInfoTypeDef",
+    "ExportDestinationConfigurationTypeDef",
+    "ExportSnapshotRequestTypeDef",
+    "ExportSnapshotResponseTypeDef",
     "FlinkApplicationConfigurationDescriptionTypeDef",
     "FlinkApplicationConfigurationTypeDef",
     "FlinkApplicationConfigurationUpdateTypeDef",
@@ -141,6 +159,9 @@ __all__ = (
     "GlueDataCatalogConfigurationDescriptionTypeDef",
     "GlueDataCatalogConfigurationTypeDef",
     "GlueDataCatalogConfigurationUpdateTypeDef",
+    "ImportSnapshotRequestTypeDef",
+    "ImportSnapshotResponseTypeDef",
+    "ImportSourceConfigurationTypeDef",
     "InputDescriptionTypeDef",
     "InputLambdaProcessorDescriptionTypeDef",
     "InputLambdaProcessorTypeDef",
@@ -182,6 +203,12 @@ __all__ = (
     "ListApplicationsRequestPaginateTypeDef",
     "ListApplicationsRequestTypeDef",
     "ListApplicationsResponseTypeDef",
+    "ListSnapshotOperationsRequestPaginateTypeDef",
+    "ListSnapshotOperationsRequestTypeDef",
+    "ListSnapshotOperationsResponseTypeDef",
+    "ListSnapshotsRequestPaginateTypeDef",
+    "ListSnapshotsRequestTypeDef",
+    "ListSnapshotsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "MappingParametersTypeDef",
@@ -218,10 +245,22 @@ __all__ = (
     "S3ContentBaseLocationUpdateTypeDef",
     "S3ContentLocationTypeDef",
     "S3ContentLocationUpdateTypeDef",
+    "S3PrefixLocationTypeDef",
     "S3ReferenceDataSourceDescriptionTypeDef",
     "S3ReferenceDataSourceTypeDef",
     "S3ReferenceDataSourceUpdateTypeDef",
     "SnapshotDetailsTypeDef",
+    "SnapshotEncryptionConfigurationTypeDef",
+    "SnapshotErrorInfoTypeDef",
+    "SnapshotInfoDetailsTypeDef",
+    "SnapshotInfoTypeDef",
+    "SnapshotOperationFailureDetailsTypeDef",
+    "SnapshotOperationInfoDetailsTypeDef",
+    "SnapshotOperationInfoTypeDef",
+    "SnapshotOperationLocationDescriptionTypeDef",
+    "SnapshotOperationS3PrefixLocationTypeDef",
+    "SnapshotSourceDescriptionTypeDef",
+    "SourceApplicationDescriptionTypeDef",
     "SourceSchemaOutputTypeDef",
     "SourceSchemaTypeDef",
     "SourceSchemaUnionTypeDef",
@@ -283,6 +322,7 @@ class ApplicationEncryptionConfigurationDescriptionTypeDef(TypedDict):
 
 class ApplicationSnapshotConfigurationDescriptionTypeDef(TypedDict):
     SnapshotsEnabled: bool
+    SnapshotMode: NotRequired[SnapshotModeType]
 
 class ApplicationSystemRollbackConfigurationDescriptionTypeDef(TypedDict):
     RollbackEnabled: bool
@@ -293,6 +333,7 @@ class ApplicationEncryptionConfigurationTypeDef(TypedDict):
 
 class ApplicationSnapshotConfigurationTypeDef(TypedDict):
     SnapshotsEnabled: bool
+    SnapshotMode: NotRequired[SnapshotModeType]
 
 class ApplicationSystemRollbackConfigurationTypeDef(TypedDict):
     RollbackEnabled: bool
@@ -303,6 +344,7 @@ class ApplicationEncryptionConfigurationUpdateTypeDef(TypedDict):
 
 class ApplicationSnapshotConfigurationUpdateTypeDef(TypedDict):
     SnapshotsEnabledUpdate: bool
+    SnapshotModeUpdate: NotRequired[SnapshotModeType]
 
 class ApplicationSystemRollbackConfigurationUpdateTypeDef(TypedDict):
     RollbackEnabledUpdate: bool
@@ -319,6 +361,10 @@ class ApplicationMaintenanceConfigurationDescriptionTypeDef(TypedDict):
 class ApplicationMaintenanceConfigurationUpdateTypeDef(TypedDict):
     ApplicationMaintenanceWindowStartTimeUpdate: str
 
+class ApplicationOperationDescriptionTypeDef(TypedDict):
+    ApplicationOperationId: NotRequired[str]
+    ApplicationName: NotRequired[str]
+
 class ApplicationVersionChangeDetailsTypeDef(TypedDict):
     ApplicationVersionUpdatedFrom: int
     ApplicationVersionUpdatedTo: int
@@ -333,6 +379,7 @@ class ApplicationOperationInfoTypeDef(TypedDict):
 class ApplicationRestoreConfigurationTypeDef(TypedDict):
     ApplicationRestoreType: ApplicationRestoreTypeType
     SnapshotName: NotRequired[str]
+    SnapshotArn: NotRequired[str]
 
 class ApplicationSummaryTypeDef(TypedDict):
     ApplicationName: str
@@ -473,6 +520,13 @@ class DescribeApplicationVersionRequestTypeDef(TypedDict):
     ApplicationName: str
     ApplicationVersionId: int
 
+class DescribeSnapshotOperationRequestTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotOperationId: str
+
+class DescribeSnapshotRequestTypeDef(TypedDict):
+    SnapshotName: str
+
 class DestinationSchemaTypeDef(TypedDict):
     RecordFormatType: RecordFormatTypeType
 
@@ -483,12 +537,24 @@ class S3ConfigurationTypeDef(TypedDict):
     BucketARN: str
     FileKey: str
 
+class EncryptionConfigurationDescriptionTypeDef(TypedDict):
+    KeyType: KeyTypeType
+    KeyId: NotRequired[str]
+
 class PropertyGroupOutputTypeDef(TypedDict):
     PropertyGroupId: str
     PropertyMap: dict[str, str]
 
 class ErrorInfoTypeDef(TypedDict):
     ErrorString: NotRequired[str]
+
+class S3PrefixLocationTypeDef(TypedDict):
+    BucketARN: str
+    KeyPrefix: str
+
+class SnapshotEncryptionConfigurationTypeDef(TypedDict):
+    KeyType: KeyTypeType
+    KeyId: NotRequired[str]
 
 class MonitoringConfigurationDescriptionTypeDef(TypedDict):
     ConfigurationType: NotRequired[ConfigurationTypeType]
@@ -631,6 +697,38 @@ class ListApplicationsRequestTypeDef(TypedDict):
     Limit: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListSnapshotOperationsRequestTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotOperation: NotRequired[SnapshotOperationType]
+    SnapshotOperationStatus: NotRequired[SnapshotOperationStatusType]
+    Limit: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class SnapshotOperationInfoTypeDef(TypedDict):
+    SnapshotOperationId: str
+    SnapshotOperation: SnapshotOperationType
+    SnapshotOperationStatus: SnapshotOperationStatusType
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
+class ListSnapshotsRequestTypeDef(TypedDict):
+    SourceApplicationName: NotRequired[str]
+    SnapshotInitiator: NotRequired[SnapshotInitiatorType]
+    SnapshotInitiatorOperation: NotRequired[SnapshotInitiatorOperationType]
+    SnapshotStatus: NotRequired[SnapshotStatusType]
+    Limit: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class SnapshotInfoTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotArn: str
+    SnapshotStatus: SnapshotStatusType
+    SnapshotCreationTimestamp: datetime
+    SnapshotInitiator: SnapshotInitiatorType
+    SnapshotInitiatorOperation: SnapshotInitiatorOperationType
+    SnapshotFormat: Literal["CANONICAL"]
+    SourceApplicationName: NotRequired[str]
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceARN: str
 
@@ -654,6 +752,20 @@ class S3ReferenceDataSourceUpdateTypeDef(TypedDict):
 class RollbackApplicationRequestTypeDef(TypedDict):
     ApplicationName: str
     CurrentApplicationVersionId: int
+
+class SnapshotErrorInfoTypeDef(TypedDict):
+    ErrorCode: NotRequired[str]
+    ErrorString: NotRequired[str]
+
+class SnapshotOperationS3PrefixLocationTypeDef(TypedDict):
+    BucketARN: str
+    KeyPrefix: str
+    ExportedPrefix: NotRequired[str]
+
+class SourceApplicationDescriptionTypeDef(TypedDict):
+    ApplicationName: str
+    ApplicationCreationTimestamp: datetime
+    ApplicationVersionId: int
 
 class StopApplicationRequestTypeDef(TypedDict):
     ApplicationName: str
@@ -689,6 +801,13 @@ class CreateApplicationPresignedUrlResponseTypeDef(TypedDict):
     AuthorizedUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateSnapshotResponseTypeDef(TypedDict):
+    SnapshotArn: str
+    SnapshotStatus: SnapshotStatusType
+    SnapshotOperationId: str
+    SnapshotOperationStatus: SnapshotOperationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteApplicationCloudWatchLoggingOptionResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
@@ -715,6 +834,25 @@ class DeleteApplicationVpcConfigurationResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
     OperationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteSnapshotResponseTypeDef(TypedDict):
+    SnapshotArn: str
+    SnapshotStatus: SnapshotStatusType
+    SnapshotOperationId: str
+    SnapshotOperationStatus: SnapshotOperationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ExportSnapshotResponseTypeDef(TypedDict):
+    SnapshotOperationId: str
+    SnapshotOperationStatus: SnapshotOperationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ImportSnapshotResponseTypeDef(TypedDict):
+    SnapshotArn: str
+    SnapshotStatus: SnapshotStatusType
+    SnapshotOperationId: str
+    SnapshotOperationStatus: SnapshotOperationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartApplicationResponseTypeDef(TypedDict):
@@ -799,6 +937,12 @@ class CodeContentUpdateTypeDef(TypedDict):
     ZipFileContentUpdate: NotRequired[BlobTypeDef]
     S3ContentLocationUpdate: NotRequired[S3ContentLocationUpdateTypeDef]
 
+class CreateSnapshotRequestTypeDef(TypedDict):
+    ApplicationName: str
+    SnapshotName: str
+    SnapshotDescription: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -826,6 +970,10 @@ class DeleteApplicationSnapshotRequestTypeDef(TypedDict):
     SnapshotName: str
     SnapshotCreationTimestamp: TimestampTypeDef
 
+class DeleteSnapshotRequestTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotCreationTimestamp: TimestampTypeDef
+
 class DeployAsApplicationConfigurationDescriptionTypeDef(TypedDict):
     S3ContentLocationDescription: S3ContentBaseLocationDescriptionTypeDef
 
@@ -845,6 +993,18 @@ class EnvironmentPropertyDescriptionsTypeDef(TypedDict):
 class OperationFailureDetailsTypeDef(TypedDict):
     RollbackOperationId: NotRequired[str]
     ErrorInfo: NotRequired[ErrorInfoTypeDef]
+
+class ExportDestinationConfigurationTypeDef(TypedDict):
+    DestinationType: Literal["S3"]
+    ExportRoleArn: str
+    DestinationS3PrefixLocation: S3PrefixLocationTypeDef
+    DestinationEncryptionConfiguration: NotRequired[SnapshotEncryptionConfigurationTypeDef]
+
+class ImportSourceConfigurationTypeDef(TypedDict):
+    SourceType: Literal["S3"]
+    ImportRoleArn: str
+    SourceS3PrefixLocation: S3PrefixLocationTypeDef
+    SourceEncryptionConfiguration: NotRequired[SnapshotEncryptionConfigurationTypeDef]
 
 class FlinkApplicationConfigurationDescriptionTypeDef(TypedDict):
     CheckpointConfigurationDescription: NotRequired[CheckpointConfigurationDescriptionTypeDef]
@@ -923,7 +1083,41 @@ class ListApplicationVersionsRequestPaginateTypeDef(TypedDict):
 class ListApplicationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListSnapshotOperationsRequestPaginateTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotOperation: NotRequired[SnapshotOperationType]
+    SnapshotOperationStatus: NotRequired[SnapshotOperationStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSnapshotsRequestPaginateTypeDef(TypedDict):
+    SourceApplicationName: NotRequired[str]
+    SnapshotInitiator: NotRequired[SnapshotInitiatorType]
+    SnapshotInitiatorOperation: NotRequired[SnapshotInitiatorOperationType]
+    SnapshotStatus: NotRequired[SnapshotStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSnapshotOperationsResponseTypeDef(TypedDict):
+    SnapshotOperationInfoList: list[SnapshotOperationInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListSnapshotsResponseTypeDef(TypedDict):
+    SnapshotInfoList: list[SnapshotInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 PropertyGroupUnionTypeDef = Union[PropertyGroupTypeDef, PropertyGroupOutputTypeDef]
+
+class SnapshotOperationFailureDetailsTypeDef(TypedDict):
+    ErrorInfo: NotRequired[SnapshotErrorInfoTypeDef]
+
+class SnapshotOperationLocationDescriptionTypeDef(TypedDict):
+    LocationType: Literal["S3"]
+    S3PrefixLocation: SnapshotOperationS3PrefixLocationTypeDef
+
+class SnapshotSourceDescriptionTypeDef(TypedDict):
+    S3PrefixLocation: NotRequired[S3PrefixLocationTypeDef]
+    SourceApplicationDescription: NotRequired[SourceApplicationDescriptionTypeDef]
 
 class DescribeApplicationSnapshotResponseTypeDef(TypedDict):
     SnapshotDetails: SnapshotDetailsTypeDef
@@ -983,6 +1177,18 @@ class ApplicationOperationInfoDetailsTypeDef(TypedDict):
     ApplicationVersionChangeDetails: NotRequired[ApplicationVersionChangeDetailsTypeDef]
     OperationFailureDetails: NotRequired[OperationFailureDetailsTypeDef]
 
+class ExportSnapshotRequestTypeDef(TypedDict):
+    SnapshotName: str
+    ExportDestinationConfiguration: ExportDestinationConfigurationTypeDef
+
+class ImportSnapshotRequestTypeDef(TypedDict):
+    SnapshotName: str
+    ImportSourceConfiguration: ImportSourceConfigurationTypeDef
+    DestinationEncryptionConfiguration: NotRequired[SnapshotEncryptionConfigurationTypeDef]
+    SnapshotDescription: NotRequired[str]
+    SnapshotFormat: NotRequired[Literal["CANONICAL"]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class AddApplicationInputProcessingConfigurationResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationVersionId: int
@@ -1024,6 +1230,36 @@ class EnvironmentPropertiesTypeDef(TypedDict):
 class EnvironmentPropertyUpdatesTypeDef(TypedDict):
     PropertyGroups: Sequence[PropertyGroupUnionTypeDef]
 
+class SnapshotOperationInfoDetailsTypeDef(TypedDict):
+    SnapshotOperationId: str
+    SnapshotOperation: SnapshotOperationType
+    SnapshotOperationStatus: SnapshotOperationStatusType
+    SnapshotArn: str
+    SourceEncryptionConfigurationDescription: NotRequired[EncryptionConfigurationDescriptionTypeDef]
+    DestinationEncryptionConfigurationDescription: NotRequired[
+        EncryptionConfigurationDescriptionTypeDef
+    ]
+    SnapshotSourceLocationDescription: NotRequired[SnapshotOperationLocationDescriptionTypeDef]
+    SnapshotDestinationLocationDescription: NotRequired[SnapshotOperationLocationDescriptionTypeDef]
+    ApplicationOperationDescription: NotRequired[ApplicationOperationDescriptionTypeDef]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    SnapshotOperationFailureDetails: NotRequired[SnapshotOperationFailureDetailsTypeDef]
+
+class SnapshotInfoDetailsTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotArn: str
+    SnapshotStatus: SnapshotStatusType
+    SnapshotCreationTimestamp: datetime
+    SnapshotInitiator: SnapshotInitiatorType
+    SnapshotInitiatorOperation: SnapshotInitiatorOperationType
+    SnapshotSourceDescription: SnapshotSourceDescriptionTypeDef
+    SnapshotFormat: Literal["CANONICAL"]
+    SnapshotDescription: NotRequired[str]
+    RuntimeEnvironment: NotRequired[RuntimeEnvironmentType]
+    SnapshotSizeInBytes: NotRequired[int]
+    SnapshotEncryptionConfigurationDescription: NotRequired[SnapshotEncryptionConfigurationTypeDef]
+
 class StartApplicationRequestTypeDef(TypedDict):
     ApplicationName: str
     RunConfiguration: NotRequired[RunConfigurationTypeDef]
@@ -1046,6 +1282,14 @@ class SourceSchemaTypeDef(TypedDict):
     RecordFormat: RecordFormatTypeDef
     RecordColumns: Sequence[RecordColumnTypeDef]
     RecordEncoding: NotRequired[str]
+
+class DescribeSnapshotOperationResponseTypeDef(TypedDict):
+    SnapshotOperationInfoDetails: SnapshotOperationInfoDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeSnapshotResponseTypeDef(TypedDict):
+    SnapshotInfoDetails: SnapshotInfoDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class InputUpdateTypeDef(TypedDict):
     InputId: str

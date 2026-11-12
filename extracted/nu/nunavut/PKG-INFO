@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nunavut
-Version: 3.1.0
+Version: 3.1.1
 Summary: Generate code from DSDL using Jinja2 templates.
 Author-email: OpenCyphal Development Team <maintainers@opencyphal.org>
 License-Expression: MIT
@@ -257,7 +257,7 @@ Nunavut is part of the OpenCyphal project:
     :alt: OpenCyphal forum
 .. _badge_forum: https://forum.opencyphal.org
 
-.. |badge_docs| image:: https://readthedocs.org/projects/nunavut/badge/?version=latest
+.. |badge_docs| image:: https://img.shields.io/readthedocs/nunavut/latest.svg
     :alt: Documentation Status
 .. _badge_docs: https://nunavut.readthedocs.io/en/latest/?badge=latest
 

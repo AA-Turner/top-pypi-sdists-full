@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import sys
+import textwrap
 from collections.abc import AsyncGenerator, Iterable, Iterator
 from enum import Enum
 from functools import cache
@@ -66,6 +67,12 @@ def load_extra_models(path=None):
     return records
 
 
+def _encode_endpoint_json_value(value):
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _dump_extra_models(records):
     return yaml.safe_dump(
         records, sort_keys=False, allow_unicode=True, default_flow_style=False
@@ -103,9 +110,28 @@ def _append_extra_model(path, record):
             text = ", " + text
         path.write_text(existing[:position] + text + existing[position:], "utf-8")
         return
-    if not existing.endswith("\n"):
-        existing += "\n"
-    path.write_text(existing + text, "utf-8")
+    if isinstance(sequence, yaml.SequenceStartEvent):
+        # A tag or anchor can precede the list, so use the block's token
+        # rather than the sequence event to find the indentation.
+        block = next(
+            token
+            for token in yaml.scan(existing, Loader=yaml.SafeLoader)
+            if isinstance(token, yaml.BlockSequenceStartToken)
+        )
+        text = textwrap.indent(text, " " * block.start_mark.column)
+    # Keep an explicit document end marker (and its comments) after the list.
+    position = next(
+        (
+            event.start_mark.index
+            for event in events
+            if isinstance(event, yaml.DocumentEndEvent) and event.explicit
+        ),
+        len(existing),
+    )
+    before, after = existing[:position], existing[position:]
+    if not before.endswith("\n"):
+        before += "\n"
+    path.write_text(before + text + after, "utf-8")
 
 
 def _load_extra_models_for_cli(path):
@@ -426,9 +452,14 @@ def register_models(register):
         chat_model = klass(**model_kwargs)
         async_model = async_klass(**model_kwargs) if async_klass else None
         if api_base:
+            # Never fall back to the user's OpenAI key for a custom endpoint:
+            # clearing key_env_var stops OPENAI_API_KEY from being used even
+            # when api_key_name names a key that has not been stored.
             chat_model.needs_key = None
+            chat_model.key_env_var = None
             if async_model:
                 async_model.needs_key = None
+                async_model.key_env_var = None
         if extra_model.get("api_key_name"):
             chat_model.needs_key = extra_model["api_key_name"]
             if async_model:
@@ -1038,7 +1069,9 @@ def register_commands(cli):
         "List endpoints saved in extra-openai-models.yaml"
         records = _load_extra_models_for_cli(extra_models_path())
         if json_:
-            click.echo(json.dumps(records, indent=2))
+            click.echo(
+                json.dumps(records, indent=2, default=_encode_endpoint_json_value)
+            )
             return
         for record in records:
             if not isinstance(record, dict):
@@ -2736,6 +2769,10 @@ class Responses(_SharedResponses, KeyModel):
     ) -> Iterator[str | StreamEvent]:
         if getattr(prompt.options, "chat_completions", None):
             chat = Chat(**self._delegate_chat_kwargs())
+            # Without this the delegate keeps the class default needs_key of
+            # "openai" and sends the user's OpenAI key to a custom api_base.
+            chat.needs_key = self.needs_key
+            chat.key_env_var = self.key_env_var
             _partition_tools(chat, prompt.tools)
             yield from chat.execute(prompt, stream, response, conversation, key)
             return
@@ -2980,6 +3017,10 @@ class AsyncResponses(_SharedResponses, AsyncKeyModel):
     ) -> AsyncGenerator[str | StreamEvent, None]:
         if getattr(prompt.options, "chat_completions", None):
             chat = AsyncChat(**self._delegate_chat_kwargs())
+            # Without this the delegate keeps the class default needs_key of
+            # "openai" and sends the user's OpenAI key to a custom api_base.
+            chat.needs_key = self.needs_key
+            chat.key_env_var = self.key_env_var
             _partition_tools(chat, prompt.tools)
             async for event in chat.execute(
                 prompt, stream, response, conversation, key

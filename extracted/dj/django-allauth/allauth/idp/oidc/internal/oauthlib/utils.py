@@ -99,14 +99,17 @@ def respond_json_error(request: HttpRequest, error: OAuth2Error) -> HttpResponse
 class ValidatorContext:
     email: str | None = None
     access_token: Token | None = None
+    issued_access_token: Token | None = None
     refresh_token: Token | None = None
     supported_auth_methods: tuple[Client.AuthenticationMethod, ...] = field(
         default_factory=lambda: app_settings.AUTH_METHODS
     )
     clients: dict[str, Client | None] = field(default_factory=dict)
-    codes: dict[tuple[str, str], dict[str, Any] | None] = field(default_factory=dict)
+    code_tokens: dict[tuple[str, str], Token | None] = field(default_factory=dict)
     requested_resources: list[str] | None = None
     granted_resources: list[str] | None = None
+    grant_id: str | None = None
+    authorized_device_code: tuple[str, str] | None = None
 
 
 def get_validator_context() -> ValidatorContext:

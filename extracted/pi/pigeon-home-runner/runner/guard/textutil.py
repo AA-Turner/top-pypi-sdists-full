@@ -64,23 +64,35 @@ def _as_str(value) -> str:
         return ""
 
 
-# fromisoformat before 3.11 takes a fraction of exactly 3 or 6
-# digits and an offset only with its colon; 3.11 and later take any
-# fraction length and "+0000". These two rewrites make the floor
-# Python read issued_at the way the newest one does, so one job is
-# not fresh on one box and unparseable on the next.
-# (Agent-Stamp: 40000e00-1234-4abc-9def-0123456789ab)
+# A protocol timestamp (issued_at, completed_at) is an RFC 3339
+# date-time: the full date, "T", the full time, an optional
+# fraction, and "Z" or a numeric offset with its colon. The shape
+# is checked here before Python's own parser sees it, because
+# fromisoformat reads more of ISO 8601 with every Python release
+# (3.11 took basic-format dates and "+0000" offsets that 3.9 did
+# not), and a job must not be fresh on one box and unparseable
+# on the next. A date-time with no offset at all passes the shape
+# check and fails later as "missing timezone", so that refusal
+# keeps its own name. fromisoformat before 3.11 takes a fraction
+# of exactly 3 or 6 digits, so the fraction is padded for it.
+_RFC3339_RE = re.compile(
+    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
+    r"([Zz]|[+-]\d{2}:\d{2})?\Z")
 _ISO_FRACTION_RE = re.compile(r"(:\d{2})\.(\d+)")
-_ISO_OFFSET_RE = re.compile(r"([+-]\d{2})(\d{2})$")
 
 
 def _fromiso(value):
-    """str(value) with "Z" read as UTC -> datetime; ValueError if not ISO."""
-    text = str(value).replace("Z", "+00:00")
+    """str(value) as an RFC 3339 date-time, "Z" read as UTC ->
+    datetime; ValueError for any other shape."""
+    text = str(value)
+    if _RFC3339_RE.match(text) is None:
+        raise ValueError("not an RFC 3339 date-time")
+    if text[-1] in "Zz":
+        text = text[:-1] + "+00:00"
+    text = text[:10] + "T" + text[11:]
     text = _ISO_FRACTION_RE.sub(
         lambda m: m.group(1) + "." + (m.group(2) + "000000")[:6],
         text, count=1)
-    text = _ISO_OFFSET_RE.sub(r"\1:\2", text)
     return datetime.fromisoformat(text)
 
 
@@ -104,15 +116,72 @@ def _finite_float(text):
     return value
 
 
+def _no_duplicate_names(pairs):
+    """json.loads' object_pairs_hook for a signed body: a member
+    name carried twice in one object is refused, naming the name.
+    Without the hook the parser keeps the last value, so two
+    readers of one body can disagree about what a name carries --
+    a parser differential at a security boundary. The hook sees
+    the decoded name, so an escaped spelling of a name already
+    present is the same duplicate."""
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError("signed body carries duplicate member "
+                             f"name {key!r}")
+        out[key] = value
+    return out
+
+
+def _check_nesting_first(text):
+    """Refuse a signed body whose raw bracket depth passes
+    NESTING_LIMIT, before json.loads runs. The bound used to be
+    measured only on the parsed value, after the parser had
+    already recursed as deep as the body asked; counting first
+    means the parser never recurses past the bound. Brackets
+    inside a string are text, not containers, and an escaped
+    quote does not end the string."""
+    if isinstance(text, (bytes, bytearray)):
+        text = bytes(text).decode("utf-8", "replace")
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            depth += 1
+            if depth > NESTING_LIMIT:
+                raise ValueError(
+                    f"signed body nests deeper than {NESTING_LIMIT} "
+                    "levels")
+        elif char in "}]":
+            depth -= 1
+
+
 def loads_signed(text):
     """json.loads for the text of a signed body: the literals NaN and
     Infinity and a number that overflows a float are refused with a
     ValueError that names them, so a body trusts nothing a JSON
     reader elsewhere would not read the same way (Q89). A body the
-    parser cannot finish is refused as nested past the bound."""
+    parser cannot finish is refused as nested past the bound. A
+    duplicate member name in one object is refused, and the raw
+    bracket depth is scanned before the parse so a body nested
+    past the bound is refused without the parser recursing there
+    first."""
+    _check_nesting_first(text)
     try:
         return json.loads(text, parse_constant=_no_constant,
-                          parse_float=_finite_float)
+                          parse_float=_finite_float,
+                          object_pairs_hook=_no_duplicate_names)
     except RecursionError:
         # The parser gave up before the measure below could run: a
         # body it cannot finish is past the bound by any count.

@@ -584,6 +584,9 @@ __all__ = (
     "HarnessRemoteMcpConfigOutputTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
     "HarnessRemoteMcpConfigUnionTypeDef",
+    "HarnessRemoteMcpOutboundAuthOutputTypeDef",
+    "HarnessRemoteMcpOutboundAuthTypeDef",
+    "HarnessRemoteMcpOutboundAuthUnionTypeDef",
     "HarnessSkillAwsSkillsSourceOutputTypeDef",
     "HarnessSkillAwsSkillsSourceTypeDef",
     "HarnessSkillAwsSkillsSourceUnionTypeDef",
@@ -2362,16 +2365,6 @@ class HarnessOpenAiModelConfigTypeDef(TypedDict):
     topP: NotRequired[float]
     apiFormat: NotRequired[HarnessOpenAiApiFormatType]
     additionalParams: NotRequired[Mapping[str, Any]]
-
-
-class HarnessRemoteMcpConfigOutputTypeDef(TypedDict):
-    url: str
-    headers: NotRequired[dict[str, str]]
-
-
-class HarnessRemoteMcpConfigTypeDef(TypedDict):
-    url: str
-    headers: NotRequired[Mapping[str, str]]
 
 
 class HarnessSkillAwsSkillsSourceOutputTypeDef(TypedDict):
@@ -4233,6 +4226,16 @@ class OnlineEvaluationConfigSummaryTypeDef(TypedDict):
     clusteringConfig: NotRequired[ClusteringConfigOutputTypeDef]
 
 
+class HarnessRemoteMcpOutboundAuthOutputTypeDef(TypedDict):
+    awsIam: NotRequired[IamCredentialProviderTypeDef]
+    none: NotRequired[dict[str, Any]]
+
+
+class HarnessRemoteMcpOutboundAuthTypeDef(TypedDict):
+    awsIam: NotRequired[IamCredentialProviderTypeDef]
+    none: NotRequired[Mapping[str, Any]]
+
+
 class CredentialProviderOutputTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderOutputTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
@@ -4567,9 +4570,6 @@ class HarnessModelConfigurationTypeDef(TypedDict):
     liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigTypeDef]
 
 
-HarnessRemoteMcpConfigUnionTypeDef = Union[
-    HarnessRemoteMcpConfigTypeDef, HarnessRemoteMcpConfigOutputTypeDef
-]
 HarnessSkillAwsSkillsSourceUnionTypeDef = Union[
     HarnessSkillAwsSkillsSourceTypeDef, HarnessSkillAwsSkillsSourceOutputTypeDef
 ]
@@ -5367,6 +5367,17 @@ class ListOnlineEvaluationConfigsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class HarnessRemoteMcpConfigOutputTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[dict[str, str]]
+    outboundAuth: NotRequired[HarnessRemoteMcpOutboundAuthOutputTypeDef]
+
+
+HarnessRemoteMcpOutboundAuthUnionTypeDef = Union[
+    HarnessRemoteMcpOutboundAuthTypeDef, HarnessRemoteMcpOutboundAuthOutputTypeDef
+]
+
+
 class CredentialProviderConfigurationOutputTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
     credentialProvider: NotRequired[CredentialProviderOutputTypeDef]
@@ -6157,6 +6168,12 @@ class ListConfigurationBundleVersionsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class HarnessRemoteMcpConfigTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[Mapping[str, str]]
+    outboundAuth: NotRequired[HarnessRemoteMcpOutboundAuthUnionTypeDef]
+
+
 class HarnessToolConfigurationOutputTypeDef(TypedDict):
     remoteMcp: NotRequired[HarnessRemoteMcpConfigOutputTypeDef]
     agentCoreBrowser: NotRequired[HarnessAgentCoreBrowserConfigTypeDef]
@@ -6369,6 +6386,7 @@ class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
     customClaims: NotRequired[list[CustomClaimValidationTypeOutputTypeDef]]
     privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
     privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
+    certificateConfigurations: NotRequired[list[CertificateConfigurationTypeDef]]
     allowedWorkloadConfiguration: NotRequired[AllowedWorkloadConfigurationOutputTypeDef]
 
 
@@ -6379,6 +6397,7 @@ class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
     clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
     privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
     privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
+    certificateConfigurations: NotRequired[list[CertificateConfigurationTypeDef]]
     privateKeyJwtConfig: NotRequired[PrivateKeyJwtConfigOutputTypeDef]
 
 
@@ -6444,6 +6463,9 @@ AgentRuntimeArtifactUnionTypeDef = Union[
 WeightedOverrideUnionTypeDef = Union[WeightedOverrideTypeDef, WeightedOverrideOutputTypeDef]
 StreamDeliveryResourcesUnionTypeDef = Union[
     StreamDeliveryResourcesTypeDef, StreamDeliveryResourcesOutputTypeDef
+]
+HarnessRemoteMcpConfigUnionTypeDef = Union[
+    HarnessRemoteMcpConfigTypeDef, HarnessRemoteMcpConfigOutputTypeDef
 ]
 HarnessToolOutputTypeDef = TypedDict(
     "HarnessToolOutputTypeDef",
@@ -7090,6 +7112,7 @@ class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
     customClaims: NotRequired[Sequence[CustomClaimValidationTypeUnionTypeDef]]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
     privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
     allowedWorkloadConfiguration: NotRequired[AllowedWorkloadConfigurationUnionTypeDef]
 
 
@@ -7104,6 +7127,7 @@ class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
     privateKeyJwtConfig: NotRequired[PrivateKeyJwtConfigUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
     privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
+    certificateConfigurations: NotRequired[Sequence[CertificateConfigurationTypeDef]]
 
 
 class HarnessToolConfigurationTypeDef(TypedDict):

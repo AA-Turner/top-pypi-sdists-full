@@ -100,6 +100,12 @@ def xarm7_extras() -> list[str]:
     return extras
 
 
+def openarm_extras() -> list[str]:
+    """Nothing to install: the arms and cameras are reached through Anvil's control stack,
+    over a WebSocket client the SDK already depends on."""
+    return []
+
+
 def realsense_installable() -> bool:
     """A RealSense wheel exists for this Python, or a uv tool install can move to one.
 

@@ -14,11 +14,14 @@ def _get_kwargs(
     *,
     json_body: CreateResourceJsonBody,
     update_if_exists: Union[Unset, None, bool] = UNSET,
+    skip_ci_tests: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["update_if_exists"] = update_if_exists
+
+    params["skip_ci_tests"] = skip_ci_tests
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -56,12 +59,14 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateResourceJsonBody,
     update_if_exists: Union[Unset, None, bool] = UNSET,
+    skip_ci_tests: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """create resource
 
     Args:
         workspace (str):
         update_if_exists (Union[Unset, None, bool]):
+        skip_ci_tests (Union[Unset, None, bool]):
         json_body (CreateResourceJsonBody):
 
     Raises:
@@ -76,6 +81,7 @@ def sync_detailed(
         workspace=workspace,
         json_body=json_body,
         update_if_exists=update_if_exists,
+        skip_ci_tests=skip_ci_tests,
     )
 
     response = client.get_httpx_client().request(
@@ -91,12 +97,14 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     json_body: CreateResourceJsonBody,
     update_if_exists: Union[Unset, None, bool] = UNSET,
+    skip_ci_tests: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """create resource
 
     Args:
         workspace (str):
         update_if_exists (Union[Unset, None, bool]):
+        skip_ci_tests (Union[Unset, None, bool]):
         json_body (CreateResourceJsonBody):
 
     Raises:
@@ -111,6 +119,7 @@ async def asyncio_detailed(
         workspace=workspace,
         json_body=json_body,
         update_if_exists=update_if_exists,
+        skip_ci_tests=skip_ci_tests,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

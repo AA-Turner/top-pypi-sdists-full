@@ -214,7 +214,6 @@ fn converted(obj: &Bound<'_, PyAny>, convert: &Bound<'_, PyAny>) -> PyResult<Val
     Ok(value)
 }
 
-
 /// The array whose compact items an export lends for `value`, with the offset of `value`'s first item in them and, for a structural copy read through an affine map, each axis's stride in items. A copy that hasn't been built lends its source's items this way, and only the source is computed. Otherwise `value` lends its own items where they're compact. `None` where neither applies.
 fn lendable(py: Python<'_>, value: &Value) -> PyResult<Option<(Value, usize, Option<Vec<isize>>)>> {
     if let Some((source, offset, strides)) = value.affine() {
@@ -366,10 +365,7 @@ impl PyArray {
     }
     fn select(&self, py: Python<'_>, index: &Bound<'_, PyAny>, convert: &Bound<'_, PyAny>) -> PyResult<Py<PyDict>> {
         let (value, parts) = (self.stored(py)?.clone(), selectors(index, convert)?);
-        let value = py.detach(move || {
-            let _turn = Session::current();
-            value.select(&parts)
-        }).map_err(index_error)?;
+        let value = py.detach(move || { let _turn = Session::current(); value.select(&parts) }).map_err(index_error)?;
         let mut result = Evaluation::default();
         result.value = Some(value);
         response(py, result)
@@ -423,22 +419,19 @@ impl PyFunction {
         Function::build(kind, operands).map(|inner| Self { inner }).map_err(|e| PyValueError::new_err(e.to_string()))
     }
     #[staticmethod]
-    fn selection(index: &Bound<'_, PyAny>, convert: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self { inner: Function::selector(selectors(index, convert)?) })
-    }
+    fn selection(index: &Bound<'_, PyAny>, convert: &Bound<'_, PyAny>) -> PyResult<Self> { Ok(Self { inner: Function::selector(selectors(index, convert)?) }) }
     fn selectors(&self, py: Python<'_>) -> PyResult<Option<Vec<Py<PyAny>>>> {
         let bound = |v: &Option<SliceBound>| -> PyResult<Py<PyAny>> {
-            match v {
-                None => Ok(py.None()), Some(SliceBound::Position(n)) => n.into_py_any(py),
-                Some(SliceBound::Key(k)) => k.as_ref().into_py_any(py),
-            }
+            match v { None => Ok(py.None()), Some(SliceBound::Position(n)) => n.into_py_any(py), Some(SliceBound::Key(k)) => k.as_ref().into_py_any(py) }
         };
-        self.inner.selectors().map(|parts| parts.iter().map(|part| match part {
-            IndexPart::Axis(v) => Py::new(py, PyArray::from(v.clone())).map(|a| a.into_any()),
-            IndexPart::Slice(s) => Ok(py.get_type::<PySlice>().call1((bound(&s.start)?, bound(&s.stop)?, s.step))?.unbind()),
-            IndexPart::All => Ok(py.get_type::<PySlice>().call1((py.None(), py.None(), py.None()))?.unbind()),
-            IndexPart::NewAxis => Ok(py.None()), IndexPart::Rest => Ok(py.Ellipsis()),
-        }).collect()).transpose()
+        self.inner.selectors().map(|parts| {
+            parts.iter().map(|part| match part {
+                IndexPart::Axis(v) => Py::new(py, PyArray::from(v.clone())).map(|a| a.into_any()),
+                IndexPart::Slice(s) => Ok(py.get_type::<PySlice>().call1((bound(&s.start)?, bound(&s.stop)?, s.step))?.unbind()),
+                IndexPart::All => Ok(py.get_type::<PySlice>().call1((py.None(), py.None(), py.None()))?.unbind()), IndexPart::NewAxis => Ok(py.None()),
+                IndexPart::Rest => Ok(py.Ellipsis())
+            }).collect()
+        }).transpose()
     }
     fn __repr__(&self) -> String { self.inner.bpl() }
     /// This function with `g` attached as its inverse, as BPL's `f⁻←g` attaches it.
@@ -470,7 +463,7 @@ impl PyOperator {
     fn __repr__(&self) -> String { self.inner.to_string() }
 }
 /// What a request runs: source code, or a function called with arguments.
-enum Run { Code(String), Call(Function, Vec<Value>) }
+enum Run { Code(String), Call(Function, Vec<Value>), Expression(String, Vec<(std::ops::Range<usize>, Value, bool)>) }
 struct EvalRequest { run: Option<Run>, bindings: Vec<(String, Operand)>, options: EvalOptions }
 impl EvalRequest {
     fn run(&mut self, session: &Session) -> Result<Evaluation, &'static str> {
@@ -482,7 +475,7 @@ impl EvalRequest {
         let options = std::mem::take(&mut self.options);
         Ok(match &self.run {
             Some(Run::Code(code)) => session.eval_with(code, options), Some(Run::Call(function, args)) => session.call_function_with(function, args, options),
-            None => Evaluation::default()
+            Some(Run::Expression(code, parts)) => session.eval_embedded(code, parts.clone(), options), None => Evaluation::default()
         })
     }
 }
@@ -532,6 +525,20 @@ impl PySession {
             Err(error) => Evaluation { error: Some(error), ..Evaluation::default() },
         };
         response(py, result)
+    }
+    /// Evaluate ordinary BPL syntax with native `(start, end, object, literal)` parts replacing its placeholder tokens; literal data keeps its weak kind and normal stranding.
+    #[pyo3(signature = (source, parts, *, timeout=None, show=None))]
+    fn expression(
+        &self, py: Python<'_>, source: String, parts: Vec<(usize, usize, Bound<'_, PyAny>, bool)>, timeout: Option<f64>, show: Option<Py<PyAny>>
+    ) -> PyResult<Py<PyDict>> {
+        let parts = parts.into_iter().map(|(start, end, part, literal)| {
+            let value = if let Ok(f) = part.extract::<PyRef<'_, PyFunction>>() {
+                Value::Function(f.inner.clone())
+            } else if let Ok(op) = part.extract::<PyRef<'_, PyOperator>>() { Value::Operator(op.inner.clone()) }
+            else { part.extract::<PyRef<'_, PyArray>>()?.value()?.clone() };
+            Ok((start..end, value, literal))
+        }).collect::<PyResult<_>>()?;
+        self.request(py, EvalRequest { run: Some(Run::Expression(source, parts)), bindings: Vec::new(), options: options(timeout, false)? }, show)
     }
     /// The array that the Python data `obj` gives. Python floats take the default float width.
     fn array(&self, obj: &Bound<'_, PyAny>) -> PyResult<PyArray> {
@@ -687,13 +694,6 @@ fn _reference_accounting(py: Python<'_>, results: &str) -> PyResult<Py<PyAny>> {
     )
 }
 
-/// The reference reply (`reference::reply`) for `case`, given as JSON, when the worker checking it stopped (`reference::crashed`), with `message` saying why.
-#[pyfunction]
-fn _reference_crashed(py: Python<'_>, case: &str, message: &str) -> PyResult<Py<PyAny>> {
-    let case: serde_json::Value = serde_json::from_str(case).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    python(py, &basedpl_testkit::reference::reply(vec![basedpl_testkit::reference::crashed(&case, message)]))
-}
-
 /// A case's budget for `cost` in `section`, as a footer or budget line writes it, by the rule that `rustymath_timing::budget` holds.
 #[pyfunction]
 #[pyo3(signature = (section, cost, estimate=false))]
@@ -751,7 +751,6 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_captured_literal, m)?)?;
     m.add_function(wrap_pyfunction!(_reference_file, m)?)?;
     m.add_function(wrap_pyfunction!(_reference_accounting, m)?)?;
-    m.add_function(wrap_pyfunction!(_reference_crashed, m)?)?;
     m.add_function(wrap_pyfunction!(_parse, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("symbols", python(m.py(), &basedpl::symbols::rows())?)?;

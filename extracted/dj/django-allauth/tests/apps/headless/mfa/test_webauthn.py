@@ -27,6 +27,22 @@ def test_passkey_login(
     assert data["data"]["user"]["id"] == passkey.user_id
 
 
+def test_passkey_login_requires_user_verification(
+    client, passkey, webauthn_authentication_bypass, headless_reverse
+):
+    with webauthn_authentication_bypass(passkey, user_verified=False) as credential:
+        resp = client.get(headless_reverse("headless:mfa:login_webauthn"))
+        assert resp.status_code == HTTPStatus.OK
+        resp = client.post(
+            headless_reverse("headless:mfa:login_webauthn"),
+            data={"credential": credential},
+            content_type="application/json",
+        )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json()["errors"][0]["code"] == "incorrect_code"
+
+
 def test_invalid_passkey_login_does_not_consume_user_rate_limit(
     client,
     user_with_totp,
@@ -165,6 +181,23 @@ def test_reauthenticate(
         assert resp.status_code == HTTPStatus.OK
     resp = auth_client.get(headless_reverse("headless:mfa:manage_recovery_codes"))
     assert resp.status_code == HTTPStatus.OK
+
+
+@pytest.mark.parametrize("http_method", ["get", "post"])
+def test_reauthentication_method_disabled(
+    auth_client, headless_reverse, settings, http_method
+):
+    settings.ACCOUNT_REAUTHENTICATION_METHODS = {"password", "code"}
+    request = getattr(auth_client, http_method)
+    resp = request(
+        headless_reverse("headless:mfa:reauthenticate_webauthn"),
+        data={} if http_method == "post" else None,
+        content_type="application/json",
+    )
+
+    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp["content-type"] == "application/json"
+    assert resp.json()["status"] == HTTPStatus.FORBIDDEN
 
 
 def test_update_authenticator(

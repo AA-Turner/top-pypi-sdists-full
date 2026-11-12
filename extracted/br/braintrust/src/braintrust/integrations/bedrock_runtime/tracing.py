@@ -9,6 +9,9 @@ from braintrust.integrations.utils import (
     _log_and_end_span,
     _log_error_and_end_span,
     _materialize_attachment,
+    _ServedServiceTierTracker,
+    _service_tier_metadata,
+    _service_tier_type,
     _timing_metrics,
 )
 from braintrust.logger import start_span as _bt_start_span
@@ -94,7 +97,7 @@ def _invoke_model_wrapper(wrapped, instance, args, kwargs):  # noqa: ARG001
     span = _start_span(
         "bedrock.invoke_model",
         _invoke_model_input(kwargs),
-        _invoke_model_metadata(model_id, endpoint="invoke_model"),
+        _invoke_model_metadata(kwargs, endpoint="invoke_model"),
     )
     start_time = time.time()
     try:
@@ -113,10 +116,16 @@ def _invoke_model_wrapper(wrapped, instance, args, kwargs):  # noqa: ARG001
     output_usage = output.get("usage") if isinstance(output, dict) else None
     metrics = {
         **_timing_metrics(start_time, time.time()),
+        **_invoke_header_usage_metrics(result),
         **_converse_usage_metrics(output_usage),
         **_anthropic_invoke_usage_metrics(model_id, output),
     }
-    _log_and_end_span(span, output=output, metrics=metrics)
+    _log_and_end_span(
+        span,
+        output=_summarize_embeddings(output),
+        metrics=metrics,
+        metadata=_invoke_model_response_metadata(result),
+    )
     return result
 
 
@@ -125,7 +134,7 @@ def _invoke_model_stream_wrapper(wrapped, instance, args, kwargs):  # noqa: ARG0
     span = _start_span(
         "bedrock.invoke_model_stream",
         _invoke_model_input(kwargs),
-        _invoke_model_metadata(model_id, endpoint="invoke_model_stream", stream=True),
+        _invoke_model_metadata(kwargs, endpoint="invoke_model_stream", stream=True),
     )
     start_time = time.time()
     try:
@@ -134,12 +143,16 @@ def _invoke_model_stream_wrapper(wrapped, instance, args, kwargs):  # noqa: ARG0
         _log_error_and_end_span(span, error)
         raise
 
+    # The served tier is a response header, so it is known before the body streams.
+    metadata = _invoke_model_response_metadata(result)
     if isinstance(result, dict) and "body" in result:
+        if metadata:
+            span.log(metadata=metadata)
         result = dict(result)
         result["body"] = _TracedInvokeModelStream(result["body"], span, start_time, model_id)
         return result
 
-    _log_and_end_span(span, metrics=_timing_metrics(start_time, time.time()))
+    _log_and_end_span(span, metrics=_timing_metrics(start_time, time.time()), metadata=metadata)
     return result
 
 
@@ -165,6 +178,7 @@ def _converse_metadata(kwargs: dict[str, Any], *, endpoint: str, stream: bool = 
         value = kwargs.get(key)
         if value is not None:
             metadata[_camel_metadata_key(key)] = value
+    metadata.update(_service_tier_metadata(requested=_service_tier_type(kwargs.get("serviceTier"))))
     if stream:
         metadata["stream"] = True
     return metadata
@@ -219,13 +233,23 @@ def _tool_choice_to_openai(tool_choice: Any) -> Any:
     return tool_choice
 
 
-def _invoke_model_metadata(model_id: Any, *, endpoint: str, stream: bool = False) -> dict[str, Any]:
+def _invoke_model_metadata(kwargs: dict[str, Any], *, endpoint: str, stream: bool = False) -> dict[str, Any]:
     metadata: dict[str, Any] = {"provider": _PROVIDER, "endpoint": endpoint}
+    model_id = kwargs.get("modelId")
     if model_id is not None:
         metadata["model"] = model_id
+    # InvokeModel sends ``serviceTier`` as a plain string (X-Amzn-Bedrock-Service-Tier header).
+    metadata.update(_service_tier_metadata(requested=kwargs.get("serviceTier")))
     if stream:
         metadata["stream"] = True
     return metadata
+
+
+def _invoke_model_response_metadata(result: Any) -> dict[str, Any]:
+    if not isinstance(result, dict):
+        return {}
+    # boto3 surfaces the X-Amzn-Bedrock-Service-Tier response header as a top-level string.
+    return _service_tier_metadata(served=result.get("serviceTier"))
 
 
 def _camel_metadata_key(key: str) -> str:
@@ -436,6 +460,7 @@ def _converse_response_metadata(result: Any) -> dict[str, Any]:
     latency = _bedrock_latency_ms(result.get("metrics"))
     if latency is not None:
         metadata["bedrock_latency_ms"] = latency
+    metadata.update(_service_tier_metadata(served=_service_tier_type(result.get("serviceTier"))))
     return metadata
 
 
@@ -535,6 +560,59 @@ def _replacement_streaming_body(data: bytes) -> Any:
     return StreamingBody(io.BytesIO(data), len(data))
 
 
+def _invoke_header_usage_metrics(result: Any) -> dict[str, Any]:
+    """Token counts Bedrock reports in the response headers for every InvokeModel call."""
+    metadata = result.get("ResponseMetadata") if isinstance(result, dict) else None
+    headers = metadata.get("HTTPHeaders") if isinstance(metadata, dict) else None
+    if not isinstance(headers, dict):
+        return {}
+    metrics: dict[str, Any] = {}
+    for header, key in (
+        ("x-amzn-bedrock-input-token-count", "prompt_tokens"),
+        ("x-amzn-bedrock-output-token-count", "completion_tokens"),
+    ):
+        try:
+            metrics[key] = int(headers[header])
+        except (KeyError, TypeError, ValueError):
+            pass
+    if "prompt_tokens" in metrics and "completion_tokens" in metrics:
+        metrics["tokens"] = metrics["prompt_tokens"] + metrics["completion_tokens"]
+    elif "prompt_tokens" in metrics:
+        metrics["tokens"] = metrics["prompt_tokens"]
+    return metrics
+
+
+def _is_vector(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(is_numeric(v) for v in value)
+
+
+def _summarize_embeddings(output: Any) -> Any:
+    """Replace an InvokeModel embedding response with the canonical count output."""
+    if not isinstance(output, dict):
+        return output
+    embedding = output.get("embedding")
+    if not _is_vector(embedding):
+        typed_embeddings = output.get("embeddingsByType")
+        if isinstance(typed_embeddings, dict):
+            embedding = next((value for value in typed_embeddings.values() if _is_vector(value)), None)
+    embeddings = output.get("embeddings")
+    if isinstance(embeddings, dict):
+        embeddings = next(
+            (
+                value
+                for value in embeddings.values()
+                if isinstance(value, list) and value and all(_is_vector(e) for e in value)
+            ),
+            None,
+        )
+    if not _is_vector(embedding) and not (
+        isinstance(embeddings, list) and embeddings and all(_is_vector(e) for e in embeddings)
+    ):
+        return output
+    # Titan v2 repeats a single embedding under embeddingsByType.
+    return {"count": 1 if _is_vector(embedding) else len(embeddings)}
+
+
 def _anthropic_invoke_usage_metrics(model_id: Any, output: Any) -> dict[str, Any]:
     if not isinstance(model_id, str) or "anthropic.claude" not in model_id.lower():
         return {}
@@ -574,6 +652,7 @@ class _TracedConverseStream:
         self._usage: dict[str, Any] | None = None
         self._metrics_payload: dict[str, Any] | None = None
         self._stop_reason: str | None = None
+        self._served_tier = _ServedServiceTierTracker(span)
         self._finished = False
 
     def __iter__(self):
@@ -644,6 +723,7 @@ class _TracedConverseStream:
                 self._usage = metadata["usage"]
             if isinstance(metadata.get("metrics"), dict):
                 self._metrics_payload = metadata["metrics"]
+            self._served_tier.observe(_service_tier_type(metadata.get("serviceTier")))
 
     def _finish(self, error: BaseException | None) -> None:
         if self._finished:

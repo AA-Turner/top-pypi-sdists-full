@@ -28,8 +28,10 @@ def get_api_details(module, exported_list) -> str:
         for part in parts:
             obj = getattr(obj, part)
 
-        # Get the name of the object
+        # Get the name of the object (with its submodule, e.g., `rag.corpus_checks`)
         obj_name = obj.__name__
+        if len(parts) > 1 and inspect.ismodule(getattr(module, parts[0])):
+            obj_name = f"{parts[0]}.{obj_name}"
 
         # Get the function signature
         sig = inspect.signature(obj)
@@ -138,6 +140,14 @@ def _get_api_text() -> str:
         "Validate.conjointly",
         "Validate.specially",
         "Validate.prompt",
+        "Validate.col_vals_scored",
+        "Validate.rows_near_distinct",
+        "Validate.rows_not_contaminated",
+        "Validate.col_vals_chat_format",
+        "Validate.col_vals_text_quality",
+        "Validate.col_vals_in_language",
+        "Validate.col_vals_token_len",
+        "Validate.col_vals_no_pii",
     ]
 
     column_selection_exported = [
@@ -164,6 +174,9 @@ def _get_api_text() -> str:
         "Validate.get_json_report",
         "Validate.get_sundered_data",
         "Validate.get_data_extracts",
+        "Validate.get_scorecard",
+        "Validate.calibrate_prompt",
+        "Validate.to_data_card",
         "Validate.all_passed",
         "Validate.assert_passing",
         "Validate.assert_below_threshold",
@@ -196,10 +209,29 @@ def _get_api_text() -> str:
         "SchemaDiff",
     ]
 
+    data_for_models_exported = [
+        "rag.corpus_checks",
+        "rag.eval_checks",
+        "scorers.from_function",
+        "scorers.embedding_similarity",
+        "scorers.reranker",
+        "scorers.classifier",
+        "scorers.langid",
+        "scorers.perplexity",
+        "scorers.text_stat",
+        "scorers.token_count",
+        "check_splits",
+        "SplitCheck",
+        "check_synthetic",
+        "SyntheticCheck",
+        "Ablation",
+    ]
+
     yaml_exported = [
         "yaml_interrogate",
         "validate_yaml",
         "yaml_to_python",
+        "yaml_ablation",
     ]
 
     utility_exported = [
@@ -275,6 +307,17 @@ with counts, samples of differing rows, and a tabular report. The same compariso
 validation step with `Validate.tbl_match()`, and `Validate.tbl_reconcile()` compares aggregates
 (e.g., sums or counts per group of key columns) instead of rows."""
 
+    data_for_models_desc = """The *Data for Models* group checks data that trains or evaluates a
+model. The `rag.corpus_checks()` and `rag.eval_checks()` functions make validation steps for the
+corpus and the evaluation set of a retrieval-augmented generation (RAG) system, which are added to
+a validation with `add_steps()`. The `scorers.*` functions make scorers (of embeddings, rerankers,
+classifiers, and more) for `col_vals_scored()`; the checks of text data (`col_vals_text_quality()`,
+`col_vals_in_language()`, `col_vals_token_len()`, and `col_vals_no_pii()`) are validation methods.
+The `check_splits()` function checks the splits of a dataset for overlapping rows, label coverage,
+and drift, and `check_synthetic()` checks synthetic data against its seed for fidelity, diversity,
+and copies. An `Ablation` measures how the rows that fail validation steps affect a model, by
+training it on the data with them removed."""
+
     yaml_desc = """The *YAML* group contains functions that allow for the use of YAML to orchestrate
 validation workflows. The `yaml_interrogate()` function can be used to run a validation workflow
 from YAML strings or files. The `validate_yaml()` function checks if the YAML configuration passes
@@ -320,6 +363,9 @@ table information, and timing details."""
 
     api_text += f"""\n## The Table Comparison family\n\n{comparison_desc}\n\n"""
     api_text += get_api_details(module=pointblank, exported_list=comparison_exported)
+
+    api_text += f"""\n## The Data for Models family\n\n{data_for_models_desc}\n\n"""
+    api_text += get_api_details(module=pointblank, exported_list=data_for_models_exported)
 
     api_text += f"""\n## The YAML family\n\n{yaml_desc}\n\n"""
     api_text += get_api_details(module=pointblank, exported_list=yaml_exported)

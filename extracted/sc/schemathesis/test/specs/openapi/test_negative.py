@@ -7,7 +7,7 @@ import pytest
 import requests
 from _pytest.main import ExitCode
 from flask import jsonify
-from hypothesis import HealthCheck, Phase, find, given, settings
+from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from jsonschema_rs import canonical
@@ -37,7 +37,7 @@ from schemathesis.specs.openapi.negative.mutations import (
     remove_required_property,
 )
 from schemathesis.specs.openapi.negative.utils import can_negate
-from test.utils import assert_requests_call, run_given
+from test.utils import assert_requests_call, find_first, run_given
 
 MAX_EXAMPLES = 15
 SUPPRESSED_HEALTH_CHECKS = [HealthCheck.too_slow, HealthCheck.filter_too_much, HealthCheck.data_too_large]
@@ -665,11 +665,11 @@ def test_allow_empty_value_is_not_generated_as_negative(ctx, parameter_schema):
     )
 
     with pytest.raises(NoSuchExample):
-        find(
+        find_first(
             schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE),
             lambda case: case.query == {"filter": ""},
             # The excluded value is rare, so a small budget would pass without looking.
-            settings=settings(max_examples=100, deadline=None),
+            max_examples=100,
         )
 
 
@@ -727,6 +727,48 @@ def test_negative_query_value_is_invalid_as_sent(ctx, version, parameter_schema,
         assert not any(validator.is_valid(reading) for reading in _wire_readings(query["value"])), (
             f"Valid as sent: {query['value']!r}, mutations: {mutations!r}"
         )
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize("location", ["query", "header", "cookie"])
+@pytest.mark.parametrize(
+    "parameter_schema",
+    [
+        {"$ref": "#/components/schemas/Limit"},
+        {"allOf": [{"$ref": "#/components/schemas/Integer"}, {"description": "Page size"}]},
+    ],
+    ids=["alias", "all-of-reference-with-description"],
+)
+def test_negative_parameter_behind_reference_is_invalid_as_sent(ctx, location, parameter_schema):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [{"name": "value", "in": location, "required": True, "schema": parameter_schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+        # `pattern` applies once a mutation turns the integer into a string, so most such strings spell an integer.
+        components={
+            "schemas": {
+                "Limit": {"$ref": "#/components/schemas/Integer"},
+                "Integer": {"type": "integer", "pattern": "^[0-9]+$"},
+            }
+        },
+    )
+    parameter_location = ParameterLocation(location)
+    validator = make_validator(
+        operation.get_parameter_set(parameter_location).items[0].validation_schema,
+        operation.schema.adapter.jsonschema_validator_cls,
+    )
+    valid_as_sent = []
+
+    # Type changes into a string are a small slice of the negative space.
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=150)
+    def test(case):
+        value = (case.get_container(parameter_location) or {}).get("value")
+        if isinstance(value, str) and value.isascii() and value.isdigit() and validator.is_valid(int(value)):
+            valid_as_sent.append(value)
+
+    assert valid_as_sent == []
 
 
 @pytest.mark.hypothesis_nested
@@ -1404,7 +1446,6 @@ def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_exampl
             assert "/" not in unquote(str(value))
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_integer_path_parameter_no_false_positive(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1514,7 +1555,7 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, ap
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_invalid_component=True)
+@pytest.mark.snapshot(replace_invalid_component=True)
 def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli, snapshot_cli):
     # A server that accepts everything. Mutations must fire and the check
     # must report failures for enum + integer path parameters in fuzzing mode.
@@ -1886,11 +1927,10 @@ def test_omitting_required_header_next_to_explicit_one_is_negative(ctx):
     operation.schema.config.generation.update(modes=[GenerationMode.NEGATIVE])
     strategy = operation.as_strategy(generation_mode=GenerationMode.NEGATIVE, headers={"X-Tenant": "t"})
 
-    find(
+    find_first(
         strategy,
         lambda case: "X-Token" not in case.headers and isinstance(case.body, dict) and "kind" in case.body,
-        # Ceiling for a search that stops at the first match.
-        settings=settings(max_examples=100, database=None, suppress_health_check=list(HealthCheck)),
+        max_examples=100,
     )
 
 

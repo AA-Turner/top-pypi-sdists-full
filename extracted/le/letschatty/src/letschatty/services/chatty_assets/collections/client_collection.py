@@ -17,7 +17,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo.errors import DuplicateKeyError
 from zoneinfo import ZoneInfo
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.chat.chat_client_preview import ChatClientPreview
 from ....models.chat.client import Client
 from ....models.chat.no_contactar import NoContactar

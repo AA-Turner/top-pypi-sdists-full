@@ -11,6 +11,9 @@ from trajectory.types.benchmarks.tasks.benchmark_spec_task import BenchmarkSpecT
 
 
 class BenchmarkUploadProgress(BaseModel):
+  operation_id: str | None = None
+  """The current ingestion attempt, when available."""
+
   status: Literal[
     "uploading", "queued", "running", "cancelled", "succeeded", "partial_failure", "failed"
   ]

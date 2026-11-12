@@ -12,7 +12,6 @@ from schemathesis.engine import Status, events
 UUID_PATTERN = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_format_password_false_positive(ctx, cli, snapshot_cli):
     # GH-3480: Schemathesis incorrectly reports data as invalid for format: password
     # In OpenAPI 3.0, `format` is an annotation and does NOT impose validation constraints by itself.
@@ -67,7 +66,6 @@ def test_format_password_false_positive(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_text_plain_negative_becomes_valid_after_serialization(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -100,7 +98,7 @@ def test_text_plain_negative_becomes_valid_after_serialization(ctx, cli, snapsho
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_invalid_component=True)
+@pytest.mark.snapshot(replace_invalid_component=True)
 def test_text_plain_with_query_negative_still_fails(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -133,40 +131,6 @@ def test_text_plain_with_query_negative_still_fails(ctx, cli, snapshot_cli):
             "--seed=3",
         )
         == snapshot_cli
-    )
-
-
-# High example count: a negated body with only valid declared query values is a rare draw.
-def test_text_plain_with_valid_boolean_query_not_reported(ctx, cli, app_runner):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/endpoint": {
-                "post": {
-                    "parameters": [{"in": "query", "name": "q", "required": False, "schema": {"type": "boolean"}}],
-                    "requestBody": {
-                        "required": True,
-                        "content": {"text/plain": {"schema": {"type": "string"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
-                }
-            }
-        }
-    )
-
-    @app.route("/endpoint", methods=["POST"])
-    def endpoint():
-        values = request.args.getlist("q")
-        if len(values) > 1 or (values and values[0] not in ("true", "false")):
-            return jsonify({}), 400
-        return jsonify({}), 200
-
-    cli.run_and_assert(
-        app_runner.openapi_url(app),
-        "--checks=negative_data_rejection",
-        "--phases=fuzzing",
-        "--max-examples=100",
-        "--seed=1",
-        exit_code=ExitCode.OK,
     )
 
 

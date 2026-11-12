@@ -21,8 +21,6 @@ _POOL_DISABLED_CONFIG = {"phases": {"fuzzing": {"extra-data-sources": {"response
     ],
     ids=["use-after-create", "update-on-existing", "no-producer", "pool-disabled-via-config"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.flaky(reruns=2)
 def test_planted_bug_findability(ctx, cli, snapshot_cli, filter_arg, config):
     # Positive-only: negative queries fail server validation before capture, so they never exercise the pool.
     api = ctx.graphql.apps.use_after_create()
@@ -51,7 +49,6 @@ def test_planted_bug_findability(ctx, cli, snapshot_cli, filter_arg, config):
     ],
     ids=["bare-id-via-return-type", "arg-name-token", "pool-disabled-via-config"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_generic_id_planted_bug_findability(ctx, cli, snapshot_cli, filter_args, config):
     api = ctx.graphql.apps.generic_id_pool()
     assert (
@@ -75,7 +72,6 @@ def test_generic_id_planted_bug_findability(ctx, cli, snapshot_cli, filter_args,
     [_DEFAULT_CONFIG, _POOL_DISABLED_CONFIG],
     ids=["pool-enabled", "pool-disabled-via-config"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_input_object_planted_bug_findability(ctx, cli, snapshot_cli, config):
     api = ctx.graphql.serve(bookstore.input_object_pool())
     assert (
@@ -99,7 +95,6 @@ def test_input_object_planted_bug_findability(ctx, cli, snapshot_cli, config):
     [_DEFAULT_CONFIG, _POOL_DISABLED_CONFIG],
     ids=["pool-enabled", "pool-disabled-via-config"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_list_argument_planted_bug_findability(ctx, cli, snapshot_cli, config):
     api = ctx.graphql.serve(bookstore.list_argument_pool())
     assert (
@@ -117,12 +112,10 @@ def test_list_argument_planted_bug_findability(ctx, cli, snapshot_cli, config):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.flaky(reruns=2)
 def test_non_id_pool_planted_bug_findability(ctx, cli, snapshot_cli):
     # Fuzzing captures Project.fullPath from the projects query and reuses it in moveIssue(projectPath:),
     # reaching a resolver that only errors on a real path.
-    api = ctx.graphql.apps.non_id_pool()
+    api = ctx.graphql.serve(bookstore.non_id_pool())
     assert (
         cli.run(
             api.schema_url,
@@ -143,7 +136,6 @@ def test_non_id_pool_planted_bug_findability(ctx, cli, snapshot_cli):
     [_DEFAULT_CONFIG, _POOL_DISABLED_CONFIG],
     ids=["pool-enabled", "pool-disabled-via-config"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_tombstone_planted_bug_findability(ctx, cli, snapshot_cli, config):
     # Deleted ids leave the pool, so later deleteBook cases never hit the planted double-delete bug.
     api = ctx.graphql.serve(bookstore.tombstone_pool())

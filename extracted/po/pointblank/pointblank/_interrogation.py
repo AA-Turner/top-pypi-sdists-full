@@ -4,6 +4,7 @@ import datetime
 import functools
 import numbers
 import operator
+import statistics
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
@@ -458,6 +459,16 @@ class SpeciallyValidation:
             else:  # pragma: no cover
                 raise NotImplementedError(f"Support for {tbl_type} is not yet implemented")
 
+            # A null result (e.g., from `pl.col("a") > 1` where `a` is null) is neither `True` nor
+            # `False`, so it would be left out of both the passing and the failing counts; it is a
+            # failing test unit, as in `col_vals_expr()` and `conjointly()`
+            if "pb_is_good_" in result.columns:
+                result = (
+                    nw.from_native(result)
+                    .with_columns(pb_is_good_=nw.col("pb_is_good_").fill_null(False))
+                    .to_native()
+                )
+
         elif isinstance(result, bool):
             # If it's a single boolean, return that as a list
             return [result]
@@ -527,11 +538,10 @@ def _check_nulls_across_columns_nw(table, columns_subset):
     # Get all column names from the table
     column_names = columns_subset if columns_subset else table.columns
 
-    # Build the expression by combining each column's `is_null()` with OR operations
+    # Build the expression by combining each column's null (or NaN) check with OR operations
     null_expr = functools.reduce(
-        lambda acc, col: acc | nw.col(col).is_null() if acc is not None else nw.col(col).is_null(),
-        column_names,
-        None,
+        lambda acc, expr: acc | expr,
+        [_safe_is_nan_or_null_expr(table, nw.col(col), col) for col in column_names],
     )
 
     # Add the expression as a new column to the table
@@ -782,19 +792,22 @@ def col_pct_null_details(
     """
     nw_frame = nw.from_native(data_tbl)
 
+    # A NaN in a float column counts as a null value
+    null_expr = _safe_is_nan_or_null_expr(data_tbl, nw.col(column), column)
+
     # Use lazy-compatible aggregation to get total rows and null count
     # Cast boolean to Int32 before sum to support PySpark which can't sum booleans
     if is_narwhals_lazyframe(nw_frame):
         stats = nw_frame.select(
             total_rows=nw.len(),
-            n_null=nw.col(column).is_null().cast(nw.Int32).sum(),
+            n_null=null_expr.cast(nw.Int32).sum(),
         ).collect()
         total_rows: int = int(stats["total_rows"][0])
         n_null: int = int(stats["n_null"][0])
     else:
         assert is_narwhals_dataframe(nw_frame)
         total_rows = int(nw_frame.select(nw.len()).item())
-        n_null = int(nw_frame.select(nw.col(column).is_null().cast(nw.Int32).sum()).item())
+        n_null = int(nw_frame.select(null_expr.cast(nw.Int32).sum()).item())
 
     abs_target: float = round(total_rows * p)
     lower_bound, upper_bound = bound_finder(abs_target)
@@ -1354,9 +1367,12 @@ def interrogate_in_table(
         ref_values = ref_unique.get_column(ref_col_name).to_list()
         ref_values_clean = [v for v in ref_values if v is not None]
 
-        expr: nw.Expr = _is_in(col_name, ref_values_clean, tbl_schema[col_name])
-        if na_pass:
-            expr = expr | nw.col(col_name).is_null()
+        # A missing key (null, or `NaN` as in the comparison methods) never counts as found, even
+        # when the reference column has missing values too: pandas stores those as `NaN`, which
+        # `is_in()` would match; so it passes only with `na_pass=True`, on every backend
+        in_ref = _is_in(col_name, ref_values_clean, tbl_schema[col_name]).fill_null(False)
+        is_missing = _safe_is_nan_or_null_expr(nw_tbl, nw.col(col_name), col_name)
+        expr: nw.Expr = (in_ref & ~is_missing) | (is_missing & na_pass)
 
         result_tbl = nw_tbl.with_columns(pb_is_good_=expr)
         return result_tbl.to_native()
@@ -1396,12 +1412,18 @@ def interrogate_in_table(
     # so it is cast to make it a proper boolean column
     matched_series = joined.get_column("__pb_ref_matched__").fill_null(value=False).cast(nw.Boolean)
 
+    # As with a single column, a key with a missing value never counts as found (the joins of
+    # Polars and DuckDB match `NaN` to `NaN`, while pandas treats it as null); a key that is
+    # missing altogether passes with `na_pass=True`
+    is_missing = [_safe_is_nan_or_null_expr(nw_tbl, nw.col(c), c) for c in columns]
+    missing_flags = nw_tbl.select(
+        nw.any_horizontal(*is_missing, ignore_nulls=False).alias("__pb_any_missing__"),
+        nw.all_horizontal(*is_missing, ignore_nulls=False).alias("__pb_all_missing__"),
+    )
+    matched_series = matched_series & ~missing_flags.get_column("__pb_any_missing__")
+
     if na_pass:
-        all_null = nw.all_horizontal(*[nw.col(c).is_null() for c in columns], ignore_nulls=False)
-        all_null_series = nw_tbl.select(all_null.alias("__pb_all_null__")).get_column(
-            "__pb_all_null__"
-        )
-        matched_series = matched_series | all_null_series
+        matched_series = matched_series | missing_flags.get_column("__pb_all_missing__")
 
     result_tbl = nw_tbl.with_columns(pb_is_good_=matched_series)
     return result_tbl.to_native()
@@ -1982,7 +2004,9 @@ def interrogate_null(tbl: IntoFrame, column: str) -> Any:
 
     nw_tbl = nw.from_native(tbl)
     assert isinstance(nw_tbl, (nw.DataFrame, nw.LazyFrame))
-    result_tbl = nw_tbl.with_columns(pb_is_good_=nw.col(column).is_null())
+    result_tbl = nw_tbl.with_columns(
+        pb_is_good_=_safe_is_nan_or_null_expr(tbl, nw.col(column), column)
+    )
     return result_tbl.to_native()
 
 
@@ -1991,7 +2015,9 @@ def interrogate_not_null(tbl: IntoFrame, column: str) -> Any:
 
     nw_tbl = nw.from_native(tbl)
     assert isinstance(nw_tbl, (nw.DataFrame, nw.LazyFrame))
-    result_tbl = nw_tbl.with_columns(pb_is_good_=~nw.col(column).is_null())
+    result_tbl = nw_tbl.with_columns(
+        pb_is_good_=~_safe_is_nan_or_null_expr(tbl, nw.col(column), column)
+    )
     return result_tbl.to_native()
 
 
@@ -2477,10 +2503,149 @@ def interrogate_rows_complete(tbl: IntoFrame, columns_subset: list[str] | None) 
     return result_tbl.to_native()
 
 
+# The column of the number of judges that passed each row of a `prompt()` step with several models
+VOTES_COLUMN = "pb_votes_"
+
+# How the verdicts of several judges are combined into the result of a row
+PROMPT_AGGREGATES = ("majority", "all", "any")
+
+
+def _aggregate_votes(votes: int, n_judges: int, aggregate: str) -> bool:
+    """Whether a row passes, given the number of judges that passed it."""
+    if aggregate == "all":
+        return votes == n_judges
+    if aggregate == "any":
+        return votes > 0
+    # A majority (more than half; a tie fails)
+    return 2 * votes > n_judges
+
+
+def _prompt_verdicts(  # pragma: no cover
+    tbl: Any,
+    columns_subset: list[str] | None,
+    ai_config: dict[str, Any],
+    provider: str,
+    model: str,
+    total_rows: int,
+) -> list[bool]:
+    """The verdict of one model on each row of the table (a row it didn't judge fails)."""
+    import logging
+
+    from pointblank._utils_ai import (
+        _AIValidationEngine,
+        _BatchConfig,
+        _DataBatcher,
+        _LLMConfig,
+        _PromptBuilder,
+        _ValidationResponseParser,
+    )
+
+    logger = logging.getLogger(__name__)
+
+    batch_size = ai_config.get("batch_size", 1000)
+    max_concurrent = ai_config.get("max_concurrent", 3)
+    attachments = ai_config.get("attachments", [])
+
+    # Set up LLM configuration (api_key will be loaded from environment)
+    llm_config = _LLMConfig(
+        provider=provider,
+        model=model,
+        api_key=None,  # Will be loaded from environment variables
+        verify_ssl=True,  # Default to verifying SSL certificates
+    )
+
+    # Set up batch configuration
+    batch_config = _BatchConfig(size=batch_size, max_concurrent=max_concurrent)
+
+    # Create optimized data batcher
+    batcher = _DataBatcher(data=tbl, columns=columns_subset, config=batch_config)
+
+    # Create batches with signature mapping for optimization
+    batches, signature_mapping = batcher.create_batches()
+    logger.info(f"Created {len(batches)} batches for AI validation")
+
+    # Log optimization stats
+    if hasattr(batcher, "get_reduction_stats"):
+        stats = batcher.get_reduction_stats()
+        if stats.get("reduction_percentage", 0) > 0:
+            logger.info(
+                f"Optimization: {stats['original_rows']} → {stats['unique_rows']} rows ({stats['reduction_percentage']:.1f}% reduction)"
+            )
+
+    # Create prompt builder
+    prompt_builder = _PromptBuilder(ai_config["prompt"])
+
+    # Create AI validation engine
+    engine = _AIValidationEngine(llm_config, attachments=attachments)
+
+    # Run AI validation synchronously (chatlas is synchronous)
+    batch_results = engine.validate_batches(
+        batches=batches, prompt_builder=prompt_builder, max_concurrent=max_concurrent
+    )
+
+    # Parse and combine results with signature mapping optimization
+    parser = _ValidationResponseParser(total_rows=total_rows)
+    combined_results = parser.combine_batch_results(batch_results, signature_mapping)
+
+    # Debug: Log table info and combined results
+    logger.debug("🏁 Final result conversion:")
+    logger.debug(f"   - Table length: {total_rows}")
+    logger.debug(
+        f"   - Combined results keys: {sorted(combined_results.keys()) if combined_results else 'None'}"
+    )
+
+    # Default to False if row wasn't processed
+    validation_results = [bool(combined_results.get(i, False)) for i in range(total_rows)]
+
+    logger.debug(f"   - Final passed count: {sum(validation_results)}")
+    logger.debug(f"   - Final failed count: {len(validation_results) - sum(validation_results)}")
+
+    return validation_results
+
+
+def _with_prompt_columns(native_tbl: Any, columns: dict[str, list]) -> Any:  # pragma: no cover
+    """Add the result columns of a `prompt()` step to a Polars or pandas table."""
+    if hasattr(native_tbl, "with_columns"):  # Polars
+        import polars as pl
+
+        return native_tbl.with_columns(
+            **{name: pl.Series(name, values) for name, values in columns.items()}
+        )
+
+    if hasattr(native_tbl, "assign"):  # Pandas
+        import pandas as pd
+
+        # Align by position: the frame's index need not be 0..n-1
+        return native_tbl.assign(
+            **{
+                name: pd.Series(
+                    values, dtype=bool if name == "pb_is_good_" else "int64", index=native_tbl.index
+                )
+                for name, values in columns.items()
+            }
+        )
+
+    # Generic fallback
+    result_tbl = native_tbl.copy() if hasattr(native_tbl, "copy") else native_tbl
+    for name, values in columns.items():
+        result_tbl[name] = values
+    return result_tbl
+
+
 def interrogate_prompt(  # pragma: no cover
-    tbl: IntoFrame, columns_subset: list[str] | None, ai_config: dict[str, Any]
+    tbl: IntoFrame,
+    columns_subset: list[str] | None,
+    ai_config: dict[str, Any],
+    info: dict[str, Any] | None = None,
 ) -> Any:
-    """AI-powered interrogation of rows."""
+    """
+    AI-powered interrogation of rows.
+
+    With several models (the `judges` of `ai_config`), each judges every row, and their verdicts
+    are combined with its `aggregate` rule; the number of judges that passed each row is in a
+    `pb_votes_` column. The verdicts of each model are put in `info` (if given), for the note of
+    the step and for `Validate.calibrate_prompt()`.
+    """
     import logging
 
     logger = logging.getLogger(__name__)
@@ -2501,115 +2666,37 @@ def interrogate_prompt(  # pragma: no cover
         assert is_narwhals_dataframe(nw_tbl)
         total_rows = len(nw_tbl)
 
+    judges = ai_config.get("judges") or [f"{ai_config['llm_provider']}:{ai_config['llm_model']}"]
+    aggregate = ai_config.get("aggregate", "majority")
+
     try:
-        # Import AI validation modules
-        from pointblank._utils_ai import (
-            _AIValidationEngine,
-            _BatchConfig,
-            _DataBatcher,
-            _LLMConfig,
-            _PromptBuilder,
-            _ValidationResponseParser,
-        )
-
-        # Extract AI configuration
-        prompt = ai_config["prompt"]
-        llm_provider = ai_config["llm_provider"]
-        llm_model = ai_config["llm_model"]
-        batch_size = ai_config.get("batch_size", 1000)
-        max_concurrent = ai_config.get("max_concurrent", 3)
-        attachments = ai_config.get("attachments", [])
-
-        # Set up LLM configuration (api_key will be loaded from environment)
-        llm_config = _LLMConfig(
-            provider=llm_provider,
-            model=llm_model,
-            api_key=None,  # Will be loaded from environment variables
-            verify_ssl=True,  # Default to verifying SSL certificates
-        )
-
-        # Set up batch configuration
-        batch_config = _BatchConfig(size=batch_size, max_concurrent=max_concurrent)
-
-        # Create optimized data batcher
-        batcher = _DataBatcher(data=tbl, columns=columns_subset, config=batch_config)
-
-        # Create batches with signature mapping for optimization
-        batches, signature_mapping = batcher.create_batches()
-        logger.info(f"Created {len(batches)} batches for AI validation")
-
-        # Log optimization stats
-        if hasattr(batcher, "get_reduction_stats"):
-            stats = batcher.get_reduction_stats()
-            if stats.get("reduction_percentage", 0) > 0:
-                logger.info(
-                    f"Optimization: {stats['original_rows']} → {stats['unique_rows']} rows ({stats['reduction_percentage']:.1f}% reduction)"
-                )
-
-        # Create prompt builder
-        prompt_builder = _PromptBuilder(prompt)
-
-        # Create AI validation engine
-        engine = _AIValidationEngine(llm_config, attachments=attachments)
-
-        # Run AI validation synchronously (chatlas is synchronous)
-        batch_results = engine.validate_batches(
-            batches=batches, prompt_builder=prompt_builder, max_concurrent=max_concurrent
-        )
-
-        # Parse and combine results with signature mapping optimization
-        parser = _ValidationResponseParser(total_rows=total_rows)
-        combined_results = parser.combine_batch_results(batch_results, signature_mapping)
-
-        # Debug: Log table info and combined results
-        logger.debug("🏁 Final result conversion:")
-        logger.debug(f"   - Table length: {total_rows}")
-        logger.debug(
-            f"   - Combined results keys: {sorted(combined_results.keys()) if combined_results else 'None'}"
-        )
-
-        # Create a boolean column for validation results
-        validation_results = []
-        for i in range(total_rows):
-            # Default to False if row wasn't processed
-            result = combined_results.get(i, False)
-            validation_results.append(result)
-
-            # Debug: Log first few conversions
-            if i < 5 or total_rows - i <= 2:
-                logger.debug(f"   Row {i}: {result} (from combined_results.get({i}, False))")
-
-        logger.debug(f"   - Final validation_results length: {len(validation_results)}")
-        logger.debug(f"   - Final passed count: {sum(validation_results)}")
-        logger.debug(
-            f"   - Final failed count: {len(validation_results) - sum(validation_results)}"
-        )
-
-        # Add the pb_is_good_ column by creating a proper boolean Series
-        # First convert to native to work with the underlying data frame
-        native_tbl = nw_tbl.to_native()
-
-        # Create the result table with the boolean column
-        if hasattr(native_tbl, "with_columns"):  # Polars
-            import polars as pl
-
-            result_tbl = native_tbl.with_columns(pb_is_good_=pl.Series(validation_results))
-
-        elif hasattr(native_tbl, "assign"):  # Pandas
-            import pandas as pd
-
-            # Align by position: the frame's index need not be 0..n-1
-            result_tbl = native_tbl.assign(
-                pb_is_good_=pd.Series(validation_results, dtype=bool, index=native_tbl.index)
+        verdicts = {}
+        for judge in judges:
+            provider, model = judge.split(":", 1)
+            verdicts[judge] = _prompt_verdicts(
+                tbl, columns_subset, ai_config, provider, model, total_rows
             )
 
+        columns: dict[str, list] = {}
+        if len(judges) == 1:
+            columns["pb_is_good_"] = verdicts[judges[0]]
         else:
-            # Generic fallback
-            result_tbl = native_tbl.copy() if hasattr(native_tbl, "copy") else native_tbl
-            result_tbl["pb_is_good_"] = validation_results
+            votes = [sum(row) for row in zip(*verdicts.values())]
+            columns["pb_is_good_"] = [
+                _aggregate_votes(vote, len(judges), aggregate) for vote in votes
+            ]
+            columns[VOTES_COLUMN] = votes
+
+        if info is not None:
+            info["judges"] = verdicts
+            info["aggregate"] = aggregate
+
+        # Add the result columns to the table (as a Polars or pandas table)
+        result_tbl = _with_prompt_columns(nw_tbl.to_native(), columns)
 
         logger.info(
-            f"AI validation completed. {sum(validation_results)} rows passed out of {len(validation_results)}"
+            f"AI validation completed. {sum(columns['pb_is_good_'])} rows passed out of "
+            f"{total_rows}"
         )
 
         return result_tbl
@@ -2624,6 +2711,653 @@ def interrogate_prompt(  # pragma: no cover
     except Exception as e:
         # Anything else that stops the step as a whole (e.g., an invalid model configuration)
         raise StepEvaluationError(f"The prompt() step couldn't be run ({_first_line(e)}).") from e
+
+
+# The column of the scores of a `col_vals_scored()` step, next to `pb_is_good_`
+SCORE_COLUMN = "pb_score_"
+
+
+def _score_plain_rows(
+    scorer: Any, rows: list[dict[str, Any]], columns: list[str], cache: Any
+) -> tuple[list[float | None], dict[str, Any]]:
+    """
+    Score rows of values, leaving out (with a score of `None`) those with a missing value.
+
+    Errors of the scorer (or of a missing package it needs) stop the step, with a note.
+    """
+    from pointblank import scorers
+
+    records = []
+    positions = []
+    for i, row in enumerate(rows):
+        record = {c: scorers.python_value(row[c]) for c in columns}
+        if any(v is None for v in record.values()):
+            continue
+        records.append(record)
+        positions.append(i)
+
+    label = scorers.scorer_label(scorer)
+    try:
+        scored, counts = scorers.score_records(scorer, records, cache)
+    except ImportError as e:
+        raise StepEvaluationError(f"The col_vals_scored() step couldn't be run: {e}") from e
+    except scorers.ScorerOutputError as e:
+        raise StepEvaluationError(
+            f"The scorer {label} of the col_vals_scored() step can't be used: {e}."
+        ) from e
+    except Exception as e:
+        raise StepEvaluationError(
+            f"The scorer {label} of the col_vals_scored() step failed ({_first_line(e)})."
+        ) from e
+
+    scores: list[float | None] = [None] * len(rows)
+    for position, score in zip(positions, scored):
+        scores[position] = score
+    return scores, counts
+
+
+def _scored_lookup(nw_tbl: Any, columns: list[str], rows: list[dict], scores: list) -> Any:
+    """Make a table of the distinct rows that have a score, on the backend of a lazy table."""
+    keep = [k for k, score in enumerate(scores) if score is not None]
+    return _value_lookup(
+        nw_tbl,
+        columns,
+        [rows[k] for k in keep],
+        {SCORE_COLUMN: ([scores[k] for k in keep], "float64")},
+        step="col_vals_scored",
+    )
+
+
+def _value_lookup(
+    nw_tbl: Any,
+    columns: list[str],
+    rows: list[dict],
+    values: dict[str, tuple[list, str]],
+    step: str,
+) -> Any:
+    """
+    Make a table of distinct rows of `columns` with values computed for them, on the backend of a
+    lazy table (an Ibis table or a PySpark DataFrame), to join to it.
+
+    `values` maps each new column to its values (one for each row) and its type (`"float64"`,
+    `"int64"`, or `"string"`).
+    """
+    native = nw_tbl.to_native()
+
+    if nw_tbl.implementation == nw.Implementation.IBIS:
+        import ibis
+
+        data_schema = native.schema()
+        schema = {c: data_schema[c] for c in columns}
+        data = {c: [row[c] for row in rows] for c in columns}
+        for name, (column_values, dtype) in values.items():
+            schema[name] = dtype
+            data[name] = list(column_values)
+        return nw.from_native(ibis.memtable(data, schema=ibis.schema(schema)))
+
+    if nw_tbl.implementation.is_pyspark() or nw_tbl.implementation.is_pyspark_connect():
+        from pyspark.sql.types import DoubleType, LongType, StringType, StructField, StructType
+
+        spark_types = {"float64": DoubleType, "int64": LongType, "string": StringType}
+        fields = {field.name: field for field in native.schema.fields}
+        schema = StructType(
+            [fields[c] for c in columns]
+            + [StructField(name, spark_types[dtype](), True) for name, (_, dtype) in values.items()]
+        )
+        columns_values = [column_values for column_values, _ in values.values()]
+        data = [
+            tuple(row[c] for c in columns) + tuple(v[k] for v in columns_values)
+            for k, row in enumerate(rows)
+        ]
+        return nw.from_native(native.sparkSession.createDataFrame(data, schema=schema))
+
+    raise StepEvaluationError(
+        f"{step}() can check Polars and pandas tables, Ibis tables, and PySpark DataFrames, not a "
+        f"{nw_tbl.implementation} table."
+    )
+
+
+def interrogate_scored(
+    tbl: IntoFrame, columns: list[str], config: dict[str, Any], na_pass: bool
+) -> tuple[Any, dict[str, Any]]:
+    """
+    Score each row with a model and check the scores against bounds.
+
+    The scorer gets the values of `columns` for each distinct row that has no missing value (a
+    row with a missing value, or that the scorer gives no score, passes if `na_pass=True`). The
+    results table has the scores in `pb_score_` (unless `keep_scores=False`) and the test results
+    in `pb_is_good_`. An eager table is scored in Python, in order. A database (Ibis) table or a
+    PySpark DataFrame has its distinct rows collected and scored, and the scores are joined back
+    to it on its own backend.
+
+    Returns the results table and the information on the scores for the step (`val_info`).
+    """
+    from pointblank import scorers
+
+    scorer = config["scorer"]
+    min_val = config.get("min_val")
+    max_val = config.get("max_val")
+    cache = config.get("cache", True)
+
+    nw_tbl = nw.from_native(tbl)
+    names = list(nw_tbl.collect_schema().names())
+    missing = [c for c in columns if c not in names]
+    if missing:
+        listed = ", ".join(repr(c) for c in missing)
+        raise StepEvaluationError(
+            f"The column{'s' if len(missing) > 1 else ''} {listed} of the col_vals_scored() step "
+            f"{'aren' if len(missing) > 1 else 'isn'}'t in the table."
+        )
+    if SCORE_COLUMN in names:
+        raise StepEvaluationError(
+            f"The table has a column {SCORE_COLUMN!r}, which is the name of the scores of a "
+            "col_vals_scored() step: rename it first (e.g., with `pre=`)."
+        )
+
+    name, version = scorers.scorer_identity(scorer)
+    info: dict[str, Any] = {
+        "scorer": name,
+        "version": version,
+        "label": scorers.scorer_label(scorer),
+    }
+
+    was_polars_lazy = is_polars_lazyframe(nw_tbl.to_native())
+    if was_polars_lazy:
+        nw_tbl = nw_tbl.collect()
+
+    if isinstance(nw_tbl, nw.DataFrame):
+        rows = nw_tbl.select(columns).rows(named=True)
+        scores, counts = _score_plain_rows(scorer, rows, columns, cache)
+        native = nw_tbl.to_native()
+        if is_polars_dataframe(native):
+            import polars as pl
+
+            native = native.with_columns(pl.Series(SCORE_COLUMN, scores, dtype=pl.Float64))
+        elif is_pandas_dataframe(native):
+            import pandas as pd
+
+            # Align by position: the frame's index need not be 0..n-1
+            native = native.assign(
+                **{SCORE_COLUMN: pd.Series(scores, dtype="float64", index=native.index)}
+            )
+        else:  # pragma: no cover
+            native = nw_tbl.with_columns(
+                nw.new_series(SCORE_COLUMN, scores, nw.Float64(), backend=nw_tbl.implementation)
+            ).to_native()
+        scored_tbl = nw.from_native(native)
+
+        present = [s for s in scores if s is not None]
+        info.update(counts)
+        info["n_rows"] = len(scores)
+        info["n_unscored"] = len(scores) - len(present)
+        info["min"] = min(present) if present else None
+        info["max"] = max(present) if present else None
+        info["median"] = statistics.median(present) if present else None
+    else:
+        distinct = nw_tbl.select(columns).unique().collect()
+        rows = distinct.rows(named=True)
+        scores, counts = _score_plain_rows(scorer, rows, columns, cache)
+        lookup = _scored_lookup(nw_tbl, columns, rows, scores)
+        scored_tbl = nw_tbl.join(lookup, on=columns, how="left")
+        info.update(counts)
+        info.update(_lazy_score_stats(scored_tbl))
+
+    score = nw.col(SCORE_COLUMN)
+    in_bounds = None
+    if min_val is not None:
+        in_bounds = score >= min_val
+    if max_val is not None:
+        below_max = score <= max_val
+        in_bounds = below_max if in_bounds is None else in_bounds & below_max
+    results = scored_tbl.with_columns(
+        pb_is_good_=nw.when(score.is_null()).then(nw.lit(bool(na_pass))).otherwise(in_bounds)
+    )
+    if not config.get("keep_scores", True):
+        results = results.drop(SCORE_COLUMN)
+    if was_polars_lazy:
+        results = results.lazy()
+
+    return results.to_native(), info
+
+
+def _lazy_score_stats(scored_tbl: Any) -> dict[str, Any]:
+    """Get the number of rows, those without a score, and the range of the scores, on a backend."""
+    score = nw.col(SCORE_COLUMN)
+    exprs = [
+        nw.len().alias("n_rows"),
+        score.is_null().cast(nw.Int64).sum().alias("n_unscored"),
+        score.min().alias("min"),
+        score.max().alias("max"),
+    ]
+    try:
+        stats = scored_tbl.select(*exprs, score.median().alias("median")).collect()
+    except Exception:
+        # A backend without a median (e.g., SQLite)
+        stats = scored_tbl.select(*exprs).collect()
+    row = stats.rows(named=True)[0]
+    out = {k: row.get(k) for k in ("n_rows", "n_unscored", "min", "max", "median")}
+    for key in ("n_rows", "n_unscored"):
+        out[key] = int(out[key] or 0)
+    for key in ("min", "max", "median"):
+        out[key] = None if out[key] is None else float(out[key])
+    return out
+
+
+# ---------------------------------------------------------------------------------------------
+# Text checks: `rows_near_distinct()`, `rows_not_contaminated()`, and `col_vals_chat_format()`
+# ---------------------------------------------------------------------------------------------
+
+# The columns that the text checks add to their results, next to `pb_is_good_`
+CLUSTER_COLUMN = "pb_cluster_"
+MATCH_COLUMN = "pb_match_"
+REASON_COLUMN = "pb_reason_"
+
+
+def _check_step_columns(nw_tbl: Any, columns: list[str], step: str, added: str) -> None:
+    """Check that the columns of a step are in the table, and that the table hasn't `added`."""
+    names = list(nw_tbl.collect_schema().names())
+    missing = [c for c in columns if c not in names]
+    if missing:
+        listed = ", ".join(repr(c) for c in missing)
+        raise StepEvaluationError(
+            f"The column{'s' if len(missing) > 1 else ''} {listed} of the {step}() step "
+            f"{'aren' if len(missing) > 1 else 'isn'}'t in the table."
+        )
+    if added in names:
+        raise StepEvaluationError(
+            f"The table has a column {added!r}, which is the name of a column of the results of "
+            f"a {step}() step: rename it first (e.g., with `pre=`)."
+        )
+
+
+def _row_values(row: dict[str, Any], columns: list[str]) -> list[Any] | None:
+    """The plain values of a row's columns, or `None` if any is missing."""
+    from pointblank.scorers import python_value
+
+    values = [python_value(row[c]) for c in columns]
+    return None if any(v is None for v in values) else values
+
+
+def _distinct_with_counts(nw_tbl: Any, columns: list[str]) -> list[tuple[dict[str, Any], int]]:
+    """
+    Get the distinct rows of `columns` of a lazy table that have no missing value, with the number
+    of rows of each, sorted by their values (so that the order doesn't vary from run to run).
+    """
+    counted = (
+        nw_tbl.filter(*[~nw.col(c).is_null() for c in columns])
+        .group_by(columns)
+        .agg(nw.len().alias("pb_n_"))
+        .collect()
+    )
+    out = []
+    for row in counted.rows(named=True):
+        values = _row_values(row, columns)
+        if values is not None:
+            out.append(({c: row[c] for c in columns}, int(row["pb_n_"])))
+    out.sort(key=lambda item: [repr(item[0][c]) for c in columns])
+    return out
+
+
+def _with_eager_columns(nw_tbl: Any, values: dict[str, tuple[list, str]]) -> Any:
+    """Add columns of values (one for each row, by position) to an eager table."""
+    native = nw_tbl.to_native()
+    if is_polars_dataframe(native):
+        import polars as pl
+
+        types = {"float64": pl.Float64, "int64": pl.Int64, "string": pl.String}
+        native = native.with_columns(
+            [pl.Series(name, v, dtype=types[dtype]) for name, (v, dtype) in values.items()]
+        )
+    elif is_pandas_dataframe(native):
+        import pandas as pd
+
+        # Align by position: the frame's index need not be 0..n-1
+        types = {"float64": "float64", "int64": "Int64", "string": "object"}
+        native = native.assign(
+            **{
+                name: pd.Series(v, dtype=types[dtype], index=native.index)
+                for name, (v, dtype) in values.items()
+            }
+        )
+    else:  # pragma: no cover
+        types = {"float64": nw.Float64(), "int64": nw.Int64(), "string": nw.String()}
+        native = nw_tbl.with_columns(
+            *[
+                nw.new_series(name, v, types[dtype], backend=nw_tbl.implementation)
+                for name, (v, dtype) in values.items()
+            ]
+        ).to_native()
+    return nw.from_native(native)
+
+
+def _check_lazy_backend(nw_tbl: Any, step: str) -> None:
+    if not (
+        nw_tbl.implementation == nw.Implementation.IBIS
+        or nw_tbl.implementation.is_pyspark()
+        or nw_tbl.implementation.is_pyspark_connect()
+    ):
+        raise StepEvaluationError(
+            f"{step}() can check Polars and pandas tables, Ibis tables, and PySpark DataFrames, "
+            f"not a {nw_tbl.implementation} table."
+        )
+
+
+def _with_row_text_values(
+    tbl: IntoFrame,
+    columns: list[str],
+    step: str,
+    added: dict[str, str],
+    compute: Callable[[list[str], list[int]], dict[str, list]],
+) -> tuple[Any, bool, list[int]]:
+    """
+    Add columns computed from the text of each row (the values of `columns`, joined by newlines).
+
+    `compute` gets the texts of the distinct rows that have no missing value, with the number of
+    rows of each (one for each row of an eager table), and gives a value of each column in `added`
+    (name to type) for each. An eager table is computed in place (a Polars LazyFrame is collected,
+    and is made lazy again at the end); an Ibis table or a PySpark DataFrame has its distinct rows
+    collected, and the values are joined back to it on its own backend.
+
+    Returns the table with the new columns (as Narwhals), whether it was a Polars LazyFrame, and
+    the numbers of rows of the texts given to `compute`.
+    """
+    from pointblank._text import join_values
+
+    nw_tbl = nw.from_native(tbl)
+    for name in added:
+        _check_step_columns(nw_tbl, columns, step, name)
+
+    was_polars_lazy = is_polars_lazyframe(nw_tbl.to_native())
+    if was_polars_lazy:
+        nw_tbl = nw_tbl.collect()
+
+    if isinstance(nw_tbl, nw.DataFrame):
+        rows = nw_tbl.select(columns).rows(named=True)
+        positions = []
+        texts = []
+        for k, row in enumerate(rows):
+            values = _row_values(row, columns)
+            if values is not None:
+                positions.append(k)
+                texts.append(join_values(values))
+        computed = compute(texts, [1] * len(texts))
+        out: dict[str, tuple[list, str]] = {}
+        for name, dtype in added.items():
+            column_values: list[Any] = [None] * len(rows)
+            for position, value in zip(positions, computed[name]):
+                column_values[position] = value
+            out[name] = (column_values, dtype)
+        return _with_eager_columns(nw_tbl, out), was_polars_lazy, [1] * len(texts)
+
+    _check_lazy_backend(nw_tbl, step)
+    distinct = _distinct_with_counts(nw_tbl, columns)
+    texts = [join_values([row[c] for c in columns]) for row, _ in distinct]
+    counts = [n for _, n in distinct]
+    computed = compute(texts, counts)
+    keep = [k for k in range(len(distinct)) if any(computed[name][k] is not None for name in added)]
+    lookup = _value_lookup(
+        nw_tbl,
+        columns,
+        [distinct[k][0] for k in keep],
+        {name: ([computed[name][k] for k in keep], dtype) for name, dtype in added.items()},
+        step=step,
+    )
+    return nw_tbl.join(lookup, on=columns, how="left"), was_polars_lazy, counts
+
+
+def interrogate_near_distinct(
+    tbl: IntoFrame, columns: list[str], config: dict[str, Any]
+) -> tuple[Any, dict[str, Any]]:
+    """
+    Find the rows whose text is a near duplicate of another row's.
+
+    The text of a row is the values of `columns`, joined by newlines. Rows in a group of near
+    duplicates (see `pointblank._text.near_duplicate_groups()`) fail, and their group is in the
+    `pb_cluster_` column of the results (numbered from 1); a row with a missing value passes.
+
+    Returns the results table and the information on the groups for the step's note.
+    """
+    from pointblank._text import near_duplicate_groups
+
+    info: dict[str, Any] = {}
+
+    def compute(texts: list[str], counts: list[int]) -> dict[str, list]:
+        groups, n_compared = near_duplicate_groups(
+            texts,
+            method=config["method"],
+            threshold=config["threshold"],
+            ngram=config["ngram"],
+            num_perm=config["num_perm"],
+        )
+        sizes: dict[int, int] = {}
+        for group, n in zip(groups, counts):
+            sizes[group] = sizes.get(group, 0) + n
+        # Number the groups of more than one row from 1, in the order of their first text
+        numbers: dict[int, int] = {}
+        clusters: list[Any] = []
+        for group in groups:
+            if sizes[group] < 2:
+                clusters.append(None)
+                continue
+            clusters.append(numbers.setdefault(group, len(numbers) + 1))
+        dup_sizes = [size for group, size in sizes.items() if size >= 2]
+        info.update(
+            {
+                "n_clusters": len(dup_sizes),
+                "n_in_clusters": sum(dup_sizes),
+                "largest": max(dup_sizes) if dup_sizes else 0,
+                "n_compared": n_compared,
+            }
+        )
+        return {CLUSTER_COLUMN: clusters}
+
+    nw_tbl, was_polars_lazy, _ = _with_row_text_values(
+        tbl, columns, "rows_near_distinct", {CLUSTER_COLUMN: "int64"}, compute
+    )
+    results = nw_tbl.with_columns(pb_is_good_=nw.col(CLUSTER_COLUMN).is_null())
+    if was_polars_lazy:
+        results = results.lazy()
+    return results.to_native(), info
+
+
+def reference_texts(
+    reference: Any, reference_columns: list[str] | None, columns: list[str]
+) -> tuple[list[str], list[str]]:
+    """
+    Get the texts of the reference of `~~pointblank.Validate.rows_not_contaminated()` and the name
+    of the reference that each comes from.
+
+    The reference is a table (or the path of a file, read like the data of a validation), a list
+    of them (named `1`, `2`, ...), a dictionary of them by name, or a list of texts. The text of a
+    row of a table is the values of `reference_columns` (or of `columns`), joined by newlines.
+    """
+    from pointblank._text import join_values
+    from pointblank.validate import _process_data
+
+    if isinstance(reference, dict):
+        items = [(str(name), value) for name, value in reference.items()]
+    elif isinstance(reference, (list, tuple)) and all(isinstance(v, str) for v in reference):
+        return [v for v in reference], ["texts"] * len(reference)
+    elif isinstance(reference, (list, tuple)):
+        items = [(str(k), value) for k, value in enumerate(reference, start=1)]
+    else:
+        items = [("reference", reference)]
+
+    ref_columns = reference_columns or columns
+    texts: list[str] = []
+    names: list[str] = []
+    for name, value in items:
+        if isinstance(value, (list, tuple)) and all(isinstance(v, str) for v in value):
+            texts.extend(value)
+            names.extend([name] * len(value))
+            continue
+        try:
+            table = nw.from_native(_process_data(value))
+        except Exception as e:
+            raise StepEvaluationError(
+                f"The reference {name!r} of the rows_not_contaminated() step couldn't be read "
+                f"({_first_line(e)})."
+            ) from e
+        schema_names = list(table.collect_schema().names())
+        missing = [c for c in ref_columns if c not in schema_names]
+        if missing:
+            raise StepEvaluationError(
+                f"The reference {name!r} of the rows_not_contaminated() step has no column "
+                f"{', '.join(repr(c) for c in missing)} (set `reference_columns=`)."
+            )
+        selected = table.select(ref_columns)
+        if isinstance(selected, nw.LazyFrame):
+            selected = selected.collect()
+        for row in selected.rows(named=True):
+            values = _row_values(row, ref_columns)
+            if values is not None:
+                texts.append(join_values(values))
+                names.append(name)
+    return texts, names
+
+
+def interrogate_not_contaminated(
+    tbl: IntoFrame, columns: list[str], config: dict[str, Any]
+) -> tuple[Any, dict[str, Any]]:
+    """
+    Find the rows whose text overlaps with a reference (e.g., the questions of a benchmark).
+
+    A row fails if its text (the values of `columns`, joined by newlines) overlaps with a text of
+    the reference (see `pointblank._text.ReferenceIndex`), and the first reference text that it
+    overlaps with is in the `pb_match_` column of the results. A row with a missing value passes.
+
+    Returns the results table and the information on the overlap for the step's note.
+    """
+    from pointblank._text import ReferenceIndex
+
+    ref_texts, ref_names = reference_texts(
+        config["reference"], config.get("reference_columns"), columns
+    )
+    index = ReferenceIndex(
+        ref_texts,
+        method=config["method"],
+        ngram=config["ngram"],
+        threshold=config["threshold"],
+        num_perm=config["num_perm"],
+    )
+    info: dict[str, Any] = {"n_reference": len(ref_texts)}
+
+    def compute(texts: list[str], counts: list[int]) -> dict[str, list]:
+        matches: list[Any] = []
+        by_name: dict[str, int] = {}
+        for text, n in zip(texts, counts):
+            k = index.match(text)
+            if k is None:
+                matches.append(None)
+                continue
+            matches.append(ref_texts[k])
+            by_name[ref_names[k]] = by_name.get(ref_names[k], 0) + n
+        info["n_contaminated"] = sum(by_name.values())
+        info["by_reference"] = by_name
+        return {MATCH_COLUMN: matches}
+
+    nw_tbl, was_polars_lazy, _ = _with_row_text_values(
+        tbl, columns, "rows_not_contaminated", {MATCH_COLUMN: "string"}, compute
+    )
+    results = nw_tbl.with_columns(pb_is_good_=nw.col(MATCH_COLUMN).is_null())
+    if was_polars_lazy:
+        results = results.lazy()
+    return results.to_native(), info
+
+
+def interrogate_chat_format(
+    tbl: IntoFrame, column: str, config: dict[str, Any], na_pass: bool
+) -> tuple[Any, dict[str, Any]]:
+    """
+    Check that each row of a column is a well-formed chat conversation.
+
+    The value of a row is a list of messages (e.g., a Polars list of structs) or the JSON text of
+    one. The code of the first problem found with a conversation is in the `pb_reason_` column of
+    the results (see `pointblank._text.CHAT_REASONS`), and a row with a problem fails. A missing
+    value passes if `na_pass=True`. On an Ibis table or a PySpark DataFrame, the conversations
+    must be stored as JSON text.
+
+    Returns the results table and the counts of each problem for the step's note.
+    """
+    from pointblank._text import chat_reason
+    from pointblank.scorers import python_value
+
+    def check(value: Any) -> str | None:
+        return chat_reason(
+            value,
+            roles=config["roles"],
+            system_role=config["system_role"],
+            alternate=config["alternate"],
+            first_role=config["first_role"],
+            last_role=config["last_role"],
+            allow_empty=config["allow_empty"],
+            role_key=config["role_key"],
+            content_key=config["content_key"],
+        )
+
+    nw_tbl = nw.from_native(tbl)
+    _check_step_columns(nw_tbl, [column], "col_vals_chat_format", REASON_COLUMN)
+
+    was_polars_lazy = is_polars_lazyframe(nw_tbl.to_native())
+    if was_polars_lazy:
+        nw_tbl = nw_tbl.collect()
+
+    reasons_count: dict[str, int] = {}
+    if isinstance(nw_tbl, nw.DataFrame):
+        values = nw_tbl.get_column(column).to_list()
+        reasons: list[Any] = []
+        n_missing = 0
+        for value in values:
+            value = python_value(value) if not isinstance(value, (list, tuple)) else value
+            if value is None:
+                reasons.append(None)
+                n_missing += 1
+                continue
+            reason = check(value)
+            reasons.append(reason)
+            if reason is not None:
+                reasons_count[reason] = reasons_count.get(reason, 0) + 1
+        nw_tbl = _with_eager_columns(nw_tbl, {REASON_COLUMN: (reasons, "string")})
+    else:
+        _check_lazy_backend(nw_tbl, "col_vals_chat_format")
+        if nw_tbl.collect_schema()[column] != nw.String:
+            raise StepEvaluationError(
+                "col_vals_chat_format() checks the conversations of a database table or a PySpark "
+                f"DataFrame as JSON text, and the column {column!r} is of type "
+                f"{nw_tbl.collect_schema()[column]} (store the messages as JSON, or check an "
+                "eager table)."
+            )
+        distinct = _distinct_with_counts(nw_tbl, [column])
+        reasons = []
+        for row, n in distinct:
+            reason = check(row[column])
+            reasons.append(reason)
+            if reason is not None:
+                reasons_count[reason] = reasons_count.get(reason, 0) + n
+        keep = [k for k, reason in enumerate(reasons) if reason is not None]
+        lookup = _value_lookup(
+            nw_tbl,
+            [column],
+            [distinct[k][0] for k in keep],
+            {REASON_COLUMN: ([reasons[k] for k in keep], "string")},
+            step="col_vals_chat_format",
+        )
+        nw_tbl = nw_tbl.join(lookup, on=[column], how="left")
+        n_missing = int(
+            nw_tbl.select(nw.col(column).is_null().cast(nw.Int64).sum().alias("n"))
+            .collect()
+            .item(0, "n")
+            or 0
+        )
+
+    results = nw_tbl.with_columns(
+        pb_is_good_=nw.when(nw.col(column).is_null())
+        .then(nw.lit(bool(na_pass)))
+        .otherwise(nw.col(REASON_COLUMN).is_null())
+    )
+    if was_polars_lazy:
+        results = results.lazy()
+    return results.to_native(), {"reasons": reasons_count, "n_missing": n_missing}
 
 
 def data_freshness(

@@ -43,12 +43,14 @@ from allauth.headless.account.inputs import (
     ChangePasswordInput,
     ChangePhoneInput,
     ConfirmLoginCodeInput,
+    ConfirmReauthenticationCodeInput,
     DeleteEmailInput,
     LoginInput,
     MarkAsPrimaryEmailInput,
     ReauthenticateInput,
     RequestLoginCodeInput,
     RequestPasswordResetInput,
+    RequestReauthenticationCodeInput,
     ResendEmailVerificationInput,
     ResetPasswordInput,
     ResetPasswordKeyInput,
@@ -62,7 +64,11 @@ from allauth.headless.base.response import (
     ForbiddenResponse,
     RateLimitResponse,
 )
-from allauth.headless.base.views import APIView, AuthenticatedAPIView
+from allauth.headless.base.views import (
+    APIView,
+    AuthenticatedAPIView,
+    ReauthenticationAPIView,
+)
 from allauth.headless.internal import authkit
 from allauth.headless.internal.restkit.inputs import Input
 from allauth.headless.internal.restkit.response import APIResponse, ErrorResponse
@@ -401,6 +407,16 @@ class ResetPasswordView(APIView):
 class ChangePasswordView(AuthenticatedAPIView):
     input_class = ChangePasswordInput
 
+    def handle(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
+        assert request.user.is_authenticated  # nosec
+        if not request.user.has_usable_password():
+            flows.reauthentication.raise_if_reauthentication_required(
+                request, app="allauth.account"
+            )
+        return super().handle(request, *args, **kwargs)
+
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         assert request.user.is_authenticated  # nosec
         password_change.change_password(
@@ -575,7 +591,8 @@ class ManagePhoneView(APIView):
 
 
 @method_decorator(rate_limit(action="reauthenticate"), name="handle")
-class ReauthenticateView(AuthenticatedAPIView):
+class ReauthenticateView(ReauthenticationAPIView):
+    reauthentication_method = "password"
     input_class = ReauthenticateInput
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -584,3 +601,74 @@ class ReauthenticateView(AuthenticatedAPIView):
 
     def get_input_kwargs(self) -> dict:
         return {"user": self.request.user}
+
+
+@method_decorator(rate_limit(action="reauthenticate"), name="handle")
+class RequestReauthenticationCodeView(ReauthenticationAPIView):
+    reauthentication_method = "code"
+    input_class = RequestReauthenticationCodeInput
+    input: RequestReauthenticationCodeInput
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        flows.reauthenticate_by_code.ConfirmReauthenticationCodeProcess.initiate(
+            request=self.request,
+            user=self.request.user,
+            email=self.input.cleaned_data.get("email"),
+            phone=self.input.cleaned_data.get("phone"),
+        )
+        return APIResponse(self.request)
+
+    def get_input_kwargs(self) -> dict:
+        return {"user": self.request.user}
+
+
+class ConfirmReauthenticationCodeView(ReauthenticationAPIView):
+    reauthentication_method = "code"
+    input_class = ConfirmReauthenticationCodeInput
+    input: ConfirmReauthenticationCodeInput
+    process: flows.reauthenticate_by_code.ConfirmReauthenticationCodeProcess
+
+    def handle(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
+        process = (
+            flows.reauthenticate_by_code.ConfirmReauthenticationCodeProcess.resume(
+                request
+            )
+        )
+        if not process:
+            return ConflictResponse(request)
+        self.process = process
+        return super().handle(request, *args, **kwargs)
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.process.finish()
+        return AuthenticationResponse(self.request)
+
+    def get_input_kwargs(self) -> dict:
+        return {"code": self.process.code}
+
+    def handle_invalid_input(
+        self, input: ConfirmReauthenticationCodeInput
+    ) -> ErrorResponse:
+        self.process.record_invalid_attempt()
+        return super().handle_invalid_input(input)
+
+
+class ResendReauthenticationCodeView(ReauthenticationAPIView):
+    reauthentication_method = "code"
+    handle_json_input = False
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        process = (
+            flows.reauthenticate_by_code.ConfirmReauthenticationCodeProcess.resume(
+                request
+            )
+        )
+        if not process or not process.can_resend:
+            return ConflictResponse(request)
+        try:
+            process.resend()
+        except RateLimited:
+            return RateLimitResponse(request)
+        return APIResponse(request)

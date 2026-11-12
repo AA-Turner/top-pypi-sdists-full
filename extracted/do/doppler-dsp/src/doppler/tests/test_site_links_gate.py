@@ -84,3 +84,42 @@ def test_a_dead_anchor_fails(tmp_path: Path) -> None:
     run = _run(site)
     assert run.returncode == 1
     assert "dead anchor -> other.html#nowhere" in run.stderr
+
+
+def test_a_cross_reference_rendered_as_text_fails(tmp_path: Path) -> None:
+    """mdformat escapes `[x][doppler.mpsk]` to `\\[x\\][doppler.mpsk]` unless
+    .mdformat.toml says not to, and it then renders as literal brackets: no
+    link, no build warning (#3000)."""
+    site = tmp_path / "site"
+    _page(site, "index.html", "<p>[<code>mpsk</code>][doppler.mpsk] maps.</p>")
+    run = _run(site)
+    assert run.returncode == 1
+    assert "cross-reference rendered as text -> [doppler.mpsk]" in run.stderr
+
+
+def test_a_resolved_cross_reference_passes(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    _page(site, "ref.html", '<h2 id="doppler.mpsk">mpsk</h2>')
+    _page(
+        site,
+        "index.html",
+        '<p><a href="ref.html#doppler.mpsk"><code>mpsk</code></a> maps.</p>',
+    )
+    run = _run(site)
+    assert run.returncode == 0, run.stderr
+
+
+def test_the_syntax_shown_in_code_is_not_a_reference(tmp_path: Path) -> None:
+    """A page that documents the convention shows it in a code span or a
+    fence; the escaped form still fails, because its `][...]` sits outside
+    the <code> it wraps."""
+    site = tmp_path / "site"
+    _page(
+        site,
+        "index.html",
+        "<p>Write <code>[text][doppler.mod.Name]</code>.</p>"
+        "<pre><code>[x][doppler.mpsk]</code></pre>",
+    )
+    assert _run(site).returncode == 0
+    _page(site, "index.html", "<p>[<code>x</code>][doppler.mpsk]</p>")
+    assert _run(site).returncode == 1

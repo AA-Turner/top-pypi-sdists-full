@@ -28,7 +28,17 @@ def _identity(
 ) -> tuple | None:
     # Use the actual CLI grammar so unknown arguments and shell operations cannot
     # be mistaken for an automatic entry. Import lazily: each CLI records itself.
-    from . import briefs_cli, command_cli, doc_cli, file_cli, pr_cli, repo_cli, reviews_cli
+    from . import (
+        briefs_cli,
+        command_cli,
+        doc_cli,
+        file_cli,
+        mentions_cli,
+        notifications_wait_cli,
+        pr_cli,
+        repo_cli,
+        reviews_cli,
+    )
 
     lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
@@ -41,7 +51,17 @@ def _identity(
             return None
         parser = _WatchParser(allow_abbrev=False)
         sub = parser.add_subparsers(required=True)
-        for module in (doc_cli, pr_cli, repo_cli, reviews_cli, file_cli, command_cli, briefs_cli):
+        for module in (
+            doc_cli,
+            pr_cli,
+            repo_cli,
+            reviews_cli,
+            mentions_cli,
+            notifications_wait_cli,
+            file_cli,
+            command_cli,
+            briefs_cli,
+        ):
             module.add_parser(sub)
         a = parser.parse_args(words[2:])
     except ValueError:
@@ -56,7 +76,7 @@ def _identity(
         target = (parent,)
     elif kind == "repo":
         target = (a.wait.lower(),)
-    elif kind == "reviews":
+    elif kind in ("reviews", "mentions", "notifications"):
         target = reviews_cli.target(a.scope)
     elif kind == "command":
         target = (str(a.wait),)
@@ -80,7 +100,10 @@ def _identity(
         target,
         getattr(a, "repo", "") or repo,
         a.me,
-        tuple(sorted(set(a.to or ("merge", "done")))) if kind == "briefs" else (),
+        kind == "briefs" and a.orphans,
+        tuple(sorted(set(a.to or (briefs_cli.orphan_to() if a.orphans else briefs_cli.CHILD_TO))))
+        if kind == "briefs"
+        else (),
     )
 
 

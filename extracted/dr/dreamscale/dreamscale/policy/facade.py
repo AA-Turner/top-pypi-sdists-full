@@ -464,6 +464,29 @@ def policy_contract(
     )
 
 
+MODES = ("auto", "async", "sync")
+
+
+def _checked_mode(mode: Any) -> str:
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {', '.join(MODES)}, not {mode!r}")
+    return mode
+
+
+def _resolved_mode(mode: str, contract: RuntimeContract) -> str:
+    """``"auto"``: the model's own mode (its contract's ``default_mode``)."""
+    return contract.default_mode if mode == "auto" else mode
+
+
+def _keeps_episode_steps(inner: Any) -> bool:
+    """The session's episode lives on the server and reads each executed step's state
+    (Praxis-1's EpisodeTicks with measured states)."""
+    from dreamscale.policy.context import EpisodeTicks
+
+    history = getattr(inner, "observation_history", None)
+    return isinstance(history, EpisodeTicks) and bool(history.measured_steps)
+
+
 EXPECTED_PAST = (
     "observations from the same helper as observation, one per control tick at the "
     "model's rate (policy.contract.action_hz), oldest first, ending just before it"
@@ -490,6 +513,10 @@ def past_ticks(past_observations: Any, observation: Any, *, model: str,
                 "past_observations", f"a {type(tick).__name__}", EXPECTED_PAST
             )
         ticks.append(prepare_observation(tick, model=model, contract=contract))
+    if contract.episode_tick_steps:
+        # An episode the server keeps (Praxis-1): one observation per executed action, however
+        # long the robot held between them (a chunked robot holds while it waits for a chunk).
+        return ticks
     times = [getattr(tick, "capture_time_ns", None) for tick in (*ticks, observation)]
     if len(times) > 1 and all(time_ns is not None for time_ns in times):
         period_ns = 1e9 / float(contract.native_hz)
@@ -647,8 +674,12 @@ class AsyncPolicy:
         request_stall_s: float = REQUEST_STALL_S,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+        mode: str = "auto",
     ) -> None:
         self._model = model  # the internal id (contracts, calibration, stamping)
+        # How next_action() and run() execute chunks: "auto" (the model's own: sync for
+        # Praxis-1, async for the rest), "async" or "sync".
+        self._mode = _checked_mode(mode)
         self._opener = opener
         self._progress = progress
         self._idle_release_s = float(idle_release_s)
@@ -748,7 +779,10 @@ class AsyncPolicy:
                         self._prepare_task(inner, instruction), timeout=remaining
                     )
                     # After preparation: Isaac's context window exists only from then on.
-                    request, padded = self._history_window(inner, observation, past)
+                    if past is not None and _keeps_episode_steps(inner):
+                        request, padded = await inner.episode_window(observation, past), 0
+                    else:
+                        request, padded = self._history_window(inner, observation, past)
                     remaining = deadline - self._clock()
                     # The outer wait bounds the whole call, including the session's request
                     # lock; the inner timeout is what detects a stall.
@@ -845,6 +879,13 @@ class AsyncPolicy:
 
         model = public_model(self._model)
         history = getattr(inner, "observation_history", None)
+        steps = isinstance(history, EpisodeTicks) and bool(history.measured_steps)
+        if steps:
+            # Praxis-1: the observations of the steps executed since the last predict(); after
+            # the episode's first call, leaving them out would silently start it again.
+            if past is None and history.requested:
+                raise errors.catalog("episode_steps_required", model=self._model)
+            return
         if past is not None and isinstance(history, EpisodeHistory | EpisodeTicks):
             raise errors.catalog("past_observations_unsupported", model=model)
         ticks = history_ticks(history)
@@ -985,9 +1026,11 @@ class AsyncPolicy:
                     self._reconnect_hold_since = None  # a session is serving this robot
                 if step is not None and (not step.stalled or rule != HOLD_WAIT):
                     action = step.action
-                    if step.stalled:
+                    assert self._controller is not None
+                    if step.stalled and not self._controller.holds_last_command:
+                        # Before the first command (or for a model that holds its measured
+                        # pose): the arm holds where it is.
                         action = hold_action(contract, observation)
-                        assert self._controller is not None
                         await self._controller.record_act_result(
                             step.action, ActResult(accepted_action=action)
                         )
@@ -1169,9 +1212,19 @@ class AsyncPolicy:
         async with self._call(), self._frames_as_errors():
             await inner.prepare(instruction=instruction, timeout_s=timeout_s)
 
+    @property
+    def mode(self) -> str:
+        """How ``next_action()`` and ``run()`` execute chunks: ``"sync"`` (each chunk to its end,
+        holding while the next is inferred) or ``"async"`` (ask while rows remain, join the
+        next to the motion). ``connect(mode=)`` chooses; by default, the model's own."""
+        return _resolved_mode(self._mode, self.runtime_contract)
+
     async def run(self, **kwargs: Any) -> Any:
         require_run_hold(self.runtime_contract)  # before pinning: next_action still reconnects
         inner = await self._pin()
+        if kwargs.get("strategy") is None:
+            # No strategy given: the policy's mode (connect(mode=), else the model's own).
+            kwargs["strategy"] = RunStrategy(mode=self.mode)
         async with self._call(), self._frames_as_errors():
             return await inner.run(**kwargs)
 
@@ -1593,7 +1646,10 @@ class AsyncPolicy:
         )
         controller = AsyncActionController(
             policy=inner,
-            strategy=RunStrategy(timeout_s=self._request_stall_s),
+            strategy=RunStrategy(
+                timeout_s=self._request_stall_s,
+                mode=_resolved_mode(self._mode, inner.runtime_contract),
+            ),
             skip_calibration=calibrated,
             anchor_first_chunk=True,
         )
@@ -1969,6 +2025,10 @@ class Policy:
     def contract(self) -> PolicyContract:
         return self._facade.contract
 
+    @property
+    def mode(self) -> str:
+        return self._facade.mode
+
     def _guard(self) -> None:
         if os.getpid() != self._pid:
             raise errors.catalog("forked_policy")
@@ -2117,16 +2177,20 @@ async def aconnect(
     region: str = "auto",
     region_fallback: bool | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
+    mode: str = "auto",
     **legacy: Any,
 ) -> AsyncPolicy:
     """Connect to a model. Returns once the session is ready (the queue position shows
     while it waits). A deployment runs by its name, ``connect("<account>/<slug>")`` (or just
     its slug), on the model it was built on; ``deployment=`` (its name or ``ckpt_…`` ID) does
     the same beside the base model, and ``checkpoint=`` is its older name. Auth comes from
-    ``api_key=``, ``DREAMSCALE_API_KEY`` or ``dreamscale login``."""
+    ``api_key=``, ``DREAMSCALE_API_KEY`` or ``dreamscale login``. ``mode``: how
+    ``next_action()`` runs chunks, ``"sync"`` (each to its end) or ``"async"`` (replanning);
+    ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest)."""
     from dreamscale.policy.remote import _aconnect
 
     _check_legacy_kwargs(legacy)
+    mode = _checked_mode(mode)
     # A public name (pi0.5-bimanualyam), one only the control plane lists, or the internal
     # id; the SDK keys on the latter.
     model = await aresolve_model(model, api_key=api_key)
@@ -2146,7 +2210,7 @@ async def aconnect(
             **legacy,
         )
 
-    policy = AsyncPolicy(model=model, opener=opener, progress=progress)
+    policy = AsyncPolicy(model=model, opener=opener, progress=progress, mode=mode)
     try:
         await policy._ready_inner(
             policy._clock() + (float(startup_timeout) if startup_timeout else 7200.0)
@@ -2167,16 +2231,18 @@ def connect(
     region: str = "auto",
     region_fallback: bool | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
+    mode: str = "auto",
     **legacy: Any,
 ) -> Policy:
     """Connect to a model (synchronous). See ``aconnect``."""
     _check_legacy_kwargs(legacy)
+    _checked_mode(mode)
     runner = _LoopRunner()
     try:
         async_policy = runner.run(
             aconnect(
                 model, deployment=deployment, checkpoint=checkpoint, api_key=api_key,
-                on_progress=on_progress, **legacy,
+                on_progress=on_progress, mode=mode, **legacy,
                 **({"region": region} if region != "auto" else {}),
                 **({"region_fallback": region_fallback} if region_fallback is not None else {}),
             )

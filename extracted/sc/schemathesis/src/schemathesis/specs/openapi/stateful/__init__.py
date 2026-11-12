@@ -2,27 +2,30 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from hypothesis import strategies as st
 from hypothesis.stateful import RULE_MARKER, Bundle, Rule
 
 from schemathesis.core import NOT_SET
-from schemathesis.core.errors import InvalidStateMachine, InvalidTransition
-from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
+from schemathesis.core.errors import (
+    InvalidSchema,
+    InvalidStateMachine,
+    InvalidTransition,
+    RefResolutionError,
+    SerializationNotPossible,
+)
 from schemathesis.core.result import Ok
 from schemathesis.core.transforms import UNRESOLVABLE
-from schemathesis.core.transport import expand_status_code
 from schemathesis.engine.link_calibration import DEFAULT_USE_PROBABILITY, LinkCalibrationState
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.hypothesis import add_database_key
+from schemathesis.generation.hypothesis.reporting import UnsatisfiableSchema
 from schemathesis.generation.meta import TestPhase
-from schemathesis.generation.stateful.control import TransitionController
+from schemathesis.generation.stateful.control import TransitionController, UnbuildableOperationFound
 from schemathesis.generation.stateful.state_machine import (
-    BASE_EXPLORATION_RATE,
     APIStateMachine,
     RecordingStateMachine,
     StepInput,
@@ -33,18 +36,14 @@ from schemathesis.generation.stateful.state_machine import (
 )
 from schemathesis.generation.value import prune_overwritten_body_constants
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi.expressions import MultiMatch
+from schemathesis.specs.openapi.stateful.link_values import plan_link_values
 from schemathesis.specs.openapi.stateful.links import OpenApiLink
 
 if TYPE_CHECKING:
-    from random import Random
-
     from schemathesis.core.jsonschema.types import JsonValue
     from schemathesis.generation.stateful.state_machine import StepOutput
     from schemathesis.specs.openapi.schemas import OpenApiSchema
     from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph, OperationNode
-
-FilterFunction = Callable[["StepOutput"], bool]
 
 
 class OpenAPIStateMachine(RecordingStateMachine):
@@ -149,6 +148,9 @@ def collect_transitions(operations: list[APIOperation]) -> ApiTransitions:
                         transitions.add_outgoing(operation.label, link)
                 except InvalidTransition as exc:
                     errors.append(exc)
+                except RefResolutionError:
+                    # A target with an unresolvable reference is reported as a schema error and never tested
+                    continue
 
     if errors:
         raise InvalidStateMachine(errors)
@@ -192,6 +194,22 @@ def _step_case_strategy(
     return _mixed_mode_case(strategies)
 
 
+def _draw_case(draw: st.DrawFn, strategy: st.SearchStrategy[Case], operation: APIOperation) -> Case:
+    try:
+        return draw(strategy)
+    except (InvalidSchema, UnsatisfiableSchema, SerializationNotPossible) as exc:
+        machine = draw(st.runner(default=None))
+        # When the run records such operations, it reports this one and continues without it
+        if isinstance(machine, OpenAPIStateMachine) and machine.control.drop_unbuildable(operation, exc):
+            raise UnbuildableOperationFound from exc
+        raise
+
+
+@st.composite
+def _initial_step(draw: st.DrawFn, strategy: st.SearchStrategy[Case], operation: APIOperation) -> StepInput:
+    return StepInput.initial(_draw_case(draw, strategy, operation))
+
+
 def create_state_machine(
     schema: OpenApiSchema,
     *,
@@ -211,18 +229,17 @@ def create_state_machine(
     # Store them as a class attribute to avoid re-detection for each scenario
     # Create bundles and matchers
     for operation in operations:
-        all_status_codes = operation.responses.status_codes
-        bundle_matchers = []
+        bundle_names = set()
 
         if operation.label in transitions.operations:
             # Use outgoing transitions
             for link in transitions.operations[operation.label].outgoing:
                 bundle_name = f"{operation.label} -> {link.status_code}"
                 bundles[bundle_name] = Bundle(bundle_name)
-                bundle_matchers.append((bundle_name, make_response_filter(link.status_code, all_status_codes)))
+                bundle_names.add(bundle_name)
 
-        if bundle_matchers:
-            _response_matchers[operation.label] = make_response_matcher(bundle_matchers)
+        if bundle_names:
+            _response_matchers[operation.label] = make_response_matcher(frozenset(bundle_names))
 
     rules: dict[str, Callable[..., StepOutput | None]] = {}
     root_rules: set[str] = set()
@@ -286,7 +303,7 @@ def create_state_machine(
                     name=name,
                     target=catch_all,
                     precondition=is_root_allowed(target.label),
-                    input=case_strategy.map(StepInput.initial),
+                    input=_initial_step(case_strategy, target),
                 )
                 root_rules.add(name)
                 root_labels.add(target.label)
@@ -360,105 +377,35 @@ def into_step_input(
         def inner(draw: st.DrawFn, output: StepOutput) -> StepInput:
             random = draw(st.randoms(use_true_random=True))
 
-            def biased_coin(p: float) -> bool:
-                return random.random() < p
-
             # Extract transition data from previous operation's output
             transition = link.extract(output)
 
-            overrides: dict[str, Any] = {}
-            applied_parameters: list[tuple[ParameterLocation, str | None]] = []
             if link_calibration is not None:
                 use_p = link_calibration.use_probability(transition.id)
                 calibrated = link_calibration.is_calibrated(transition.id)
             else:
                 use_p = DEFAULT_USE_PROBABILITY
                 calibrated = False
-            for container, data in transition.parameters.items():
-                overrides[container] = {}
-                location = CONTAINER_TO_LOCATION[container]
-
-                for name, extracted in data.items():
-                    # Skip if extraction failed or returned unusable value
-                    if not isinstance(extracted.value, Ok) or extracted.value.ok() in (None, UNRESOLVABLE):
-                        continue
-
-                    value = extracted.value.ok()
-                    # Wildcard expressions yield multiple candidates. Pick via the
-                    # `use_true_random` instance so the per-step pick stays out of
-                    # Hypothesis's data tree — the producer's response shape can vary
-                    # across runs of the same byte stream when the API has mutable
-                    # state, and a tracked draw would be flagged as inconsistent.
-                    if isinstance(value, MultiMatch):
-                        value = random.choice(value.values)
-
-                    if calibrated:
-                        p = use_p
-                    else:
-                        # No data yet: use per-parameter heuristics.
-                        # Path parameters are critical for routing; required parameters
-                        # should follow links more; optional params get more exploration.
-                        exploration_rate = BASE_EXPLORATION_RATE
-                        if container == "path_parameters":
-                            exploration_rate *= 0.5
-                        if extracted.is_required:
-                            exploration_rate *= 0.5
-                        else:
-                            exploration_rate *= 3.0
-                        p = 1.0 - exploration_rate
-
-                    if biased_coin(p):
-                        overrides[container][name] = value
-                        applied_parameters.append((location, name))
-
-            # Get the extracted body value
-            if (
-                transition.request_body is not None
-                and isinstance(transition.request_body.value, Ok)
-                and transition.request_body.value.ok() is not UNRESOLVABLE
-            ):
-                request_body = _choose_wildcard_matches(transition.request_body.value.ok(), random)
-            else:
-                request_body = NOT_SET
-
-            # Link suppose to replace the entire extracted body
-            if request_body is not NOT_SET and not link.merge_body and biased_coin(use_p):
-                overrides["body"] = request_body
-                if isinstance(overrides["body"], dict):
-                    applied_parameters.extend((ParameterLocation.BODY, field) for field in overrides["body"])
-                else:
-                    applied_parameters.append((ParameterLocation.BODY, None))
-
-            case = draw(
+            plan = plan_link_values(
+                transition, merge_body=link.merge_body, use_probability=use_p, calibrated=calibrated, random=random
+            )
+            case = _draw_case(
+                draw,
                 _step_case_strategy(
                     target,
                     modes,
                     feedback=feedback,
-                    path_parameters=overrides.get("path_parameters"),
-                    query=overrides.get("query"),
-                    headers=overrides.get("headers"),
-                    cookies=overrides.get("cookies"),
-                    body=overrides.get("body", NOT_SET),
-                )
+                    path_parameters=plan.overrides.get("path_parameters"),
+                    query=plan.overrides.get("query"),
+                    headers=plan.overrides.get("headers"),
+                    cookies=plan.overrides.get("cookies"),
+                    body=plan.body,
+                ),
+                target,
             )
-            if request_body is not NOT_SET and link.merge_body:
-                if isinstance(request_body, dict):
-                    selected_fields = {}
-
-                    for field_name, field_value in request_body.items():
-                        if field_value is UNRESOLVABLE:
-                            continue
-
-                        if biased_coin(use_p):
-                            selected_fields[field_name] = field_value
-                            applied_parameters.append((ParameterLocation.BODY, field_name))
-
-                    if selected_fields:
-                        LinkedBody(selected_fields).apply(case)
-                elif biased_coin(use_p):
-                    LinkedBody(request_body).apply(case)
-                    applied_parameters.append((ParameterLocation.BODY, None))
-            return StepInput(case=case, transition=transition, applied_parameters=applied_parameters)
+            if plan.merged_body is not NOT_SET:
+                LinkedBody(plan.merged_body).apply(case)
+            return StepInput(case=case, transition=transition, applied_parameters=plan.applied_parameters)
 
         return inner(output=_output)
 
@@ -490,17 +437,6 @@ def merge_link_body(generated: object, linked: JsonValue) -> JsonValue:
         merged_items = [merge_link_body(item, value) for item, value in zip(generated, linked, strict=False)]
         return merged_items + generated[len(linked) :] + linked[len(generated) :]
     return linked
-
-
-def _choose_wildcard_matches(value: Any, random: Random) -> Any:
-    # Each wildcard expression in a body yields several candidates; one is picked per field.
-    if isinstance(value, MultiMatch):
-        return random.choice(value.values)
-    if isinstance(value, dict):
-        return {key: _choose_wildcard_matches(item, random) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_choose_wildcard_matches(item, random) for item in value]
-    return value
 
 
 def is_transition_allowed(source: str, target: str) -> Callable[[OpenAPIStateMachine], bool]:
@@ -558,54 +494,18 @@ def transition(
     return step_function
 
 
-def make_response_matcher(matchers: list[tuple[str, FilterFunction]]) -> Callable[[StepOutput], str | None]:
+def make_response_matcher(bundle_names: frozenset[str]) -> Callable[[StepOutput], str | None]:
+    # Response definitions stay fixed while the state machine runs, so each status code is resolved once
+    targets: dict[int, str | None] = {}
+
     def compare(result: StepOutput) -> str | None:
-        for bundle_name, response_filter in matchers:
-            if response_filter(result):
-                return bundle_name
-        return None
+        status_code = result.response.status_code
+        if status_code not in targets:
+            # Only links of the response definition that describes this status code can follow it
+            operation = result.case.operation
+            definition = operation.responses.find_by_status_code(status_code)
+            bundle_name = None if definition is None else f"{operation.label} -> {definition.status_code}"
+            targets[status_code] = bundle_name if bundle_name in bundle_names else None
+        return targets[status_code]
 
     return compare
-
-
-@lru_cache
-def make_response_filter(status_code: str, all_status_codes: Iterator[str]) -> FilterFunction:
-    """Create a filter for stored responses.
-
-    This filter will decide whether some response is suitable to use as a source for requesting some API operation.
-    """
-    if status_code == "default":
-        return default_status_code(all_status_codes)
-    return match_status_code(status_code)
-
-
-def match_status_code(status_code: str) -> FilterFunction:
-    """Create a filter function that matches all responses with the given status code.
-
-    Note that the status code can contain "X", which means any digit.
-    For example, 50X will match all status codes from 500 to 509.
-    """
-    status_codes = set(expand_status_code(status_code))
-
-    def compare(result: StepOutput) -> bool:
-        return result.response.status_code in status_codes
-
-    compare.__name__ = f"match_{status_code}_response"
-
-    return compare
-
-
-def default_status_code(status_codes: Iterator[str]) -> FilterFunction:
-    """Create a filter that matches all "default" responses.
-
-    In Open API, the "default" response is the one that is used if no other options were matched.
-    Therefore, we need to match only responses that were not matched by other listed status codes.
-    """
-    expanded_status_codes = {
-        status_code for value in status_codes if value != "default" for status_code in expand_status_code(value)
-    }
-
-    def match_default_response(result: StepOutput) -> bool:
-        return result.response.status_code not in expanded_status_codes
-
-    return match_default_response

@@ -327,9 +327,9 @@ class Policy(_Waits):
             rep.record(metrics.to_report())
 
     def label(self, success: bool, notes: str = "", *, episode_id: str | None = None) -> str:
-        """Record how an episode went — the last act()'s, unless `episode_id` names another — with the
-        deployment's captured field data (`seq policy set <name> capture=on`), so `seq policy data export` carries it
-        as that episode's success label.
+        """Record how an episode went — the last act()'s, unless `episode_id` names another — with what this robot's
+        Record keeps (`seq robot set <name> record=on`), so `seq policy data export` carries it as that episode's success
+        label.
         Returns the episode id it labelled - after a reset, the new one it went on under (end_episode).
 
             policy.act(episode_id="e1")
@@ -413,6 +413,9 @@ class Policy(_Waits):
         WHY: an act was the only upload, so every frame between two acts waited for the next one - 24 frames, 1.3 MB and
         a read p50 of 425 ms from a robot at home."""
         _reserved_keys(inputs)
+        driven = getattr(self._t, "teleop", None)
+        if driven is not None:
+            driven.check()
         episode = self._episode_for(episode_id)
         observe = getattr(self._t, "observe", None)
         if observe is None:
@@ -766,8 +769,9 @@ class Policy(_Waits):
             if driven is not None:
 
 
+                driven.check()
                 chunks = driven.chunks
-                here, out = driven.answer()
+                here, out = driven.answer(self._teleop_place(options["episode_id"]))
                 if here:
                     self._last_episode = options["episode_id"]
                     self._driven_here(driven, chunks)
@@ -809,7 +813,7 @@ class Policy(_Waits):
             driven.answered(body.get("outputs"))
             if asked is not None:
                 chunks = driven.chunks
-                here, out = driven.after(asked)
+                here, out = driven.after(asked, self._teleop_place(options.get("episode_id")))
                 if here:
                     self._driven_here(driven, chunks, done)
                     return out
@@ -819,6 +823,31 @@ class Policy(_Waits):
             if done is not None:
                 watch.resume(done)
         return body.get("outputs")
+
+    def teleop_metrics(self) -> dict:
+        """A robot's side of how its consoles' commands came ("teleop" among its connect's names): {"latency_us": arrive_us (a
+        command sent → this robot got it), actuate_us (got → act() handed it back), loop_us (the step its console had
+        made it from, captured here → act() handed it back - this robot's clock alone), each {"n", "p50", "p95", "p99",
+        "max"} in microseconds; "counters": commands_received, commands_played, commands_superseded (a newer one came
+        before any act() took it), commands_dropped (no newer than one kept), commands_expired (made from a view too old
+        to play), commands_not_driving, frames_sent (steps sent straight to consoles); "gauges": consoles (connected
+        straight to it now)}. {} for a robot connected without "teleop"."""
+        driven = getattr(self._t, "teleop", None)
+        return driven.metrics() if driven is not None else {}
+
+    def teleop_written(self) -> None:
+        """Say your code has written what act() last handed back of a person's to the motors: teleop_metrics() then says
+        written_us, act() handing it back to its being written - the last step of a command's way, which only your code
+        sees. Optional, and nothing for a robot connected without "teleop"."""
+        driven = getattr(self._t, "teleop", None)
+        if driven is not None:
+            driven.written()
+
+    def _teleop_place(self, episode_id: Any) -> Any:
+        """Where an act a person's chunk answers is - its worker-side episode and step (direct_observe.teleop_place) -
+        for the chunk's record when it came straight (teleop_robot); None where the connection keeps no steps."""
+        place = getattr(self._t, "teleop_place", None)
+        return place(episode_id) if place is not None and episode_id else None
 
     def _driven_here(self, driven: Any, chunks: int, done: Any = None) -> None:
         """act() answered as a person or a stop says, not its model (`chunks`: a person's chunks handed back before it):
@@ -960,7 +989,7 @@ class Policy(_Waits):
     @property
     def driver(self) -> str:
         """Who drives this robot now: "model", "human" (a person, from their console: sequence_ai.teleop) or "stopped" -
-        as its worker last said on its stream, a robot connected with teleop=True; "model" for any other."""
+        for a robot with "teleop" among its connect's names, "model" for any other."""
         driven = getattr(self._t, "teleop", None)
         return driven.driver if driven is not None else "model"
 

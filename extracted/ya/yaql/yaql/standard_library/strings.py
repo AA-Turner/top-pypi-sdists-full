@@ -220,7 +220,7 @@ def split(string, separator=None, max_splits=-1):
     delimiter.
 
     :signature: string.split(separator => null, maxSplits => -1)
-    :receiverArg string: value to be splitted
+    :receiverArg string: value to be split
     :argType string: string
     :arg separator: delimiter for splitting. null by default, which means
         splitting with whitespace characters
@@ -254,7 +254,7 @@ def right_split(string, separator=None, max_splits=-1):
     the rightmost ones.
 
     :signature: string.rightSplit(separator => null, maxSplits => -1)
-    :receiverArg string: value to be splitted
+    :receiverArg string: value to be split
     :argType string: string
     :arg separator: delimiter for splitting. null by default, which means
         splitting with whitespace characters
@@ -666,7 +666,7 @@ def substring(string, start, length=-1):
         length = len(string)
     if start < 0:
         start += len(string)
-    return string[start:start + length]
+    return string[start : start + length]
 
 
 @specs.parameter('string', yaqltypes.String())
@@ -818,11 +818,19 @@ def to_char_array(string):
 
 
 def characters(
-        digits=False, hexdigits=False,
-        ascii_lowercase=False, ascii_uppercase=False,
-        ascii_letters=False, letters=False,
-        octdigits=False, punctuation=False, printable=False,
-        lowercase=False, uppercase=False, whitespace=False):
+    digits=False,
+    hexdigits=False,
+    ascii_lowercase=False,
+    ascii_uppercase=False,
+    ascii_letters=False,
+    letters=False,
+    octdigits=False,
+    punctuation=False,
+    printable=False,
+    lowercase=False,
+    uppercase=False,
+    whitespace=False,
+):
     """:yaql:characters
 
     Returns a list of all distinct items of specified types.
@@ -835,7 +843,7 @@ def characters(
                            uppercase => false, whitespace => false)
     :arg digits: include digits in output list if true, false by default
     :argType digits: boolean
-    :arg hexdigits: include hexademical digits in output list if true, false
+    :arg hexdigits: include hexadecimal digits in output list if true, false
         by default
     :argType hexdigits: boolean
     :arg asciiLowercase: include ASCII lowercase letters in output list if
@@ -981,7 +989,7 @@ def hex_(num):
     Returns a string with hexadecimal representation of num.
 
     :signature: hex(num)
-    :arg num: input number to be converted to hexademical
+    :arg num: input number to be converted to hexadecimal
     :argType num: number
     :returnType: string
 

@@ -450,7 +450,7 @@ def default_region(provider: str) -> str:
 )
 @click.option(
     "--control-plane-domain",
-    help="Edge domain of a non-production Anyscale environment, for internal testing. (KubeRay)",
+    help="Edge domain the connector dials, instead of the one derived from the console. Internal testing only. (KubeRay)",
     required=False,
     type=str,
     hidden=True,
@@ -471,8 +471,10 @@ def default_region(provider: str) -> str:
     "--dcgm-namespace",
     help=(
         "Namespace of the dcgm-exporter Service the gateway scrapes for GPU metrics. Setup "
-        "fails when none is there. Without it, setup looks across the cluster and, on GPU "
-        "nodes with no exporter, offers the one bundled with the connector chart. (KubeRay)"
+        "fails when none is there. Without it, setup looks across the cluster and, finding "
+        "none, offers the one bundled with the connector chart, which schedules only on "
+        "GPU-labelled nodes, present or future. With --yes it installs the bundled exporter "
+        "unasked. (KubeRay)"
     ),
     required=False,
     type=str,

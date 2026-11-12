@@ -45,6 +45,7 @@ __all__ = (
     "ListResourcesForTagOptionPaginatorName",
     "ListServiceActionsForProvisioningArtifactPaginatorName",
     "ListServiceActionsPaginatorName",
+    "ListStackInstancesForProvisionedProductPaginatorName",
     "ListTagOptionsPaginatorName",
     "OrganizationNodeTypeType",
     "PaginatorName",
@@ -112,6 +113,9 @@ ListServiceActionsForProvisioningArtifactPaginatorName = Literal[
     "list_service_actions_for_provisioning_artifact"
 ]
 ListServiceActionsPaginatorName = Literal["list_service_actions"]
+ListStackInstancesForProvisionedProductPaginatorName = Literal[
+    "list_stack_instances_for_provisioned_product"
+]
 ListTagOptionsPaginatorName = Literal["list_tag_options"]
 OrganizationNodeTypeType = Literal["ACCOUNT", "ORGANIZATION", "ORGANIZATIONAL_UNIT"]
 PortfolioShareTypeType = Literal["AWS_ORGANIZATIONS", "AWS_SERVICECATALOG", "IMPORTED"]
@@ -631,6 +635,7 @@ PaginatorName = Literal[
     "list_resources_for_tag_option",
     "list_service_actions",
     "list_service_actions_for_provisioning_artifact",
+    "list_stack_instances_for_provisioned_product",
     "list_tag_options",
     "scan_provisioned_products",
     "search_products_as_admin",

@@ -1,10 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: loguru
-Version: 0.7.3
+Version: 0.8.0
 Summary: Python logging made (stupidly) simple
 Keywords: loguru,logging,logger,log
 Author-email: Delgan <delgan.py@gmail.com>
-Requires-Python: >=3.5,<4.0
+Requires-Python: >=3.5
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: System :: Logging
@@ -23,22 +23,26 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
+License-File: LICENSE
 Requires-Dist: colorama>=0.3.4 ; sys_platform=='win32'
 Requires-Dist: aiocontextvars>=0.2.0 ; python_version<'3.7'
 Requires-Dist: win32-setctime>=1.0.0 ; sys_platform=='win32'
-Requires-Dist: pre-commit==4.0.1  ; extra == "dev" and ( python_version>='3.9')
+Requires-Dist: pre-commit==4.6.0  ; extra == "dev" and ( python_version>='3.11')
 Requires-Dist: tox==3.27.1  ; extra == "dev" and ( python_version<'3.8')
-Requires-Dist: tox==4.23.2  ; extra == "dev" and ( python_version>='3.8')
+Requires-Dist: tox==4.24.1  ; extra == "dev" and ( python_version>='3.8' and python_version<'3.12')
+Requires-Dist: tox==4.64.4  ; extra == "dev" and ( python_version>='3.12')
 Requires-Dist: pytest==6.1.2  ; extra == "dev" and ( python_version<'3.8')
-Requires-Dist: pytest==8.3.2  ; extra == "dev" and ( python_version>='3.8')
+Requires-Dist: pytest==8.3.2  ; extra == "dev" and ( python_version>='3.8' and python_version<'3.12')
+Requires-Dist: pytest==9.1.1  ; extra == "dev" and ( python_version>='3.12')
 Requires-Dist: pytest-cov==2.12.1  ; extra == "dev" and ( python_version<'3.8')
 Requires-Dist: pytest-cov==5.0.0  ; extra == "dev" and ( python_version>='3.8' and python_version<'3.9')
-Requires-Dist: pytest-cov==6.0.0  ; extra == "dev" and ( python_version>='3.9')
-Requires-Dist: pytest-mypy-plugins==1.9.3  ; extra == "dev" and ( python_version>='3.6' and python_version<'3.8')
-Requires-Dist: pytest-mypy-plugins==3.1.0  ; extra == "dev" and ( python_version>='3.8')
+Requires-Dist: pytest-cov==6.2.1  ; extra == "dev" and ( python_version>='3.9')
+Requires-Dist: pytest-mypy-plugins==4.0.3  ; extra == "dev" and ( python_version>='3.12' and platform_python_implementation!='PyPy')
 Requires-Dist: colorama==0.4.5  ; extra == "dev" and ( python_version<'3.8')
 Requires-Dist: colorama==0.4.6  ; extra == "dev" and ( python_version>='3.8')
 Requires-Dist: freezegun==1.1.0  ; extra == "dev" and ( python_version<'3.8')
@@ -47,21 +51,24 @@ Requires-Dist: exceptiongroup==1.1.3  ; extra == "dev" and ( python_version>='3.
 Requires-Dist: mypy==v0.910  ; extra == "dev" and ( python_version<'3.6')
 Requires-Dist: mypy==v0.971  ; extra == "dev" and ( python_version>='3.6' and python_version<'3.7')
 Requires-Dist: mypy==v1.4.1  ; extra == "dev" and ( python_version>='3.7' and python_version<'3.8')
-Requires-Dist: mypy==v1.13.0  ; extra == "dev" and ( python_version>='3.8')
-Requires-Dist: Sphinx==8.1.3  ; extra == "dev" and ( python_version>='3.11')
-Requires-Dist: sphinx-rtd-theme==3.0.2  ; extra == "dev" and ( python_version>='3.11')
+Requires-Dist: mypy==v1.14.1  ; extra == "dev" and ( python_version>='3.8' and python_version<'3.9')
+Requires-Dist: mypy==v1.18.2  ; extra == "dev" and ( python_version>='3.9' and python_version<'3.12')
+Requires-Dist: mypy==v2.3.1  ; extra == "dev" and ( python_version>='3.12')
+Requires-Dist: Sphinx==8.2.1  ; extra == "dev" and ( python_version>='3.11')
+Requires-Dist: sphinx-rtd-theme==3.1.0  ; extra == "dev" and ( python_version>='3.11')
 Requires-Dist: myst-parser==4.0.0  ; extra == "dev" and ( python_version>='3.11')
-Requires-Dist: build==1.2.2  ; extra == "dev" and ( python_version>='3.11')
-Requires-Dist: twine==6.0.1  ; extra == "dev" and ( python_version>='3.11')
+Requires-Dist: build==1.6.1  ; extra == "dev" and ( python_version>='3.11')
+Requires-Dist: twine==7.0.0  ; extra == "dev" and ( python_version>='3.11')
 Project-URL: Changelog, https://github.com/Delgan/loguru/blob/master/CHANGELOG.rst
 Project-URL: Documentation, https://loguru.readthedocs.io/en/stable/index.html
 Project-URL: Homepage, https://github.com/Delgan/loguru
 Provides-Extra: dev
+Import-Name: loguru
 
 <p align="center">
     <a href="#readme">
         <img alt="Loguru logo" src="https://raw.githubusercontent.com/Delgan/loguru/master/docs/_static/img/logo.png">
-        <!-- Logo credits: Sambeet from Pixaday -->
+        <!-- Logo credits: Sambeet from Pixabay -->
         <!-- Logo fonts: Comfortaa + Raleway -->
     </a>
 </p>
@@ -145,7 +152,7 @@ logger.add(sys.stderr, format="{time} {level} {message}", filter="my_module", le
 
 This function should be used to register [sinks](https://loguru.readthedocs.io/en/stable/api/logger.html#sink) which are responsible for managing [log messages](https://loguru.readthedocs.io/en/stable/api/logger.html#message) contextualized with a [record dict](https://loguru.readthedocs.io/en/stable/api/logger.html#record). A sink can take many forms: a simple function, a string path, a file-like object, a coroutine function or a built-in Handler.
 
-Note that you may also  a previously added handler by using the identifier returned while adding it. This is particularly useful if you want to supersede the default `stderr` handler: just call [`logger.remove()`](https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.remove) to make a fresh start.
+Note that you may also [`remove()`](https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.remove) a previously added handler by using the identifier returned while adding it. This is particularly useful if you want to supersede the default `stderr` handler: just call `logger.remove()` to make a fresh start.
 
 ### Easier file logging with rotation / retention / compression
 
@@ -172,7 +179,14 @@ logger.add("file_Y.log", compression="zip")    # Save some loved space
 Loguru favors the much more elegant and powerful `{}` formatting over `%`, logging functions are actually equivalent to `str.format()`.
 
 ```python
-logger.info("If you're using Python {}, prefer {feature} of course!", 3.6, feature="f-strings")
+logger.info("We discovered {} is the answer to {question}", 42, question="everything")
+```
+
+With latest Python versions, you can also pass [a template string](https://docs.python.org/3/library/string.templatelib.html#template-strings), which will be evaluated lazily and is preferable over f-strings:
+
+```python
+version, feature = 3.14, "t-strings"
+logger.debug(t"If you're using Python {version:f}, prefer {feature} of course!")
 ```
 
 ### Exceptions catching within threads or main
@@ -379,15 +393,19 @@ Want to intercept standard `logging` messages toward your Loguru sinks?
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         # Get corresponding Loguru level if it exists.
-        level: str | int
         try:
-            level = logger.level(record.levelname).name
+            level: str | int = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
         # Find caller from where originated the logged message.
         frame, depth = inspect.currentframe(), 0
-        while frame and (depth == 0 or frame.f_code.co_filename == logging.__file__):
+        while frame:
+            filename = frame.f_code.co_filename
+            is_logging = filename == logging.__file__
+            is_frozen = "importlib" in filename and "_bootstrap" in filename
+            if depth > 0 and not (is_logging or is_frozen):
+                break
             frame = frame.f_back
             depth += 1
 
@@ -407,6 +425,8 @@ export LOGURU_FORMAT="{time} | <lvl>{message}</lvl>"
 # Windows
 setx LOGURU_DEBUG_COLOR "<green>"
 ```
+
+Environment variables match the arguments of [`logger.add()`](https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.add), with `LOGURU_LEVEL` notably letting you set the default level of handlers. Common flags like `NO_COLOR` and `FORCE_COLOR` are also supported.
 
 ### Convenient parser
 
@@ -440,6 +460,8 @@ notifier.add(f"discord://{WEBHOOK_ID}/{WEBHOOK_TOKEN}")
 # You can filter out logs from "apprise" itself to avoid recursive calls.
 logger.add(notifier.notify, level="ERROR", filter={"apprise": False})
 ```
+
+This can be seamlessly integrated using the [`logprise`](https://github.com/svaningelgem/logprise) library.
 
 <s>
 

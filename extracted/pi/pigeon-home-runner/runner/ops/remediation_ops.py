@@ -13,6 +13,89 @@ try:
 except ImportError:  # running from inside runner/ as __main__
     from ops.live import _runner  # type: ignore
 
+
+def _windows_confine(backend=None):
+    """The Windows containment backend module, or None.
+
+    `backend` is the tests' injection point. The real module is
+    runner/guard/windows_confine.py, imported lazily by its
+    role-folder name with the script-mode fallback, the way
+    sibling modules import each other. None when it cannot be
+    imported at all: callers read that as "cannot engage",
+    which keeps every gate in its refuse direction.
+    """
+    if backend is not None:
+        return backend
+    try:
+        from runner.guard import windows_confine
+        return windows_confine
+    except ImportError:
+        pass
+    try:
+        from guard import windows_confine  # type: ignore
+        return windows_confine
+    except ImportError:
+        return None
+
+# The mark _confinement_spawn leaves on a Windows confined
+# process: this process already sits in a Job Object. The
+# confinement spawn assigns the process to its Job Object at
+# creation (suspended, before it runs a line), and a process
+# can sit in only one job hierarchy -- assigning it to a
+# second, unrelated Job Object fails (AssignProcessToJobObject,
+# error 5). job_user's Windows control is that same Job Object
+# with the same memory ceiling, so _job_user_postspawn reads
+# this mark as "the control is already applied" instead of
+# assigning again. Identity is the test: only the spawn seam's
+# own mark counts, never a look-alike value.
+JOB_OBJECT_APPLIED = object()
+
+
+def _freebsd_confine(backend=None):
+    """The FreeBSD containment backend module, or None.
+
+    The mirror of _windows_confine for runner/guard/
+    freebsd_confine.py, imported lazily the same way. `backend`
+    is the tests' injection point. None when it cannot be
+    imported at all: callers read that as "cannot engage",
+    which keeps every gate in its refuse direction.
+    """
+    if backend is not None:
+        return backend
+    try:
+        from runner.guard import freebsd_confine
+        return freebsd_confine
+    except ImportError:
+        pass
+    try:
+        from guard import freebsd_confine  # type: ignore
+        return freebsd_confine
+    except ImportError:
+        return None
+
+
+def _macos_confine(backend=None):
+    """The macOS containment backend module, or None.
+
+    The mirror of _freebsd_confine for runner/guard/
+    macos_confine.py, imported lazily the same way. `backend`
+    is the tests' injection point. None when it cannot be
+    imported at all: callers read that as "cannot engage",
+    which keeps every gate in its refuse direction.
+    """
+    if backend is not None:
+        return backend
+    try:
+        from runner.guard import macos_confine
+        return macos_confine
+    except ImportError:
+        pass
+    try:
+        from guard import macos_confine  # type: ignore
+        return macos_confine
+    except ImportError:
+        return None
+
 def _finish_remediation(cfg, st, monitor, job, job_id, work,
                         base_dir, script_path, proc=None):
     """Close out a monitored job: acts, record, member.
@@ -111,27 +194,72 @@ def _finish_remediation(cfg, st, monitor, job, job_id, work,
     return member
 
 
-def job_user_startup_problem(cfg, platform=None):
+def job_user_startup_problem(cfg, platform=None, face=None,
+                             backend=None):
     """Why job_user on enforce cannot run here, or None when it can.
 
-    The mechanism is a POSIX setuid demote in a preexec hook; on
-    Windows there is no such hook, so enforce there changes what
-    the box protects while doing nothing (Decision 1's refuse
-    class, the same one confinement's startup_problem guards).
-    platform defaults to sys.platform; tests pass it.
+    The POSIX mechanism is a setuid demote in a preexec hook; on
+    Windows there is no such hook. Windows containment is a Job
+    Object assigned after the process starts (runner/guard/
+    windows_confine.py), so on win32 the gate asks that backend
+    whether it can engage: engageable, enforce may run and the
+    assignment happens per job in _job_user_postspawn; not
+    engageable, enforce changes what the box protects while
+    doing nothing, which is Decision 1's refuse class -- the
+    same one confinement's startup_problem guards. On POSIX the demote needs root and a resolvable configured
+    user: a runner that is not root, or whose configured user
+    cannot be resolved, would start and then run every job as
+    the runner's own account under a mode that promises
+    otherwise -- so both refuse at startup instead (Q132). A
+    user that exists at startup and is removed later reaches
+    the job-time path in _job_user_preexec, which records the
+    fallback and refuses the job under enforce.
+    platform defaults to sys.platform; tests pass it, and a fake
+    face when they script the syscalls.
     """
     if platform is None:
         platform = sys.platform
-    if platform != "win32":
-        return None
     sec = _runner()._security
     if sec is None or sec.sec_mode(cfg, "job_user") != "enforce":
         return None
-    return ("job_user (a POSIX setuid demote) is POSIX-only; "
-            "this machine is win32")
+    if platform == "win32":
+        backend = _windows_confine(backend)
+        if backend is not None and getattr(
+                backend, "IS_WINDOWS_BACKEND", False):
+            # Only a real backend's probe is consulted. The stub
+            # (any non-Windows host, including every simulated
+            # win32 the suite constructs) answers below with the
+            # refusal it has always given, deterministically.
+            try:
+                problem = backend.windows_startup_problem(cfg)
+            except Exception as e:  # a backend that cannot answer
+                problem = str(e)    # has not shown it can engage
+            if problem is None:
+                return None
+            return "job_user cannot engage on win32: %s" % problem
+        return ("job_user (a POSIX setuid demote) is POSIX-only; "
+                "this machine is win32")
+    secblock = cfg.get("security") if isinstance(cfg, dict) else None
+    secblock = secblock if isinstance(secblock, dict) else {}
+    ju = secblock.get("job_user")
+    user = ju.get("user") if isinstance(ju, dict) else None
+    if not user or not isinstance(user, str):
+        return None
+    face = face or _runner()._JobUserFace()
+    if face.euid() != 0:
+        return ("job_user demotes jobs with setuid, which needs "
+                "root; the runner is not running as root, so the "
+                "demote cannot be applied")
+    try:
+        face.getpwnam(user)
+    except (ImportError, KeyError, ValueError) as e:
+        return ("the configured job_user %r cannot be resolved "
+                "on this machine (%s)" % (user, e))
+    return None
 
 
-def _job_user_preexec(cfg, base_dir, job_id, work, face=None):
+def _job_user_preexec(cfg, base_dir, job_id, work, face=None,
+                      backend=None):
     R = _runner()
     if _runner()._security is None:
         return None
@@ -139,17 +267,43 @@ def _job_user_preexec(cfg, base_dir, job_id, work, face=None):
     if mode == "off":
         return None
     if os.name == "nt":
-        # The demote cannot engage on Windows. Enforce is refused
-        # at startup (job_user_startup_problem); audit still leaves
-        # its record here instead of the old silent return.
+        # The demote cannot engage on Windows. What can engage is
+        # the Job Object backend, and only after the process
+        # starts -- so under enforce the refusal lives at startup
+        # (job_user_startup_problem) and the application in
+        # _job_user_postspawn; this hook's win32 job is the record
+        # and, when the backend cannot engage, the job-time
+        # backstop refusal for a config changed under a running
+        # runner. The backend is consulted on a real Windows host
+        # (sys.platform) or when a test injects one; a simulated
+        # os.name alone keeps the long-standing behavior.
+        engageable = False
+        if backend is not None or sys.platform == "win32":
+            mod = _windows_confine(backend)
+            if mod is not None and (
+                    backend is not None
+                    or getattr(mod, "IS_WINDOWS_BACKEND", False)):
+                try:
+                    engageable = (
+                        mod.windows_startup_problem(cfg) is None)
+                except Exception:
+                    engageable = False
         _runner()._security.bump_evaluated(base_dir, "job_user")
         try:
             _runner()._security.write_audit_entry(
-                base_dir, "job_user", "unsupported_platform",
-                "job_user_posix_only", job_id=str(job_id), cfg=cfg,
+                base_dir, "job_user",
+                "would_contain" if engageable
+                else "unsupported_platform",
+                "windows_job_object" if engageable
+                else "job_user_posix_only",
+                job_id=str(job_id), cfg=cfg,
                 mode=mode)
         except Exception:
             pass
+        if mode == "enforce" and not engageable:
+            raise _runner().JobRejected(
+                "job_user is POSIX-only; job refused under "
+                "security.modes.job_user=enforce")
         return None
     face = face or _runner()._JobUserFace()
     _runner()._security.bump_evaluated(base_dir, "job_user")
@@ -172,19 +326,26 @@ def _job_user_preexec(cfg, base_dir, job_id, work, face=None):
     if mode == "audit":
         _audit("would_run_as", "would_run_as_user", user)
         return None
-    # enforce from here on
+    # enforce from here on: a demote that cannot happen refuses
+    # the job. The fallback is recorded first, in the same shape
+    # it always had, so the audit trail still names the step-down
+    # that was refused.
     if face.euid() != 0:
-        R.log(f"job {job_id}: job_user needs root; running as current "
-            f"user", "WARN")
+        R.log(f"job {job_id}: job_user needs root; refusing the job "
+            f"under enforce", "WARN")
         _audit("fallback", "job_user_needs_root")
-        return None
+        raise _runner().JobRejected(
+            "job_user needs root; job refused under "
+            "security.modes.job_user=enforce")
     try:
         pw = face.getpwnam(user)
     except (ImportError, KeyError) as e:
-        R.log(f"job {job_id}: job_user {user!r} unavailable ({e}); running "
-            f"as current user", "WARN")
+        R.log(f"job {job_id}: job_user {user!r} unavailable ({e}); "
+            f"refusing the job under enforce", "WARN")
         _audit("fallback", "job_user_unavailable", str(e))
-        return None
+        raise _runner().JobRejected(
+            f"job_user {user!r} unavailable ({e}); job refused under "
+            "security.modes.job_user=enforce")
     # The job must own its workdir to read the script and write output.
     try:
         for root, dirs, files in face.walk(work):
@@ -210,9 +371,11 @@ def _job_user_preexec(cfg, base_dir, job_id, work, face=None):
                 break
     except OSError as e:
         R.log(f"job {job_id}: cannot chown workdir to {user} ({e}); "
-            f"running as current user", "WARN")
+            f"refusing the job under enforce", "WARN")
         _audit("fallback", "job_user_chown_failed", str(e))
-        return None
+        raise _runner().JobRejected(
+            f"cannot chown workdir to {user} ({e}); job refused "
+            "under security.modes.job_user=enforce")
     _audit("run_as", "ran_as_user", user)
 
     def _demote():
@@ -228,6 +391,359 @@ def _job_user_preexec(cfg, base_dir, job_id, work, face=None):
             face.setgroups([pw.pw_gid])
         face.setuid(pw.pw_uid)
     return _demote
+
+
+def _job_user_postspawn(cfg, base_dir, job_id, proc, backend=None):
+    """Apply Windows containment to a just-started job process.
+
+    The POSIX demote rides Popen's preexec_fn, which Windows does
+    not have; a Job Object can only be assigned once the process
+    exists, so on win32 the enforce point for job_user is here,
+    called by exec immediately after Popen. Returns a release
+    callable the caller invokes once the process has exited (it
+    closes the job handle, which ends the Job Object), or None
+    when nothing was applied -- every mode but enforce, and every
+    platform but win32, returns None and changes nothing.
+
+    Under enforce a failure is a refusal, in the shape the POSIX
+    path uses: the fallback is recorded, the just-started process
+    is killed, and the job is rejected rather than run
+    uncontained. The success record names only what was applied:
+    decision "contained", reason the backend's own status string
+    ("windows_job_object") -- no record claims a restricted token
+    or any other control this backend does not implement.
+    """
+    if os.name != "nt":
+        return None
+    sec = _runner()._security
+    if sec is None or sec.sec_mode(cfg, "job_user") != "enforce":
+        return None
+    backend = _windows_confine(backend)
+
+    def _audit(decision, reason, detail=""):
+        try:
+            sec.write_audit_entry(
+                base_dir, "job_user", decision, reason,
+                job_id=str(job_id), detail=str(detail), cfg=cfg,
+                mode="enforce")
+        except Exception:
+            pass
+
+    if getattr(proc, "job_object_applied", None) is \
+            JOB_OBJECT_APPLIED:
+        # The confinement spawn already assigned this process
+        # to a Job Object at creation -- the same control, with
+        # the same memory ceiling, this postspawn would apply.
+        # A second assignment cannot succeed (a process sits in
+        # one job hierarchy; the hosted leg answered error 5 and
+        # every default-posture job was refused), and none is
+        # needed: the record names the control that IS applied,
+        # and the confinement release owns the handle's close.
+        _audit("contained",
+               getattr(backend, "STATUS_JOB_OBJECT", None)
+               or "windows_job_object")
+        return None
+    try:
+        if backend is None:
+            raise RuntimeError(
+                "windows confinement backend is unavailable")
+        status, job_handle = backend.apply_windows_containment(
+            getattr(proc, "_handle", None))
+    except Exception as e:
+        _audit("fallback", "windows_containment_failed", e)
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        raise _runner().JobRejected(
+            "job_user containment could not be applied on win32 "
+            "(%s); job refused under "
+            "security.modes.job_user=enforce" % (e,))
+    _audit("contained", status)
+
+    def _release():
+        try:
+            backend.close_job_handle(job_handle)
+        except Exception:
+            pass
+
+    return _release
+
+
+def confinement_startup_problem(cfg, platform=None, backend=None):
+    """Why confinement on enforce cannot run here, or None.
+
+    The win32 mirror of job_user_startup_problem. On Windows the
+    confinement backend is runner/guard/windows_confine.py (Job
+    Object + restricted token + low integrity -- see that
+    module's docstring for what it does and does not provide), so
+    on win32 the gate asks that backend's confinement probe
+    whether it can engage. Only a REAL backend's probe is
+    consulted: a simulated win32 (this host, the suite) answers
+    the deterministic Linux-only refusal, exactly as job_user's
+    gate does. The FreeBSD branch is the same shape against
+    runner/guard/freebsd_confine.py (jail + no network + spawn
+    resource limits), and the darwin branch against
+    runner/guard/macos_confine.py (Seatbelt profile + no
+    network + spawn resource limits). Off win32, FreeBSD and
+    darwin this returns None and changes nothing: the bwrap
+    gate in ops/main.py is the confinement gate there.
+    """
+    if platform is None:
+        platform = sys.platform
+    sec = _runner()._security
+    if sec is None or sec.sec_mode(cfg, "confinement") != "enforce":
+        return None
+    if platform == "darwin":
+        backend = _macos_confine(backend)
+        if backend is not None and getattr(
+                backend, "IS_MACOS_BACKEND", False):
+            probe = getattr(backend, "macos_confinement_problem",
+                            None)
+            if probe is None:
+                return ("confinement cannot engage on darwin: "
+                        "the backend has no confinement probe")
+            try:
+                problem = probe(cfg)
+            except Exception as e:  # a backend that cannot answer
+                problem = str(e)    # has not shown it can engage
+            if problem is None:
+                return None
+            return "confinement cannot engage on darwin: %s" % problem
+        return ("confinement (bwrap) is Linux-only; "
+                "this machine is %s" % platform)
+    if platform.startswith("freebsd"):
+        backend = _freebsd_confine(backend)
+        if backend is not None and getattr(
+                backend, "IS_FREEBSD_BACKEND", False):
+            probe = getattr(backend, "freebsd_confinement_problem",
+                            None)
+            if probe is None:
+                return ("confinement cannot engage on freebsd: "
+                        "the backend has no confinement probe")
+            try:
+                problem = probe(cfg)
+            except Exception as e:  # a backend that cannot answer
+                problem = str(e)    # has not shown it can engage
+            if problem is None:
+                return None
+            return "confinement cannot engage on freebsd: %s" % problem
+        return ("confinement (bwrap) is Linux-only; "
+                "this machine is %s" % platform)
+    if platform != "win32":
+        return None
+    backend = _windows_confine(backend)
+    if backend is not None and getattr(
+            backend, "IS_WINDOWS_BACKEND", False):
+        probe = getattr(backend, "windows_confinement_problem", None)
+        if probe is None:
+            return ("confinement cannot engage on win32: the "
+                    "backend has no confinement probe")
+        try:
+            problem = probe(cfg)
+        except Exception as e:  # a backend that cannot answer
+            problem = str(e)    # has not shown it can engage
+        if problem is None:
+            return None
+        return "confinement cannot engage on win32: %s" % problem
+    return ("confinement (bwrap) is Linux-only; "
+            "this machine is win32")
+
+
+def _confinement_spawn(cfg, base_dir, job_id, argv, cwd, env,
+                       backend=None):
+    """Spawn a job process under platform confinement, or None.
+
+    Returns None when the seam does not apply -- every platform
+    but win32, FreeBSD and darwin, and every confinement mode
+    but enforce -- so the caller uses its ordinary spawn. On
+    win32 at enforce it returns (proc, release): proc is the
+    Windows backend's confined process (the Popen subset exec
+    drives), and release closes its handles once the process
+    has exited.
+    On FreeBSD at enforce the same shape comes from the FreeBSD
+    backend (runner/guard/freebsd_confine.py): the jail is
+    created first and the job started inside it via jexec, and
+    release tears the jail down. When the job_user seam is at
+    enforce with a user named, that user is handed to the
+    FreeBSD spawn, which applies it at the jail door (jexec -u)
+    -- the Popen preexec demote cannot ride a spawn that
+    replaces Popen, the same reason the Windows creation-time
+    token exists. On darwin at enforce the same shape comes
+    from the macOS backend (runner/guard/macos_confine.py):
+    sandbox-exec applies the per-job Seatbelt profile to the
+    launcher shim, which sets the spawn limits (and drops to
+    the handed-over user, at the spawn door, the same reason)
+    before it execs the job. A backend that cannot engage
+    refuses the job here, after the fallback record: under
+    enforce a job never falls through to an unconfined spawn.
+    The success record names exactly the controls applied, in
+    the backend's own status string ("windows: job_object +
+    restricted_token + low_integrity" / "freebsd: jail +
+    no_network + spawn_resource_limits" / "macos:
+    seatbelt_profile + no_network + spawn_resource_limits").
+    """
+    # The platform is sys.platform alone, the signal every
+    # confinement gate beside this seam uses (_confinement_argv,
+    # confinement_startup_problem). Deriving Windows from
+    # os.name while darwin came from sys.platform let the two
+    # disagree: on a darwin host a windows simulation that
+    # patched os.name satisfied both branches at once, the
+    # darwin branch won, and the windows backend was called
+    # with the macOS branch's user argument (the test-macos
+    # failures recorded in docs/steady/security/macos.md,
+    # supposition S3). On a real host the signals always
+    # agreed, so real-host behaviour is unchanged.
+    is_windows = sys.platform == "win32"
+    is_freebsd = sys.platform.startswith("freebsd")
+    is_darwin = sys.platform == "darwin"
+    if not is_windows and not is_freebsd and not is_darwin:
+        return None
+    sec = _runner()._security
+    if sec is None or sec.sec_mode(cfg, "confinement") != "enforce":
+        return None
+    if is_darwin:
+        backend = _macos_confine(backend)
+
+        def _audit_mac(decision, reason, detail=""):
+            try:
+                sec.write_audit_entry(
+                    base_dir, "confinement", decision, reason,
+                    job_id=str(job_id), detail=str(detail), cfg=cfg,
+                    mode="enforce")
+            except Exception:
+                pass
+
+        user = None
+        if sec.sec_mode(cfg, "job_user") == "enforce":
+            secblock = cfg.get("security") \
+                if isinstance(cfg, dict) else None
+            secblock = secblock if isinstance(secblock, dict) else {}
+            ju = secblock.get("job_user")
+            ju = ju if isinstance(ju, dict) else {}
+            if isinstance(ju.get("user"), str) and ju.get("user"):
+                user = ju["user"]
+        try:
+            if backend is None:
+                raise RuntimeError(
+                    "macos confinement backend is unavailable")
+            spawn = getattr(backend, "spawn_confined_process", None)
+            if spawn is None:
+                raise RuntimeError(
+                    "macos confinement backend has no confined spawn")
+            proc = spawn(argv, cwd=cwd, env=env, user=user)
+        except Exception as e:
+            _audit_mac("fallback", "macos_confinement_failed", e)
+            raise _runner().JobRejected(
+                "confinement could not be applied on darwin "
+                "(%s); job refused under "
+                "security.modes.confinement=enforce" % (e,))
+        status = getattr(proc, "confinement_status", None) \
+            or getattr(backend, "STATUS_CONFINEMENT", None) \
+            or "macos: seatbelt_profile + no_network + spawn_resource_limits"
+        _audit_mac("confined", status)
+
+        def _release_mac():
+            try:
+                proc.close()
+            except Exception:
+                pass
+
+        return proc, _release_mac
+    if is_freebsd:
+        backend = _freebsd_confine(backend)
+
+        def _audit_fbsd(decision, reason, detail=""):
+            try:
+                sec.write_audit_entry(
+                    base_dir, "confinement", decision, reason,
+                    job_id=str(job_id), detail=str(detail), cfg=cfg,
+                    mode="enforce")
+            except Exception:
+                pass
+
+        user = None
+        if sec.sec_mode(cfg, "job_user") == "enforce":
+            secblock = cfg.get("security") \
+                if isinstance(cfg, dict) else None
+            secblock = secblock if isinstance(secblock, dict) else {}
+            ju = secblock.get("job_user")
+            ju = ju if isinstance(ju, dict) else {}
+            if isinstance(ju.get("user"), str) and ju.get("user"):
+                user = ju["user"]
+        try:
+            if backend is None:
+                raise RuntimeError(
+                    "freebsd confinement backend is unavailable")
+            spawn = getattr(backend, "spawn_confined_process", None)
+            if spawn is None:
+                raise RuntimeError(
+                    "freebsd confinement backend has no confined spawn")
+            proc = spawn(argv, cwd=cwd, env=env, user=user)
+        except Exception as e:
+            _audit_fbsd("fallback", "freebsd_confinement_failed", e)
+            raise _runner().JobRejected(
+                "confinement could not be applied on freebsd "
+                "(%s); job refused under "
+                "security.modes.confinement=enforce" % (e,))
+        status = getattr(proc, "confinement_status", None) \
+            or getattr(backend, "STATUS_CONFINEMENT", None) \
+            or "freebsd: jail + no_network + spawn_resource_limits"
+        _audit_fbsd("confined", status)
+
+        def _release_fbsd():
+            try:
+                proc.close()
+            except Exception:
+                pass
+
+        return proc, _release_fbsd
+    backend = _windows_confine(backend)
+
+    def _audit(decision, reason, detail=""):
+        try:
+            sec.write_audit_entry(
+                base_dir, "confinement", decision, reason,
+                job_id=str(job_id), detail=str(detail), cfg=cfg,
+                mode="enforce")
+        except Exception:
+            pass
+
+    try:
+        if backend is None:
+            raise RuntimeError(
+                "windows confinement backend is unavailable")
+        spawn = getattr(backend, "spawn_confined_process", None)
+        if spawn is None:
+            raise RuntimeError(
+                "windows confinement backend has no confined spawn")
+        proc = spawn(argv, cwd=cwd, env=env)
+    except Exception as e:
+        _audit("fallback", "windows_confinement_failed", e)
+        raise _runner().JobRejected(
+            "confinement could not be applied on win32 "
+            "(%s); job refused under "
+            "security.modes.confinement=enforce" % (e,))
+    try:
+        # The spawn assigned the process to its Job Object at
+        # creation; mark it so the job_user postspawn records
+        # that control instead of assigning a second one (see
+        # JOB_OBJECT_APPLIED above).
+        proc.job_object_applied = JOB_OBJECT_APPLIED
+    except Exception:
+        pass
+    status = getattr(proc, "confinement_status", None) \
+        or getattr(backend, "STATUS_CONFINEMENT", None) \
+        or "windows: job_object + restricted_token + low_integrity"
+    _audit("confined", status)
+
+    def _release():
+        try:
+            proc.close()
+        except Exception:
+            pass
+
+    return proc, _release
 
 
 def _learning_model_candidate(cfg, base_dir, job_id, job, outcome,

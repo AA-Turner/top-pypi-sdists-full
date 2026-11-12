@@ -108,10 +108,13 @@ class SearchMixin:
         TypeError, which is already loud.
         """
         # Typed CollapseMode so the vocabulary ships in the schema; this check guards DIRECT Python
-        # callers, whom nothing validates. Both spellings compare equal (StrEnum is a str).
+        # callers, whom nothing validates. Both spellings compare equal (StrEnum is a str). `none` and
+        # null are one request: no dedupe.
+        if collapse == CollapseMode.NONE:
+            collapse = None
         if collapse is not None and collapse != CollapseMode.EXPERIMENT:
             raise errors.ValidationError(
-                f'unknown collapse value {collapse!r}: pass "experiment" or null',
+                f'unknown collapse value {collapse!r}: pass "experiment" or "none"',
                 status=422,
             )
         # Read before `semantic` is rebound to the response section below.

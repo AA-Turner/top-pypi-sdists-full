@@ -65,6 +65,10 @@ def open_writers(
     started_at: float,
 ) -> list[_ReportWriter]:
     """Open a writer for every enabled report, closing the opened ones if a later one fails."""
+    # Report files may go into a directory that does not exist yet, e.g. the default one in a fresh checkout.
+    for format in (ReportFormat.VCR, ReportFormat.HAR, ReportFormat.JUNIT):
+        if reports.get(format).enabled:
+            path_of(format).parent.mkdir(parents=True, exist_ok=True)
     writers: list[_ReportWriter] = []
     try:
         if reports.vcr.enabled:
@@ -129,6 +133,32 @@ def write_report_locations(terminalreporter: TerminalReporter, config: pytest.Co
 class PytestReportOutcome:
     status: Status
     message: str | None = None
+
+
+def write_to_writers(
+    writers: list[_ReportWriter],
+    recorder: ScenarioRecorder,
+    elapsed_sec: float,
+    tags: list[str] | None = None,
+    outcome: PytestReportOutcome | None = None,
+    has_recorder: bool = True,
+) -> None:
+    from schemathesis.reporting.har import HarWriter
+    from schemathesis.reporting.html.writer import HtmlWriter
+    from schemathesis.reporting.junitxml import JunitXmlWriter
+    from schemathesis.reporting.vcr import VcrWriter
+
+    status = outcome.status if outcome is not None else None
+    message = outcome.message if outcome is not None else None
+    for writer in writers:
+        if isinstance(writer, (JunitXmlWriter, HtmlWriter)):
+            writer.write(recorder, elapsed_sec, status=status, message=message)
+        elif isinstance(writer, (VcrWriter, HarWriter)):
+            if has_recorder:
+                writer.write(recorder)
+        else:
+            # Only the Allure writer remains; checking its type would retry the optional Allure import on every call.
+            writer.write(recorder, elapsed_sec, tags=tags, status=status, message=message)
 
 
 class PytestReportDispatcher:

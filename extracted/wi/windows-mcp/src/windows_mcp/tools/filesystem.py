@@ -4,15 +4,28 @@ import os
 from typing import Literal
 
 from mcp.types import ToolAnnotations
+from windows_mcp.desktop.utils import as_bool as _as_bool
 from windows_mcp.infrastructure import with_analytics
 from windows_mcp import filesystem
 from fastmcp import Context
 
 
+def _resolve_path(path: str, default_dir: str) -> str:
+    """Expand a leading ~ to the home folder; resolve other relative paths from *default_dir*."""
+    # Only '~' alone or followed by a separator, as in PowerShell. expanduser() also
+    # expands '~name', which would turn '~$report.docx' (an Office lock file) into a
+    # '$report.docx' next to the profile folder.
+    if path == '~' or path.startswith(('~/', '~\\')):
+        path = os.path.expanduser(path)
+    if not os.path.isabs(path):
+        path = os.path.join(default_dir, path)
+    return path
+
+
 def register(mcp, *, get_desktop, get_analytics):
     @mcp.tool(
         name='FileSystem',
-        description="Manages file system operations with eight modes: 'read' (read text file contents with optional line offset/limit), 'write' (create or overwrite a file, set append=True to append), 'copy' (copy file or directory to destination), 'move' (move or rename file/directory), 'delete' (delete file or directory, set recursive=True for non-empty dirs), 'list' (list directory contents with optional pattern filter), 'search' (find files matching a glob pattern), 'info' (get file/directory metadata like size, dates, type). Relative paths are resolved from the user's Desktop folder. Use absolute paths to access other locations.",
+        description="Manages file system operations with eight modes: 'read' (read text file contents with optional line offset/limit), 'write' (create or overwrite a file, set append=True to append), 'copy' (copy file or directory to destination), 'move' (move or rename file/directory), 'delete' (delete file or directory, set recursive=True for non-empty dirs), 'list' (list directory contents with optional pattern filter, set show_hidden=True to include hidden entries), 'search' (find files matching a glob pattern), 'info' (get file/directory metadata like size, dates, type). Relative paths are resolved from the user's Desktop folder. Use absolute paths to access other locations.",
         annotations=ToolAnnotations(
             title="FileSystem",
             readOnlyHint=False,
@@ -40,15 +53,14 @@ def register(mcp, *, get_desktop, get_analytics):
         try:
             from platformdirs import user_desktop_dir
             default_dir = user_desktop_dir()
-            if not os.path.isabs(path):
-                path = os.path.join(default_dir, path)
-            if destination and not os.path.isabs(destination):
-                destination = os.path.join(default_dir, destination)
+            path = _resolve_path(path, default_dir)
+            if destination:
+                destination = _resolve_path(destination, default_dir)
 
-            recursive = recursive is True or (isinstance(recursive, str) and recursive.lower() == 'true')
-            append = append is True or (isinstance(append, str) and append.lower() == 'true')
-            overwrite = overwrite is True or (isinstance(overwrite, str) and overwrite.lower() == 'true')
-            show_hidden = show_hidden is True or (isinstance(show_hidden, str) and show_hidden.lower() == 'true')
+            recursive = _as_bool(recursive, 'recursive')
+            append = _as_bool(append, 'append')
+            overwrite = _as_bool(overwrite, 'overwrite')
+            show_hidden = _as_bool(show_hidden, 'show_hidden')
 
             match mode:
                 case 'read':

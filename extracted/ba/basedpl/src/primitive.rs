@@ -187,7 +187,7 @@ pub(crate) enum Comparison { Equal, NotEqual, Less, LessEqual, Greater, GreaterE
 pub(crate) enum Primitive {
     Arithmetic(Arithmetic), Math(Math), Bitwise(u8), Random, Identity(bool), Compare(Comparison), Iota, Range, Keys, Depth, Where, Member, Union, Intersection,
     Find, Grade(bool), Index, Bracket, Encode, Decode, MatrixDivide, Execute, Format, Shape, Tally, Ravel, Enclose, Nest, Mix, Take, Drop, Replicate,
-    CatenateFirst, Reverse(bool), Transpose, Windows, Prime, Factor, Polynomial, Exact(Exact), Real(Real), Special(Special)
+    CatenateFirst, Reverse, Transpose, Windows, Prime, Factor, Polynomial, Exact(Exact), Real(Real), Special(Special)
 }
 
 /// A function with exact results under either kinds, which `ₓ` after a primitive reaches, as `Math::Arc` is the inverse that `○⁻` reaches. `⌊ₓ`, `⌈ₓ` and dyadic `÷ₓ` give integers, each through one kernel. Each shares the row of the primitive it modifies, as `Bracket` shares `⌷`'s.
@@ -221,7 +221,7 @@ impl Exact {
     }
 }
 
-/// A function with real results, which `ₐ` after a primitive reaches: monadic `√` and `⍟`, dyadic `*`, and `○` and `○⁻` by code, which give the real part where the result would leave the real domain (rustymath's `RealSqrt`, `RealLn`, `RealPow` and `RealCircle`). Each shares the row of the primitive it modifies, as `Exact` does.
+/// A function with real results, which `ₐ` after a primitive reaches: monadic `√` and `⊛`, dyadic `*`, and `○` and `○⁻` by code, which give the real part where the result would leave the real domain (rustymath's `RealSqrt`, `RealLn`, `RealPow` and `RealCircle`). Each shares the row of the primitive it modifies, as `Exact` does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Real { Sqrt, Ln, Pow, Circle, Arc }
 impl Real {
@@ -257,7 +257,7 @@ impl Primitive {
             _ => None,
         }
     }
-    /// The primitive that `x p⁻ y` calls on `x` and `y` in that order, where it is one: the arc functions for `○`, `⍟` and `*` for each other, `⊥` for `⊤`, and `-` and `π` for themselves. `÷` isn't one: `0÷⁻y` has no inverse, where `0÷y` gives a value. The binder's `p⁻` (`FunctionNode::Inverse`) reaches it as its two-argument primitive (`Function::dyadic_primitive`), and `inverse` calls it for `(x↣p)⁻ y`.
+    /// The primitive that `x p⁻ y` calls on `x` and `y` in that order, where it is one: the arc functions for `○`, `⊛` and `*` for each other, `⊥` for `⊤`, and `-` and `π` for themselves. `÷` isn't one: `0÷⁻y` has no inverse, where `0÷y` gives a value. The binder's `p⁻` (`FunctionNode::Inverse`) reaches it as its two-argument primitive (`Function::dyadic_primitive`), and `inverse` calls it for `(x↣p)⁻ y`.
     pub(crate) fn left_inverse(self) -> Option<Primitive> {
         use Math::*;
         match self {
@@ -274,7 +274,7 @@ impl Primitive {
         ];
         match self {
             Self::Arithmetic(Plus | Minus | Divide)
-            | Self::Reverse(_)
+            | Self::Reverse
             | Self::Transpose
             | Self::Identity(_)
             | Self::Math(Not)
@@ -287,7 +287,7 @@ impl Primitive {
     }
 }
 
-/// A function without a glyph. `•special` makes the ones in `ALL`, named as SciPy names them. `∂` records `Sign`, `|`'s slope in floats, and `BinomDn` and `BinomDk`, the slopes of `!`'s binomial in n and in k. `LambertW` is the inverse of the hook `×↢*`. The form rewriter puts the rest in place of the combinations they compute by an algorithm of their own (`eval/rewrite.rs`): `Log1p` and `Expm1` for `⍟1+⍵` and `¯1+*⍵`, `Selected` for a selection from an order, `Ranks` for a grade of a grade, `GroupCounts` and `GroupFolds` for Key's count and fold of each group, and `Determinant` and `Permanent` for monadic `-.×` and `+.×`. `Polygamma`, `Beta`, `Gammainc`, `Betainc`, the binomial's slopes and `GroupFolds` take two arguments, `Selected` and `GroupCounts` one or two, and the others one.
+/// A function without a glyph. `•special` makes the ones in `ALL`, named as SciPy names them. `∂` records `Sign`, `|`'s slope in floats, and `BinomDn` and `BinomDk`, the slopes of `!`'s binomial in n and in k. `LambertW` is the inverse of the hook `×↢*`. The form rewriter puts the rest in place of the combinations they compute by an algorithm of their own (`eval/rewrite.rs`): `Log1p` and `Expm1` for `⊛1+ω` and `¯1+*ω`, `Selected` for a selection from an order, `Ranks` for a grade of a grade, `GroupCounts` and `GroupFolds` for Key's count and fold of each group, and `Determinant` and `Permanent` for monadic `-.×` and `+.×`. `Polygamma`, `Beta`, `Gammainc`, `Betainc`, the binomial's slopes and `GroupFolds` take two arguments, `Selected` and `GroupCounts` one or two, and the others one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Special {
     Gammaln, Digamma, Polygamma, Erf, Erfc, Erfinv, Beta, Gammainc, Betainc, BetaincAt([u64; 2]), Sign, BinomDn, BinomDk, Log1p, Expm1, LambertW,
@@ -435,8 +435,35 @@ pub(crate) fn axes(axis: &Value, rank: usize) -> Result<Vec<usize>, Error> {
     }
     Ok(result)
 }
+
+/// Missing nonnegative axes append singleton view axes to the data arguments. Negative axes still resolve against their original rank. `paired` includes the left argument's data; counts, seeds and selectors stay whole. No result means no extension is needed.
+pub(crate) fn extended_axes(spec: &Value, left: Option<&Value>, right: &Value, paired: bool) -> Result<Option<(Value, Option<Value>, Value)>, Error> {
+    let target = match left { Some(x) if paired && x.shape().len() > right.shape().len() => x, _ => right };
+    // Literal single axes are the common case. Existing and negative axes need no conversion buffer or name resolution here.
+    if let Value::Number(n) = spec && n.integer().is_ok_and(|n| n < target.shape().len() as i64) { return Ok(None); }
+    let spec = resolve_axes(spec, target)?;
+    if spec.shape().len() > 1 { return Err(Error::new(Kind::Rank, "axes must be a unit or vector")); }
+    let numbers = spec.as_items().integers().described("axis must be a whole number")?;
+    let original = target.shape().len();
+    let rank = numbers.iter().filter(|&&n| n >= 0).try_fold(original, |rank, &n| {
+        let end = usize::try_from(n).ok().and_then(|n| n.checked_add(1)).filter(|&n| n <= rustymath::layout::MAX_RANK)
+            .ok_or_else(|| Error::new(Kind::Limit, "axis exceeds maximum array rank"))?;
+        Ok::<_, Error>(rank.max(end))
+    })?;
+    if rank == original { return Ok(None); }
+    let normalized = numbers.iter().map(|&n| {
+        if n >= 0 { Ok(n) } else {
+            rustymath::layout::position(n, original).map(|a| a as i64).ok_or_else(|| Error::domain("negative axis is outside the array rank"))
+        }
+    }).collect::<Result<Vec<_>, _>>()?;
+    let spec = Value::integers(spec.shape().to_vec(), normalized).described("invalid axes")?;
+    let extend = |v: &Value| v.relaid(v.layout().concat(&Layout::from(vec![1; rank - v.shape().len()]))).described("invalid axis extension");
+    Ok(Some((spec, left.map(|x| if paired { extend(x) } else { Ok(x.clone()) }).transpose()?, extend(right)?)))
+}
 /// Singleton extension is shared selection, not a universal broadcasting policy.
 impl Primitive {
+    /// Axis applies to both data arguments of pervasive calls and joins. Other native axis forms keep their left control argument whole.
+    pub(crate) fn paired_axes(self) -> bool { self.facts(true).pervasive() || matches!(self.facts(true).cells, CellRule::Join { .. }) }
     pub(crate) fn call(self, left: Option<&Value>, right: &Value, span: &Span) -> Result<Value, Error> { self.call_axis(left, right, None, span) }
     /// `items` combined by this primitive into `base` at `writes`, in place, as `Pairing::At` pairs them. `+` paired this way is accumulation. When a running level that `base` or `items` carries takes the call (`Operation::call`), its result replaces `base`. Otherwise the operation's own code combines into `base` (`pervasive::combine_at`). An error leaves `base` unchanged.
     pub(crate) fn at(self, base: &mut Value, writes: rustymath::gather::Writes<'_>, items: &Value, span: &Span) -> Result<(), Error> {
@@ -470,6 +497,10 @@ impl Primitive {
     }
     pub(crate) fn call_axes(self, left: Option<&Value>, right: &Value, spec: &Value, span: &Span) -> Result<Value, Error> {
         let spec = &self.resolved_axes(left, right, spec)?;
+        // Mix's axes place the assembled cells in its result, not in its input.
+        if self != Self::Mix && let Some((spec, x, y)) = extended_axes(spec, left, right, self.paired_axes())? {
+            return self.call_axes(x.as_ref(), &y, &spec, span);
+        }
         if let Some(left) = left { if self.facts(true).pervasive() { return self.agreed(left, right, |a, b| axis_agreement(a, b, spec), span); } }
         match (self, left) {
             (Self::Keys, left) => {
@@ -577,7 +608,7 @@ impl Primitive {
             (Self::Random, _) => drawn_value(None, left, right),
             (Self::Replicate, Some(x)) => replicate(x, right, axis, false, None),
             (Self::Replicate, None) => runs(right, span),
-            (Self::Reverse(first), _) => rotate(left, right, axis.unwrap_or(if first { 0 } else { right.shape().len().saturating_sub(1) })),
+            (Self::Reverse, _) => rotate(left, right, axis.unwrap_or(right.shape().len().saturating_sub(1))),
             (Self::Transpose, _) => transpose(left, right),
             (Self::Windows, Some(x)) => windows(x, right, span),
             (Self::Windows, None) => windows(&Value::integer(2), right, span),
@@ -651,6 +682,9 @@ impl Primitive {
     /// `x f⍠["fill":fill] y` for this primitive or, where `inverse` holds, its inverse: the call, where each position that it fills reads `fill` as an item of its argument's type (`fill_for`). A pervasive call fills where an argument with a keyed axis lacks a key, take past the end of an axis, replicate at a negative count, expand at the items it inserts, mix where it pads an item, index and pick at a NaN position, pick and first at position 0 or ¯1 of an empty axis, and reshape where its argument is empty. `spec`, the axes of `f⍠spec`, reaches the forms that have an axis form of their own, as `call_axes` reads it. Any other form inserts no fills, and is a DOMAIN error.
     pub(crate) fn with_fill(self, inverse: bool, left: Option<&Value>, right: &Value, fill: &Value, spec: Option<&Value>, span: &Span) -> Result<Value, Error> {
         let spec = spec.map(|s| self.resolved_axes(left, right, s)).transpose()?;
+        if self != Self::Mix && let Some(spec) = &spec && let Some((spec, x, y)) = extended_axes(spec, left, right, self.paired_axes())? {
+            return self.with_fill(inverse, x.as_ref(), &y, fill, Some(&spec), span);
+        }
         let listed = |rank: usize| spec.as_ref().map(|s| axes(s, rank)).transpose();
         match (self, inverse, left) {
             (_, false, Some(l)) if self.facts(true).pervasive() => {

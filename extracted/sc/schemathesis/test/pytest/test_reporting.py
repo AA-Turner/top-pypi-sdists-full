@@ -97,9 +97,10 @@ def test_reports_use_pytest_outcome(testdir, tmp_path, ctx, outcome, junit, allu
 
 def test_reports_written_via_config(testdir, ctx):
     api = ctx.openapi.apps.success()
-    cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
-    har_path = str(testdir.tmpdir.join("cassette.har"))
-    report_path = str(testdir.tmpdir.join("report.xml"))
+    # Each report goes into its own directory that does not exist yet.
+    cassette_path = str(testdir.tmpdir.join("vcr", "cassette.yaml"))
+    har_path = str(testdir.tmpdir.join("har", "cassette.har"))
+    report_path = str(testdir.tmpdir.join("junit", "report.xml"))
     testdir.make_test(
         f"""
 schema.config.update(base_url="{api.base_url}/api")
@@ -201,7 +202,8 @@ def test_api(case):
 
 def test_reports_written_via_xdist(testdir, ctx):
     api = ctx.openapi.apps.success()
-    report_dir = testdir.tmpdir.mkdir("reports")
+    # Does not exist before the run.
+    report_dir = testdir.tmpdir.join("reports")
     har_path = str(testdir.tmpdir.join("cassette.har"))
     junit_path = str(testdir.tmpdir.join("report.xml"))
     ok = {"responses": {"200": {"description": "OK"}}}
@@ -264,6 +266,30 @@ def test_api(case):
         "POST /users": ("passed", ""),
         "GET /health": ("passed", ""),
     }
+
+
+def test_xdist_worker_records_each_case_once(testdir, ctx):
+    api = ctx.openapi.apps.success()
+    junit_path = str(testdir.tmpdir.join("report.xml"))
+    ok = {"get": {"responses": {"200": {"description": "OK"}}}}
+    _make_xdist_test(
+        ctx,
+        testdir,
+        f"""
+schema.config.reports.update(junit_path=r"{junit_path}")
+
+@schema.parametrize()
+@settings(max_examples=1)
+def test_api(case):
+    assert len(schema.hooks.get_all_by_name("after_call")) == 1
+    case.call()
+""",
+        base_url=f"{api.base_url}/api",
+        paths={f"/success{index}": ok for index in range(6)},
+    )
+    testdir.runpytest("-n", "2").assert_outcomes(passed=6)
+
+    assert _junit_outcomes(junit_path) == {f"GET /success{index}": ("passed", "") for index in range(6)}
 
 
 def test_lazy_vcr_report_via_xdist_skips_tests_without_calls(testdir, ctx):
@@ -343,24 +369,31 @@ def test_api(case):
     result.assert_outcomes(passed=1)
 
 
-def test_xdist_worker_crash_does_not_break_controller(testdir, ctx):
-    # Crashed workers don't report results; the hook must skip them, not raise.
+def test_xdist_worker_crash_keeps_finished_results(testdir, ctx):
     api = ctx.openapi.apps.success()
+    junit_path = str(testdir.tmpdir.join("report.xml"))
+    ok = {"get": {"responses": {"200": {"description": "OK"}}}}
     _make_xdist_test(
         ctx,
         testdir,
-        """
+        f"""
 import os
+
+schema.config.reports.update(junit_path=r"{junit_path}")
 
 @schema.parametrize()
 @settings(max_examples=1)
 def test_api(case):
-    os._exit(1)
+    if case.path == "/crash":
+        os._exit(1)
+    case.call()
 """,
         base_url=f"{api.base_url}/api",
+        paths={"/success": ok, "/crash": ok},
     )
     result = testdir.runpytest("-n", "1")
     assert "INTERNALERROR" not in "\n".join(result.outlines + result.errlines)
+    assert _junit_outcomes(junit_path) == {"GET /success": ("passed", "")}
 
 
 @pytest.mark.parametrize("explicit_seed", [None, 42])

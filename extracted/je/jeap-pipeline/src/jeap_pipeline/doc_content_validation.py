@@ -11,8 +11,13 @@ later, far away from the person who wrote the page:
 1. the file is text - valid UTF-8 without a NUL byte;
 2. it parses as CommonMark, which is how the published site reads it;
 3. its front matter is a YAML mapping whose keys are on an allowlist, so a page cannot reach into
-   how the site is assembled - `slug` above all, which would change the page's URL;
+   how the site is assembled - `slug` above all, which would change the page's URL - and whose
+   sidebar-ordering values have the shape the doc service accepts;
 4. every relative link and image resolves to a file in the same documentation set.
+
+Whether a page's `sidebar_after` or `sidebar_before` names an existing item is not checked here:
+the doc service resolves that name against the chapter it uploads into, which this module never
+sees.
 
 What is deliberately not checked: `http(s)` and `mailto` links (a link checker that reaches the
 internet makes a build flaky), anchors (a heading may come from a generated page in the same
@@ -20,20 +25,29 @@ chapter), site-absolute links (they resolve against the published site, which a 
 have), and missing front matter (the site derives a title from the first heading).
 """
 
+import math
 import posixpath
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import FrozenSet, List, Optional, Sequence, Set, Tuple
+from typing import Any, FrozenSet, List, Optional, Sequence, Set, Tuple
 from urllib.parse import unquote, urlparse
 
 import yaml
 from markdown_it import MarkdownIt
 
-#: The front matter keys a page may carry. Everything a page legitimately says about itself, and
-#: nothing that changes its identity, its URL or its place in the navigation - those come from the
-#: folder the page sits in and from what the doc service generates beside it.
+# The sidebar-ordering keys. Only their shape is checked here - a finite number, one non-blank
+# name, not both directions; whether a name exists is the doc service's one rule, resolved against
+# the chapter the page is uploaded into.
+_SIDEBAR_POSITION = "sidebar_position"
+_SIDEBAR_AFTER = "sidebar_after"
+_SIDEBAR_BEFORE = "sidebar_before"
+
+#: The front matter keys a page may carry. Everything a page legitimately says about itself -
+#: including where it sits among the items of its own chapter - and nothing that changes its
+#: identity or its URL, which come from the folder the page sits in.
 ALLOWED_FRONT_MATTER_KEYS: FrozenSet[str] = frozenset({
     "title", "description", "sidebar_label", "tags", "keywords",
+    _SIDEBAR_POSITION, _SIDEBAR_AFTER, _SIDEBAR_BEFORE,
 })
 
 #: The most findings one report carries, matching the doc service's own default.
@@ -70,6 +84,7 @@ class ContentFindingCode(str, Enum):
     MALFORMED_MARKDOWN = "MALFORMED_MARKDOWN"
     MALFORMED_FRONT_MATTER = "MALFORMED_FRONT_MATTER"
     FORBIDDEN_FRONT_MATTER_KEY = "FORBIDDEN_FRONT_MATTER_KEY"
+    INVALID_FRONT_MATTER_VALUE = "INVALID_FRONT_MATTER_VALUE"
     DEAD_LINK = "DEAD_LINK"
     LINK_WITHOUT_EXTENSION = "LINK_WITHOUT_EXTENSION"
     LINK_OUT_OF_SET = "LINK_OUT_OF_SET"
@@ -227,13 +242,59 @@ def _check_front_matter(path: str,
     allowed = ", ".join(sorted(allowed_front_matter_keys))
     findings = []
     for key in sorted(str(key) for key in parsed.keys()):
-        if key in allowed_front_matter_keys:
-            continue
+        if key not in allowed_front_matter_keys:
+            findings.append(ContentFinding(
+                ContentFindingCode.FORBIDDEN_FRONT_MATTER_KEY, path,
+                _forbidden_key_message(key, allowed),
+                _front_matter_key_line(front_matter_lines, key)))
+        else:
+            problem = _front_matter_value_problem(key, parsed[key])
+            if problem:
+                findings.append(ContentFinding(
+                    ContentFindingCode.INVALID_FRONT_MATTER_VALUE, path, problem,
+                    _front_matter_key_line(front_matter_lines, key)))
+
+    if _SIDEBAR_AFTER in parsed and _SIDEBAR_BEFORE in parsed:
         findings.append(ContentFinding(
-            ContentFindingCode.FORBIDDEN_FRONT_MATTER_KEY, path,
-            _forbidden_key_message(key, allowed),
-            _front_matter_key_line(front_matter_lines, key)))
+            ContentFindingCode.INVALID_FRONT_MATTER_VALUE, path,
+            f"'{_SIDEBAR_AFTER}' and '{_SIDEBAR_BEFORE}' are both set. A page is placed relative "
+            f"to one other item of its chapter, so name one of the two.",
+            max(_front_matter_key_line(front_matter_lines, _SIDEBAR_AFTER),
+                _front_matter_key_line(front_matter_lines, _SIDEBAR_BEFORE))))
     return findings
+
+
+def _front_matter_value_problem(key: str, value: Any) -> Optional[str]:
+    """What is wrong with the value of a sidebar-ordering key, or `None` for any other key."""
+    if key == _SIDEBAR_POSITION:
+        if _is_finite_number(value):
+            return None
+        return (f"'{key}' is {value!r}, which is not a finite number. It orders the page among "
+                f"the items of its chapter - write an integer or a decimal, for instance '2' or "
+                f"'2.5'.")
+    if key in (_SIDEBAR_AFTER, _SIDEBAR_BEFORE):
+        if isinstance(value, str) and value.strip():
+            return None
+        return (f"'{key}' is {value!r}, which is not the name of a page. Write the name of one "
+                f"other item of the same chapter: a page's file name without '.md' and without "
+                f"its number prefix, a generated page's name such as 'system-context-view', or "
+                f"'microsites/<topic>'. Whether that name exists is checked by the doc service.")
+    return None
+
+
+def _is_finite_number(value: Any) -> bool:
+    """
+    Whether a parsed YAML value is a finite number - an integer or a decimal, but not a boolean.
+
+    A YAML `true` is an `int` to Python and `.nan` or `.inf` are floats, and none of them orders a
+    page; an integer too large for a double is refused too, since the doc service reads a double.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
 
 
 def _forbidden_key_message(key: str, allowed: str) -> str:
@@ -242,8 +303,6 @@ def _forbidden_key_message(key: str, allowed: str) -> str:
         "slug": "It would change the page's URL and could collide with a route the doc service "
                 "generates.",
         "id": "It would change the page's identity, which the doc service derives from its path.",
-        "sidebar_position": "The order of the pages of a chapter comes from the folder, not from "
-                            "the page.",
         "sidebar_class_name": "How the navigation looks is the site's, not a page's.",
         "custom_edit_url": "The link to the source is written by the doc service, which knows "
                            "where the page came from.",

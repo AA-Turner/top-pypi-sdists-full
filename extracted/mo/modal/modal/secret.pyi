@@ -588,7 +588,7 @@ class _Secret(modal._object._Object):
         """mdmd:hidden"""
         ...
 
-    async def info(self) -> modal.types.SecretInfo:
+    async def info(self, *, refresh: bool = False) -> modal.types.SecretInfo:
         """Return information about the Secret object."""
         ...
 
@@ -820,11 +820,11 @@ class Secret(modal.object.Object):
     _create_deployed: typing.ClassVar[___create_deployed_spec]
 
     class __info_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> modal.types.SecretInfo:
+        def __call__(self, /, *, refresh: bool = False) -> modal.types.SecretInfo:
             """Return information about the Secret object."""
             ...
 
-        async def aio(self, /) -> modal.types.SecretInfo:
+        async def aio(self, /, *, refresh: bool = False) -> modal.types.SecretInfo:
             """Return information about the Secret object."""
             ...
 

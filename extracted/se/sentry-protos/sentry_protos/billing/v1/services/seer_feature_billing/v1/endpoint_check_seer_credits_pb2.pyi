@@ -5,8 +5,15 @@ isort:skip_file
 
 import builtins
 import google.protobuf.descriptor
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import sys
 import typing
+
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
@@ -39,18 +46,45 @@ global___CheckSeerCreditsRequest = CheckSeerCreditsRequest
 class CheckSeerCreditsResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _DenialReason:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _DenialReasonEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[CheckSeerCreditsResponse._DenialReason.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        DENIAL_REASON_UNSPECIFIED: CheckSeerCreditsResponse._DenialReason.ValueType  # 0
+        DENIAL_REASON_NOT_ENOUGH_CREDITS: CheckSeerCreditsResponse._DenialReason.ValueType  # 1
+        """The wallet balance does not cover the usage so far plus the predicted usage."""
+        DENIAL_REASON_DAILY_CAP_EXCEEDED: CheckSeerCreditsResponse._DenialReason.ValueType  # 2
+        """Today's usage plus the predicted usage costs more than the organization's
+        daily spend cap.
+        """
+
+    class DenialReason(_DenialReason, metaclass=_DenialReasonEnumTypeWrapper): ...
+    DENIAL_REASON_UNSPECIFIED: CheckSeerCreditsResponse.DenialReason.ValueType  # 0
+    DENIAL_REASON_NOT_ENOUGH_CREDITS: CheckSeerCreditsResponse.DenialReason.ValueType  # 1
+    """The wallet balance does not cover the usage so far plus the predicted usage."""
+    DENIAL_REASON_DAILY_CAP_EXCEEDED: CheckSeerCreditsResponse.DenialReason.ValueType  # 2
+    """Today's usage plus the predicted usage costs more than the organization's
+    daily spend cap.
+    """
+
     HAS_ENOUGH_CREDITS_FIELD_NUMBER: builtins.int
     LEASE_ID_FIELD_NUMBER: builtins.int
+    DENIAL_REASON_FIELD_NUMBER: builtins.int
     has_enough_credits: builtins.bool
     lease_id: builtins.str
+    denial_reason: global___CheckSeerCreditsResponse.DenialReason.ValueType
+    """Why has_enough_credits is false. Unspecified when it is true."""
     def __init__(
         self,
         *,
         has_enough_credits: builtins.bool = ...,
         lease_id: builtins.str | None = ...,
+        denial_reason: global___CheckSeerCreditsResponse.DenialReason.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_lease_id", b"_lease_id", "lease_id", b"lease_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_lease_id", b"_lease_id", "has_enough_credits", b"has_enough_credits", "lease_id", b"lease_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_lease_id", b"_lease_id", "denial_reason", b"denial_reason", "has_enough_credits", b"has_enough_credits", "lease_id", b"lease_id"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_lease_id", b"_lease_id"]) -> typing.Literal["lease_id"] | None: ...
 
 global___CheckSeerCreditsResponse = CheckSeerCreditsResponse

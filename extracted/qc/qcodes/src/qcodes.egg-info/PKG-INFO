@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qcodes
-Version: 0.62.0
+Version: 0.63.0
 Summary: Python-based data acquisition framework developed by the Copenhagen / Delft / Sydney / Microsoft quantum computing consortium
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License-Expression: MIT
@@ -64,7 +64,7 @@ Requires-Dist: parso>=0.8.6; extra == "test"
 Requires-Dist: pytest>=8.2.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "test"
 Requires-Dist: pytest-cov>=5.0.0; extra == "test"
-Requires-Dist: pytest-mock>=3.13.0; extra == "test"
+Requires-Dist: pytest-mock>=3.14.0; extra == "test"
 Requires-Dist: pytest-rerunfailures>=14.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "test"
 Requires-Dist: PyVisa-sim>=0.6.0; extra == "test"
@@ -75,8 +75,9 @@ Requires-Dist: types_requests>=0.1.8; extra == "test"
 Requires-Dist: types-tabulate>=0.1.0; extra == "test"
 Requires-Dist: types-tqdm>=4.64.6; extra == "test"
 Requires-Dist: types_pywin32>=305.0.0.7; extra == "test"
+Requires-Dist: typing_extensions>=4.16.0; extra == "test"
 Requires-Dist: qcodes_loop>=0.1.1; extra == "test"
-Requires-Dist: zhinst.qcodes>=0.5; python_version < "3.15" and extra == "test"
+Requires-Dist: zhinst.qcodes>=0.5; extra == "test"
 Requires-Dist: libcst>=1.2.0; extra == "test"
 Provides-Extra: docs
 Requires-Dist: autodocsumm>=0.2.9; extra == "docs"

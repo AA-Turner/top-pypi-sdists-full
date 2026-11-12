@@ -41,12 +41,23 @@ def policy_settings(name: str, *, base_url: str | None = None, echo: Echo = None
     return out
 
 
+def _not_on_a_policy(key: str) -> None:
+    """What was a policy's and is each robot's own now is said where it went, ahead of any other word on it."""
+    from sequence_base.contract.settings import MOVED_TO_ROBOT
+
+    if key in MOVED_TO_ROBOT:
+        how = "record.retention_days=<days>" if key.endswith("retention_days") else "record=on"
+        raise InvalidRequest(f"{key} is set on each robot now, as its Record: `seq robot set <robot> {how}`")
+
+
 def policy_set(name: str, changes: dict, *, base_url: str | None = None, echo: Echo = None) -> dict:
     """Change settings of the deployment `name` at once, all of them or none: {key: value}, None putting a key back to
     what the code says. A machine key (gpu, weights, cpu, memory, replica_start) builds a new version, which takes over
     once its check passes."""
     from sequence_base.contract.settings import check
 
+    for key in changes:
+        _not_on_a_policy(key)
     try:
         body: dict = {"changes": {k: check(k, v) for k, v in changes.items()}}
     except ValueError as exc:
@@ -59,10 +70,7 @@ def policy_set(name: str, changes: dict, *, base_url: str | None = None, echo: E
     if out.get("version"):
         _say(echo, f"v{out['version']} builds with it: `seq policy status {name}` follows it")
     if out.get("notice"):
-
         _say(echo, out["notice"])
-        if body["changes"].get("capture") == "on":
-            _say(echo, "hint: seq account set --storage-limit <GB>")
     if out.get("signing_secret"):
         _say(echo, f"alerts' signing secret (shown once): {out['signing_secret']} - each alert's X-Seq-Signature is "
                    "sha256=HMAC(secret, body)")
@@ -79,6 +87,7 @@ def parse_pairs(pairs: list[str]) -> dict:
         key, eq, text = pair.partition("=")
         if not eq or not key.strip():
             raise InvalidRequest(f"write each change as KEY=VALUE, e.g. min_workers=1; got {pair!r}")
+        _not_on_a_policy(key.strip())
         try:
             out[key.strip()] = parse(key.strip(), text)
         except ValueError as exc:

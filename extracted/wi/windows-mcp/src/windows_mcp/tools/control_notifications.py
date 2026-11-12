@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -160,11 +161,18 @@ class ControlNotifier:
 
 
 class ControlToolGate(Middleware):
-    """All present and future MCP tools use the same ownership decision."""
+    """Apply one configured ownership policy at the MCP boundary."""
 
-    def __init__(self, controller: Any, notifier: ControlNotifier) -> None:
+    def __init__(
+        self,
+        controller: Any,
+        notifier: ControlNotifier,
+        ask_consent: Callable[[int], str] | None = None,
+    ) -> None:
         self.controller = controller
         self.notifier = notifier
+        # Blocking prompt returning allow, deny, timeout or error; None never asks.
+        self.ask_consent = ask_consent
         self._call_lock = asyncio.Lock()
 
     @staticmethod
@@ -200,10 +208,43 @@ class ControlToolGate(Middleware):
                     self.controller.end_call(token)
             raise
 
+    async def _request_consent(self) -> None:
+        """Ask the person before a new control period; raise unless allowed."""
+        if self.ask_consent is None or not self.controller.open_consent():
+            return
+        answer = "error"
+        try:
+            answer = await asyncio.to_thread(
+                self.ask_consent, self.controller.consent_countdown_seconds
+            )
+        except Exception:
+            logger.exception("AI control consent prompt failed")
+        finally:
+            self.controller.close_consent(answer)
+        # An ignored prompt that saw input returns timeout; begin_call reports USER_CONTROL.
+        if answer not in ("allow", "timeout"):
+            from windows_mcp.desktop.control import ControlBlocked
+
+            code = "CONTROL_DENIED" if answer == "deny" else "CONTROL_UNAVAILABLE"
+            raise self._blocked(ControlBlocked(code, self.controller.status()))
+
     async def on_call_tool(self, context: MiddlewareContext, call_next: Callable) -> Any:
         self.notifier.remember(context)
         name = context.message.name
         if name == "ControlStatus":
+            return await call_next(context)
+        if not self.controller.enabled:
+            # Explicit opt-out only: a failed enabled controller still fails closed.
+            # Keep shared desktop operations serialized, without creating a lease.
+            async with self._call_lock:
+                return await call_next(context)
+        from windows_mcp.tools.control_policy import requires_control
+
+        if not requires_control(
+            self.controller.policy, name, getattr(context.message, "arguments", None)
+        ):
+            # Background work neither waits for the desktop lock nor creates a lease.
+            # Resource-specific serialization (such as the UIA worker) still applies.
             return await call_next(context)
         # Waiting behind an already running external command must not hide a
         # user takeover. Poll ownership while waiting, then recheck under lock.
@@ -211,6 +252,8 @@ class ControlToolGate(Middleware):
 
         def reject_user_state() -> None:
             status = self.controller.status()
+            if status["state"] == "user" and self.ask_consent and self.controller.would_ask():
+                return  # Ask the person at the desk instead of refusing silently.
             if status["state"] not in ("ready", "ai"):
                 raise self._blocked(
                     ControlBlocked(
@@ -229,6 +272,7 @@ class ControlToolGate(Middleware):
             except asyncio.TimeoutError:
                 reject_user_state()
         try:
+            await self._request_consent()
             try:
                 token = await self._begin_call(name)
             except Exception as exc:
@@ -240,12 +284,17 @@ class ControlToolGate(Middleware):
             from windows_mcp.desktop.control_context import (
                 current_token,
                 current_steps,
+                current_request_closed,
                 StepCounter,
                 get_step_count,
             )
 
             context_token = current_token.set(token)
             steps_token = current_steps.set(StepCounter())
+            # A worker may outlive this await. Revoke only this request, not the
+            # shared ownership generation used by subsequent calls.
+            request_closed = threading.Event()
+            request_marker = current_request_closed.set(request_closed)
             try:
                 # A synchronous indicator failure can invalidate the lease
                 # during begin_call's state notification.
@@ -254,7 +303,16 @@ class ControlToolGate(Middleware):
             except Exception as exc:
                 from windows_mcp.desktop.control import ControlBlocked
                 from windows_mcp.desktop.control_ledger import InputUnavailable
+                from windows_mcp.infrastructure.thread_affinity import UIAWorkerBusyError
 
+                cur: BaseException | None = exc
+                while cur is not None:
+                    if isinstance(cur, UIAWorkerBusyError):
+                        release = getattr(self.controller, "release", None)
+                        if callable(release):
+                            release()
+                        break
+                    cur = cur.__cause__ or cur.__context__
                 if isinstance(exc, ControlBlocked):
                     raise self._blocked(exc) from exc
                 if isinstance(exc, InputUnavailable):
@@ -268,6 +326,8 @@ class ControlToolGate(Middleware):
                     raise self._blocked(ControlBlocked(code, status)) from exc
                 raise
             finally:
+                request_closed.set()
+                current_request_closed.reset(request_marker)
                 current_steps.reset(steps_token)
                 current_token.reset(context_token)
                 self.controller.end_call(token)

@@ -99,9 +99,11 @@ class ConnectResource:
         *,
         reconnect_account_id: str | None = None,
         oauth_app_id: str | None = None,
+        purpose: str | None = None,
         expected_platform_user_id: str | None = None,
         expected_username: str | None = None,
         force_reauth: bool | None = False,
+        allow_no_location: bool | None = False,
         redirect_url: str | None = None,
         scopes: str | None = None,
         login_hint: str | None = None,
@@ -122,9 +124,11 @@ class ConnectResource:
             profile_id=profile_id,
             reconnect_account_id=reconnect_account_id,
             oauth_app_id=oauth_app_id,
+            purpose=purpose,
             expected_platform_user_id=expected_platform_user_id,
             expected_username=expected_username,
             force_reauth=force_reauth,
+            allow_no_location=allow_no_location,
             redirect_url=redirect_url,
             scopes=scopes,
             login_hint=login_hint,
@@ -471,6 +475,7 @@ class ConnectResource:
         location_id: str | None = None,
         locations: list[dict[str, Any]] | None = None,
         account_id: str | None = None,
+        google_account_id: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
         """Select Google Business Profile location"""
@@ -479,11 +484,32 @@ class ConnectResource:
             location_id=location_id,
             locations=locations,
             account_id=account_id,
+            google_account_id=google_account_id,
             pending_data_token=pending_data_token,
             redirect_url=redirect_url,
         )
         return self._client._post(
             "/v1/connect/googlebusiness/select-location", data=payload
+        )
+
+    def list_google_business_categories(
+        self,
+        account_id: str,
+        region_code: str,
+        language_code: str,
+        *,
+        query: str | None = None,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List Google Business Profile categories"""
+        params = self._build_params(
+            region_code=region_code,
+            language_code=language_code,
+            query=query,
+            page_token=page_token,
+        )
+        return self._client._get(
+            f"/v1/accounts/{account_id}/gmb-categories", params=params
         )
 
     def get_connect_handoff(self, handoff_id: str) -> dict[str, Any]:
@@ -893,6 +919,7 @@ class ConnectResource:
         account_id: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
+        purpose: str | None = None,
     ) -> dict[str, Any]:
         """List Slack channels for the channel picker"""
         params = self._build_params(
@@ -901,6 +928,7 @@ class ConnectResource:
             account_id=account_id,
             redirect_url=redirect_url,
             scopes=scopes,
+            purpose=purpose,
         )
         return self._client._get("/v1/connect/slack", params=params)
 
@@ -925,20 +953,64 @@ class ConnectResource:
         )
         return self._client._post("/v1/connect/slack", data=payload)
 
-    def get_telegram_connect_status(self, profile_id: str) -> dict[str, Any]:
+    def connect_line_credentials(
+        self,
+        channel_id: str,
+        channel_secret: str,
+        state: str,
+        *,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect LINE Official Account"""
+        payload = self._build_payload(
+            channel_id=channel_id,
+            channel_secret=channel_secret,
+            state=state,
+            redirect_url=redirect_url,
+        )
+        return self._client._post("/v1/connect/line/credentials", data=payload)
+
+    def connect_wechat_credentials(
+        self,
+        app_id: str,
+        app_secret: str,
+        state: str,
+        *,
+        display_name: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect WeChat Official Account"""
+        payload = self._build_payload(
+            app_id=app_id,
+            app_secret=app_secret,
+            state=state,
+            display_name=display_name,
+            redirect_url=redirect_url,
+        )
+        return self._client._post("/v1/connect/wechat/credentials", data=payload)
+
+    def get_wechat_ip_whitelist(self) -> dict[str, Any]:
+        """Get WeChat IP whitelist"""
+        return self._client._get("/v1/connect/wechat/ip-whitelist")
+
+    def get_telegram_connect_status(
+        self, profile_id: str, *, purpose: str | None = None
+    ) -> dict[str, Any]:
         """Generate Telegram code"""
         params = self._build_params(
             profile_id=profile_id,
+            purpose=purpose,
         )
         return self._client._get("/v1/connect/telegram", params=params)
 
     def initiate_telegram_connect(
-        self, chat_id: str, profile_id: str
+        self, chat_id: str, profile_id: str, *, purpose: str | None = None
     ) -> dict[str, Any]:
         """Connect Telegram directly"""
         payload = self._build_payload(
             chat_id=chat_id,
             profile_id=profile_id,
+            purpose=purpose,
         )
         return self._client._post("/v1/connect/telegram", data=payload)
 
@@ -1127,6 +1199,62 @@ class ConnectResource:
         )
         return self._client._put(
             f"/v1/accounts/{account_id}/gmb-locations", data=payload
+        )
+
+    def create_google_business_location(
+        self,
+        account_id: str,
+        title: str,
+        language_code: str,
+        primary_category: str,
+        *,
+        idempotency_key: str | None = None,
+        additional_categories: list[str] | None = None,
+        storefront_address: dict[str, Any] | None = None,
+        service_area: dict[str, Any] | None = None,
+        phone: str | None = None,
+        website_uri: str | None = None,
+        description: str | None = None,
+        regular_hours: dict[str, Any] | None = None,
+        validate_only: bool | None = None,
+    ) -> dict[str, Any]:
+        """Create Google Business Profile location"""
+        payload = self._build_payload(
+            title=title,
+            language_code=language_code,
+            primary_category=primary_category,
+            additional_categories=additional_categories,
+            storefront_address=storefront_address,
+            service_area=service_area,
+            phone=phone,
+            website_uri=website_uri,
+            description=description,
+            regular_hours=regular_hours,
+            validate_only=validate_only,
+        )
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return self._client._post(
+            f"/v1/accounts/{account_id}/gmb-locations", data=payload, headers=headers
+        )
+
+    def search_google_business_locations(
+        self,
+        account_id: str,
+        *,
+        query: str | None = None,
+        location: dict[str, Any] | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        """Search existing Google listings"""
+        payload = self._build_payload(
+            query=query,
+            location=location,
+            page_size=page_size,
+        )
+        return self._client._post(
+            f"/v1/accounts/{account_id}/gmb-locations/search", data=payload
         )
 
     def assign_google_business_location(
@@ -1342,9 +1470,11 @@ class ConnectResource:
         *,
         reconnect_account_id: str | None = None,
         oauth_app_id: str | None = None,
+        purpose: str | None = None,
         expected_platform_user_id: str | None = None,
         expected_username: str | None = None,
         force_reauth: bool | None = False,
+        allow_no_location: bool | None = False,
         redirect_url: str | None = None,
         scopes: str | None = None,
         login_hint: str | None = None,
@@ -1365,9 +1495,11 @@ class ConnectResource:
             profile_id=profile_id,
             reconnect_account_id=reconnect_account_id,
             oauth_app_id=oauth_app_id,
+            purpose=purpose,
             expected_platform_user_id=expected_platform_user_id,
             expected_username=expected_username,
             force_reauth=force_reauth,
+            allow_no_location=allow_no_location,
             redirect_url=redirect_url,
             scopes=scopes,
             login_hint=login_hint,
@@ -1718,6 +1850,7 @@ class ConnectResource:
         location_id: str | None = None,
         locations: list[dict[str, Any]] | None = None,
         account_id: str | None = None,
+        google_account_id: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
         """Select Google Business Profile location (async)"""
@@ -1726,11 +1859,32 @@ class ConnectResource:
             location_id=location_id,
             locations=locations,
             account_id=account_id,
+            google_account_id=google_account_id,
             pending_data_token=pending_data_token,
             redirect_url=redirect_url,
         )
         return await self._client._apost(
             "/v1/connect/googlebusiness/select-location", data=payload
+        )
+
+    async def alist_google_business_categories(
+        self,
+        account_id: str,
+        region_code: str,
+        language_code: str,
+        *,
+        query: str | None = None,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
+        """List Google Business Profile categories (async)"""
+        params = self._build_params(
+            region_code=region_code,
+            language_code=language_code,
+            query=query,
+            page_token=page_token,
+        )
+        return await self._client._aget(
+            f"/v1/accounts/{account_id}/gmb-categories", params=params
         )
 
     async def aget_connect_handoff(self, handoff_id: str) -> dict[str, Any]:
@@ -2160,6 +2314,7 @@ class ConnectResource:
         account_id: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
+        purpose: str | None = None,
     ) -> dict[str, Any]:
         """List Slack channels for the channel picker (async)"""
         params = self._build_params(
@@ -2168,6 +2323,7 @@ class ConnectResource:
             account_id=account_id,
             redirect_url=redirect_url,
             scopes=scopes,
+            purpose=purpose,
         )
         return await self._client._aget("/v1/connect/slack", params=params)
 
@@ -2192,20 +2348,64 @@ class ConnectResource:
         )
         return await self._client._apost("/v1/connect/slack", data=payload)
 
-    async def aget_telegram_connect_status(self, profile_id: str) -> dict[str, Any]:
+    async def aconnect_line_credentials(
+        self,
+        channel_id: str,
+        channel_secret: str,
+        state: str,
+        *,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect LINE Official Account (async)"""
+        payload = self._build_payload(
+            channel_id=channel_id,
+            channel_secret=channel_secret,
+            state=state,
+            redirect_url=redirect_url,
+        )
+        return await self._client._apost("/v1/connect/line/credentials", data=payload)
+
+    async def aconnect_wechat_credentials(
+        self,
+        app_id: str,
+        app_secret: str,
+        state: str,
+        *,
+        display_name: str | None = None,
+        redirect_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Connect WeChat Official Account (async)"""
+        payload = self._build_payload(
+            app_id=app_id,
+            app_secret=app_secret,
+            state=state,
+            display_name=display_name,
+            redirect_url=redirect_url,
+        )
+        return await self._client._apost("/v1/connect/wechat/credentials", data=payload)
+
+    async def aget_wechat_ip_whitelist(self) -> dict[str, Any]:
+        """Get WeChat IP whitelist (async)"""
+        return await self._client._aget("/v1/connect/wechat/ip-whitelist")
+
+    async def aget_telegram_connect_status(
+        self, profile_id: str, *, purpose: str | None = None
+    ) -> dict[str, Any]:
         """Generate Telegram code (async)"""
         params = self._build_params(
             profile_id=profile_id,
+            purpose=purpose,
         )
         return await self._client._aget("/v1/connect/telegram", params=params)
 
     async def ainitiate_telegram_connect(
-        self, chat_id: str, profile_id: str
+        self, chat_id: str, profile_id: str, *, purpose: str | None = None
     ) -> dict[str, Any]:
         """Connect Telegram directly (async)"""
         payload = self._build_payload(
             chat_id=chat_id,
             profile_id=profile_id,
+            purpose=purpose,
         )
         return await self._client._apost("/v1/connect/telegram", data=payload)
 
@@ -2402,6 +2602,62 @@ class ConnectResource:
         )
         return await self._client._aput(
             f"/v1/accounts/{account_id}/gmb-locations", data=payload
+        )
+
+    async def acreate_google_business_location(
+        self,
+        account_id: str,
+        title: str,
+        language_code: str,
+        primary_category: str,
+        *,
+        idempotency_key: str | None = None,
+        additional_categories: list[str] | None = None,
+        storefront_address: dict[str, Any] | None = None,
+        service_area: dict[str, Any] | None = None,
+        phone: str | None = None,
+        website_uri: str | None = None,
+        description: str | None = None,
+        regular_hours: dict[str, Any] | None = None,
+        validate_only: bool | None = None,
+    ) -> dict[str, Any]:
+        """Create Google Business Profile location (async)"""
+        payload = self._build_payload(
+            title=title,
+            language_code=language_code,
+            primary_category=primary_category,
+            additional_categories=additional_categories,
+            storefront_address=storefront_address,
+            service_area=service_area,
+            phone=phone,
+            website_uri=website_uri,
+            description=description,
+            regular_hours=regular_hours,
+            validate_only=validate_only,
+        )
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return await self._client._apost(
+            f"/v1/accounts/{account_id}/gmb-locations", data=payload, headers=headers
+        )
+
+    async def asearch_google_business_locations(
+        self,
+        account_id: str,
+        *,
+        query: str | None = None,
+        location: dict[str, Any] | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        """Search existing Google listings (async)"""
+        payload = self._build_payload(
+            query=query,
+            location=location,
+            page_size=page_size,
+        )
+        return await self._client._apost(
+            f"/v1/accounts/{account_id}/gmb-locations/search", data=payload
         )
 
     async def aassign_google_business_location(

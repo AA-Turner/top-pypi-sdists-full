@@ -12,6 +12,9 @@ __all__ = [
     "BackupModel",
     "BackupModelBackupModelChoice",
     "GeneralTool",
+    "GeneralToolEscalateChatTool",
+    "GeneralToolEscalateChatToolDestination",
+    "GeneralToolEscalateChatToolDestinationDestination",
     "GeneralToolEndCallTool",
     "GeneralToolTransferCallTool",
     "GeneralToolTransferCallToolTransferDestination",
@@ -81,6 +84,9 @@ __all__ = [
     "StateEdge",
     "StateEdgeParameters",
     "StateTool",
+    "StateToolEscalateChatTool",
+    "StateToolEscalateChatToolDestination",
+    "StateToolEscalateChatToolDestinationDestination",
     "StateToolEndCallTool",
     "StateToolTransferCallTool",
     "StateToolTransferCallToolTransferDestination",
@@ -160,6 +166,7 @@ class BackupModelBackupModelChoice(BaseModel):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -174,6 +181,7 @@ class BackupModelBackupModelChoice(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """The LLM model to use"""
@@ -200,6 +208,45 @@ class BackupModelBackupModelChoice(BaseModel):
 
 
 BackupModel: TypeAlias = Union[BackupModelBackupModelChoice, Optional[object]]
+
+
+class GeneralToolEscalateChatToolDestinationDestination(BaseModel):
+    method: Literal["POST", "PUT"]
+
+    url: str
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Optional[Dict[str, object]] = None
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Optional[Dict[str, str]] = None
+
+    max_retry: Optional[int] = None
+
+    query_params: Optional[Dict[str, str]] = None
+
+    timeout_ms: Optional[int] = None
+
+
+class GeneralToolEscalateChatToolDestination(BaseModel):
+    destination: GeneralToolEscalateChatToolDestinationDestination
+
+    type: Literal["webhook"]
+
+
+class GeneralToolEscalateChatTool(BaseModel):
+    destination: GeneralToolEscalateChatToolDestination
+
+    name: str
+
+    type: Literal["escalate_chat"]
+
+    description: Optional[str] = None
 
 
 class GeneralToolEndCallTool(BaseModel):
@@ -1501,6 +1548,7 @@ class GeneralToolAppTool(BaseModel):
 
 
 GeneralTool: TypeAlias = Union[
+    GeneralToolEscalateChatTool,
     GeneralToolEndCallTool,
     GeneralToolTransferCallTool,
     GeneralToolAgentSwapTool,
@@ -1570,6 +1618,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(BaseModel):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -1584,6 +1633,7 @@ class ModelConfigCascadingModelConfigBackupBackupModelRef(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """Available LLM models for agents."""
@@ -1629,6 +1679,7 @@ class ModelConfigCascadingModelConfigPrimary(BaseModel):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -1643,6 +1694,7 @@ class ModelConfigCascadingModelConfigPrimary(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """Available LLM models for agents."""
@@ -1724,6 +1776,7 @@ class ModelConfigDuplexModelConfigBackend(BaseModel):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -1738,6 +1791,7 @@ class ModelConfigDuplexModelConfigBackend(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """Available LLM models for agents."""
@@ -1777,6 +1831,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(BaseModel):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -1791,6 +1846,7 @@ class ModelConfigDuplexModelConfigBackupBackupModelRef(BaseModel):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """Available LLM models for agents."""
@@ -1900,6 +1956,45 @@ class StateEdge(BaseModel):
     [JSON Schema reference](https://json-schema.org/understanding-json-schema/) for
     documentation about the format.
     """
+
+
+class StateToolEscalateChatToolDestinationDestination(BaseModel):
+    method: Literal["POST", "PUT"]
+
+    url: str
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Optional[Dict[str, object]] = None
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Optional[Dict[str, str]] = None
+
+    max_retry: Optional[int] = None
+
+    query_params: Optional[Dict[str, str]] = None
+
+    timeout_ms: Optional[int] = None
+
+
+class StateToolEscalateChatToolDestination(BaseModel):
+    destination: StateToolEscalateChatToolDestinationDestination
+
+    type: Literal["webhook"]
+
+
+class StateToolEscalateChatTool(BaseModel):
+    destination: StateToolEscalateChatToolDestination
+
+    name: str
+
+    type: Literal["escalate_chat"]
+
+    description: Optional[str] = None
 
 
 class StateToolEndCallTool(BaseModel):
@@ -3199,6 +3294,7 @@ class StateToolAppTool(BaseModel):
 
 
 StateTool: TypeAlias = Union[
+    StateToolEscalateChatTool,
     StateToolEndCallTool,
     StateToolTransferCallTool,
     StateToolAgentSwapTool,
@@ -3335,6 +3431,7 @@ class LlmResponse(BaseModel):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -3349,6 +3446,7 @@ class LlmResponse(BaseModel):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ] = None

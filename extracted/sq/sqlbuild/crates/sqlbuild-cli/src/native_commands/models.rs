@@ -200,21 +200,37 @@ pub(crate) struct LocationMetadataSync {
     pub(crate) reconcile_at: tokio::time::Instant,
     pub(crate) reconcile_seconds: u32,
     pub(crate) limit: usize,
+    /// Survives a failed statistics read's rewind through catalog, which resets `limit`.
+    pub(crate) statistics_limit: usize,
     pub(crate) pending: Option<LocationMetadataPage>,
     pub(crate) next_at: tokio::time::Instant,
+    /// Between synchronizations; the warehouse is read again only after a run ends.
+    pub(crate) idle: bool,
+    /// Server time when the current or last synchronization began; `None` before the first.
+    pub(crate) cycle_started_at: Option<DateTime<Utc>>,
 }
 
 impl LocationMetadataSync {
+    /// A person asked for a sync: start one now when idle, or one more after the current one.
+    pub(crate) fn request_sync(&mut self) {
+        self.cycle_started_at = None;
+        if self.idle {
+            self.next_at = tokio::time::Instant::now();
+        }
+    }
+
     /// Failed samples revisit catalog before retrying; no frozen delivery is discarded.
     pub(crate) fn retry_read(&mut self) {
-        self.limit = (self.limit / 2).max(1);
         self.statistics = None;
         if self.kind() == WarehouseHistoryKind::Statistics {
+            self.statistics_limit = (self.statistics_limit / 2).max(1);
             self.index -= 1;
             self.source_after = None;
             self.scan_id = Uuid::now_v7();
             self.observed_since = None;
             self.watermark_loaded = false;
+        } else {
+            self.limit = (self.limit / 2).max(1);
         }
         self.next_at = tokio::time::Instant::now()
             + std::time::Duration::from_secs(super::constants::METADATA_POLL_SECONDS);

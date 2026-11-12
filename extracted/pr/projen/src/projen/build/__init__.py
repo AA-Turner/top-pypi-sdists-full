@@ -269,6 +269,7 @@ class BuildWorkflow(
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_build_options: typing.Optional[typing.Union["MutableBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_install: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -286,7 +287,8 @@ class BuildWorkflow(
         :param build_runs_on: (experimental) Github Runner selection labels. Default: - runsOn
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
-        :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
+        :param mutable_build: (experimental) Automatically push files modified during builds to pull request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. A build that modifies files still fails. A separate ``self-mutation`` workflow then pushes the changes to the pull request branch using the projen credentials, which starts a new build. Default: true
+        :param mutable_build_options: (experimental) Options for pushing files modified during builds back to pull request branches. Only used if ``mutableBuild`` is enabled. Default: - default options
         :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
@@ -309,6 +311,7 @@ class BuildWorkflow(
             container_image=container_image,
             git_identity=git_identity,
             mutable_build=mutable_build,
+            mutable_build_options=mutable_build_options,
             mutable_install=mutable_install,
             post_build_steps=post_build_steps,
             runs_on=runs_on,
@@ -654,6 +657,7 @@ class BuildWorkflowCommonOptions:
         "container_image": "containerImage",
         "git_identity": "gitIdentity",
         "mutable_build": "mutableBuild",
+        "mutable_build_options": "mutableBuildOptions",
         "mutable_install": "mutableInstall",
         "post_build_steps": "postBuildSteps",
         "runs_on": "runsOn",
@@ -675,6 +679,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_github_c49f935d.GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_build_options: typing.Optional[typing.Union["MutableBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_install: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -691,7 +696,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :param build_runs_on: (experimental) Github Runner selection labels. Default: - runsOn
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
-        :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
+        :param mutable_build: (experimental) Automatically push files modified during builds to pull request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. A build that modifies files still fails. A separate ``self-mutation`` workflow then pushes the changes to the pull request branch using the projen credentials, which starts a new build. Default: true
+        :param mutable_build_options: (experimental) Options for pushing files modified during builds back to pull request branches. Only used if ``mutableBuild`` is enabled. Default: - default options
         :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
@@ -705,6 +711,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             workflow_triggers = _workflows_2b7f1587.Triggers(**workflow_triggers)
         if isinstance(git_identity, dict):
             git_identity = _github_c49f935d.GitIdentity(**git_identity)
+        if isinstance(mutable_build_options, dict):
+            mutable_build_options = MutableBuildOptions(**mutable_build_options)
         if isinstance(runs_on_group, dict):
             runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
@@ -720,6 +728,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             check_type(argname="argument container_image", value=container_image, expected_type=type_hints["container_image"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
+            check_type(argname="argument mutable_build_options", value=mutable_build_options, expected_type=type_hints["mutable_build_options"])
             check_type(argname="argument mutable_install", value=mutable_install, expected_type=type_hints["mutable_install"])
             check_type(argname="argument post_build_steps", value=post_build_steps, expected_type=type_hints["post_build_steps"])
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
@@ -747,6 +756,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             self._values["git_identity"] = git_identity
         if mutable_build is not None:
             self._values["mutable_build"] = mutable_build
+        if mutable_build_options is not None:
+            self._values["mutable_build_options"] = mutable_build_options
         if mutable_install is not None:
             self._values["mutable_install"] = mutable_install
         if post_build_steps is not None:
@@ -871,16 +882,14 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically update files modified during builds to pull-request branches.
+        '''(experimental) Automatically push files modified during builds to pull request branches.
 
         This means that any files synthesized by projen or e.g. test snapshots will
         always be up-to-date before a PR is merged.
 
-        Implies that PR builds do not have anti-tamper checks.
-
-        This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it
-        is disabled, which implies that file changes that happen during build will
-        not be pushed back to the branch.
+        A build that modifies files still fails. A separate ``self-mutation``
+        workflow then pushes the changes to the pull request branch using the
+        projen credentials, which starts a new build.
 
         :default: true
 
@@ -888,6 +897,19 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         '''
         result = self._values.get("mutable_build")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def mutable_build_options(self) -> typing.Optional["MutableBuildOptions"]:
+        '''(experimental) Options for pushing files modified during builds back to pull request branches.
+
+        Only used if ``mutableBuild`` is enabled.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("mutable_build_options")
+        return typing.cast(typing.Optional["MutableBuildOptions"], result)
 
     @builtins.property
     def mutable_install(self) -> typing.Optional[builtins.bool]:
@@ -954,12 +976,69 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.build.MutableBuildOptions",
+    jsii_struct_bases=[],
+    name_mapping={"allow_from_forks": "allowFromForks"},
+)
+class MutableBuildOptions:
+    def __init__(
+        self,
+        *,
+        allow_from_forks: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options for pushing files modified during builds back to pull request branches.
+
+        :param allow_from_forks: (experimental) Also push changes back to pull requests from forks. The changes are produced by the fork's build and pushed to the fork's branch using the projen credentials. This requires the pull request to allow edits from maintainers and credentials that can push to the fork. The fork author controls the content of these commits, which can change any file. Review them like the rest of the pull request, even though they are authored by the automation user. Their builds also run without the approval GitHub requires for workflow runs from first-time contributors. Default: false
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b2ef6e9070bc9c0e715181475b0e35f724cdf6db5293ec58c886b0837afe1c0)
+            check_type(argname="argument allow_from_forks", value=allow_from_forks, expected_type=type_hints["allow_from_forks"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allow_from_forks is not None:
+            self._values["allow_from_forks"] = allow_from_forks
+
+    @builtins.property
+    def allow_from_forks(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Also push changes back to pull requests from forks.
+
+        The changes are produced by the fork's build and pushed to the fork's
+        branch using the projen credentials. This requires the pull request to
+        allow edits from maintainers and credentials that can push to the fork.
+
+        The fork author controls the content of these commits, which can change
+        any file. Review them like the rest of the pull request, even though they
+        are authored by the automation user. Their builds also run without the
+        approval GitHub requires for workflow runs from first-time contributors.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_from_forks")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MutableBuildOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AddPostBuildJobCommandsOptions",
     "AddPostBuildJobTaskOptions",
     "BuildWorkflow",
     "BuildWorkflowCommonOptions",
     "BuildWorkflowOptions",
+    "MutableBuildOptions",
 ]
 
 publication.publish()
@@ -993,6 +1072,7 @@ def _typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff4
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_build_options: typing.Optional[typing.Union[MutableBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_install: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1084,10 +1164,18 @@ def _typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a1488562
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_github_c49f935d.GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_build_options: typing.Optional[typing.Union[MutableBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_install: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b2ef6e9070bc9c0e715181475b0e35f724cdf6db5293ec58c886b0837afe1c0(
+    *,
+    allow_from_forks: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

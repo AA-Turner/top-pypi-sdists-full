@@ -1,6 +1,7 @@
 """The inbox's side of the transcript watcher: what it reads and records in the database."""
 
 import functools
+import sqlite3
 import time
 import typing as ty
 from collections import abc
@@ -10,13 +11,17 @@ from ....audit import events
 from ....brief import attached
 from ....claude import live_sessions
 from ....config import Config
+from ....hooks import end_reports
 from ....lemon_watchers import ModelInfo, start_unified_watcher, tty_processes, watcher
+from ....restore import auto, front_ends, loss, readiness
 from ....watch import codex_waiter
-from ... import db, teardown_evidence
+from ... import db, ended, teardown_evidence
 from ..rows import brief_cards
 
 _ActiveRow = tuple[str, str, str, float, bool, str | None, str, str | None]
 _SessionOrder = tuple[int, int, int]  # tmux.navigation.SessionOrder, without importing tmux
+_LOSS_SECONDS = 30.0  # between checks for lemons lost with their terminal server
+_READY_SECONDS = 60.0  # between checks of which running lemons a restore would miss
 
 
 def active_sessions() -> list[_ActiveRow]:
@@ -24,6 +29,8 @@ def active_sessions() -> list[_ActiveRow]:
 
     Stale cleanup archives dead sessions regardless of where they can be switched from.
     Each is (channel, session_id, cwd, created_at, is_unread, tty, message, switch_source).
+    A lemon lost with its terminal server, or whose harness crashed, is left out: nothing
+    about its pane or tty says anything about it now, and restore needs its row as it is.
     """
     with db.connect() as conn:
         notifications = db.get_active(conn, switch_source=None)
@@ -40,7 +47,9 @@ def active_sessions() -> list[_ActiveRow]:
             n.switch_source,
         )
         for n in notifications
-        if n.metadata.get("session_id") and n.metadata.get("cwd")
+        if n.metadata.get("session_id")
+        and n.metadata.get("cwd")
+        and not ended.revivable(n.metadata)
     ]
 
 
@@ -181,10 +190,54 @@ def record_channel_context(channel: str, used: int, window: int) -> None:
         db.record_context(conn, channel, used, window)
 
 
+# The watcher's archive reasons, by the end cause each records.
+_CAUSES = {
+    "pane-gone": ended.PANE_CLOSED,
+    "process-exited": ended.PROCESS_EXITED,
+    "no-codex-in-cwd": ended.PROCESS_EXITED,
+    "replaced-on-tty": ended.REPLACED,
+}
+
+
+def _crashed(conn: sqlite3.Connection, row: db.Notification | None, why: str) -> bool:
+    """Whether the newest lemon on its tty stopped while its pane lives, without the quit
+    report its harness gives (only a harness that reports quits counts)."""
+    return (
+        row is not None
+        and why.split(" ", 1)[0] == "process-exited"
+        and not ended.reported(row.metadata)
+        and not db.newer_on_tty(conn, row)
+        and end_reports.reported(row.channel.partition(":")[0], row.metadata.get("cwd") or "")
+    )
+
+
 def archive_channel(channel: str, why: str) -> None:
-    """Archive all notifications for a channel whose session exited, and audit it."""
+    """Archive all notifications for a channel whose session exited, and audit it.
+
+    A lemon whose server is gone is marked lost instead, and one whose harness crashed
+    is marked crashed. A harness that reported its own end (`exit_reason`) ended by the
+    user's hand, whatever the watcher then saw.
+    """
     with db.connect() as conn:
-        db.archive_channel(conn, channel, "watcher-stale-session")
+        row = db.get_by_channel(conn, channel, unread_only=False)
+        gone = loss.gone_with_server(conn, row, by="inbox watcher") if row is not None else ""
+        if gone == ended.SERVER_LOST:
+            events.record("inbox-lost", channel, row.metadata.get("tty", ""), by="inbox watcher")
+            return
+
+        if gone:
+            events.record("inbox-archive", channel, why, by="inbox watcher")
+            return
+
+        if _crashed(conn, row, why):
+            db.mark_crashed(conn, channel, "inbox watcher", why)
+            events.record("inbox-crashed", channel, why, by="inbox watcher")
+            return
+
+        cause = (row is not None and ended.reported(row.metadata)) or _CAUSES.get(
+            why.split(" ", 1)[0], ended.PROCESS_EXITED
+        )
+        db.archive_channel(conn, channel, why, cause=cause, by="inbox watcher")
     events.record("inbox-archive", channel, why, by="inbox watcher")
 
 
@@ -194,6 +247,9 @@ def start(
     detached_channels: abc.Callable[[set[str]], None],
 ) -> None:
     last_repair: float | None = None
+    last_loss: float | None = None  # the first pass looks for lemons lost before the inbox started
+    last_ready: float | None = None  # the first check waits for locations to be recorded
+    was_up = True  # whether a terminal to restore into ran at the last loss check
     harness_ttys = tty_processes.Reused(
         lambda args: any(
             watcher.is_harness(args, name) for name in ("claude", "codex", "openclaw", "opencode")
@@ -201,7 +257,7 @@ def start(
     )
 
     def active() -> list[tuple]:
-        nonlocal last_repair
+        nonlocal last_repair, last_loss, last_ready, was_up
         now = time.monotonic()
         if last_repair is None or now - last_repair >= 10:
             last_repair = now
@@ -216,6 +272,25 @@ def start(
                             for thread, matches in locations.items()
                         },
                     )
+        if last_loss is None or now - last_loss >= _LOSS_SECONDS:
+            first = last_loss is None
+            last_loss = now
+            up = any(terminal.up() for terminal in front_ends.restorers())
+            came_up, was_up = up and not was_up, up
+            with db.connect() as conn:
+                newly = loss.mark(conn, by="inbox watcher")
+                for row in newly:
+                    events.record(
+                        "inbox-lost", row.channel, row.metadata.get("tty", ""), by="inbox watcher"
+                    )
+                if auto.due(conn, config.restore.auto, bool(newly) or first or came_up):
+                    auto.trigger()
+        if last_ready is None:
+            last_ready = now
+        elif now - last_ready >= _READY_SECONDS:
+            last_ready = now
+            with db.connect() as conn:
+                readiness.check(conn, config)
         return active_sessions()
 
     start_unified_watcher(

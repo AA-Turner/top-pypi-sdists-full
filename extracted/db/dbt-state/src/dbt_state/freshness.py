@@ -53,6 +53,32 @@ class Freshness:
 
         return target_table_type, last_modified_epoch
 
+    @property
+    def uses_heuristic_clock_for_last_modified(self) -> bool:
+        """Whether last-modified lookups currently use the engine heuristic clock."""
+        return self._use_heuristic_clock_for_last_modified
+
+    def get_target_actual_last_modified_epochs(
+        self, nodes: t.Sequence[ModelOrSnapshotOrTestOrSeedNode]
+    ) -> t.Dict[str, t.Optional[int]]:
+        """Read the real warehouse last-modified epochs of the nodes' tables, bypassing the heuristic clock.
+
+        Issues a single batched lookup, since metadata queries are slow on heuristic-clock engines.
+
+        returns:
+            A dict of node unique_id -> real last-modified epoch (None if unavailable).
+        """
+        if not nodes:
+            return {}
+        tables = [self._node_resolution.node_to_table(node) for node in nodes]
+        # drop values cached by get_heuristic_last_modified_epoch so the warehouse is queried
+        self._adapter_ext.clear_cache(tables)
+        epochs = self._adapter_ext.get_last_modified_epoch(tables)
+        result: t.Dict[str, t.Optional[int]] = {}
+        for node, table in zip(nodes, tables):
+            result[node.unique_id] = epochs.get(self._node_resolution.sql(table))
+        return result
+
     def node_table_type(self, node: ModelOrSnapshotOrTestOrSeedNode) -> t.Optional[str]:
         # note: get_relation() only returns a relation for relations that exist
         # it's intended that the table type is determined *after* dbt has created the tables, not before

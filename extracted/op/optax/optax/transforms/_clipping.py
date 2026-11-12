@@ -40,6 +40,7 @@ def clip(max_delta: jax.typing.ArrayLike) -> base.GradientTransformation:
 
   def update_fn(updates, state, params=None):
     del params
+    # pyrefly: ignore[unsupported-operation]
     return optax.tree.clip(updates, -max_delta, max_delta), state
 
   return base.GradientTransformation(base.init_empty_state, update_fn)
@@ -93,13 +94,16 @@ def clip_by_global_norm(
 
   def update_fn(updates, state, params=None):
     del params
-    g_norm = optax.tree.norm(updates)
+    g_norm_squared = optax.tree.norm(updates, squared=True)
+    g_norm = jnp.sqrt(g_norm_squared)
     # TODO(b/163995078): revert back to the following (faster) implementation
     # once analyzed how it affects backprop through update (e.g. meta-gradients)
     # g_norm = jnp.maximum(max_norm, g_norm)
     # updates = jax.tree.map(lambda t: (t / g_norm) * max_norm, updates)
     trigger = jnp.squeeze(g_norm < max_norm)
     utils.check_rank(trigger, 0)  # A scalar.
+    # Mask before sqrt and division to keep the unused clip branch's VJP finite.
+    g_norm = jnp.sqrt(jnp.where(trigger, 1.0, g_norm_squared))
 
     def clip_fn(t):
       return jax.lax.select(trigger, t, (t / g_norm.astype(t.dtype)) * max_norm)
@@ -280,18 +284,21 @@ def unitwise_norm(
   # Note that this assumes parameters with a shape of length 3 are multihead
   # linear parameters--if you wish to apply AGC to 1D convs, you may need
   # to modify this line.
-  elif x.ndim in (2, 3):  # Linear layers of shape IO or multihead linear  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  # pyrefly: ignore [missing-attribute]
+  elif x.ndim in (2, 3):  # Linear layers of shape IO or multihead linear
     squared_norm = jnp.sum(numerics.abs_sq(x), axis=0, keepdims=True)
-  elif x.ndim == 4:  # Conv kernels of shape HWIO  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  elif x.ndim == 4:  # Conv kernels of shape HWIO
     squared_norm = jnp.sum(numerics.abs_sq(x), axis=(0, 1, 2), keepdims=True)
-  elif x.ndim == 5:  # Conv3D kernels of shape DHWIO  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  elif x.ndim == 5:  # Conv3D kernels of shape DHWIO
     squared_norm = jnp.sum(numerics.abs_sq(x), axis=(0, 1, 2, 3), keepdims=True)
   else:
     raise ValueError(
-        f"Expected parameter with shape in {1, 2, 3, 4, 5}, got {x.shape}. "  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+        # pyrefly: ignore [missing-attribute]
+        f"Expected parameter with shape in {1, 2, 3, 4, 5}, got {x.shape}. "
         "Use axis parameter to specify reduction axes for other shapes."
     )
-  return jnp.broadcast_to(jnp.sqrt(squared_norm), x.shape)  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  # pyrefly: ignore [missing-attribute]
+  return jnp.broadcast_to(jnp.sqrt(squared_norm), x.shape)
 
 
 def unitwise_clip(
@@ -306,6 +313,7 @@ def unitwise_clip(
   clipped_grad = grad * (max_norm / jnp.maximum(g_norm, div_eps))
   utils.check_shapes_equal(g_norm, max_norm)
   utils.check_shapes_equal(g_norm, grad)
+  # pyrefly: ignore[unsupported-operation]
   return jnp.where(g_norm < max_norm, grad, clipped_grad)
 
 
@@ -343,4 +351,5 @@ def adaptive_grad_clip(
     updates = jax.tree.map(unitwise_clip, g_norm, max_norm, updates)
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(base.init_empty_state, update_fn)

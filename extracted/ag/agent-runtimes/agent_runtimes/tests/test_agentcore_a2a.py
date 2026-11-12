@@ -41,13 +41,25 @@ URL = (
 )
 
 
+#: The ai-inference token each model call of a seat's task found.
+CALLED_WITH: list[Any] = []
+
+
+def _called_with() -> None:
+    from agent_runtimes.models.offered import inference_token
+
+    CALLED_WITH.append(inference_token())
+
+
 def answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     """Answer the seat's task."""
+    _called_with()
     return ModelResponse(parts=[TextPart("The seat did the task.")])
 
 
 async def streamed(messages: list[ModelMessage], info: AgentInfo) -> AsyncIterator[str]:
     """Stream the seat's answer, as the A2A worker asks it."""
+    _called_with()
     yield "The seat "
     yield "did the task."
 
@@ -205,6 +217,7 @@ async def test_a_seat_answers_a_task_routed_by_agentcore_on_the_runs_session(
 ) -> None:
     from agent_runtimes.agentcore.contract import SESSION_HEADER
     from agent_runtimes.agentcore.session_ids import session_uid_to_agentcore
+    from agent_runtimes.models.offered import forget_context_inference_tokens
 
     iam = FakeIAM()
     exchange.use_exchange(
@@ -214,6 +227,8 @@ async def test_a_seat_answers_a_task_routed_by_agentcore_on_the_runs_session(
             client=lambda: httpx.AsyncClient(transport=httpx.MockTransport(iam)),
         )
     )
+    forget_context_inference_tokens()
+    CALLED_WITH.clear()
     seat.register_seat({"AGENTCORE_RUNTIME_URL": URL})
     served = a2a_routes._a2a_agents[AGENT_ID].app
     # As AgentCore calls the container: the bearer its authorizer validated,
@@ -263,6 +278,9 @@ async def test_a_seat_answers_a_task_routed_by_agentcore_on_the_runs_session(
     assert {form["subject_token"] for form in iam.asked} == {"rs256-for-marketer"}
     assert refused.status_code == 400
     assert "a seat's A2A context is its session" in refused.json()["detail"]
+    # The task ran in the A2A worker, apart from the request, and its model
+    # calls held the caller's exchanged ai-inference token all the same.
+    assert CALLED_WITH and set(CALLED_WITH) == {"inference-of-rs256-for-marketer"}
 
 
 def test_a_call_naming_no_datalayer_session_is_refused() -> None:
@@ -322,3 +340,86 @@ def seat_settings_serves() -> bool:
     from agent_runtimes.agentcore.settings import serves_seat
 
     return serves_seat()
+
+
+@pytest.mark.asyncio
+async def test_a_team_seat_on_agentcore_records_its_task_as_a_turn_of_a_seat_session(
+    configured: None, tmp_path: Any
+) -> None:
+    """The seat's card declares the orchestration extension, so the control
+    plane delegates with the run's execution beside the seat's facts; the
+    task is then a turn of a seat session of the team run, in the record, and
+    the task result names that session as a Datalayer seat's does."""
+    import jwt
+
+    from agent_runtimes.apps import sessions
+    from agent_runtimes.apps.session_store import FileSessionStore, use_session_store
+    from agent_runtimes.context.delegation import EXTENSION_URI
+
+    store = FileSessionStore(root=tmp_path / "sessions")
+    use_session_store(store)
+    exchange.use_exchange(None)
+    seat.register_seat({"AGENTCORE_RUNTIME_URL": URL})
+    served = a2a_routes._a2a_agents[AGENT_ID].app
+    credential = jwt.encode({"sub": "ada"}, "a-secret", algorithm="HS256")
+    message = {
+        **_message("Review the benchmark."),
+        "contextId": RUN,
+        "metadata": {
+            "datalayer": {
+                "credential": credential,
+                "execution": {
+                    "executionId": "exec_reviewer_1",
+                    "rootExecutionId": RUN,
+                    "parentExecutionId": RUN,
+                    "depth": 1,
+                },
+                "seat": {"team": "notebook-benchmark", "seat": "reviewer"},
+            }
+        },
+    }
+    try:
+        async with (
+            served.router.lifespan_context(served),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=seat.SeatApp()),
+                base_url="http://seat",
+            ) as client,
+        ):
+            card = (await client.get("/.well-known/agent-card.json")).json()
+            sent = await client.post(
+                "/", json=_called("message/send", {"message": message}, 1)
+            )
+            assert sent.status_code == 200, sent.text
+            task_id = sent.json()["result"]["task"]["id"]
+            for attempt in range(200):
+                got = await client.post(
+                    "/", json=_called("tasks/get", {"id": task_id}, 2 + attempt)
+                )
+                task = got.json()["result"]
+                if "completed" in str(task["status"]["state"]).lower():
+                    break
+                assert "fail" not in str(task["status"]["state"]).lower(), task
+                await asyncio.sleep(0.02)
+            else:  # pragma: no cover - a hang is the failure
+                raise AssertionError("the seat's task never completed")
+
+        # What a control plane reads to delegate with the execution named.
+        extensions = [e["uri"] for e in card["capabilities"].get("extensions") or []]
+        assert EXTENSION_URI in extensions
+        # One session, the seat's, in the record.
+        [described] = store.described()
+        entries = await store.entries(described["uid"])
+        [head] = [entry for entry in entries if entry["kind"] == "session"]
+        assert head["payload"]["runs_on"] == {
+            "kind": "team_run",
+            "execution_id": RUN,
+            "seat": "reviewer",
+        }
+        assert head["opened_by"] == "ada"
+        [turn] = [entry["payload"] for entry in entries if entry["kind"] == "turn"]
+        assert turn["asked"].startswith("Review the benchmark.")
+        assert turn["answered"] == "The seat did the task."
+    finally:
+        use_session_store(None)
+        sessions.forget_sessions()

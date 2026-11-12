@@ -9,10 +9,7 @@ import schemathesis
 from schemathesis.core.errors import SerializationNotPossible
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis.examples import generate_many
-from schemathesis.transport.asgi import ASGI_TRANSPORT
-from schemathesis.transport.requests import REQUESTS_TRANSPORT
 from schemathesis.transport.serialization import Binary
-from schemathesis.transport.wsgi import WSGI_TRANSPORT
 from test.utils import run_given
 
 
@@ -21,11 +18,6 @@ def custom_part_serializer():
     @schemathesis.serializer("application/x-part-custom")
     def serialize_custom(ctx, value):
         return b"CUSTOM:" + json.dumps(value).encode()
-
-    yield
-
-    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
-        transport.unregister_serializer("application/x-part-custom")
 
 
 SUPPRESSED_HEALTH_CHECKS = list(HealthCheck)
@@ -60,35 +52,148 @@ def make_operation(
     return schema[path][method.upper()]
 
 
-@pytest.mark.parametrize("declared", ["inline", "ref"])
+@pytest.mark.parametrize("declared", ["inline", "ref", "all-of", "all-of-ref"])
 def test_multipart_with_custom_encoding(ctx, declared):
-    xml_strategy = st.just(b"<?xml version='1.0'?><root>test</root>")
-    schemathesis.openapi.media_type("text/xml", xml_strategy)
+    xml = b"<?xml version='1.0'?><root>test</root>"
+    schemathesis.openapi.media_type("text/xml", st.just(xml))
 
     # Given an OpenAPI schema with multipart/form-data and custom encoding
+    named = {
+        "type": "object",
+        "required": ["name"],
+        # Keeps a referenced body bundled with a `$ref` at its root
+        "properties": {"name": {"$ref": "#/components/schemas/Name"}},
+    }
+    attached = {"type": "object", "required": ["file"], "properties": {"file": {"type": "string", "format": "binary"}}}
     upload = {
         "type": "object",
         "required": ["name", "file"],
-        "properties": {
-            # Keeps a referenced body bundled with a `$ref` at its root
-            "name": {"$ref": "#/components/schemas/Name"},
-            "file": {"type": "string", "format": "binary"},
-        },
+        "properties": {**named["properties"], **attached["properties"]},
     }
+    schema = {
+        "inline": upload,
+        "ref": {"$ref": "#/components/schemas/Upload"},
+        "all-of": {"allOf": [named, attached]},
+        "all-of-ref": {"allOf": [{"$ref": "#/components/schemas/Named"}, {"$ref": "#/components/schemas/Attached"}]},
+    }[declared]
     operation = make_operation(
         ctx,
-        {
-            "schema": upload if declared == "inline" else {"$ref": "#/components/schemas/Upload"},
-            "encoding": {"file": {"contentType": "text/xml"}},
+        {"schema": schema, "encoding": {"file": {"contentType": "text/xml"}}},
+        components={
+            "schemas": {"Upload": upload, "Named": named, "Attached": attached, "Name": {"type": "string"}},
         },
-        components={"schemas": {"Upload": upload, "Name": {"type": "string"}}},
     )
 
     @run_given(case=operation.as_strategy(), max_examples=100)
     def test(case):
-        # Then the file property should use the XML strategy
-        assert case.body["file"] == b"<?xml version='1.0'?><root>test</root>"
+        # Then the file property should use the XML strategy and be sent as a file
+        assert case.body["file"] == xml
         assert isinstance(case.body["name"], str)
+        assert ("file", ("file", xml, "text/xml")) in case.as_transport_kwargs(base_url="http://127.0.0.1")["files"]
+
+
+JPEG = b"\xff\xd8\xff\xe0JFIF"
+FILE = {"type": "string", "format": "binary"}
+FILES = {"type": "array", "items": FILE}
+
+
+def load_upload(ctx, files, *, version="3.0.2", media_type="multipart/form-data", encoding=None, **properties):
+    schemathesis.openapi.media_type("image/jpeg", st.just(JPEG))
+    return ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    media_type: {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"files": files, **properties},
+                            "required": ["files", *properties],
+                        },
+                        "encoding": {"files": {"contentType": "image/jpeg", **(encoding or {})}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+        components={"schemas": {"Files": FILES, "File": FILE}},
+    )
+
+
+def generate_cases(operation, phase, mode=GenerationMode.POSITIVE):
+    if phase == "fuzzing":
+        # Enough draws for an untyped property to yield a list and a nullable array to yield `null`.
+        return generate_many(operation.as_strategy(generation_mode=mode), 30)
+    return list(
+        operation.schema.iter_coverage_cases(
+            operation, generation_modes=[mode], generation_config=operation.schema.config.generation
+        )
+    )
+
+
+def sent_file_parts(cases):
+    return {
+        part
+        for case in cases
+        if isinstance(case.body, dict)
+        for part in case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] or []
+        if part[0] == "files"
+    }
+
+
+@pytest.mark.parametrize("phase", ["fuzzing", "coverage"])
+@pytest.mark.parametrize(
+    ("version", "files", "encoding", "filename"),
+    [
+        ("3.0.2", FILES, None, "files.jpg"),
+        ("3.0.2", {"$ref": "#/components/schemas/Files"}, None, "files.jpg"),
+        ("3.0.2", {"type": "array", "items": {"$ref": "#/components/schemas/File"}}, None, "files.jpg"),
+        ("3.0.2", {**FILES, "nullable": True}, None, "files.jpg"),
+        ("3.1.0", {**FILES, "type": ["array", "null"]}, None, "files.jpg"),
+        ("3.1.0", {"type": "array", "items": {"contentMediaType": "application/octet-stream"}}, None, "files.jpg"),
+        (
+            "3.0.2",
+            FILES,
+            {"headers": {"Content-Disposition": {"schema": {"example": 'form-data; name="files"; filename="a.jpg"'}}}},
+            "a.jpg",
+        ),
+        # An untyped file property also yields lists, yet it is still a single file.
+        ("3.0.2", {"format": "binary"}, None, "files.jpg"),
+    ],
+    ids=["inline", "ref", "ref-items", "nullable", "type-list", "content-media-type", "declared-filename", "untyped"],
+)
+def test_registered_media_type_sends_array_items_as_file_parts(ctx, phase, version, files, encoding, filename):
+    operation = load_upload(ctx, files, version=version, encoding=encoding)
+
+    assert sent_file_parts(generate_cases(operation, phase)) == {("files", (filename, JPEG, "image/jpeg"))}
+
+
+@pytest.mark.parametrize(
+    ("phase", "expected"),
+    [("fuzzing", {(JPEG, JPEG), (JPEG, JPEG, JPEG)}), ("coverage", {(JPEG, JPEG)})],
+    ids=["fuzzing", "coverage"],
+)
+@pytest.mark.parametrize("media_type", ["multipart/form-data", "application/x-www-form-urlencoded"])
+def test_registered_media_type_draws_array_items_within_bounds(ctx, phase, expected, media_type):
+    operation = load_upload(ctx, {**FILES, "minItems": 2, "maxItems": 3}, media_type=media_type)
+
+    assert {tuple(case.body["files"]) for case in generate_cases(operation, phase)} == expected
+
+
+# The media type data replaces `files`, so each negative body violates another property.
+def test_negative_bodies_send_array_items_as_file_parts(ctx):
+    operation = load_upload(ctx, FILES, age={"type": "integer"})
+
+    cases = generate_cases(operation, "fuzzing", GenerationMode.NEGATIVE)
+
+    assert sent_file_parts(cases) == {("files", ("files.jpg", JPEG, "image/jpeg"))}
+    assert [
+        case.body
+        for case in cases
+        if isinstance(case.body, dict) and set(case.body) == {"files", "age"} and type(case.body["age"]) is int
+    ] == []
 
 
 def test_multipart_without_custom_encoding_uses_default(ctx):
@@ -448,21 +553,37 @@ def test_object_keywords_with_encoding(ctx):
     assert [body for body in bodies if len(body) < 3 or body["file"] != b"<xml/>"] == []
 
 
-def test_negative_body_violations_with_encoding(ctx):
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {
+            "type": "object",
+            "properties": {
+                "file": {"type": "string"},
+                "age": {"type": "integer"},
+            },
+            "required": ["file", "age"],
+            "additionalProperties": False,
+        },
+        {
+            "type": "object",
+            "properties": {"age": {"type": "integer"}},
+            "required": ["age"],
+            "allOf": [{"$ref": "#/components/schemas/Filed"}],
+            "maxProperties": 2,
+        },
+    ],
+    ids=["properties", "all-of"],
+)
+def test_negative_body_violations_with_encoding(ctx, schema):
     schemathesis.openapi.media_type("text/xml", st.just(b"<xml/>"))
     operation = make_operation(
         ctx,
-        {
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "file": {"type": "string"},
-                    "age": {"type": "integer"},
-                },
-                "required": ["file", "age"],
-                "additionalProperties": False,
-            },
-            "encoding": {"file": {"contentType": "text/xml"}},
+        {"schema": schema, "encoding": {"file": {"contentType": "text/xml"}}},
+        components={
+            "schemas": {
+                "Filed": {"type": "object", "properties": {"file": {"type": "string"}}, "required": ["file"]},
+            }
         },
     )
 
@@ -518,18 +639,31 @@ def test_encoding_with_invalid_content_type_format(ctx):
         assert "file" in case.body
 
 
-def test_multipart_comma_separated_without_custom_strategy(ctx):
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {
+            "type": "object",
+            "properties": {
+                "image": {"type": "string", "format": "binary"},
+            },
+            "required": ["image"],
+        },
+        {
+            "allOf": [
+                {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}},
+                {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["image"]},
+            ]
+        },
+    ],
+    ids=["properties", "all-of"],
+)
+def test_multipart_comma_separated_without_custom_strategy(ctx, schema):
     # Comma-separated content types should work even without custom strategies
     operation = make_operation(
         ctx,
         {
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "image": {"type": "string", "format": "binary"},
-                },
-                "required": ["image"],
-            },
+            "schema": schema,
             "encoding": {"image": {"contentType": "image/png, image/jpeg"}},
         },
     )

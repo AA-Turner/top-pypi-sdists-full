@@ -327,7 +327,7 @@ class TestDisplayFiltering:
             output_idx=1,
             processor_backend="numpy",
         )
-        fake_camera.grab.assert_called_once_with(region=None, copy=True, new_frame_only=False)
+        fake_camera.grab.assert_called_once_with(copy=True, new_frame_only=True)
         mock_fromarray.assert_called_once()
 
     def test_get_screenshot_falls_back_to_pillow_when_dxcam_region_is_unsupported(
@@ -740,6 +740,28 @@ class TestSnapshotTools:
         assert call["use_ui_tree"] is True
         assert call["use_annotation"] is True
 
+    @pytest.mark.parametrize(
+        ("region", "use_ui_tree"),
+        [(None, True), ([0, 0, 640, 480], True), ([0, 0, 640, 480], False)],
+    )
+    def test_snapshot_tool_reports_region_tree_scope(
+        self, desktop_state, monkeypatch, region, use_ui_tree
+    ):
+        if region is None:
+            desktop_state.screenshot_region = None
+            desktop_state.screenshot_displays = None
+        fake_desktop = MagicMock()
+        fake_desktop.get_state.return_value = desktop_state
+        monkeypatch.setattr(main_module, "desktop", fake_desktop)
+
+        result = asyncio.run(main_module.state_tool(region=region, use_ui_tree=use_ui_tree))
+
+        filtered_tree = region is not None and use_ui_tree
+        assert ("UI Tree Scope: Region-filtered" in result[0]) is filtered_tree
+        if filtered_tree:
+            assert "outside this region are omitted" in result[0]
+            assert "Omit region" in result[0]
+
     def test_screenshot_tool_uses_fast_path_without_ui_tree(self, desktop_state, monkeypatch):
         fake_desktop = MagicMock()
         fake_desktop.get_state.return_value = desktop_state
@@ -749,8 +771,41 @@ class TestSnapshotTools:
 
         assert len(result) == 2
         assert "UI Tree: Skipped for fast screenshot-only capture." in result[0]
+        assert "UI Tree Scope:" not in result[0]
         call = fake_desktop.get_state.call_args.kwargs
         assert call["use_vision"] is True
         assert call["use_ui_tree"] is False
         assert call["use_dom"] is False
         assert call["use_annotation"] is False
+
+    def test_screenshot_tool_save_path_writes_file(self, desktop_state, monkeypatch, tmp_path):
+        fake_desktop = MagicMock()
+        fake_desktop.get_state.return_value = desktop_state
+        monkeypatch.setattr(main_module, "desktop", fake_desktop)
+        target = tmp_path / "shot.png"
+
+        result = asyncio.run(main_module.screenshot_tool(save_path=str(target)))
+
+        assert len(result) == 2
+        assert f"Screenshot Saved To: {target.resolve()}" in result[0]
+        assert target.read_bytes().startswith(b"\x89PNG")
+
+    def test_snapshot_tool_save_path_enables_vision(self, desktop_state, monkeypatch, tmp_path):
+        fake_desktop = MagicMock()
+        fake_desktop.get_state.return_value = desktop_state
+        monkeypatch.setattr(main_module, "desktop", fake_desktop)
+
+        result = asyncio.run(main_module.state_tool(save_path=str(tmp_path)))
+
+        assert fake_desktop.get_state.call_args.kwargs["use_vision"] is True
+        assert "Screenshot Saved To:" in result[0]
+        assert len(list(tmp_path.glob("screenshot-*.png"))) == 1
+
+    def test_screenshot_tool_save_path_error_is_reported(self, desktop_state, monkeypatch):
+        fake_desktop = MagicMock()
+        fake_desktop.get_state.return_value = desktop_state
+        monkeypatch.setattr(main_module, "desktop", fake_desktop)
+
+        result = asyncio.run(main_module.screenshot_tool(save_path="relative.png"))
+
+        assert result[0].startswith("Error saving screenshot:")

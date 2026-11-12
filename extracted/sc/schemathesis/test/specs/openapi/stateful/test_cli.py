@@ -12,11 +12,12 @@ from test.apps.catalog.openapi.modifiers.stateful import (
     InvalidParameter,
     OmitRequiredField,
     ReturnPlainText,
+    Slowdown,
+    SlowOperations,
 )
 from test.utils import load_yaml_or_fail, refusing_url
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
 def test_default(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
@@ -32,8 +33,6 @@ def test_default(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.flaky(reruns=2)
 def test_sanitization(ctx, cli, tmp_path):
     api = ctx.openapi.apps.users_crud()
     cassette_path = tmp_path / "output.yaml"
@@ -41,6 +40,8 @@ def test_sanitization(ctx, cli, tmp_path):
     result = cli.run_and_assert(
         api.schema_url,
         "--phases=stateful",
+        # The bug needs a create, update, read sequence, which takes several scenarios to reach.
+        "--max-examples=50",
         "-c not_a_server_error",
         f"--header=Authorization: Bearer {token}",
         f"--report-vcr-path={cassette_path}",
@@ -50,8 +51,6 @@ def test_sanitization(ctx, cli, tmp_path):
     assert token not in result.stdout
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-@pytest.mark.flaky(reruns=4)
 def test_max_failures(ctx, cli, snapshot_cli):
     api = ctx.openapi.serve(users.crud_with_failure())
     assert (
@@ -131,7 +130,7 @@ def test_junit(ctx, tmp_path, cli):
     assert structure == expected, xml_content
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+@pytest.mark.snapshot(replace_phase_statistic=True)
 def test_stateful_only_with_error(ctx, cli, app_runner, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert (
@@ -146,7 +145,6 @@ def test_stateful_only_with_error(ctx, cli, app_runner, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_filtered_out(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud_with_success()
     assert (
@@ -160,7 +158,7 @@ def test_filtered_out(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
+@pytest.mark.snapshot(replace_phase_statistic=True)
 @pytest.mark.skipif(platform.system() == "Windows", reason="Linux specific error")
 def test_proxy_error(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud_with_success()
@@ -172,7 +170,6 @@ def test_proxy_error(ctx, cli, snapshot_cli):
         )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_keyboard_interrupt(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud_with_success()
     module = ctx.write_pymodule(
@@ -185,19 +182,73 @@ def before_call(context, case, kwargs):
     assert cli.run(api.schema_url, "--phases=stateful", hooks=module) == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
+# Need enough scenarios to exercise the per-operation demote path while other operations stay healthy.
+def test_one_slow_operation_does_not_abort_stateful_phase(ctx, cli):
+    api = ctx.openapi.apps.stateful_users(
+        SlowOperations({("DELETE", "/users/<int:user_id>"): 2.0}),
+    )
+    result = cli.run(
+        api.schema_url,
+        "--phases=stateful",
+        "--max-examples=20",
+        "--request-timeout=0.5",
+        "-c",
+        "not_a_server_error",
+    )
+    # Phase must NOT abort.
+    assert "Unhealthy API" not in result.stdout
+    assert "UnhealthyAPIError" not in result.stdout
+    # Phase actually ran (negative-only assertions could pass on a no-op skip).
+    assert "Stateful" in result.stdout
+
+
+# Three linked operations hang while creating and listing users keep answering, so the API is alive.
+def test_operations_that_keep_hanging_are_dropped_while_others_respond(ctx, cli):
+    hanging = ["/users/<int:user_id>", "/users/<user_id>"]
+    api = ctx.openapi.apps.stateful_users(
+        SlowOperations({(method, rule): 0.3 for method in ("GET", "PATCH", "DELETE") for rule in hanging}),
+    )
+    result = cli.run(
+        api.schema_url,
+        "--phases=stateful",
+        "--max-examples=20",
+        "--request-timeout=0.1",
+        "-c",
+        "not_a_server_error",
+    )
+    assert "Unhealthy API" not in result.stdout
+    assert "Unresponsive Operation" in result.stdout
+    hanging_requests = [request for request in api.requests if request.path.startswith("/users/")]
+    assert len(hanging_requests) < 100, len(hanging_requests)
+
+
+# Nothing answers, so the phase aborts once the API stays silent for a whole window.
+def test_phase_aborts_when_all_ops_fail_transport(ctx, cli):
+    api = ctx.openapi.apps.stateful_users(Slowdown(seconds=2.0))
+    result = cli.run(
+        api.schema_url,
+        "--phases=stateful",
+        "--max-examples=20",
+        "--request-timeout=0.5",
+        "-c",
+        "not_a_server_error",
+    )
+    # Phase aborts with the rich health-monitor message listing the failing entry operations.
+    assert "API stopped responding" in result.stdout
+    assert "/users (" in result.stdout
+    assert result.exit_code != 0
+
+
 def test_stateful_only_without_links(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     assert cli.run(api.schema_url, "--phases=stateful") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_missing_link(ctx, cli, snapshot_cli):
     api = ctx.openapi.serve(users.create_user_only())
     assert cli.run(api.schema_url, "--phases=stateful") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.parametrize(
     "link",
     [
@@ -252,13 +303,11 @@ def test_dangling_link_with_inferred_links(ctx, cli, snapshot_cli, link):
     assert cli.run_openapi_app(app, "--phases=stateful", "--max-examples=2") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_not_enough_links(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert cli.run(api.schema_url, "--phases=stateful", "--include-method=POST") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_links_from_operation_with_unusable_body(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -296,6 +345,7 @@ def test_invalid_parameter_reference(ctx, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--phases=stateful", "-n 1") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_missing_body_parameter(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.stateful_users(OmitRequiredField())
     assert (
@@ -356,7 +406,6 @@ def test_extraction_failures_order_is_stable(ctx, cli):
     ]
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_link_with_multiple_failing_parameters(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -410,7 +459,6 @@ def test_link_with_multiple_failing_parameters(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_link_requestbody_extraction_fails_when_producer_missing_id(ctx, cli, snapshot_cli):
     openapi = {
         "openapi": "3.0.0",
@@ -557,6 +605,7 @@ def test_link_requestbody_extraction_fails_when_producer_missing_id(ctx, cli, sn
 
 
 @pytest.mark.parametrize("content", ["", "User data as plain text"])
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_non_json_response(ctx, cli, snapshot_cli, content):
     api = ctx.openapi.apps.stateful_users(ReturnPlainText(body=content))
     assert (
@@ -572,6 +621,7 @@ def test_non_json_response(ctx, cli, snapshot_cli, content):
     )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_unique_inputs(ctx, cli, snapshot_cli):
     # See GH-2977
     api = ctx.openapi.apps.success()
@@ -813,7 +863,6 @@ def test_nested_link_refs(cli, snapshot_cli, ctx):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.parametrize("phase", ["stateful", "fuzzing"])
 def test_nested_path_shared_parameter_propagation(cli, ctx, snapshot_cli, phase):
     app, _ = ctx.openapi.make_flask_app(
@@ -954,7 +1003,6 @@ def test_nested_path_shared_parameter_propagation(cli, ctx, snapshot_cli, phase)
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_without_error_feedback_and_link_calibration(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert (
@@ -976,7 +1024,6 @@ def test_without_error_feedback_and_link_calibration(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_links_between_error_responses_only(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1011,7 +1058,6 @@ def test_links_between_error_responses_only(ctx, cli, snapshot_cli):
     assert cli.run_openapi_app(app, "--phases=stateful", "--max-examples=5", "--seed=1") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_links_from_operations_that_produce_no_resources(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1064,7 +1110,6 @@ def test_links_from_operations_that_produce_no_resources(ctx, cli, snapshot_cli)
     assert cli.run_openapi_app(app, "--phases=stateful", "--max-examples=5", "--seed=1") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_known_stateful_failure_does_not_fail_the_run(ctx, cli, snapshot_cli, tmp_path):
     app, _ = ctx.openapi.make_flask_app(
         {

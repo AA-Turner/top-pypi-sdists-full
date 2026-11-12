@@ -1,6 +1,11 @@
 import numpy as np
 from numpy.random import RandomState, default_rng
-from numpy.testing import assert_almost_equal, assert_array_equal, assert_equal
+from numpy.testing import (
+    assert_allclose,
+    assert_almost_equal,
+    assert_array_equal,
+    assert_equal,
+)
 import pytest
 from scipy import stats
 from scipy.special import gamma, gammaln
@@ -74,7 +79,9 @@ class TestDistributions:
         sv = max((4.0 * k - 6.0) / (k - 3.0) if k > 3.75 else 12.0, 4.0)
         assert_array_equal(dist.starting_values(self.resids), np.array([sv]))
 
-        with pytest.raises(ValueError, match=r"The shape parameter must be larger than 2"):
+        with pytest.raises(
+            ValueError, match=r"The shape parameter must be larger than 2"
+        ):
             dist.simulate(np.array([1.5]))
         sim = dist.simulate(8.0)
         assert isinstance(sim(100), np.ndarray)
@@ -125,11 +132,17 @@ class TestDistributions:
 
         with pytest.raises(ValueError, match=r"The shape parameter must be larger"):
             dist.simulate(np.array([1.5, 0.0]))
-        with pytest.raises(ValueError, match=r"The skew parameter must be smaller than 1"):
+        with pytest.raises(
+            ValueError, match=r"The skew parameter must be smaller than 1"
+        ):
             dist.simulate(np.array([4.0, 1.5]))
-        with pytest.raises(ValueError, match=r"The skew parameter must be smaller than 1"):
+        with pytest.raises(
+            ValueError, match=r"The skew parameter must be smaller than 1"
+        ):
             dist.simulate(np.array([4.0, -1.5]))
-        with pytest.raises(ValueError, match=r"The shape parameter must be larger than 2"):
+        with pytest.raises(
+            ValueError, match=r"The shape parameter must be larger than 2"
+        ):
             dist.simulate(np.array([1.5, 1.5]))
 
         sim = dist.simulate([8.0, -0.2])
@@ -163,7 +176,9 @@ class TestDistributions:
 
         assert_array_equal(dist.starting_values(self.resids), np.array([1.5]))
 
-        with pytest.raises(ValueError, match=r"The shape parameter must be larger than 1"):
+        with pytest.raises(
+            ValueError, match=r"The shape parameter must be larger than 1"
+        ):
             dist.simulate(np.array([0.9]))
         simulator = dist.simulate(1.5)
         rvs = simulator(1000)
@@ -202,13 +217,46 @@ def test_roundtrip_cdf_ppf(distribution):
     assert_almost_equal(pits, p)
 
 
+@pytest.mark.parametrize("scalar", [False, True])
+@pytest.mark.parametrize(
+    ("skew", "probability", "expected"),
+    [
+        (-0.9, np.nextafter(1.0, 0.0), 12.535601810976443),
+        (0.9, np.nextafter(1.0, 0.0), 312.48964170109026),
+        (-0.2, np.nextafter(1.0, 0.0), 145.0769272661238),
+        (-0.999999, np.nextafter(1.0, 0.0), 1.1896026481430079),
+        (-0.9, 1 - 1e-12, 4.768586495068847),
+        (0.9, 1 - 1e-12, 99.30472268897068),
+    ],
+)
+def test_skew_student_upper_tail_quantile(skew, probability, expected, scalar):
+    # Reference quantiles use 100-digit inversion of the incomplete beta integral.
+    pits = probability if scalar else np.array([probability])
+    actual = SkewStudent().ppf(pits, [8.0, skew])
+    assert_allclose(actual, expected, rtol=2e-10)
+
+
+@pytest.mark.parametrize("skew", [-1.0, -0.999999, -0.9, 0.0, 0.9, 1.0])
+def test_skew_student_quantile_endpoints(skew):
+    support = 1.1895773785772162
+    expected = [
+        -support if skew == 1.0 else -np.inf,
+        support if skew == -1.0 else np.inf,
+    ]
+    with np.errstate(all="raise"):
+        actual = SkewStudent().ppf([0.0, 1.0], [8.0, skew])
+    assert_allclose(actual, expected, rtol=1e-13)
+
+
 def test_invalid_params():
     pits = np.arange(1, 100.0) / 100.0
     dist = Normal()
     with pytest.raises(ValueError, match=r"parameters must have 0 elements"):
         dist.ppf(pits, [1.0])
     dist = StudentsT()
-    with pytest.raises(ValueError, match=r"S does not satisfy the bounds requirement"):
+    with pytest.raises(
+        ValueError, match=r"parameters\[0\] \(nu\) must be a finite float in"
+    ):
         dist.ppf(pits, [1.0])
 
 
@@ -222,5 +270,23 @@ def test_no_parameters_error(distribution):
 
 
 def test_random_state_seed_transition():
-    with pytest.raises(TypeError, match=r"seed must by a NumPy Generator or RandomState"):
+    with pytest.raises(TypeError, match=r"seed must be None, a non-negative integer"):
         Normal(seed="1234")
+
+
+@pytest.mark.parametrize(
+    ("dist", "expected"),
+    [
+        (Normal(), []),
+        (StudentsT(), [12.0]),
+        (SkewStudent(), [12.0, 0.0]),
+        (GeneralizedError(), [1.5]),
+    ],
+)
+def test_starting_values_non_finite_std_resid(dist, expected):
+    # A model fit to a constant series can produce 0/0 standardized residuals, as on
+    # macOS on x86-64, and fit must still be able to compute starting values
+    std_resid = np.full(100, np.nan)
+    assert_array_equal(dist.starting_values(std_resid), expected)
+    std_resid[:50] = np.inf
+    assert_array_equal(dist.starting_values(std_resid), expected)

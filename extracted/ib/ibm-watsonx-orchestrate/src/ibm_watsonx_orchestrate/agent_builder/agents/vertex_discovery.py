@@ -139,12 +139,13 @@ class VertexDiscoveryService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def convert_to_wxo_external_agent_dict(agent: dict, location: str) -> dict:
+    def convert_to_wxo_external_agent_dict(agent: dict, location: str, control_plane_only: bool = True) -> dict:
         """Convert a raw Agent Registry agent dict to a WXO ExternalAgentSpec-compatible dict.
 
         Args:
             agent: Raw agent dict from the Agent Registry list API.
             location: GCP region — used to construct the resource URL.
+            control_plane_only: Whether the agent is registered for control plane only (default: True).
 
         Returns:
             Dict suitable for ``ExternalAgent.model_validate()``.
@@ -180,6 +181,9 @@ class VertexDiscoveryService:
             "api_url": api_url,
             "auth_scheme": "NONE",
             "auth_config": {},
+            "config": {
+                "control_plane_only": control_plane_only,
+            },
         }
 
     def discover_and_convert(
@@ -187,6 +191,7 @@ class VertexDiscoveryService:
         raw_agents: list[dict],
         agents: Optional[list[str]],
         location: str,
+        control_plane_only: Optional[bool] = None,
     ) -> list[dict]:
         """Filter raw agents by display name and convert to WXO dicts.
 
@@ -194,10 +199,12 @@ class VertexDiscoveryService:
             raw_agents: Agents returned by :meth:`list_agents`.
             agents: List of display names to keep (case-insensitive).  ``None`` = all.
             location: GCP region, forwarded to :meth:`convert_to_wxo_external_agent_dict`.
+            control_plane_only: Optional override for control plane only registration.
 
         Returns:
             List of WXO-compatible agent dicts.
         """
+        cpo = control_plane_only if control_plane_only is not None else True
         if agents is not None:
             filter_set = {a.lower() for a in agents}
             matched = [
@@ -212,7 +219,7 @@ class VertexDiscoveryService:
             raw_agents = matched
 
         return [
-            self.convert_to_wxo_external_agent_dict(a, location)
+            self.convert_to_wxo_external_agent_dict(a, location, control_plane_only=cpo)
             for a in raw_agents
         ]
 

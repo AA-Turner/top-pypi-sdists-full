@@ -8,6 +8,7 @@
 //! against these and records [`Record`] in the header (`family`); a LoRA records [`Adapter`]s
 //! (`adapter`). Neither is ever guessed: unverified, the field is absent.
 
+pub mod parts;
 pub(crate) mod probe;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -133,6 +134,12 @@ pub fn families_digest() -> &'static str {
     DIGEST.get_or_init(|| crate::sha256::hex_digest(FAMILIES.join("\0").as_bytes()))
 }
 
+/// What [`Facts`] are read under: the families and what [`parts`] counts. A reader keeping facts reads them again when it changes.
+pub fn facts_digest() -> &'static str {
+    static DIGEST: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    DIGEST.get_or_init(|| crate::sha256::hex_digest(format!("{}\0parts 1", families_digest()).as_bytes()))
+}
+
 pub(crate) fn named(name: &str) -> Option<&'static Family> {
     families().iter().find(|f| f.name == name)
 }
@@ -159,8 +166,9 @@ pub(crate) fn of_classes<'a>(classes: impl IntoIterator<Item = &'a str>) -> Vec<
 /// What a LoRA's tensors end in: its factors, alpha and a DoRA's magnitude.
 pub(crate) const FACTORS: [&str; 4] = [".lora_A.weight", ".lora_B.weight", ".alpha", ".lora_magnitude_vector"];
 /// What a LoRA keeps beside its factors that adapts no base weight: a parallel decoder's per-step
-/// output heads (PDD, `qwenimage21.lora`'s `proj_out.heads`).
-pub(crate) const KEPT: [&str; 1] = [".heads"];
+/// output heads (PDD, `qwenimage21.lora`'s `proj_out.heads`), and a whole module it was trained with in
+/// place of the base's (a Krea 2 control LoRA's widened image input, `krea2.lora`'s `img_in.modules_to_save`).
+pub(crate) const KEPT: [&str; 3] = [".heads", ".modules_to_save.weight", ".modules_to_save.bias"];
 
 /// Whether a key is a LoRA's: a factor, an alpha or a tensor it keeps.
 pub(crate) fn lora_key(key: &str) -> bool {
@@ -202,6 +210,9 @@ pub struct Facts {
     pub lora: bool,
     /// What its ingest recorded, else what its keys and shapes verify as now. Never guessed: none when neither says.
     pub family: Option<String>,
+    /// What it holds, as a model slot reads it.
+    #[serde(default)]
+    pub parts: parts::Parts,
 }
 
 /// Whether every tensor of a stored component is a LoRA's, as its source may have spelled it (kohya's
@@ -222,7 +233,7 @@ impl Facts {
             true => adapted(&header.metadata, &loras),
             false => based(header, &bases),
         };
-        Some(Facts { lora, family })
+        Some(Facts { lora, family, parts: parts::Parts::of(header) })
     }
 }
 

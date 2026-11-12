@@ -1,7 +1,13 @@
+import copy
 import functools
+import pickle
+import weakref
+from dataclasses import FrozenInstanceError
 from builtins import list as list
 from collections.abc import Callable
 from typing import Any, List, Annotated
+
+import pytest
 
 from hypothesis import given  # type: ignore
 from hypothesis import strategies as st
@@ -12,6 +18,38 @@ from expression import Nothing, Option, Some, pipe
 from expression.collections import Block, block
 
 Func = Callable[[int], int]
+
+
+def test_block_backing_state_is_frozen():
+    xs = Block([1, 2])
+    with pytest.raises(FrozenInstanceError):
+        setattr(xs, "_value", (9,))
+    with pytest.raises(FrozenInstanceError):
+        delattr(xs, "_value")
+    assert not hasattr(xs, "__dict__")
+    assert list(xs) == [1, 2]
+
+
+def test_block_immutability_is_shallow():
+    item: list[int] = []
+    source = [item]
+    xs = Block(source)
+    source.clear()
+    item.append(42)
+    assert list(xs) == [[42]]
+
+
+def test_block_frozen_copy_and_pickle():
+    xs = Block[int]([1, 2])
+    assert weakref.ref(xs)() is xs
+    for restored in (copy.copy(xs), copy.deepcopy(xs), pickle.loads(pickle.dumps(xs))):
+        assert restored == xs
+        assert repr(restored) == repr(xs)
+        assert not hasattr(restored, "__dict__")
+        with pytest.raises(FrozenInstanceError):
+            setattr(restored, "_value", ())
+    with pytest.raises(TypeError):
+        hash(xs)
 
 
 @given(st.integers(min_value=0, max_value=10000))  # type: ignore
@@ -206,7 +244,7 @@ def test_block_take(xs: List[int], x: int):
 
 @given(st.lists(st.integers()), st.integers(min_value=0))  # type: ignore
 def test_block_take_last(xs: List[int], x: int):
-    expected = xs[-x:]
+    expected = xs[len(xs) - min(x, len(xs)) :]
     ys: Block[int]
     ys = block.of_seq(xs).take_last(x)
     assert list(ys) == expected
@@ -224,7 +262,7 @@ def test_block_skip(xs: List[int], x: int):
 
 @given(st.lists(st.integers()), st.integers(min_value=0))  # type: ignore
 def test_block_skip_last(xs: List[int], x: int):
-    expected = xs[:-x]
+    expected = xs[: max(len(xs) - x, 0)]
     ys: Block[int]
     ys = block.of_seq(xs).skip_last(x)
     assert list(ys) == expected
@@ -284,7 +322,7 @@ def test_block_unfold(x: int):
     def unfolder(state: int) -> Option[tuple[int, int]]:
         if state < x:
             return Some((state, state + 1))
-        return Nothing
+        return Nothing()
 
     result = Block[int].unfold(unfolder, 0)
 
@@ -458,3 +496,11 @@ def test_serialize_block_works():
     assert model_.annotated_type_empty == block.empty
     assert model_.custom_type == Block(["a", "b", "c"])
     assert model_.custom_type_empty == block.empty
+
+
+def test_block_trailing_zero_count():
+    source = block.of_seq([1, 2, 3])
+    assert list(source.take_last(0)) == []
+    assert list(pipe(source, block.take_last(0))) == []
+    assert list(source.skip_last(0)) == [1, 2, 3]
+    assert list(pipe(source, block.skip_last(0))) == [1, 2, 3]

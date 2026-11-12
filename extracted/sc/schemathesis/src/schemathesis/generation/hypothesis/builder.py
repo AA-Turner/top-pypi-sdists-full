@@ -14,16 +14,24 @@ from hypothesis import strategies as st
 from hypothesis._settings import CI, all_settings
 
 from schemathesis.auths import AuthStorage, AuthStorageMark
-from schemathesis.config import GenerationConfig, ProjectConfig
+from schemathesis.config import ProjectConfig
 from schemathesis.core import SpecificationFeature
-from schemathesis.core.errors import IncorrectUsage, InvalidSchema
-from schemathesis.core.marks import Mark
-from schemathesis.generation import GenerationMode
+from schemathesis.core.errors import IncorrectUsage
 from schemathesis.generation.case import Case
-from schemathesis.generation.drivers import Controller, ExamplesGenerator, missing_path_parameters_error
+from schemathesis.generation.drivers import (
+    build_coverage_generator,
+    build_examples_generator,
+    missing_path_parameters_error,
+)
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis import setup
 from schemathesis.generation.hypothesis.given import GivenInput, format_given_and_schema_examples_error
+from schemathesis.generation.hypothesis.marks import (
+    ApiOperationMark,
+    ExamplesControllerMark,
+    MissingPathParameters,
+    UnserializablePayloadMark,
+)
 from schemathesis.generation.meta import content_type_probes_first
 from schemathesis.generation.overrides import Override
 from schemathesis.hooks import HookDispatcher, HookDispatcherMark
@@ -92,6 +100,65 @@ def create_test(
 
     ApiOperationMark.set(hypothesis_test, operation)
 
+    settings = _drop_unused_phases(_resolve_settings(test_func, hypothesis_test, config), config.modes)
+
+    specification = operation.schema.specification
+
+    # Add examples if explicit phase is enabled
+    if (
+        HypothesisTestMode.EXAMPLES in config.modes
+        and Phase.explicit in settings.phases
+        and specification.supports_feature(SpecificationFeature.EXAMPLES)
+    ):
+        _reject_given_with_schema_examples(operation, config, strategy_kwargs)
+        hypothesis_test = add_examples(
+            hypothesis_test,
+            operation,
+            config.project,
+            override=config.override,
+            feedback=config.feedback,
+            auth_storage=auth_storage,
+            hooks=hook_dispatcher,
+        )
+
+    if (
+        HypothesisTestMode.COVERAGE in config.modes
+        and Phase.explicit in settings.phases
+        and specification.supports_feature(SpecificationFeature.COVERAGE)
+        and not config.given_args
+        and not config.given_kwargs
+    ):
+        hypothesis_test = add_coverage(
+            hypothesis_test,
+            operation,
+            config.project,
+            override=config.override,
+            feedback=config.feedback,
+            auth_storage=auth_storage,
+            hooks=hook_dispatcher,
+        )
+
+    missing_path_parameters = missing_path_parameters_error(operation)
+    if missing_path_parameters is not None:
+        MissingPathParameters.set(hypothesis_test, missing_path_parameters)
+
+    # A seed takes precedence over `derandomize`, so deterministic mode gets one only when the user provided it.
+    if (
+        config.seed is not None
+        and (not settings.derandomize or config.project.has_explicit_seed)
+        and not hasattr(test_func, "_hypothesis_internal_use_seed")
+    ):
+        hypothesis_test = hypothesis.seed(config.seed)(hypothesis_test)
+
+    setattr(hypothesis_test, SETTINGS_ATTRIBUTE_NAME, settings)
+
+    return hypothesis_test
+
+
+def _resolve_settings(
+    test_func: Callable, hypothesis_test: Callable, config: HypothesisTestConfig
+) -> hypothesis.settings:
+    """Combine the user's Hypothesis settings with the ones from the Schemathesis config."""
     # Get user's explicit settings from their @settings decorator (if present).
     # config.explicit_settings carries settings applied outside the lazy schema wrapper
     # (e.g. @settings applied after @lazy_schema.parametrize()).
@@ -115,129 +182,80 @@ def create_test(
     if user_settings.verbosity == default.verbosity:
         user_settings = hypothesis.settings(user_settings, verbosity=Verbosity.quiet)
 
-    if config.settings is not None:
-        # Get hypothesis' built-in defaults (not affected by loaded profiles)
-        hypothesis_defaults = hypothesis.settings.get_profile("default")
+    if config.settings is None:
+        return user_settings
 
-        # Values are whatever each Hypothesis setting accepts.
-        overrides: dict[str, Any] = {}
-        if hypothesis.settings.default is not CI:
-            # Values from `@settings` or a loaded profile that differ from Hypothesis defaults override the config,
-            # except that a loaded profile never overrides options set via CLI, config file or `update()`.
-            overrides = {
-                item: getattr(user_settings, item)
-                for item in all_settings
-                if getattr(user_settings, item) != getattr(hypothesis_defaults, item)
-                and (user_explicit_settings is not None or item not in config.explicit_setting_names)
-            }
-        elif config.apply_ci_profile:
-            # Hypothesis loads its `ci` profile on its own when it detects a CI environment. Precedence:
-            # - User's @settings decorator: values that differ from the `ci` profile
-            # - Schemathesis config: options set via CLI, config file or `update()`, whatever the value,
-            #   and, for configs built in Python, values that differ from Hypothesis defaults
-            # - `ci` profile
-            for item in all_settings:
-                user_value = getattr(user_settings, item)
-                profile_value = getattr(CI, item)
-                default_value = getattr(hypothesis_defaults, item)
-                if user_value != profile_value:
-                    overrides[item] = user_value
-                    continue
-                configured = item in config.explicit_setting_names or getattr(config.settings, item) != default_value
-                # Derandomizing drops the example database, so a configured one keeps randomness
-                drops_database = item == "derandomize" and config.settings.database is not None
-                if not configured and not drops_database and profile_value != default_value:
-                    overrides[item] = profile_value
-        # Otherwise it is a CLI test under the skipped `ci` profile: without a @settings decorator,
-        # the @given settings carry nothing but that profile.
-        settings = hypothesis.settings(config.settings, **overrides)
-    else:
-        settings = user_settings
+    # Get hypothesis' built-in defaults (not affected by loaded profiles)
+    hypothesis_defaults = hypothesis.settings.get_profile("default")
 
+    # Values are whatever each Hypothesis setting accepts.
+    overrides: dict[str, Any] = {}
+    if hypothesis.settings.default is not CI:
+        # Values from `@settings` or a loaded profile that differ from Hypothesis defaults override the config,
+        # except that a loaded profile never overrides options set via CLI, config file or `update()`.
+        overrides = {
+            item: getattr(user_settings, item)
+            for item in all_settings
+            if getattr(user_settings, item) != getattr(hypothesis_defaults, item)
+            and (user_explicit_settings is not None or item not in config.explicit_setting_names)
+        }
+    elif config.apply_ci_profile:
+        # Hypothesis loads its `ci` profile on its own when it detects a CI environment. Precedence:
+        # - User's @settings decorator: values that differ from the `ci` profile
+        # - Schemathesis config: options set via CLI, config file or `update()`, whatever the value,
+        #   and, for configs built in Python, values that differ from Hypothesis defaults
+        # - `ci` profile
+        for item in all_settings:
+            user_value = getattr(user_settings, item)
+            profile_value = getattr(CI, item)
+            default_value = getattr(hypothesis_defaults, item)
+            if user_value != profile_value:
+                overrides[item] = user_value
+                continue
+            configured = item in config.explicit_setting_names or getattr(config.settings, item) != default_value
+            # Derandomizing drops the example database, so a configured one keeps randomness
+            drops_database = item == "derandomize" and config.settings.database is not None
+            if not configured and not drops_database and profile_value != default_value:
+                overrides[item] = profile_value
+    # Otherwise it is a CLI test under the skipped `ci` profile: without a @settings decorator,
+    # the @given settings carry nothing but that profile.
+    return hypothesis.settings(config.settings, **overrides)
+
+
+def _drop_unused_phases(settings: hypothesis.settings, modes: list[HypothesisTestMode]) -> hypothesis.settings:
     if Phase.explain in settings.phases:
         phases: tuple[Phase, ...] = tuple(phase for phase in settings.phases if phase != Phase.explain)
         settings = hypothesis.settings(settings, phases=phases)
 
     # Remove `reuse` & `generate` phases to avoid yielding any test cases if we don't do fuzzing
-    if HypothesisTestMode.FUZZING not in config.modes and (
+    if HypothesisTestMode.FUZZING not in modes and (
         Phase.generate in settings.phases or Phase.reuse in settings.phases
     ):
         phases = tuple(phase for phase in settings.phases if phase not in (Phase.reuse, Phase.generate))
         settings = hypothesis.settings(settings, phases=phases)
+    return settings
 
-    specification = operation.schema.specification
 
-    # Add examples if explicit phase is enabled
-    if (
-        HypothesisTestMode.EXAMPLES in config.modes
-        and Phase.explicit in settings.phases
-        and specification.supports_feature(SpecificationFeature.EXAMPLES)
-    ):
-        phases_config = config.project.phases_for(operation=operation)
-        # Check if user provided custom strategies via @schema.given()
-        # AND the operation actually has examples
-        # These are incompatible because examples only provide 'case' while custom strategies require additional parameters
-        if config.given_kwargs:
-            # Check if there are actually examples to add
-            try:
-                example_strategies = list(
-                    operation.get_strategies_from_examples(feedback=config.feedback, **strategy_kwargs)
-                )
-            except Exception:
-                # If we can't get examples (invalid schema, etc), let add_examples handle it
-                example_strategies = []
+def _reject_given_with_schema_examples(
+    operation: APIOperation, config: HypothesisTestConfig, strategy_kwargs: dict[str, Any]
+) -> None:
+    # Check if user provided custom strategies via @schema.given()
+    # AND the operation actually has examples
+    # These are incompatible because examples only provide 'case' while custom strategies require additional parameters
+    if config.given_kwargs:
+        # Check if there are actually examples to add
+        try:
+            example_strategies = list(
+                operation.get_strategies_from_examples(feedback=config.feedback, **strategy_kwargs)
+            )
+        except Exception:
+            # If we can't get examples (invalid schema, etc), let add_examples handle it
+            example_strategies = []
 
-            if example_strategies:
-                # Get the parameter names from given_kwargs to show in error message
-                param_names = ", ".join(sorted(config.given_kwargs.keys()))
-                raise IncorrectUsage(format_given_and_schema_examples_error(param_names))
-
-        hypothesis_test = add_examples(
-            hypothesis_test,
-            operation,
-            fill_missing=phases_config.examples.fill_missing,
-            override=config.override,
-            feedback=config.feedback,
-            auth_storage=auth_storage,
-            hooks=hook_dispatcher,
-        )
-
-    if (
-        HypothesisTestMode.COVERAGE in config.modes
-        and Phase.explicit in settings.phases
-        and specification.supports_feature(SpecificationFeature.COVERAGE)
-        and not config.given_args
-        and not config.given_kwargs
-    ):
-        coverage_generation = config.project.generation_for(
-            operation=operation, phase=HypothesisTestMode.COVERAGE.value
-        )
-        hypothesis_test = add_coverage(
-            hypothesis_test,
-            operation,
-            coverage_generation.modes,
-            auth_storage,
-            config.override,
-            feedback=config.feedback,
-            generation_config=coverage_generation,
-            hooks=hook_dispatcher,
-        )
-
-    missing_path_parameters = missing_path_parameters_error(operation)
-    if missing_path_parameters is not None:
-        MissingPathParameters.set(hypothesis_test, missing_path_parameters)
-
-    # A seed takes precedence over `derandomize`, so deterministic mode gets one only when the user provided it.
-    if (
-        config.seed is not None
-        and (not settings.derandomize or config.project.has_explicit_seed)
-        and not hasattr(test_func, "_hypothesis_internal_use_seed")
-    ):
-        hypothesis_test = hypothesis.seed(config.seed)(hypothesis_test)
-
-    setattr(hypothesis_test, SETTINGS_ATTRIBUTE_NAME, settings)
-
-    return hypothesis_test
+        if example_strategies:
+            # Get the parameter names from given_kwargs to show in error message
+            param_names = ", ".join(sorted(config.given_kwargs.keys()))
+            raise IncorrectUsage(format_given_and_schema_examples_error(param_names))
 
 
 SETTINGS_ATTRIBUTE_NAME = "_hypothesis_internal_use_settings"
@@ -281,20 +299,15 @@ def make_async_test(test: Callable) -> Callable:
 def add_examples(
     test: Callable,
     operation: APIOperation,
+    config: ProjectConfig,
     *,
-    fill_missing: bool,
     override: Override,
     feedback: FeedbackSources,
     auth_storage: AuthStorage | None,
     hooks: HookDispatcher | None,
 ) -> Callable:
-    generator = ExamplesGenerator(
-        operation=operation,
-        override=override,
-        feedback=feedback,
-        fill_missing=fill_missing,
-        hooks=hooks,
-        auth_storage=auth_storage,
+    generator = build_examples_generator(
+        config, operation, override=override, feedback=feedback, hooks=hooks, auth_storage=auth_storage
     )
     ExamplesControllerMark.set(test, generator.controller)
     _defer_explicit_examples(test, lambda: _as_explicit_examples(generator))
@@ -304,23 +317,15 @@ def add_examples(
 def add_coverage(
     test: Callable,
     operation: APIOperation,
-    generation_modes: list[GenerationMode],
-    auth_storage: AuthStorage | None,
+    config: ProjectConfig,
+    *,
     override: Override,
     feedback: FeedbackSources,
-    generation_config: GenerationConfig,
-    hooks: HookDispatcher | None = None,
+    auth_storage: AuthStorage | None,
+    hooks: HookDispatcher | None,
 ) -> Callable:
-    from schemathesis.generation.drivers import CoverageGenerator
-
-    generator = CoverageGenerator(
-        operation=operation,
-        generation_modes=generation_modes,
-        generation_config=generation_config,
-        auth_storage=auth_storage,
-        override=override,
-        feedback=feedback,
-        hooks=hooks,
+    generator = build_coverage_generator(
+        config, operation, override=override, feedback=feedback, hooks=hooks, auth_storage=auth_storage
     )
 
     def generate() -> list:
@@ -382,9 +387,3 @@ class _DeferredExamples:
 
     def __len__(self) -> int:
         return len(self._materialized())
-
-
-ExamplesControllerMark = Mark[Controller](attr_name="examples_controller")
-UnserializablePayloadMark = Mark[list[str]](attr_name="unserializable_payload")
-MissingPathParameters = Mark[InvalidSchema](attr_name="missing_path_parameters")
-ApiOperationMark = Mark[APIOperation](attr_name="api_operation")

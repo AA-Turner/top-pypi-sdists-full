@@ -14,7 +14,7 @@ exposes only the **primitives** they share; the assembly stays in each caller.
 from __future__ import annotations
 
 import ast
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 DEFINITION_NODE_TYPES: Tuple[type, ...] = (
     ast.Import,
@@ -57,6 +57,139 @@ def is_module_level_definition(node: ast.stmt) -> bool:
         if value is not None and any(isinstance(n, ast.Call) for n in ast.walk(value)):
             return False
     return True
+
+
+class _ScopedExpressionVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        super().__init__()
+        self._comprehension_locals: list[Set[str]] = []
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        for default in node.args.defaults:
+            self.visit(default)
+        for default in node.args.kw_defaults:
+            if default is not None:
+                self.visit(default)
+
+    def _visit_comprehension(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
+        self._comprehension_locals.append(set())
+        try:
+            for generator in node.generators:
+                self.visit(generator.iter)
+                self._comprehension_locals[-1].update(
+                    child.id
+                    for child in ast.walk(generator.target)
+                    if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+                )
+                for condition in generator.ifs:
+                    self.visit(condition)
+            if isinstance(node, ast.DictComp):
+                self.visit(node.key)
+                self.visit(node.value)
+            else:
+                self.visit(node.elt)
+        finally:
+            self._comprehension_locals.pop()
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._visit_comprehension(node)
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._visit_comprehension(node)
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._visit_comprehension(node)
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self.visit(node.generators[0].iter)
+
+    def _is_comprehension_local(self, name: str) -> bool:
+        return any(name in local_names for local_names in reversed(self._comprehension_locals))
+
+
+class _ExpressionNameVisitor(_ScopedExpressionVisitor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.loaded: Set[str] = set()
+        self.bound: Set[str] = set()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Load):
+            if not self._is_comprehension_local(node.id):
+                self.loaded.add(node.id)
+        elif isinstance(node.ctx, ast.Store):
+            self.bound.add(node.id)
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self.bound.add(node.target.id)
+        self.visit(node.value)
+
+
+def find_free_names(expression: ast.expr) -> Set[str]:
+    """Return names loaded by an expression but not bound within it."""
+    visitor = _ExpressionNameVisitor()
+    visitor.visit(expression)
+    return visitor.loaded - visitor.bound
+
+
+class _BoundNameVisitor(_ScopedExpressionVisitor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.bound: Set[str] = set()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Store):
+            self.bound.add(node.id)
+
+    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.bound.add(node.name)
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+        for default in node.args.defaults:
+            self.visit(default)
+        for default in node.args.kw_defaults:
+            if default is not None:
+                self.visit(default)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_function(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_function(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.bound.add(node.name)
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+        for base in node.bases:
+            self.visit(base)
+        for keyword in node.keywords:
+            self.visit(keyword.value)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self.bound.add(alias.asname or alias.name.split(".", 1)[0])
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        for alias in node.names:
+            if alias.name != "*":
+                self.bound.add(alias.asname or alias.name)
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self.bound.add(node.target.id)
+        self.visit(node.value)
+
+
+def names_bound_by(statement: ast.stmt) -> Set[str]:
+    """Return names bound at module scope if ``statement`` executes.
+
+    Nested function, lambda, class, and comprehension scopes are not traversed.
+    Function and class names, imports, and walrus targets in module-scope
+    expressions are included.
+    """
+    visitor = _BoundNameVisitor()
+    visitor.visit(statement)
+    return visitor.bound
 
 
 def find_relative_imports(tree: ast.Module) -> List[ast.ImportFrom]:

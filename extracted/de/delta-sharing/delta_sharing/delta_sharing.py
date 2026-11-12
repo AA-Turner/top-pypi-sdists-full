@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 from itertools import chain
-from typing import BinaryIO, List, Optional, Sequence, TextIO, Tuple, Union
+from typing import BinaryIO, Iterator, List, Optional, Sequence, TextIO, Tuple, Union
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 
 from delta_sharing.protocol import CdfOptions, Protocol, Metadata
 
@@ -51,6 +52,14 @@ def _parse_url(url: str) -> Tuple[str, str, str, str]:
     return (profile, share, schema, table)
 
 
+def _parse_table_name(name: str) -> Table:
+    fragments = name.split(".")
+    if len(fragments) != 3 or any(len(fragment) == 0 for fragment in fragments):
+        raise ValueError(f"Invalid table name: {name}")
+    share, schema, table = fragments
+    return Table(name=table, share=share, schema=schema)
+
+
 def get_table_version(url: str, starting_timestamp: Optional[str] = None) -> int:
     """
     Get the shared table version using the given url.
@@ -68,14 +77,14 @@ def get_table_version(url: str, starting_timestamp: Optional[str] = None) -> int
     return response.delta_table_version
 
 
-def __get_table_metadata(rest_client: DataSharingRestClient, table: Table, use_delta_format: bool):
+def _get_table_metadata(rest_client: DataSharingRestClient, table: Table, use_delta_format: bool):
     if use_delta_format:
         rest_client.set_sharing_capabilities_header()
-        response = rest_client.query_table_metadata(table)
-        rest_client.remove_sharing_capabilities_header()
-    else:
-        response = rest_client.query_table_metadata(table)
-    return response
+        try:
+            return rest_client.query_table_metadata(table)
+        finally:
+            rest_client.remove_sharing_capabilities_header()
+    return rest_client.query_table_metadata(table)
 
 
 def get_table_protocol(url: str, use_delta_format: bool = True) -> Protocol:
@@ -88,7 +97,7 @@ def get_table_protocol(url: str, use_delta_format: bool = True) -> Protocol:
     profile = DeltaSharingProfile.read_from_file(profile_json)
     rest_client = DataSharingRestClient(profile)
     table = Table(name=table_name, share=share, schema=schema)
-    full_metadata = __get_table_metadata(rest_client, table, use_delta_format)
+    full_metadata = _get_table_metadata(rest_client, table, use_delta_format)
     return full_metadata.protocol
 
 
@@ -102,7 +111,7 @@ def get_table_metadata(url: str, use_delta_format: bool = True) -> Metadata:
     profile = DeltaSharingProfile.read_from_file(profile_json)
     rest_client = DataSharingRestClient(profile)
     table = Table(name=table_name, share=share, schema=schema)
-    full_metadata = __get_table_metadata(rest_client, table, use_delta_format)
+    full_metadata = _get_table_metadata(rest_client, table, use_delta_format)
     return full_metadata.metadata
 
 
@@ -147,18 +156,332 @@ def load_as_pandas(
     ).to_pandas()
 
 
+def load_as_arrow(
+    url: str,
+    limit: Optional[int] = None,
+    version: Optional[int] = None,
+    timestamp: Optional[str] = None,
+    jsonPredicateHints: Optional[str] = None,
+    use_delta_format: Optional[bool] = None,
+) -> pa.Table:
+    """
+    Load the shared table using the given url as a PyArrow Table.
+
+    :param url: a url under the format "<profile>#<share>.<schema>.<table>"
+    :param limit: a non-negative int. Load only the ``limit`` rows if the parameter is specified.
+      Use this optional parameter to explore the shared table without loading the entire table to
+      memory.
+    :param version: an optional non-negative int. Load the snapshot of table at version
+    :param timestamp: an optional string. Load the snapshot of table at version corresponding
+      to the timestamp.
+    :param jsonPredicateHints: Predicate hints to be applied to the table. For more details see:
+      https://github.com/delta-io/delta-sharing/blob/main/PROTOCOL.md#json-predicates-for-filtering
+    :param use_delta_format: Whether to use delta format or parquet format. If not set, table
+      metadata will be used to determine whether to use delta or parquet format.
+    :return: A PyArrow Table representing the shared table.
+    """
+    profile_json, share, schema, table = _parse_url(url)
+    profile = DeltaSharingProfile.read_from_file(profile_json)
+    return DeltaSharingReader(
+        table=Table(name=table, share=share, schema=schema),
+        rest_client=DataSharingRestClient(profile),
+        jsonPredicateHints=jsonPredicateHints,
+        limit=limit,
+        version=version,
+        timestamp=timestamp,
+        use_delta_format=use_delta_format,
+    ).to_arrow()
+
+
+class TableSnapshot:
+    def __init__(
+        self,
+        table: Table,
+        rest_client: DataSharingRestClient,
+        *,
+        jsonPredicateHints: Optional[str] = None,
+        limit: Optional[int] = None,
+        version: Optional[int] = None,
+        timestamp: Optional[str] = None,
+        use_delta_format: Optional[bool] = None,
+    ):
+        self._table = table
+        self._rest_client = rest_client
+        self._jsonPredicateHints = jsonPredicateHints
+        self._limit = limit
+        self._version = version
+        self._timestamp = timestamp
+        self._use_delta_format = use_delta_format
+
+    def _reader(self, convert_in_batches: bool = False) -> DeltaSharingReader:
+        return DeltaSharingReader(
+            table=self._table,
+            rest_client=self._rest_client,
+            jsonPredicateHints=self._jsonPredicateHints,
+            limit=self._limit,
+            version=self._version,
+            timestamp=self._timestamp,
+            use_delta_format=self._use_delta_format,
+            convert_in_batches=convert_in_batches,
+        )
+
+    def to_pandas(self, convert_in_batches: bool = False) -> pd.DataFrame:
+        return self._reader(convert_in_batches=convert_in_batches).to_pandas()
+
+    def to_arrow(self) -> pa.Table:
+        return self._reader().to_arrow()
+
+    def to_record_batches(self) -> Iterator[pa.RecordBatch]:
+        return self._reader().to_record_batches()
+
+    def to_record_batch_reader(self) -> pa.RecordBatchReader:
+        return self._reader().to_record_batch_reader()
+
+    def _table_name(self) -> str:
+        return f"{self._table.share}.{self._table.schema}.{self._table.name}"
+
+    def to_spark(self) -> "PySparkDataFrame":  # noqa: F821
+        unsupported_options = []
+        if self._limit is not None:
+            unsupported_options.append("limit")
+        if self._jsonPredicateHints is not None:
+            unsupported_options.append("jsonPredicateHints")
+        if self._use_delta_format is not None:
+            # TODO: Support use_delta_format once load_as_spark can pass it through.
+            unsupported_options.append("use_delta_format")
+
+        if unsupported_options:
+            unsupported = ", ".join(unsupported_options)
+            raise ValueError(
+                f"TableSnapshot.to_spark does not support snapshot options: {unsupported}"
+            )
+
+        return load_as_spark(
+            self._table_name(),
+            version=self._version,
+            timestamp=self._timestamp,
+            delta_sharing_profile=self._rest_client._profile,
+        )
+
+
+class TableChanges:
+    def __init__(
+        self,
+        table: Table,
+        rest_client: DataSharingRestClient,
+        *,
+        starting_version: Optional[int] = None,
+        ending_version: Optional[int] = None,
+        starting_timestamp: Optional[str] = None,
+        ending_timestamp: Optional[str] = None,
+        use_delta_format: Optional[bool] = None,
+    ):
+        self._table = table
+        self._rest_client = rest_client
+        self._starting_version = starting_version
+        self._ending_version = ending_version
+        self._starting_timestamp = starting_timestamp
+        self._ending_timestamp = ending_timestamp
+        self._use_delta_format = use_delta_format
+
+    def _table_name(self) -> str:
+        return f"{self._table.share}.{self._table.schema}.{self._table.name}"
+
+    def _cdf_options(self) -> CdfOptions:
+        return CdfOptions(
+            starting_version=self._starting_version,
+            ending_version=self._ending_version,
+            starting_timestamp=self._starting_timestamp,
+            ending_timestamp=self._ending_timestamp,
+            # when using delta format, we need to get metadata changes and
+            # handle them properly when replaying the delta log
+            include_historical_metadata=self._use_delta_format,
+        )
+
+    def _reader(self, convert_in_batches: bool = False) -> DeltaSharingReader:
+        return DeltaSharingReader(
+            table=self._table,
+            rest_client=self._rest_client,
+            use_delta_format=self._use_delta_format,
+            convert_in_batches=convert_in_batches,
+        )
+
+    def to_pandas(self, convert_in_batches: bool = False) -> pd.DataFrame:
+        return self._reader(convert_in_batches=convert_in_batches).table_changes_to_pandas(
+            self._cdf_options()
+        )
+
+    def to_arrow(self) -> pa.Table:
+        return self._reader().table_changes_to_arrow(self._cdf_options())
+
+    def to_record_batches(self) -> Iterator[pa.RecordBatch]:
+        return self._reader().table_changes_to_record_batches(self._cdf_options())
+
+    def to_record_batch_reader(self) -> pa.RecordBatchReader:
+        return self._reader().table_changes_to_record_batch_reader(self._cdf_options())
+
+    def to_spark(self) -> "PySparkDataFrame":  # noqa: F821
+        if self._use_delta_format is not None:
+            # TODO: Support use_delta_format once load_table_changes_as_spark can pass it through.
+            raise ValueError(
+                "TableChanges.to_spark does not support table changes options: " "use_delta_format"
+            )
+
+        return load_table_changes_as_spark(
+            self._table_name(),
+            starting_version=self._starting_version,
+            ending_version=self._ending_version,
+            starting_timestamp=self._starting_timestamp,
+            ending_timestamp=self._ending_timestamp,
+            delta_sharing_profile=self._rest_client._profile,
+        )
+
+
+class DeltaSharingTable:
+    def __init__(self, table: Table, rest_client: DataSharingRestClient):
+        self._table = table
+        self._rest_client = rest_client
+
+    @property
+    def table(self) -> Table:
+        return self._table
+
+    def snapshot(
+        self,
+        *,
+        jsonPredicateHints: Optional[str] = None,
+        limit: Optional[int] = None,
+        version: Optional[int] = None,
+        timestamp: Optional[str] = None,
+        use_delta_format: Optional[bool] = None,
+    ) -> "TableSnapshot":
+        return TableSnapshot(
+            table=self._table,
+            rest_client=self._rest_client,
+            jsonPredicateHints=jsonPredicateHints,
+            limit=limit,
+            version=version,
+            timestamp=timestamp,
+            use_delta_format=use_delta_format,
+        )
+
+    def changes(
+        self,
+        *,
+        starting_version: Optional[int] = None,
+        ending_version: Optional[int] = None,
+        starting_timestamp: Optional[str] = None,
+        ending_timestamp: Optional[str] = None,
+        use_delta_format: Optional[bool] = None,
+    ) -> "TableChanges":
+        return TableChanges(
+            table=self._table,
+            rest_client=self._rest_client,
+            starting_version=starting_version,
+            ending_version=ending_version,
+            starting_timestamp=starting_timestamp,
+            ending_timestamp=ending_timestamp,
+            use_delta_format=use_delta_format,
+        )
+
+    def metadata(self, use_delta_format: bool = True) -> Metadata:
+        return _get_table_metadata(self._rest_client, self._table, use_delta_format).metadata
+
+    def protocol(self, use_delta_format: bool = True) -> Protocol:
+        return _get_table_metadata(self._rest_client, self._table, use_delta_format).protocol
+
+    def version(self, starting_timestamp: Optional[str] = None) -> int:
+        return self._rest_client.query_table_version(
+            self._table, starting_timestamp
+        ).delta_table_version
+
+    def to_pandas(self, convert_in_batches: bool = False) -> pd.DataFrame:
+        return self.snapshot().to_pandas(convert_in_batches=convert_in_batches)
+
+    def to_arrow(self) -> pa.Table:
+        return self.snapshot().to_arrow()
+
+    def to_record_batches(self) -> Iterator[pa.RecordBatch]:
+        return self.snapshot().to_record_batches()
+
+    def to_record_batch_reader(self) -> pa.RecordBatchReader:
+        return self.snapshot().to_record_batch_reader()
+
+    def to_spark(self) -> "PySparkDataFrame":  # noqa: F821
+        return self.snapshot().to_spark()
+
+
+def _validate_url(url: str, delta_sharing_profile: Optional[DeltaSharingProfile] = None) -> None:
+    """
+    Validate the URL format based on whether credentials are provided via profile or URL.
+    When delta_sharing_profile is provided, the URL should be in format: "share.schema.table"
+    When delta_sharing_profile is None, URL should be in format: "profile_file#share.schema.table"
+    :param url: The URL string to validate.
+    :param delta_sharing_profile: Optional profile containing credentials. If provided, the URL
+                                   should not contain a '#' separator.
+    :raises ValueError: If the URL format is invalid for the given profile configuration.
+    """
+    shape_index = url.rfind("#")
+    if delta_sharing_profile is not None and shape_index >= 0:
+        raise ValueError(f"Cannot specify both share credentials options and a profile file path")
+    if delta_sharing_profile is None and shape_index < 0:
+        raise ValueError(f"Invalid 'url': {url}")
+
+
+def _apply_options(
+    df: "PySparkDataFrame", delta_sharing_profile: DeltaSharingProfile
+) -> "PySparkDataFrame":
+    """
+    Apply Delta Sharing profile credentials and configuration as Spark DataFrame options.
+    These options are passed through to the Scala Spark connector, which uses them to
+    authenticate and connect to the Delta Sharing server instead of reading from a profile file.
+
+    :param df: The Spark DataFrame reader to configure.
+    :param delta_sharing_profile: Profile containing credentials and endpoint configuration.
+    :return: The DataFrame reader with credentials applied as options.
+    """
+    if delta_sharing_profile.share_credentials_version is not None:
+        df.option("shareCredentialsVersion", delta_sharing_profile.share_credentials_version)
+    if delta_sharing_profile.type is not None:
+        df.option("type", delta_sharing_profile.type)
+    if delta_sharing_profile.endpoint is not None:
+        df.option("endpoint", delta_sharing_profile.endpoint)
+    if delta_sharing_profile.token_endpoint is not None:
+        df.option("tokenEndpoint", delta_sharing_profile.token_endpoint)
+    if delta_sharing_profile.client_id is not None:
+        df.option("clientId", delta_sharing_profile.client_id)
+    if delta_sharing_profile.client_secret is not None:
+        df.option("clientSecret", delta_sharing_profile.client_secret)
+    if delta_sharing_profile.scope is not None:
+        df.option("scope", delta_sharing_profile.scope)
+    if delta_sharing_profile.bearer_token is not None:
+        df.option("bearerToken", delta_sharing_profile.bearer_token)
+    if delta_sharing_profile.expiration_time is not None:
+        df.option("expirationTime", delta_sharing_profile.expiration_time)
+    return df
+
+
 def load_as_spark(
-    url: str, version: Optional[int] = None, timestamp: Optional[str] = None
+    url: str,
+    version: Optional[int] = None,
+    timestamp: Optional[str] = None,
+    delta_sharing_profile: Optional[DeltaSharingProfile] = None,
 ) -> "PySparkDataFrame":  # noqa: F821
     """
     Load the shared table using the given url as a Spark DataFrame. `PySpark` must be installed,
     and the application must be a PySpark application with the Apache Spark Connector for Delta
     Sharing installed. Only one of version/timestamp is supported at one time.
 
-    :param url: a url under the format "<profile>#<share>.<schema>.<table>".
+    :param url: applies format "<profile>#<share>.<schema>.<table>". If delta_sharing_profile
+      is provided then "<share>.<schema>.<table>"
+    :type url: str
     :param version: an optional non-negative int. Load the snapshot of table at version.
+    :type version: Optional[int]
     :param timestamp: an optional string. Load the snapshot of table at version corresponding
       to the timestamp.
+    :type timestamp: Optional[str]
+    :param delta_sharing_profile: The DeltaSharingProfile to use for the connection
+    :type delta_sharing_profile: Optional[DeltaSharingProfile]
     :return: A Spark DataFrame representing the shared table.
     """
     try:
@@ -166,12 +489,16 @@ def load_as_spark(
     except ImportError:
         raise ImportError("Unable to import pyspark. `load_as_spark` requires PySpark.")
 
+    _validate_url(url, delta_sharing_profile)
     spark = SparkSession.getActiveSession()
     assert spark is not None, (
         "No active SparkSession was found. "
         "`load_as_spark` requires running in a PySpark application."
     )
     df = spark.read.format("deltaSharing")
+
+    if delta_sharing_profile is not None:
+        _apply_options(df, delta_sharing_profile)
     if version is not None:
         df.option("versionAsOf", version)
     if timestamp is not None:
@@ -185,6 +512,7 @@ def load_table_changes_as_spark(
     ending_version: Optional[int] = None,
     starting_timestamp: Optional[str] = None,
     ending_timestamp: Optional[str] = None,
+    delta_sharing_profile: Optional[DeltaSharingProfile] = None,
 ) -> "PySparkDataFrame":  # noqa: F821
     """
     Load the table changes of a shared table as a Spark DataFrame using the given url.
@@ -194,11 +522,19 @@ def load_table_changes_as_spark(
     parameter is accepted by the server. If the end parameter is not provided, the API will use the
     latest table version for it. The parameter range is inclusive in the query.
 
-    :param url: a url under the format "<profile>#<share>.<schema>.<table>".
+    :param url: applies format "<profile>#<share>.<schema>.<table>". If delta_sharing_profile
+      is provided then "<share>.<schema>.<table>"
+    :type url: str
     :param starting_version: The starting version of table changes.
+    :type starting_version: Optional[int]
     :param ending_version: The ending version of table changes.
+    :type ending_version: Optional[int]
     :param starting_timestamp: The starting timestamp of table changes.
+    :type starting_timestamp: Optional[str]
     :param ending_timestamp: The ending timestamp of table changes.
+    :type ending_timestamp: Optional[str]
+    :param delta_sharing_profile: The DeltaSharingProfile to use for the connection
+    :type delta_sharing_profile: Optional[DeltaSharingProfile]
     :return: A Spark DataFrame representing the table changes.
     """
     try:
@@ -208,12 +544,15 @@ def load_table_changes_as_spark(
             "Unable to import pyspark. `load_table_changes_as_spark` requires PySpark."
         )
 
+    _validate_url(url, delta_sharing_profile)
     spark = SparkSession.getActiveSession()
     assert spark is not None, (
         "No active SparkSession was found. "
         "`load_table_changes_as_spark` requires running in a PySpark application."
     )
     df = spark.read.format("deltaSharing").option("readChangeFeed", "true")
+    if delta_sharing_profile is not None:
+        _apply_options(df, delta_sharing_profile)
     if starting_version is not None:
         df.option("startingVersion", starting_version)
     if ending_version is not None:
@@ -261,6 +600,47 @@ def load_table_changes_as_pandas(
         use_delta_format=use_delta_format,
         convert_in_batches=convert_in_batches,
     ).table_changes_to_pandas(
+        CdfOptions(
+            starting_version=starting_version,
+            ending_version=ending_version,
+            starting_timestamp=starting_timestamp,
+            ending_timestamp=ending_timestamp,
+            # when using delta format, we need to get metadata changes and
+            # handle them properly when replaying the delta log
+            include_historical_metadata=use_delta_format,
+        )
+    )
+
+
+def load_table_changes_as_arrow(
+    url: str,
+    starting_version: Optional[int] = None,
+    ending_version: Optional[int] = None,
+    starting_timestamp: Optional[str] = None,
+    ending_timestamp: Optional[str] = None,
+    use_delta_format: Optional[bool] = None,
+) -> pa.Table:
+    """
+    Load the table changes of a shared table as a PyArrow Table using the given url.
+    Either starting_version or starting_timestamp needs to be provided. Only one starting and
+    ending parameter is accepted by the server. If the end parameter is not provided, the API
+    uses the latest table version. The parameter range is inclusive.
+
+    :param url: a url under the format "<profile>#<share>.<schema>.<table>".
+    :param starting_version: The starting version of table changes.
+    :param ending_version: The ending version of table changes.
+    :param starting_timestamp: The starting timestamp of table changes.
+    :param ending_timestamp: The ending timestamp of table changes.
+    :param use_delta_format: Whether to use delta format or parquet format. Default is parquet.
+    :return: A PyArrow Table representing the shared table changes.
+    """
+    profile_json, share, schema, table = _parse_url(url)
+    profile = DeltaSharingProfile.read_from_file(profile_json)
+    return DeltaSharingReader(
+        table=Table(name=table, share=share, schema=schema),
+        rest_client=DataSharingRestClient(profile),
+        use_delta_format=use_delta_format,
+    ).table_changes_to_arrow(
         CdfOptions(
             starting_version=starting_version,
             ending_version=ending_version,
@@ -357,3 +737,8 @@ class SharingClient:
                 return list(chain(*(self.list_tables(schema) for schema in schemas)))
             else:
                 raise e
+
+    def table(self, table: Union[str, Table]) -> DeltaSharingTable:
+        if isinstance(table, str):
+            table = _parse_table_name(table)
+        return DeltaSharingTable(table, self._rest_client)

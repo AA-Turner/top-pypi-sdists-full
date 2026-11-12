@@ -531,5 +531,5 @@ def fork(source: str, name: str, *, base_url: str | None = None, echo=None) -> d
     out = _call("POST", f"/v1/deployments/{segment(source)}/fork", base_url, {"name": name})
     if echo is not None:
         echo(f"{name}: a copy of {source}, building as a policy of its own - `seq policy status {name}` follows it; "
-             f"give a robot a key to it with `seq robot add --policy {name}`")
+             f"put it on a robot's list with `seq robot create <robot>`, then `seq robot set <robot> policies={name}`")
     return out

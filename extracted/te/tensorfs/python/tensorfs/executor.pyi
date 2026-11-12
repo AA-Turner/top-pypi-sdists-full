@@ -39,6 +39,7 @@ __all__ = [
     'MemoSettings',
     'ModelPrefetch',
     'PrepareRequest',
+    'Preview',
     'Publish',
     'PublishPart',
     'Request',
@@ -143,6 +144,19 @@ class PrepareRequest:
     def json(self) -> str: ...
     def replace(self, /, **changes: Unpack[_PrepareRequestChanges]) -> Self: ...
 
+_PreviewFields = TypedDict("_PreviewFields", {'request_id': str, 'for_ms': int})
+_PreviewChanges = TypedDict("_PreviewChanges", {'request_id': str, 'for_ms': int}, total=False)
+
+@final
+class Preview:
+    @property
+    def request_id(self) -> str: ...
+    @property
+    def for_ms(self) -> int: ...
+    def __new__(cls, /, **fields: Unpack[_PreviewFields]) -> Self: ...
+    def json(self) -> str: ...
+    def replace(self, /, **changes: Unpack[_PreviewChanges]) -> Self: ...
+
 _CancelFields = TypedDict("_CancelFields", {'request_id': str})
 _CancelChanges = TypedDict("_CancelChanges", {'request_id': str}, total=False)
 
@@ -154,8 +168,8 @@ class Cancel:
     def json(self) -> str: ...
     def replace(self, /, **changes: Unpack[_CancelChanges]) -> Self: ...
 
-_InvokeFields = TypedDict("_InvokeFields", {'tensorfs': NotRequired[TensorFSOptions | None], 'max_output_bytes': NotRequired[int], 'request_id': str, 'construction': str, 'entrypoint': str, 'spool': _StrPath, 'deadline_s': NotRequired[float | None], 'attention_kernel': NotRequired[str], 'bits': NotRequired[int], 'inputs': NotRequired[Mapping[str, InputFile]], 'trees': NotRequired[Mapping[str, tuple[_StrPath, str]]], 'sources': NotRequired[Mapping[str, str]], 'weights': NotRequired[Mapping[str, int]], 'destination': NotRequired[str], 'actor': NotRequired[str], 'operation': NotRequired[str], 'family': NotRequired[str], 'display_limit': NotRequired[Sequence[int]]})
-_InvokeChanges = TypedDict("_InvokeChanges", {'tensorfs': TensorFSOptions | None, 'max_output_bytes': int, 'request_id': str, 'construction': str, 'entrypoint': str, 'spool': _StrPath, 'deadline_s': float | None, 'attention_kernel': str, 'bits': int, 'inputs': Mapping[str, InputFile], 'trees': Mapping[str, tuple[_StrPath, str]], 'sources': Mapping[str, str], 'weights': Mapping[str, int], 'destination': str, 'actor': str, 'operation': str, 'family': str, 'display_limit': Sequence[int]}, total=False)
+_InvokeFields = TypedDict("_InvokeFields", {'tensorfs': NotRequired[TensorFSOptions | None], 'max_output_bytes': NotRequired[int], 'request_id': str, 'construction': str, 'entrypoint': str, 'spool': _StrPath, 'deadline_s': NotRequired[float | None], 'attention_kernel': NotRequired[str], 'attention_capture': NotRequired[str], 'bits': NotRequired[int], 'inputs': NotRequired[Mapping[str, InputFile]], 'trees': NotRequired[Mapping[str, tuple[_StrPath, str]]], 'sources': NotRequired[Mapping[str, str]], 'weights': NotRequired[Mapping[str, int]], 'destination': NotRequired[str], 'actor': NotRequired[str], 'operation': NotRequired[str], 'family': NotRequired[str], 'display_limit': NotRequired[Sequence[int]]})
+_InvokeChanges = TypedDict("_InvokeChanges", {'tensorfs': TensorFSOptions | None, 'max_output_bytes': int, 'request_id': str, 'construction': str, 'entrypoint': str, 'spool': _StrPath, 'deadline_s': float | None, 'attention_kernel': str, 'attention_capture': str, 'bits': int, 'inputs': Mapping[str, InputFile], 'trees': Mapping[str, tuple[_StrPath, str]], 'sources': Mapping[str, str], 'weights': Mapping[str, int], 'destination': str, 'actor': str, 'operation': str, 'family': str, 'display_limit': Sequence[int]}, total=False)
 
 @final
 class Invoke:
@@ -175,6 +189,8 @@ class Invoke:
     def deadline_s(self) -> float | None: ...
     @property
     def attention_kernel(self) -> str: ...
+    @property
+    def attention_capture(self) -> str: ...
     @property
     def bits(self) -> int: ...
     @property
@@ -498,15 +514,15 @@ class Publish:
     def json(self) -> str: ...
     def replace(self, /, **changes: Unpack[_PublishChanges]) -> Self: ...
 
-_CheckpointItemFields = TypedDict("_CheckpointItemFields", {'output': str, 'repo_id': str, 'revision': str, 'tag': NotRequired[str], 'variant': NotRequired[str]})
-_CheckpointItemChanges = TypedDict("_CheckpointItemChanges", {'output': str, 'repo_id': str, 'revision': str, 'tag': str, 'variant': str}, total=False)
+_CheckpointItemFields = TypedDict("_CheckpointItemFields", {'output': str, 'revision': str, 'tag': NotRequired[str], 'variant': NotRequired[str], 'model_id': NotRequired[str], 'repo_id': NotRequired[str]})
+_CheckpointItemChanges = TypedDict("_CheckpointItemChanges", {'output': str, 'revision': str, 'tag': str, 'variant': str, 'model_id': str, 'repo_id': str}, total=False)
 
 @final
 class CheckpointItem:
     @property
     def output(self) -> str: ...
     @property
-    def repo_id(self) -> str: ...
+    def model_id(self) -> str: ...
     @property
     def revision(self) -> str: ...
     @property

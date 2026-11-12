@@ -5,6 +5,7 @@ from json import dumps
 from typing import Optional
 
 import click
+from rich.box import SIMPLE
 from rich.table import Column, Table
 from rich.text import Text
 
@@ -21,6 +22,7 @@ from modal_proto import api_pb2
 
 from ._help import ModalGroup
 from ._logs import _validate_logs_args
+from ._stats import STATS_METADATA_STYLE
 from .server import _run_server_logs, _run_server_stats, _server_stats_time_range
 
 _ENDPOINT_HELP = """
@@ -40,6 +42,11 @@ _DEFAULT_ROUTING_REGION = "us-west"
 _SERVING_MODE_LABELS = {
     api_pb2.ENDPOINT_SERVING_MODE_DEDICATED: "dedicated",
     api_pb2.ENDPOINT_SERVING_MODE_SHARED: "shared",
+}
+_INPUT_MODALITY_LABELS = {
+    api_pb2.ENDPOINT_INPUT_MODALITY_TEXT: "text",
+    api_pb2.ENDPOINT_INPUT_MODALITY_IMAGE: "image",
+    api_pb2.ENDPOINT_INPUT_MODALITY_AUDIO: "audio",
 }
 _ENDPOINT_STATUS_LABELS = {
     api_pb2.EndpointGetInfoResponse.ENDPOINT_STATUS_PROVISIONING: "provisioning",
@@ -312,6 +319,36 @@ async def list_(*, json: bool = False, env: Optional[str] = None):
 @click.option("--custom-hf-token", default=None, help="Hugging Face token for private --custom-hf-repo.")
 @click.option("--custom-volume-name", default=None, help="Modal Volume name containing custom model weights.")
 @click.option("--custom-volume-path", default=None, help="Path within Volume containing model weights.")
+@click.option(
+    "--min-containers",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Minimum number of containers to keep running regardless of demand.",
+)
+@click.option(
+    "--max-containers",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Maximum number of containers that can run concurrently.",
+)
+@click.option(
+    "--buffer-containers",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Extra containers to keep running beyond current demand.",
+)
+@click.option(
+    "--scaleup-window",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Seconds of sustained demand required before scaling up.",
+)
+@click.option(
+    "--scaledown-window",
+    type=click.IntRange(min=2, max=3600),
+    default=None,
+    help="Seconds an idle container waits before scaling down.",
+)
 @synchronizer.create_blocking
 async def create(
     name: Optional[str],
@@ -326,6 +363,11 @@ async def create(
     custom_hf_token: Optional[str] = None,
     custom_volume_name: Optional[str] = None,
     custom_volume_path: Optional[str] = None,
+    min_containers: Optional[int] = None,
+    max_containers: Optional[int] = None,
+    buffer_containers: Optional[int] = None,
+    scaleup_window: Optional[int] = None,
+    scaledown_window: Optional[int] = None,
     env: Optional[str] = None,
 ):
     """Deploy a new Endpoint.
@@ -368,6 +410,12 @@ async def create(
       --custom-volume-name qwen-ft --custom-volume-path /models/qwen
     ```
 
+    Create an Endpoint with custom autoscaling:
+    ```bash
+    modal endpoint create --model Qwen/Qwen3.6-27B-FP8 \\
+      --min-containers 1 --max-containers 10
+    ```
+
     """
     if shared:
         for option, provided in (
@@ -379,6 +427,11 @@ async def create(
             ("--custom-hf-token", custom_hf_token is not None),
             ("--custom-volume-name", custom_volume_name is not None),
             ("--custom-volume-path", custom_volume_path is not None),
+            ("--min-containers", min_containers is not None),
+            ("--max-containers", max_containers is not None),
+            ("--buffer-containers", buffer_containers is not None),
+            ("--scaleup-window", scaleup_window is not None),
+            ("--scaledown-window", scaledown_window is not None),
         ):
             if provided:
                 raise click.UsageError(f"{option} cannot be used with --shared.")
@@ -444,6 +497,15 @@ async def create(
     )
     if name:
         req.name = name
+    autoscaler_settings = api_pb2.AutoscalerSettings(
+        min_containers=min_containers,
+        max_containers=max_containers,
+        buffer_containers=buffer_containers,
+        scaleup_window=scaleup_window,
+        scaledown_window=scaledown_window,
+    )
+    if autoscaler_settings.ListFields():
+        req.autoscaler_settings.CopyFrom(autoscaler_settings)
     resp = await client._stub.EndpointCreate(req)
 
     output = OutputManager.get()
@@ -500,6 +562,108 @@ async def stop(
         )
     else:
         output.print(f"[green]✓[/green] Stopped Endpoint {endpoint_id}.")
+
+
+@endpoint_cli.command("library", panel="Inspection")
+@click.option(
+    "--input-modality",
+    type=click.Choice(["text", "image", "audio"]),
+    multiple=True,
+    help="Only show models that accept any of these inputs. Can be repeated.",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output models as JSON.")
+@synchronizer.create_blocking
+async def library(*, input_modality: tuple[str, ...] = (), json_output: bool = False) -> None:
+    """List models you can serve with Modal Endpoints.
+
+    Models are listed by their Hugging Face repo ID, with the input types they
+    accept and whether they're available as shared endpoints, dedicated
+    endpoints, or both.
+
+    This is Modal's catalog of supported models, not the Endpoints in your
+    workspace. To see those, run `modal endpoint list`.
+
+    Examples:
+
+    List models that support text input modality:
+
+    ```
+    modal endpoint library --input-modality text
+    ```
+
+    Pick a model ID and then create a shared endpoint:
+
+    ```
+    modal endpoint create --model Qwen/Qwen3.8-27B --shared
+    ```
+    """
+    client = await _Client.from_env()
+    response = await client._stub.EndpointGetLibrary(api_pb2.EndpointGetLibraryRequest())
+    modalities = {modality for modality, label in _INPUT_MODALITY_LABELS.items() if label in input_modality}
+
+    models = sorted(
+        (
+            model
+            for model in response.models
+            if (not modalities or modalities.intersection(model.supported_input_modalities))
+        ),
+        key=lambda model: model.base_model_repo_id,
+    )
+    output = OutputManager.get()
+    if json_output:
+        output.print_json(
+            dumps(
+                [
+                    {
+                        "base_model_repo_id": model.base_model_repo_id,
+                        "input_modalities": [
+                            _INPUT_MODALITY_LABELS.get(modality, "unknown")
+                            for modality in model.supported_input_modalities
+                        ],
+                        "shared": api_pb2.ENDPOINT_SERVING_MODE_SHARED in model.available_serving_modes,
+                        "dedicated": api_pb2.ENDPOINT_SERVING_MODE_DEDICATED in model.available_serving_modes,
+                    }
+                    for model in models
+                ]
+            )
+        )
+        return
+    output.print(
+        Text(
+            f"Displaying {len(models):,} {'model' if len(models) == 1 else 'models'}",
+            style=STATS_METADATA_STYLE,
+        )
+    )
+    if not models:
+        output.print(
+            "No endpoint-compatible models match the filters."
+            if input_modality
+            else "No endpoint-compatible models are available."
+        )
+        return
+    display_table(
+        [
+            Column("Model ID", overflow="fold"),
+            "Input Modalities",
+            Column("Shared", justify="center"),
+            Column("Dedicated", justify="center"),
+        ],
+        [
+            (
+                Text.assemble(
+                    (model.base_model_repo_id, f"link https://huggingface.co/{model.base_model_repo_id}"),
+                    (" ↗", "bright_blue not underline"),
+                ),
+                ", ".join(
+                    _INPUT_MODALITY_LABELS.get(modality, "unknown") for modality in model.supported_input_modalities
+                ),
+                "✓" if api_pb2.ENDPOINT_SERVING_MODE_SHARED in model.available_serving_modes else "—",
+                "✓" if api_pb2.ENDPOINT_SERVING_MODE_DEDICATED in model.available_serving_modes else "—",
+            )
+            for model in models
+        ],
+        table_box=SIMPLE,
+    )
 
 
 @endpoint_cli.command("info", panel="Inspection", no_args_is_help=True)

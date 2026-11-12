@@ -11,6 +11,13 @@ class TextDeltaChunk:
 
 
 @dataclass
+class ReasoningPartStartChunk:
+    unstable_summary: Optional[str] = None
+    parent_id: Optional[str] = None
+    type: str = "reasoning-part-start"
+
+
+@dataclass
 class ReasoningDeltaChunk:
     reasoning_delta: str
     type: str = "reasoning-delta"
@@ -33,12 +40,21 @@ class ToolCallDeltaChunk:
 
 
 @dataclass
+class ToolCallArgsTextFinishChunk:
+    tool_call_id: str
+    args_text_delta: str = ""
+    type: str = "tool-call-args-text-finish"
+
+
+@dataclass
 class ToolResultChunk:
     tool_call_id: str
     result: Any
     artifact: Any | None = None
     is_error: bool = False
+    is_preliminary: bool = False
     type: str = "tool-result"
+    messages: Any | None = None
 
 
 @dataclass
@@ -51,6 +67,8 @@ class DataChunk:
 class ErrorChunk:
     error: str
     type: str = "error"
+    code: str | None = None
+    severity: Literal["critical", "warning", "info"] | None = None
 
 
 # Define ObjectStream operation types as TypedDict
@@ -118,8 +136,10 @@ class StepFinishChunk:
 AssistantStreamChunk = Union[
     TextDeltaChunk,
     ReasoningDeltaChunk,
+    ReasoningPartStartChunk,
     ToolCallBeginChunk,
     ToolCallDeltaChunk,
+    ToolCallArgsTextFinishChunk,
     ToolResultChunk,
     DataChunk,
     ErrorChunk,

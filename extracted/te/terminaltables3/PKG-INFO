@@ -1,38 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: terminaltables3
-Version: 4.0.0
+Version: 4.1.0
 Summary: Generate simple tables in terminals from a nested list of strings. Fork of terminaltables.
-Home-page: https://github.com/matthewdeanmartin/terminaltables3
-License: MIT
-Keywords: Shell,Bash,ANSI,ASCII,terminal,tables
-Author: Robpol86
-Author-email: robpol86@gmail.com
-Requires-Python: >=3.8
+Project-URL: Homepage, https://github.com/matthewdeanmartin/terminaltables3
+Project-URL: Repository, https://github.com/matthewdeanmartin/terminaltables3
+Project-URL: Documentation, https://github.com/matthewdeanmartin/terminaltables3
+Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/terminaltables3/issues
+Project-URL: Change Log, https://github.com/matthewdeanmartin/terminaltables3/blob/master/CHANGELOG.md
+Author-email: Robpol86 <robpol86@gmail.com>, Matthew Martin <matthewdeanmartin@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: ANSI,ASCII,Bash,Shell,tables,terminal
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: MacOS X
 Classifier: Environment :: Win32 (MS Windows)
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Terminals
 Classifier: Topic :: Text Processing :: Markup
-Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/terminaltables3/issues
-Project-URL: Change Log, https://github.com/matthewdeanmartin/terminaltables3/blob/master/CHANGELOG.md
-Project-URL: Documentation, https://github.com/matthewdeanmartin/terminaltables3
-Project-URL: Repository, https://github.com/matthewdeanmartin/terminaltables3
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 
 # What is it
@@ -89,6 +89,21 @@ table.table
 +--------------+--------------+
 ```
 
+To add a separator between selected rows, enable `inner_separators` and place
+the delimiter in the first cell of a marker row. The optional second cell is a
+title for that separator:
+
+```python
+table = AsciiTable([["Name"], ["Ada"], ["---", "Group B"], ["Bob"]])
+table.inner_separators = True
+print(table.table)
+```
+
+The delimiter defaults to `"---"` and can be changed with
+`table.inner_separators_delimiter`. Existing rows keep their usual meaning until
+`inner_separators` is enabled. Markdown tables continue to render marker rows
+as data.
+
 Example Implementations
 =======================
 ![Example Scripts Screenshot](https://github.com/matthewdeanmartin/terminaltables/blob/master/docs/examples.png?raw=true)
@@ -101,3 +116,27 @@ Source code for examples:
 
 [Change Log](https://github.com/matthewdeanmartin/terminaltables/blob/master/CHANGELOG.md)
 
+## Run tests on Linux locally
+
+With Docker Desktop running:
+
+```sh
+docker build -f Dockerfile.test -t terminaltables3-tests .
+docker run --rm terminaltables3-tests
+```
+
+The image uses Debian slim with Python 3.12 and runs the full quality gate.
+
+## Local development
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
+
+```sh
+uv sync --frozen
+make check
+```
+
+`make check` runs the same full quality gates as the Python 3.12 Linux job in
+GitHub Actions and the GitLab quality job. The other GitHub Actions jobs run
+`make test`'s pytest command on the remaining Python and operating system
+combinations. Run `make` to list all available targets.

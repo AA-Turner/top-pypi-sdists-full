@@ -1,10 +1,10 @@
+import gzip
 import hashlib
 import json
 import os
 import shutil
 from collections import OrderedDict
-from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from docker_squash.errors import SquashError
 from docker_squash.image import Image
@@ -42,7 +42,7 @@ class V2Image(Image):
         self.log.debug(f"Layers paths to squash: {self.layer_paths_to_squash}")
         self.log.debug(f"Layers paths to move: {self.layer_paths_to_move}")
 
-    def _squash(self):
+    def _squash(self) -> str:
         if self.layer_paths_to_squash:
             # Prepare the directory
             os.makedirs(self.squashed_dir)
@@ -51,6 +51,11 @@ class V2Image(Image):
 
         self.diff_ids = self._generate_diff_ids()
         self.chain_ids = self._generate_chain_ids(self.diff_ids)
+
+        if self.layer_paths_to_squash:
+            # Must run after the diff ID is computed: the diff ID is the digest
+            # of the uncompressed tar.
+            self._compress_squashed_layer()
 
         metadata = self._generate_image_metadata()
         image_id = self._write_image_metadata(metadata)
@@ -139,7 +144,7 @@ class V2Image(Image):
         layer_paths_to_move,
         layer_path_id=None,
     ):
-        manifest = OrderedDict()
+        manifest: Dict[str, Any] = OrderedDict()
         manifest["Config"] = "%s.json" % image_id
 
         if image_name and image_tag:
@@ -220,7 +225,7 @@ class V2Image(Image):
         return self._generate_chain_id(chain_ids, diff_ids[1:], digest)
 
     def _generate_chain_ids(self, diff_ids):
-        chain_ids = []
+        chain_ids: List[str] = []
 
         self._generate_chain_id(chain_ids, diff_ids, None)
 
@@ -238,6 +243,26 @@ class V2Image(Image):
             diff_ids.append(sha256)
 
         return diff_ids
+
+    def _compress_squashed_layer(self):
+        """
+        Replace the squashed layer.tar with its gzip.
+
+        The containerd image store keeps a loaded layer as given and pushes it
+        as is, so a raw tar is pushed uncompressed. The daemon derives the
+        compressed digest itself and the config's diff ID still refers to the
+        uncompressed tar, so no other metadata changes. The mtime is fixed to
+        keep the output reproducible.
+        """
+        compressed = self.squashed_tar + ".gz"
+
+        with open(self.squashed_tar, "rb") as src, open(compressed, "wb") as raw:
+            with gzip.GzipFile(
+                filename="", mode="wb", fileobj=raw, compresslevel=9, mtime=0
+            ) as dst:
+                shutil.copyfileobj(src, dst)
+
+        os.replace(compressed, self.squashed_tar)
 
     def _compute_sha256(self, layer_tar):
         sha256 = hashlib.sha256()
@@ -314,7 +339,7 @@ class V2Image(Image):
 
         return sha
 
-    def _generate_last_layer_metadata(self, layer_path_id, old_layer_path: Path):
+    def _generate_last_layer_metadata(self, layer_path_id, old_layer_path: str):
         config_file = os.path.join(self.old_image_dir, old_layer_path)
         with open(config_file, "r") as f:
             config = json.load(f, object_pairs_hook=OrderedDict)
@@ -354,7 +379,7 @@ class V2Image(Image):
             : len(self.layer_paths_to_move)
         ]
 
-        history = {"comment": self.comment, "created": self.date}
+        history: Dict[str, Any] = {"comment": self.comment, "created": self.date}
 
         if self.layer_paths_to_squash:
             # Add diff_ids for the squashed layer

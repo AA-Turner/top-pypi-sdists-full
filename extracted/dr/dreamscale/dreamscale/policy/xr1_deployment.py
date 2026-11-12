@@ -9,9 +9,11 @@ Each request carries one JPEG per declared camera at capture resolution (the ser
 resizes), the instruction, and one plain state vector of ``state_dim`` values: per arm, left
 before right, its joints (``joint_unit``), its gripper (``gripper_unit``), its end-effector
 position (xyz, metres, in ``ee_frame``) and rotation as 6D (the rotation matrix's first two
-columns); then the waist, when the robot has one. Each chunk row is ``action_dim`` absolute
-end-effector targets (``absolute_eef_6d``): per arm xyz, 6D and gripper; then the waist, then the
-base velocity (3). Between chunks the robot holds its measured pose (``current_position``).
+columns); then the waist, when the robot has one; then a mobile base's measured velocity
+components (``base_components``, in their declared order). Each chunk row is ``action_dim``
+absolute end-effector targets (``absolute_eef_6d``): per arm xyz, 6D and gripper; then the waist,
+then the base velocity (3, or the declared components). Between chunks the robot holds its
+measured pose (``current_position``); a mobile base holds still (zero velocity).
 Trained RTC's committed rows are those absolute rows as the robot received them; the server
 re-expresses them against the request's pose.
 
@@ -24,6 +26,11 @@ Build the state with ``Xr1SessionDeployment.state`` (or ``robot_state`` from a d
                   "rotation": right_R},  # a 3x3 rotation matrix, or its 6D (6 values)
     })
     observation = dreamscale.robot.observation(cameras={...}, state=state)
+
+A robot that is only a mobile base (a run trained with the ``mobile_base`` input, e.g. a car's
+speed and steering) sends no arms, only its components in their declared order::
+
+    state = deployment.state(base={"vx": speed, "wz": steering})   # or base=[...] in order
 """
 
 from __future__ import annotations
@@ -43,8 +50,8 @@ _REQUIRED = (
     "action_space", "trained_rtc_max_delay", "rtc_method",
 )
 # ... and defaulted where the semantic defaults them.
-_OPTIONAL = ("waist", "base", "step", "denoising_steps", "max_instruction_tokens",
-             "source_format")
+_OPTIONAL = ("waist", "base", "base_components", "step", "denoising_steps",
+             "max_instruction_tokens", "source_format")
 _SEMANTIC_KEYS = tuple(key for key in (*_REQUIRED, *_OPTIONAL) if key not in (
     "id", "state_dim", "action_dim", "gripper_indices", "rtc_method"))
 
@@ -86,6 +93,8 @@ class Xr1SessionDeployment:
     rtc_method: str
     rtc_max_delay: int | None
     step: int | None = None
+    # A mobile base's velocity components (in its state and rows, in this order).
+    base_components: tuple[str, ...] = ()
     # The robot's semantic (placeholders for the checkpoint's own fields; see ``_semantic``).
     semantic: C.Xr1DeploymentSemantic | None = field(default=None, repr=False, compare=False)
     # No joint layout of its own: its actions are end-effector poses.
@@ -151,15 +160,16 @@ class Xr1SessionDeployment:
             action_space=semantic.action_space,
             max_instruction_tokens=semantic.max_instruction_tokens,
             trained_rtc_max_delay=trained, rtc_method=method, rtc_max_delay=cap,
-            step=semantic.step, semantic=semantic,
+            step=semantic.step, base_components=tuple(semantic.base_components),
+            semantic=semantic,
         )
 
     @property
     def hold_indices(self) -> tuple[int, ...]:
         """The row that holds the measured pose (``current_position``), as each action value's
         index in the state (RuntimeContract.hold_indices; -1: zero): per arm its xyz, 6D and
-        gripper as measured, the waist where it is, the base still (the transport's
-        ``hold_row`` on the same state)."""
+        gripper as measured, the waist where it is, the base still: zero velocity, either kind
+        of base (the transport's ``hold_row`` on the same state)."""
         out: list[int] = []
         at = 0
         for arm in self.arms:
@@ -170,43 +180,51 @@ class Xr1SessionDeployment:
             out.append(at)
         if self.base:
             out += [-1, -1, -1]
+        out += [-1] * len(self.base_components)
         return tuple(out)
 
-    def state(self, *, arms: Mapping[str, Mapping[str, Any]],
-              waist: float | None = None) -> list[float]:
+    def state(self, *, arms: Mapping[str, Mapping[str, Any]] | None = None,
+              waist: float | None = None, base: Any = None) -> list[float]:
         """This deployment's state vector (``robot_state``)."""
-        return _state(self.arms, self.waist, arms, waist)
+        return _state(self.arms, self.waist, arms, waist, self.base_components, base)
 
 
 def robot_state(embodiment: Xr1SessionDeployment | Mapping[str, Any], *,
-                arms: Mapping[str, Mapping[str, Any]],
-                waist: float | None = None) -> list[float]:
+                arms: Mapping[str, Mapping[str, Any]] | None = None,
+                waist: float | None = None, base: Any = None) -> list[float]:
     """The state vector a request sends, in the deployment's layout: per declared arm (left
     before right) its ``joints`` (as many as it declared, in ``joint_unit``), ``gripper`` (in
     ``gripper_unit``), end-effector ``position`` (xyz, metres) and ``rotation`` (a 3x3 rotation
     matrix, or its 6D: the first two columns, 6 values), both in ``ee_frame``; then ``waist``
-    when the robot has one. ``embodiment``: a session's deployment, or a deployment row's
-    ``embodiment`` (``{"preset": "bimanual_yam"}`` will do for the preset). Refuses a missing or
-    extra arm, a wrong width, a non-finite value and a rotation that isn't one."""
+    when the robot has one; then a mobile base's ``base`` (its declared ``base_components``: a
+    dict by component, or the values in their declared order). ``embodiment``: a session's
+    deployment, or a deployment row's ``embodiment`` (``{"preset": "bimanual_yam"}`` will do for
+    the preset). Refuses a missing or extra arm or base value, a wrong width, a non-finite value
+    and a rotation that isn't one."""
     if isinstance(embodiment, Xr1SessionDeployment):
-        return embodiment.state(arms=arms, waist=waist)
+        return embodiment.state(arms=arms, waist=waist, base=base)
     if not isinstance(embodiment, Mapping):
         raise ValueError(f"a {LABEL} embodiment is a deployment or its embodiment dict")
     declared = embodiment.get("arms")
     if declared is None and embodiment.get("preset") == C.PRESET:
         declared = [{"side": side, "joints": C.YAM_JOINTS} for side in C.SIDES]
-    if not declared:
+    components = tuple(embodiment.get("base_components") or ())
+    if not declared and not components:
         raise ValueError(f"the {LABEL} embodiment declares no arms")
-    layout = tuple(C.Xr1Arm.model_validate(arm) for arm in declared)
+    layout = tuple(C.Xr1Arm.model_validate(arm) for arm in declared or ())
     if [arm.side for arm in layout] != [side for side in C.SIDES
                                         if side in {arm.side for arm in layout}]:
         raise ValueError("arms are distinct sides, left before right")
-    return _state(layout, bool(embodiment.get("waist")), arms, waist)
+    if any(c not in C.BASE_COMPONENTS for c in components):
+        raise ValueError(f"base components are {', '.join(C.BASE_COMPONENTS)}")
+    return _state(layout, bool(embodiment.get("waist")), arms, waist, components, base)
 
 
-def _state(layout: Sequence[C.Xr1Arm], has_waist: bool, arms: Mapping[str, Mapping[str, Any]],
-           waist: Any) -> list[float]:
+def _state(layout: Sequence[C.Xr1Arm], has_waist: bool,
+           arms: Mapping[str, Mapping[str, Any]] | None, waist: Any,
+           components: Sequence[str] = (), base: Any = None) -> list[float]:
     sides = [arm.side for arm in layout]
+    arms = {} if arms is None and not sides else arms
     if not isinstance(arms, Mapping) or set(arms) != set(sides):
         raise ValueError(f"the state names arms {', '.join(sides)}, got "
                          f"{', '.join(map(str, arms)) if isinstance(arms, Mapping) else arms!r}")
@@ -237,6 +255,18 @@ def _state(layout: Sequence[C.Xr1Arm], has_waist: bool, arms: Mapping[str, Mappi
         out += _vector([waist], "waist", 1).tolist()
     elif waist is not None:
         raise ValueError("this robot has no waist")
+    if components:
+        if isinstance(base, Mapping):
+            if set(base) != set(components):
+                raise ValueError(f"the base is its {', '.join(components)}, got "
+                                 f"{', '.join(map(str, base))}")
+            base = [base[c] for c in components]
+        if base is None:
+            raise ValueError(f"this robot is a mobile base: pass base= its "
+                             f"{', '.join(components)}")
+        out += _vector(base, f"base's {', '.join(components)}", len(components)).tolist()
+    elif base is not None:
+        raise ValueError("this robot has no mobile base declared by its components")
     return out
 
 

@@ -29,6 +29,7 @@ from .literals import (
     ContentKeyPeriodTimingType,
     CustomAdTypeType,
     DashAudioTimelinePatternType,
+    DashBandwidthReportingModeType,
     DashCompactnessType,
     DashDrmSignalingType,
     DashPeriodTriggerType,
@@ -788,6 +789,7 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsOutputTypeDef]
     Compactness: NotRequired[DashCompactnessType]
+    BandwidthReportingMode: NotRequired[DashBandwidthReportingModeType]
     AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
     UriPathType: NotRequired[UriPathTypeType]
@@ -1042,6 +1044,7 @@ class CreateDashManifestConfigurationTypeDef(TypedDict):
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
     Compactness: NotRequired[DashCompactnessType]
+    BandwidthReportingMode: NotRequired[DashBandwidthReportingModeType]
     AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
     UriPathType: NotRequired[UriPathTypeType]

@@ -495,7 +495,10 @@ from openapi_client.models.diagnosis_confidence import DiagnosisConfidence
 from openapi_client.models.diagnosis_outcome import DiagnosisOutcome
 from openapi_client.models.directory_sync import DirectorySync
 from openapi_client.models.directory_sync_readiness import DirectorySyncReadiness
+from openapi_client.models.directory_sync_state import DirectorySyncState
+from openapi_client.models.directory_sync_status import DirectorySyncStatus
 from openapi_client.models.directorysyncreadiness_response import DirectorysyncreadinessResponse
+from openapi_client.models.directorysyncstatus_response import DirectorysyncstatusResponse
 from openapi_client.models.domain_verification import DomainVerification
 from openapi_client.models.draft_edit import DraftEdit
 from openapi_client.models.draft_edit_kind import DraftEditKind
@@ -1201,6 +1204,7 @@ from openapi_client.models.update_cluster_dns import UpdateClusterDns
 from openapi_client.models.update_job_queue_request import UpdateJobQueueRequest
 from openapi_client.models.update_machine_pool_request import UpdateMachinePoolRequest
 from openapi_client.models.update_organization_collaborator import UpdateOrganizationCollaborator
+from openapi_client.models.update_organization_name import UpdateOrganizationName
 from openapi_client.models.update_payment_info import UpdatePaymentInfo
 from openapi_client.models.update_policy_request import UpdatePolicyRequest
 from openapi_client.models.update_project import UpdateProject

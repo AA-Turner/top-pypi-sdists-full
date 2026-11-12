@@ -6,6 +6,9 @@
 import reflex_components_lucide as lucide
 import reflex_components_radix as radix
 import reflex_components_recharts as recharts
+from reflex_base.client_state import ClientStateSetter as ClientStateSetter
+from reflex_base.client_state import ClientStateVar as ClientStateVar
+from reflex_base.client_state import client_state as client_state
 from reflex_base.components.component import Component as Component
 from reflex_base.components.component import ComponentNamespace as ComponentNamespace
 from reflex_base.components.component import NoSSRComponent as NoSSRComponent
@@ -228,6 +231,8 @@ __all__ = [
     "AdminDash",
     "App",
     "BaseStateToken",
+    "ClientStateSetter",
+    "ClientStateVar",
     "Color",
     "Component",
     "ComponentNamespace",
@@ -289,6 +294,7 @@ __all__ = [
     "clear_local_storage",
     "clear_selected_files",
     "clear_session_storage",
+    "client_state",
     "clipboard",
     "code",
     "code_block",

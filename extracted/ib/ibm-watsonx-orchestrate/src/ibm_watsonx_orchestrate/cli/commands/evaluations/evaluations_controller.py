@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import json
 
+
 # Suppresses fuzzywuzzy warning coming from eval
 from warnings import filterwarnings
 filterwarnings("ignore", category=UserWarning, module=r"fuzzywuzzy\.fuzz")
@@ -14,7 +15,7 @@ filterwarnings("ignore", category=UserWarning, module=r"fuzzywuzzy\.fuzz")
 from agentops import main as evaluate
 from agentops import quick_eval
 from agentops.analyze_run import run as run_analyze
-from agentops.arg_configs import TestConfig, AuthConfig, LLMUserConfig, ChatRecordingConfig, AnalyzeConfig, ProviderConfig, AttackConfig, QuickEvalConfig, AnalyzeMode
+from agentops.arg_configs import TestConfig, AuthConfig, LLMUserConfig, ChatRecordingConfig, AnalyzeConfig, ProviderConfig, AttackConfig, QuickEvalConfig, AnalyzeMode, LLMUserVersionEnum, EvaluationConfig
 from agentops.record.record_chat import record_chats
 from agentops.external_agent.external_validate import ExternalAgentValidation
 from agentops.external_agent.performance_test import ExternalAgentPerformanceTest
@@ -87,16 +88,19 @@ class EvaluationsController:
 
         return url, tenant_name, token
 
-    def evaluate(self, config_file: Optional[str] = None, test_paths: Optional[str] = None, output_dir: Optional[str] = None, tools_path: str = None, mode: str = EvaluateMode.default, langfuse_enabled: Optional[bool] = False) -> None:
+    def evaluate(self, config_file: Optional[str] = None, test_paths: Optional[str] = None, output_dir: Optional[str] = None, tools_path: str = None, mode: str = EvaluateMode.default, langfuse_enabled: Optional[bool] = False) -> None | dict:
         url, tenant_name, token = self._get_env_config()
- 
+
         if "WATSONX_SPACE_ID" in os.environ and "WATSONX_APIKEY" in os.environ:
             provider = "watsonx"
-        elif "WO_INSTANCE" in os.environ and ("WO_API_KEY" in os.environ or "WO_PASSWORD" in os.environ):
-            provider = "model_proxy"
+            default_model = "watsonx/openai/gpt-oss-120b"
         else:
+            os.environ["WO_TOKEN"] = token or ""
             provider = "gateway"
+            default_model = "bedrock/openai.gpt-oss-120b-1:0"
         
+        eval_model = os.environ.get("EVAL_MODEL", default_model)
+
         config_data = {
             "wxo_lite_version": __version__,
             "auth_config": AuthConfig(
@@ -104,13 +108,39 @@ class EvaluationsController:
                 tenant_name=tenant_name,
                 token=token
             ),
-            "provider_config": ProviderConfig(
-                provider=provider,
-                model_id="watsonx/openai/gpt-oss-120b"
+            "llm_user_config": LLMUserConfig(
+                version=LLMUserVersionEnum.v2,
+                enable_structured_output=True,
+                provider_config=ProviderConfig(
+                    provider=provider,
+                    model_id=eval_model
+                )
             ),
-            "skip_legacy_evaluation": True,
+            "evaluation_config": {
+                "provider_config": ProviderConfig(
+                    provider=provider,
+                    model_id=eval_model
+                )
+            },
+            "is_adk": True,
             "langfuse_enabled": langfuse_enabled,
-            "is_adk": True
+            "metrics": [
+                "JourneySuccessMetric",
+                "JourneyCompletion",
+                "ToolCalling",
+                "OrchestrateAgentRoutingAccuracy",
+                "StepMetrics",
+                "AgentResponseTime",
+                "KnowledgeBaseAnswerRelevancy",
+                "DocumentRetrievalQuality",
+                "KnowledgeBaseFaithfulness",
+                "RetrievalConfidence",
+                "ToolParameterF1",
+            ],
+            "operator_configs": {
+                "JourneySuccessMetric": {"is_strict": False},
+                "JourneyCompletion": {"is_strict": False},
+            }
         }
 
         if config_file:
@@ -125,7 +155,13 @@ class EvaluationsController:
                 if "llm_user_config" in file_config:
                     llm_config_data = file_config.pop("llm_user_config")
                     config_data["llm_user_config"] = LLMUserConfig(**llm_config_data)
+                
+                if "evaluation_config" in file_config:
+                    eval_config = file_config.pop("evaluation_config")
+                    config_data["evaluation_config"] = EvaluationConfig(**eval_config)
 
+                ## this is here for backwards compatibility
+                ## if evaluation.provider_config is not provided, or llm_user_config.provider is not provided, then top-level provider_config is used
                 if "provider_config" in file_config:
                     provider_config_data = file_config.pop("provider_config")
                     config_data["provider_config"] = ProviderConfig(**provider_config_data)
@@ -141,8 +177,12 @@ class EvaluationsController:
 
         if mode == EvaluateMode.default:
             config = TestConfig(**config_data)
-            evaluate.main(config)
+            eval_results = evaluate.main(config)
+            return eval_results
+
         elif mode == EvaluateMode.referenceless:
+            # deprecated code path
+            # NOTE: this path returns None
             config_data["tools_path"] = tools_path
             config = QuickEvalConfig(**config_data)
             quick_eval.main(config)
@@ -165,6 +205,7 @@ class EvaluationsController:
             config_data["context_variables"] = context_variables
 
         config_data["output_dir"].mkdir(parents=True, exist_ok=True)
+        config_data["output_dir"] = str(config_data["output_dir"])
         logger.info(f"Recording chat sessions to {config_data['output_dir']}")
 
         record_chats(ChatRecordingConfig(**config_data))

@@ -17,6 +17,7 @@ import tempfile
 from itertools import chain
 from pathlib import Path
 from copy import deepcopy
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, TypeVar
 
@@ -35,7 +36,9 @@ from ibm_watsonx_orchestrate.agent_builder.agents import (
     AgentKind,
     SpecVersion,
     AgentRestrictionType,
-    AgentStyle
+    AgentStyle,
+    ExternalAgentAuthScheme,
+    AgentProvider
 )
 from ibm_watsonx_orchestrate.agent_builder.agents.types import validation_context
 from ibm_watsonx_orchestrate.cli.workspace_context import get_active_workspace_name, should_use_workspaces
@@ -211,11 +214,15 @@ def parse_create_external_args(name: str, kind: AgentKind, description: str | No
         "description": description,
         "title": args.get("title"),
         "api_url": args.get("api_url"),
-        "auth_scheme": args.get("auth_scheme"),
+        "auth_scheme": args.get("auth_scheme") or ExternalAgentAuthScheme.NONE,
         "auth_config": args.get("auth_config", {}),
-        "provider": args.get("provider"),
+        "provider": args.get("provider") or AgentProvider.EXT_CHAT,
         "tags": args.get("tags", []),
         "chat_params": args.get("chat_params", {}),
+        # The "config" dict is pre-populated by the CLI layer (agents_command.py) before this
+        # function is called.  It may carry "control_plane_only" (set via --control-plane-only /
+        # --no-control-plane-only) and "hidden" / "enable_cot" flags.  Do not strip or replace
+        # this dict — pass it through as-is so those values reach the agent creation API.
         "config": args.get("config", {}),
         "nickname": args.get("nickname"),
         "app_id": args.get("app_id"),
@@ -262,6 +269,25 @@ def get_agent_details(name: str, client: AgentClient | ExternalAgentClient | Ass
             sys.exit(1)
 
     return agent_specs[0]
+
+def _native_agent_payload(agent: Agent, is_update: bool, exclude: Optional[set] = None) -> dict:
+    payload = agent.model_dump(exclude_none=True, exclude=exclude)
+
+    escalation = payload.get("escalation")
+    if escalation is not None:
+        # Name and status are client-side only; the server takes escalation_tool_id
+        escalation.pop("escalation_tool", None)
+        escalation.pop("status", None)
+
+    if is_update:
+        # The server merges PATCHed escalation over the stored value, so a dropped None would
+        # keep the stored value instead of clearing it. The spec is the source of truth.
+        if agent.escalation is None:
+            payload["escalation"] = None
+        else:
+            escalation["escalation_prompt_override"] = agent.escalation.escalation_prompt_override
+
+    return payload
 
 def _raise_guidelines_warning(response: AgentUpsertResponse) -> None:
     if response.warning:
@@ -369,12 +395,16 @@ class AgentsController:
             logger.info(f"Detected ZIP file, initiating bulk import from '{file}'")
             return AgentsController._import_from_zip(file, app_id)
 
-        agents = parse_file(file)
-        for agent in agents:
-            if app_id and agent.kind != AgentKind.NATIVE and agent.kind != AgentKind.ASSISTANT:
-                agent.app_id = app_id
+        token = validation_context.set("import")
+        try:
+            agents = parse_file(file)
+            for agent in agents:
+                if app_id and agent.kind != AgentKind.NATIVE and agent.kind != AgentKind.ASSISTANT:
+                    agent.app_id = app_id
 
-        return agents
+            return agents
+        finally:
+            validation_context.reset(token)
     @staticmethod
     def _import_from_zip(zip_path: str, app_id: str | None = None) -> List[Agent | CustomAgent | ExternalAgent | AssistantAgent]:
         if not zipfile.is_zipfile(zip_path):
@@ -708,16 +738,20 @@ class AgentsController:
         sorted_agents = AgentsController._topological_sort_agents(agent_data)
         
         imported_agents = []
-        for agent_info in sorted_agents:
-            try:
-                agents = parse_file(agent_info['file_path'])
-                for agent in agents:
-                    if app_id and agent.kind != AgentKind.NATIVE and agent.kind != AgentKind.ASSISTANT:
-                        agent.app_id = app_id
-                imported_agents.extend(agents)
-                logger.info(f"  ✓ Imported agent '{agent_info['name']}' from {Path(agent_info['file_path']).name}")
-            except Exception as e:
-                logger.warning(f"  ✗ Failed to import agent '{agent_info['name']}' from {Path(agent_info['file_path']).name}: {e}")
+        token = validation_context.set("import")
+        try:
+            for agent_info in sorted_agents:
+                try:
+                    agents = parse_file(agent_info['file_path'])
+                    for agent in agents:
+                        if app_id and agent.kind != AgentKind.NATIVE and agent.kind != AgentKind.ASSISTANT:
+                            agent.app_id = app_id
+                    imported_agents.extend(agents)
+                    logger.info(f"  ✓ Imported agent '{agent_info['name']}' from {Path(agent_info['file_path']).name}")
+                except Exception as e:
+                    logger.warning(f"  ✗ Failed to import agent '{agent_info['name']}' from {Path(agent_info['file_path']).name}: {e}")
+        finally:
+            validation_context.reset(token)
         
         return imported_agents
 
@@ -921,7 +955,7 @@ class AgentsController:
                     tool_names.extend([p.plugin_name for p in plugin_list])
 
         # Fetch ALL tools at once 
-        all_matching_tools = tool_client.get_drafts_by_names(tool_names)
+        all_matching_tools = tool_client.get_drafts_by_names(tool_names, include_escalation=True)
 
         # Validate plugin placement
         if agent.plugins is not None:
@@ -1033,7 +1067,7 @@ class AgentsController:
                 )
 
         all_tool_ids = main_tool_ids + plugin_tool_ids
-        matching_tools = tool_client.get_drafts_by_ids(all_tool_ids, workspace_id=workspace_id)
+        matching_tools = tool_client.get_drafts_by_ids(all_tool_ids, workspace_id=workspace_id, include_escalation=True)
 
         id_name_lookup = {}
         for tool in matching_tools:
@@ -1240,7 +1274,7 @@ class AgentsController:
 
         deref_agent = deepcopy(agent)
 
-        matching_tools = tool_client.get_drafts_by_names(list(guideline_tool_names))
+        matching_tools = tool_client.get_drafts_by_names(list(guideline_tool_names), include_escalation=True)
 
         name_id_lookup = {}
         for tool in matching_tools:
@@ -1273,7 +1307,7 @@ class AgentsController:
 
         ref_agent = deepcopy(agent)
 
-        matching_tools = tool_client.get_drafts_by_ids(list(guideline_tool_ids))
+        matching_tools = tool_client.get_drafts_by_ids(list(guideline_tool_ids), include_escalation=True)
 
         id_name_lookup = {}
         for tool in matching_tools:
@@ -1292,6 +1326,56 @@ class AgentsController:
 
         return ref_agent
     
+    def dereference_escalation(self, agent: Agent) -> Agent:
+        escalation = agent.escalation
+        deref_agent = deepcopy(agent)
+        deref_escalation = deref_agent.escalation
+        deref_escalation.status = None
+
+        # Python specs may reference the workflow by id directly
+        if not escalation.escalation_tool:
+            return deref_agent
+
+        tool_client = self.get_tool_client()
+        matching_tools = tool_client.get_drafts_by_names([escalation.escalation_tool], include_escalation=True)
+        if len(matching_tools) > 1:
+            logger.error(f"Duplicate draft entries for escalation tool '{escalation.escalation_tool}'")
+            sys.exit(1)
+        if len(matching_tools) == 0:
+            logger.error(f"Failed to find escalation tool. No tools found with the name '{escalation.escalation_tool}'")
+            sys.exit(1)
+
+        tool_id = matching_tools[0].get("id")
+        deref_escalation.escalation_tool_id = tool_id
+        deref_escalation.escalation_tool = None
+
+        # The server requires the escalation workflow to be attached to the agent
+        if tool_id not in (deref_agent.tools or []):
+            deref_agent.tools = list(deref_agent.tools or []) + [tool_id]
+
+        return deref_agent
+
+    def reference_escalation(self, agent: Agent, workspace_id: Optional[str] = None) -> Agent:
+        ref_agent = deepcopy(agent)
+        ref_escalation = ref_agent.escalation
+        ref_escalation.status = None
+
+        tool_id = ref_escalation.escalation_tool_id
+        ref_escalation.escalation_tool_id = None
+        if not tool_id:
+            return ref_agent
+
+        tool_client = self.get_tool_client()
+        matching_tools = tool_client.get_drafts_by_ids([tool_id], workspace_id=workspace_id, include_escalation=True)
+        name = next((t.get("name") for t in matching_tools if t.get("id") == tool_id), None)
+        if not name:
+            # Keep going so exports of other resources still succeed
+            logger.warning(f"Failed to find escalation tool. No tools found with the id '{tool_id}'")
+            return ref_agent
+
+        ref_escalation.escalation_tool = name
+        return ref_agent
+
     def get_voice_config_name_from_id(self, voice_config_id: str) -> str | None:
         client = self.get_voice_configuration_client()
         config = client.get_by_id(voice_config_id)
@@ -1378,6 +1462,8 @@ class AgentsController:
             agent = self.dereference_toolkits(agent)
         if agent.skills and len(agent.skills) > 0:
             agent = self.dereference_skills(agent)
+        if agent.escalation:
+            agent = self.dereference_escalation(agent)
 
         return agent
     
@@ -1394,6 +1480,8 @@ class AgentsController:
             agent = self.reference_toolkits(agent)
         if agent.skills and len(agent.skills):
             agent = self.reference_skills(agent, workspace_id=workspace_id)
+        if agent.escalation:
+            agent = self.reference_escalation(agent, workspace_id=workspace_id)
         return agent
     
     def dereference_external_or_assistant_agent_dependencies(self, agent: ExternalAgent | AssistantAgent) -> ExternalAgent | AssistantAgent:
@@ -1451,7 +1539,7 @@ class AgentsController:
 
     def publish_or_update_agents(
         self, agents: Iterable[Agent | CustomAgent | ExternalAgent | AssistantAgent]
-    ):
+    ) -> None:
         for agent in agents:
             # Check for existing agents by name
             agent_name = agent.name
@@ -1722,13 +1810,13 @@ class AgentsController:
             except Exception as e:
                 logger.warning(f"Failed to clean up temporary zip file: {e}")
 
-    def publish_agent(self, agent: Agent | CustomAgent | ExternalAgent | AssistantAgent, **kwargs) -> None:
+    def publish_agent(self, agent: Agent | CustomAgent | ExternalAgent | AssistantAgent, **kwargs) -> str | None:
         if isinstance(agent, Agent):
             # Use the client's create method which handles workspace injection
             native_client = self.get_native_client()
             try:
                 response_data = self._send_with_skill_name_fallback(
-                    native_client.create, agent.model_dump(exclude_none=True), kwargs.get('original_skills')
+                    native_client.create, _native_agent_payload(agent, is_update=False), kwargs.get('original_skills')
                 )
             except ClientAPIException as e:
                 logger.error(f"Failed to create agent: {format_client_api_error(e)}")
@@ -1783,27 +1871,44 @@ class AgentsController:
                     logger.info(f"Agent '{agent.name}' imported successfully")
             else:
                 logger.info(f"Agent '{agent.name}' imported successfully")
+            if response_data.id:
+                logger.info(f"Agent ID: {response_data.id}")
+            else:
+                logger.warning(f"Backend did not return an agent ID for agent '{agent.name}'")
+            return response_data.id
 
         if isinstance(agent, ExternalAgent):
             try:
-                self.get_external_client().create(agent.model_dump(exclude_none=True))
+                response_data = self.get_external_client().create(agent.model_dump(exclude_none=True))
             except ClientAPIException as e:
                 logger.error(f"Failed to create external agent: {format_client_api_error(e)}")
                 sys.exit(1)
             logger.info(f"External Agent '{agent.name}' imported successfully")
-            
+            agent_id = response_data.get("id")
+            if agent_id:
+                logger.info(f"Agent ID: {agent_id}")
+            else:
+                logger.warning(f"Backend did not return an agent ID for agent '{agent.name}'")
+            return agent_id
+
         if isinstance(agent, AssistantAgent):
             try:
-                self.get_assistant_client().create(agent.model_dump(exclude_none=True, by_alias=True))
+                response_data = self.get_assistant_client().create(agent.model_dump(exclude_none=True, by_alias=True))
             except ClientAPIException as e:
                 logger.error(f"Failed to create assistant agent: {format_client_api_error(e)}")
                 sys.exit(1)
             logger.info(f"Assistant Agent '{agent.name}' imported successfully")
+            agent_id = response_data.get("id")
+            if agent_id:
+                logger.info(f"Agent ID: {agent_id}")
+            else:
+                logger.warning(f"Backend did not return an agent ID for agent '{agent.name}'")
+            return agent_id
 
     def update_agent(
         self, agent_id: str, agent: Agent | CustomAgent | ExternalAgent | AssistantAgent,
         skip_workspace_injection: bool = False, **kwargs
-    ) -> None:
+    ) -> str | None:
         if isinstance(agent, Agent):
             logger.info(f"Existing Agent '{agent.name}' found. Updating...")
             exclude_fields = {'custom_agent_file_path'} if hasattr(agent, 'custom_agent_file_path') else None
@@ -1813,7 +1918,7 @@ class AgentsController:
                     lambda payload: native_client.update(
                         agent_id, payload, skip_workspace_injection=skip_workspace_injection
                     ),
-                    agent.model_dump(exclude_none=True, exclude=exclude_fields),
+                    _native_agent_payload(agent, is_update=True, exclude=exclude_fields),
                     kwargs.get('original_skills'),
                 )
             except ClientAPIException as e:
@@ -1858,17 +1963,23 @@ class AgentsController:
                     logger.info(f"Agent '{agent.name}' updated successfully")
             else:
                 logger.info(f"Agent '{agent.name}' updated successfully")
+            logger.info(f"Agent ID: {agent_id}")
+            return agent_id
 
         if isinstance(agent, ExternalAgent):
             logger.info(f"Existing External Agent '{agent.name}' found. Updating...")
             self.get_external_client().update(agent_id, agent.model_dump(exclude_none=True),
                                             skip_workspace_injection=skip_workspace_injection)
             logger.info(f"External Agent '{agent.name}' updated successfully")
+            logger.info(f"Agent ID: {agent_id}")
+            return agent_id
         if isinstance(agent, AssistantAgent):
             logger.info(f"Existing Assistant Agent '{agent.name}' found. Updating...")
             self.get_assistant_client().update(agent_id, agent.model_dump(exclude_none=True, by_alias=True),
                                              skip_workspace_injection=skip_workspace_injection)
             logger.info(f"Assistant Agent '{agent.name}' updated successfully")
+            logger.info(f"Agent ID: {agent_id}")
+            return agent_id
 
     @staticmethod
     def persist_record(agent: Agent, **kwargs):
@@ -2100,7 +2211,7 @@ class AgentsController:
         if not all_tools_ids:
             return new_agents
         
-        all_tools = self._batch_request_resource(self.get_tool_client().get_drafts_by_ids, all_tools_ids)
+        all_tools = self._batch_request_resource(partial(self.get_tool_client().get_drafts_by_ids, include_escalation=True), all_tools_ids)
 
         tool_lut = self._construct_lut_agent_resource(all_tools, "id", "name")
         
@@ -2327,7 +2438,7 @@ class AgentsController:
                         "Tags": {},
                         "API URL": {"overflow": "fold"},
                         "Chat Params": {},
-                        "Config": {},
+                        "CP Only": {"justify": "center"},
                         "Nickname": {},
                         "App ID": {"overflow": "fold"},
                         "ID": {"overflow": "fold"}
@@ -2342,6 +2453,8 @@ class AgentsController:
 
                     for agent in resolved_external_agents:
                         agent_name = self._format_agent_display_name(agent)
+                        cp_only = agent.config.control_plane_only if agent.config else False
+                        cp_only_str = "[green bold]✔[/green bold]" if cp_only else "[dim]-[/dim]"
                         row = [
                             agent_name,
                             agent.title,
@@ -2349,7 +2462,7 @@ class AgentsController:
                             ", ".join(agent.tags or []),
                             agent.api_url,
                             json.dumps(agent.chat_params),
-                            str(agent.config),
+                            cp_only_str,
                             agent.nickname,
                             agent.app_id,
                             agent.id,
@@ -2570,7 +2683,17 @@ class AgentsController:
             return False
 
         agent_spec_file_content = self.get_spec_file_content(agent, exclude=exclude, workspace_id=workspace_id)
-        
+
+        # The server already returns the new public name, so the exported spec is correct;
+        # this message just makes the rename visible to the operator. The wording is neutral
+        # because the server returns the same name for agents created with either model name.
+        _OLD_FRONTIER = "watsonx-orchestrate/frontier"
+        _NEW_FRONTIER = "bedrock/us.anthropic.claude-sonnet-4-6"
+        if agent_spec_file_content.get("llm") == _NEW_FRONTIER:
+            logger.info(
+                f"Exporting agent '{name}' with model '{_NEW_FRONTIER}' (replaces legacy model '{_OLD_FRONTIER}')."
+            )
+
         agent_spec_file_content.pop("hidden", None)
         agent_spec_file_content.pop("id", None)
         agent_spec_file_content["spec_version"] = SpecVersion.V1.value
@@ -2628,7 +2751,7 @@ class AgentsController:
         tools_controller = ToolsController()
         tools_client = tools_controller.get_client()
         tool_specs = None
-        tool_specs = {t.get('name'):t for t in tools_client.get_drafts_by_names(agent_tools, workspace_id=workspace_id) if t.get('name')}
+        tool_specs = {t.get('name'):t for t in tools_client.get_drafts_by_names(agent_tools, workspace_id=workspace_id, include_escalation=True) if t.get('name')}
 
         for tool_name in agent_tools:
 
@@ -2755,6 +2878,45 @@ class AgentsController:
         
         return True
 
+
+    def get_escalation_prompt(self, name: str) -> dict:
+        native_client = self.get_native_client()
+        existing_native_agents = native_client.get_draft_by_name(name)
+
+        if len(existing_native_agents) > 1:
+            logger.error(f"Multiple native agents with the name '{name}' found. Failed to get escalation prompt")
+            sys.exit(1)
+        if len(existing_native_agents) == 0:
+            logger.error(f"No native agent with the name '{name}' found. Escalation is only supported for native agents")
+            sys.exit(1)
+
+        agent_id = existing_native_agents[0].get("id")
+        try:
+            prompt = native_client.get_escalation_prompt(agent_id)
+        except ClientAPIException as e:
+            logger.error(f"Failed to get escalation prompt for agent '{name}': {format_client_api_error(e)}")
+            sys.exit(1)
+
+        if prompt.get("unavailable_reason"):
+            logger.warning(f"Escalation prompt is unavailable for agent '{name}': {prompt['unavailable_reason']}")
+
+        return prompt
+
+    def show_escalation_prompt(self, name: str, show_default: bool = False) -> None:
+        prompt = self.get_escalation_prompt(name)
+
+        if show_default:
+            title, text = "Default escalation prompt", prompt.get("default")
+        else:
+            source = "override" if prompt.get("is_override") else "composed from conditions"
+            title, text = f"Effective escalation prompt ({source})", prompt.get("effective")
+
+        if text:
+            rich.print(f"[bold]{title}[/bold]")
+            # Plain print so the prompt can be copied into escalation_prompt_override unchanged
+            print(text)
+        else:
+            logger.info(f"Agent '{name}' has no escalation prompt")
 
     def deploy_agent(self, name: str):
         if is_local_dev():
@@ -3105,6 +3267,7 @@ class AgentsController:
         endpoint: str = ".well-known/agent-card.json",
         agent_name: Optional[str] = None,
         app_id: Optional[str] = None,
+        control_plane_only: Optional[bool] = None,
     ) -> None:
         """
         Discover an A2A agent from a well-known URI and import it directly.
@@ -3114,6 +3277,7 @@ class AgentsController:
             endpoint: Well-known endpoint path for the agent card
             agent_name: Override agent name (defaults to name from agent card)
             app_id: Connection app_id for authentication (optional)
+            control_plane_only: Whether the agent is registered for control plane only
         """
         
         # Sanitize agent_name if provided
@@ -3128,7 +3292,8 @@ class AgentsController:
                     base_url=base_url,
                     endpoint=endpoint,
                     agent_name=agent_name,
-                    app_id=app_id
+                    app_id=app_id,
+                    control_plane_only=control_plane_only,
                 )
                 
                 discovered_name = wxo_spec.get('name', 'unknown')
@@ -3157,6 +3322,7 @@ class AgentsController:
         app_id: Optional[str],
         agents: Optional[List[str]],
         yes: bool = False,
+        control_plane_only: Optional[bool] = None,
     ) -> None:
         """Discover Google Vertex AI agents and register them to WXO.
 
@@ -3235,7 +3401,7 @@ class AgentsController:
                     project_id, location,
                 )
                 raw_agents = svc.list_agents(project_id, location, service_account_json)
-                wxo_specs = svc.discover_and_convert(raw_agents, agents, location)
+                wxo_specs = svc.discover_and_convert(raw_agents, agents, location, control_plane_only=control_plane_only)
         except requests.RequestException as e:
             logger.error(f"Failed to list Vertex AI agents: {e}")
             sys.exit(1)
@@ -3286,6 +3452,7 @@ class AgentsController:
         self,
         app_id: Optional[str],
         agents: Optional[List[str]],
+        control_plane_only: Optional[bool] = None,
     ) -> None:
         """Discover Microsoft Azure AI Foundry agents and register them to WXO.
 
@@ -3353,7 +3520,7 @@ class AgentsController:
                     client_id=client_id,
                     client_secret=client_secret,
                 )
-                wxo_specs = svc.discover_and_convert(raw_agents, agents, endpoint, project_name)
+                wxo_specs = svc.discover_and_convert(raw_agents, agents, endpoint, project_name, control_plane_only=control_plane_only)
         except requests.RequestException as e:
             logger.error(f"Failed to list Azure AI Foundry agents: {e}")
             sys.exit(1)
@@ -3404,6 +3571,7 @@ class AgentsController:
         app_id: Optional[str],
         agents: Optional[List[str]],
         yes: bool = False,
+        control_plane_only: Optional[bool] = None,
     ) -> None:
         """Discover AWS Bedrock agents and register them to WXO.
 
@@ -3468,7 +3636,7 @@ class AgentsController:
                     secret_access_key=secret_access_key,
                     session_token=session_token,
                 )
-                wxo_specs = svc.discover_and_convert(raw_agents, agents, region)
+                wxo_specs = svc.discover_and_convert(raw_agents, agents, region, control_plane_only=control_plane_only)
         except requests.RequestException as e:
             logger.error(f"Failed to list AWS Bedrock agents: {e}")
             sys.exit(1)

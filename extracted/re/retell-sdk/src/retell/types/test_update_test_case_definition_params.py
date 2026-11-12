@@ -42,6 +42,7 @@ class TestUpdateTestCaseDefinitionParams(TypedDict, total=False):
         "gpt-6.1-sol",
         "gpt-6.1-terra",
         "gpt-6-luna",
+        "tell-1",
         "claude-4.6-sonnet",
         "claude-5-opus",
         "claude-5.5-opus",
@@ -56,6 +57,7 @@ class TestUpdateTestCaseDefinitionParams(TypedDict, total=False):
         "gemini-3.6-flash",
         "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-4-carbon",
         "gemini-4-argon",
     ]
     """LLM model to use for simulation"""
@@ -127,7 +129,7 @@ ToolMockInputMatchRule: TypeAlias = Union[ToolMockInputMatchRuleType, ToolMockIn
 class ToolMock(TypedDict, total=False):
     """A fake response for one tool.
 
-    During a simulation, when the LLM calls a tool whose name matches `tool_name` and whose arguments satisfy `input_match_rule`, the real tool is not run; `output` is returned to the LLM instead. This keeps runs deterministic and avoids calling live integrations. A tool call that matches no mock falls through to the real tool.
+    During a simulation, when a tool call matches `tool_name`, `node_id` and `input_match_rule`, the real tool is not run; `output` is returned to the LLM instead. This keeps runs deterministic and avoids calling live integrations. A tool call that matches no mock falls through to the real tool.
     """
 
     input_match_rule: Required[ToolMockInputMatchRule]
@@ -139,16 +141,25 @@ class ToolMock(TypedDict, total=False):
     Should be a JSON string, the same shape the real tool would return.
     """
 
-    tool_name: Required[str]
+    node_id: str
+    """Conversation flow agents only.
+
+    The ID of the node the tool runs in. Leave it out to match every node. To mock
+    an SMS or Call Transfer node, set `node_id` and `result`, and leave out
+    `tool_name`.
+    """
+
+    result: Optional[bool]
+    """Whether the call succeeds (`true`) or fails (`false`).
+
+    Required to mock SMS, transfer and escalation calls; for those calls, a mock
+    without `result` is ignored. Not used for other tools.
+    """
+
+    tool_name: str
     """The tool's function name, not the tool ID, i.e.
 
     the name the LLM uses when it calls the tool (for example
     `check_availability_cal`, `book_appointment_cal`, or the name you gave a custom
-    function).
-    """
-
-    result: Optional[bool]
-    """For tool calls like transfer_call that require a boolean result.
-
-    Optional for most tools.
+    function). Leave it out to match every tool.
     """

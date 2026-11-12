@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 from datetime import date, datetime, timezone
 import logging
 import os
@@ -56,6 +57,7 @@ from anyscale.client.openapi_client.models import (
     DecoratedProductionServiceV2APIModel,
     DecoratedProductionServiceV2VersionAPIModel,
     DeletedPlatformFineTunedModel,
+    DescribeSystemWorkloadResponse,
     ExperimentalWorkspace,
     FineTunedModel,
     FineTuneType,
@@ -64,6 +66,8 @@ from anyscale.client.openapi_client.models import (
     HaJobStates,
     InternalProductionJob,
     ListResponseMetadata,
+    LogDownloadResult,
+    LogFileChunk,
     LogItem,
     LogItemBatch,
     MiniCloud,
@@ -259,10 +263,26 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self.node_gpus: Dict[Tuple[str, str], NodeGpusResponse] = {}
         self.gpus: Dict[Tuple[str, str], GpuDetail] = {}
         self.gpu_calls: List[Dict[str, Any]] = []
+        # Log files: the pages the fake hands back, keyed by the page token that fetches
+        # them (None = the first page); the text of each chunk by chunk name; and every
+        # listing and download call received.
+        self.log_files_pages: Dict[Optional[str], LogDownloadResult] = {}
+        self.log_chunk_texts: Dict[str, str] = {}
+        self.log_files_calls: List[Dict[str, Any]] = []
+        self.log_chunk_calls: List[Dict[str, Any]] = []
         # Cluster-dashboard nodes: what the fake answers with, keyed by
         # (cluster_id, node_id), plus every call it received.
         self.cluster_nodes: Dict[Tuple[str, str], ClusterDashboardNode] = {}
         self.cluster_node_calls: List[Dict[str, Any]] = []
+        # Ray observability_api (task and actor aggregates): each cluster's cloud, what
+        # describe answers per cloud in order (the last answer repeats, so a test can
+        # script a cluster that is starting and then serving), what each data path
+        # answers with, and every call received.
+        self.cluster_cloud_ids: Dict[str, str] = {}
+        self.observability_api_describes: Dict[str, List[DescribeSystemWorkloadResponse]] = {}
+        self.observability_api_describe_calls: List[Dict[str, Any]] = []
+        self.observability_api_payloads: Dict[str, Dict[str, Any]] = {}
+        self.observability_api_calls: List[Dict[str, Any]] = []
         # Job -> the cluster of its latest run (None: not started yet). Jobs a service
         # version runs on go here too.
         self.job_cluster_ids: Dict[str, Optional[str]] = {}
@@ -1058,6 +1078,96 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if (cluster_id, gpu_uuid) not in self.gpus:
             raise ValueError(f"GPU '{gpu_uuid}' not found in cluster '{cluster_id}'.")
         return self.gpus[(cluster_id, gpu_uuid)]
+
+    # --- log files -------------------------------------------------------------------------
+
+    def list_log_files(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        log_type: str,
+        latest: bool,
+        page_size: int,
+        next_page_token: Optional[str] = None,
+        job_run: Optional[str] = None,
+        service_version: Optional[str] = None,
+        ray_session: Optional[str] = None,
+        node_type: Optional[str] = None,
+        node_ip: Optional[str] = None,
+        instance_id: Optional[str] = None,
+        glob: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> LogDownloadResult:
+        self.log_files_calls.append(
+            {
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "log_type": log_type,
+                "latest": latest,
+                "page_size": page_size,
+                "next_page_token": next_page_token,
+                "job_run": job_run,
+                "service_version": service_version,
+                "ray_session": ray_session,
+                "node_type": node_type,
+                "node_ip": node_ip,
+                "instance_id": instance_id,
+                "glob": glob,
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        )
+        return self.log_files_pages.get(next_page_token, LogDownloadResult(log_chunks=[]))
+
+    def download_log_chunks(
+        self,
+        chunks: List[LogFileChunk],
+        *,
+        bearer_token: Optional[str] = None,
+        parallelism: int = 10,
+    ) -> List[str]:
+        self.log_chunk_calls.append(
+            {
+                "chunks": [chunk.chunk_name for chunk in chunks],
+                "bearer_token": bearer_token,
+                "parallelism": parallelism,
+            }
+        )
+        return [self.log_chunk_texts.get(chunk.chunk_name, "") for chunk in chunks]
+
+    def get_cluster_cloud_id(self, cluster_id: str) -> str:
+        if cluster_id not in self.cluster_cloud_ids:
+            # What the real client raises for the backend's 404.
+            raise ValueError(f"Cluster '{cluster_id}' not found.")
+        return self.cluster_cloud_ids[cluster_id]
+
+    def describe_ray_observability_api(
+        self, *, cloud_id: str, cluster_id: str, start_cluster: bool
+    ) -> DescribeSystemWorkloadResponse:
+        self.observability_api_describe_calls.append(
+            {"cloud_id": cloud_id, "cluster_id": cluster_id, "start_cluster": start_cluster}
+        )
+        answers = self.observability_api_describes.get(cloud_id)
+        if not answers:
+            raise ValueError(f"Cloud '{cloud_id}' not found.")
+        return answers.pop(0) if len(answers) > 1 else answers[0]
+
+    def get_observability_api_json(
+        self, *, service_url: str, auth_url: str, path: str, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        self.observability_api_calls.append(
+            {
+                "service_url": service_url,
+                "auth_url": auth_url,
+                "path": path,
+                "params": dict(params),
+            }
+        )
+        if path not in self.observability_api_payloads:
+            raise ValueError(f"The observability API request failed (404): {path}")
+        return copy.deepcopy(self.observability_api_payloads[path])
 
     def get_cluster_node(
         self,

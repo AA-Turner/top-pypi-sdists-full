@@ -43,6 +43,18 @@ def test_add_trend_prepend_dataframe(rng):
     assert_frame_equal(trend_1.iloc[:, :2], trend_2.iloc[:, 1:])
 
 
+@pytest.mark.parametrize("prepend", [False, True])
+def test_add_trend_dataframe_with_duplicate_index(prepend):
+    index = pd.Index(["a", "b", "a"])
+    x = pd.DataFrame({"value": [10.0, 20.0, 30.0]}, index=index)
+    trend = pd.DataFrame(
+        {"const": [1.0, 1.0, 1.0], "trend": [1.0, 2.0, 3.0]}, index=index
+    )
+    expected = pd.concat((trend, x) if prepend else (x, trend), axis=1)
+
+    assert_frame_equal(add_trend(x, trend="ct", prepend=prepend), expected)
+
+
 def test_add_trend_duplicate_name():
     x = pd.DataFrame(np.zeros((10, 1)), columns=["trend"])
     with pytest.warns(ColumnNameConflict, match=r"Some of the column names being"):
@@ -106,7 +118,7 @@ def test_skip_constant():
 
 def test_errors():
     n = 100
-    with pytest.raises(ValueError, match=r"trend unknown not understood"):
+    with pytest.raises(ValueError, match=r"trend must be one of "):
         add_trend(x=None, trend="unknown", nobs=n)
     with pytest.raises(
         ValueError, match=r"One and only one of x or nobs must be provided"

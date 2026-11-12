@@ -62,6 +62,18 @@ except ImportError:  # run by path: load the one implementation by file
     _jc_spec.loader.exec_module(jobcrypto)
 
 try:
+    from runner.wire import subject as _subject
+except ImportError:  # run by path: load the one grammar by file
+    import importlib.util
+    _su_path = os.path.join(_RUNNER_DIR, "wire", "subject.py")
+    _su_spec = importlib.util.spec_from_file_location(
+        "hp_wire_subject", _su_path)
+    if _su_spec is None or _su_spec.loader is None:
+        raise ImportError("runner/wire/subject.py not loadable")
+    _subject = importlib.util.module_from_spec(_su_spec)
+    _su_spec.loader.exec_module(_subject)
+
+try:
     from runner.guard import filenames as _filenames
 except ImportError:  # run by path: the same rules the runner applies
     import importlib.util
@@ -84,6 +96,18 @@ except ImportError:  # run by path: the one writer of a state file
         raise ImportError("runner/guard/atomicio.py not loadable")
     _atomicio = importlib.util.module_from_spec(_io_spec)
     _io_spec.loader.exec_module(_atomicio)
+
+try:
+    from runner.guard import textutil as _textutil
+except ImportError:  # run by path: the runner's one strict reader
+    import importlib.util
+    _tu_path = os.path.join(_RUNNER_DIR, "guard", "textutil.py")
+    _tu_spec = importlib.util.spec_from_file_location(
+        "hp_textutil", _tu_path)
+    if _tu_spec is None or _tu_spec.loader is None:
+        raise ImportError("runner/guard/textutil.py not loadable")
+    _textutil = importlib.util.module_from_spec(_tu_spec)
+    _tu_spec.loader.exec_module(_textutil)
 
 try:
     from runner._version import __version__
@@ -313,25 +337,23 @@ def verify_body(body: str, secret: str) -> dict:
                       hashlib.sha384).hexdigest()
     if not hmac.compare_digest(expect, sig.lower()):
         raise ValueError("signature mismatch")
-    # NaN, Infinity and a number that overflows a float are refused
-    # by the parse itself; the runner's verifier does the same (Q89).
-    try:
-        job = json.loads(raw, parse_constant=_no_constant,
-                         parse_float=_finite_float)
-    except RecursionError:
-        raise ValueError(f"signed body nests deeper than {NESTING_LIMIT} "
-                         "levels") from None
+    # The parse is the runner's own strict reader, shared, not a
+    # local copy: NaN, Infinity and a number that overflows a float
+    # are refused, a duplicate member name in one object is refused
+    # by its object_pairs_hook, and the raw bracket depth is
+    # scanned before the parse so a body nested past the bound is
+    # refused without the parser recursing there first (Q89, S1).
+    # This verifier used to parse with only the constant and float
+    # refusals, so a correctly signed body carrying one name twice
+    # verified here, last value wins, while the runner refused the
+    # same body -- two readers of one signed body disagreed.
+    job = _textutil.loads_signed(raw)
     # _extract_signed returns text rooted at the "{" of a root object,
-    # so json.loads here yields a dict or raises. The verifier keeps
+    # so the parse above yields a dict or raises. The verifier keeps
     # its own shape check regardless of the extractor: it is the last
     # word before the body is trusted (Q48).
     if not isinstance(job, dict):
         raise ValueError("signed body is not a JSON object")
-    # A body nested past the walks' bound is refused whole, as the
-    # runner's verifier refuses it (Q89), measured without recursion.
-    if _nests_deeper_than(job, NESTING_LIMIT):
-        raise ValueError(f"signed body nests deeper than {NESTING_LIMIT} "
-                         "levels")
     # A \\ud800 escape reads as a lone surrogate: valid JSON syntax,
     # not UTF-8 text. The runner's verifier refuses it (Q85); this
     # one does the same, in step.
@@ -341,17 +363,6 @@ def verify_body(body: str, secret: str) -> dict:
 
 
 NESTING_LIMIT = 200
-
-
-def _no_constant(name):
-    raise ValueError(f"signed body carries {name}, which is not JSON")
-
-
-def _finite_float(text):
-    value = float(text)
-    if value != value or value in (float("inf"), float("-inf")):
-        raise ValueError("signed body carries a number that is not finite")
-    return value
 
 
 def _nests_deeper_than(value, limit=NESTING_LIMIT) -> bool:
@@ -895,11 +906,13 @@ def _open_body(text, args, job_id=None):
     payload; raises ValueError naming what failed. With no --secret
     the keyring supplies the secret for the key the body names."""
     secret = args.secret
+    selected = args.key_id
     if not secret:
         kid = args.key_id if args.key_id is not None else _named_key_in(text)
         if kid is None:
             raise ValueError("no --secret given and the body names no "
                              "key_id to look up in the keyring")
+        selected = kid
         saved = args.key_id
         try:
             args.key_id = kid
@@ -918,8 +931,45 @@ def _open_body(text, args, job_id=None):
         inner = jobcrypto.decrypt_body(
             payload, secret, job_id=job_id,
             key_id=payload.get("key_id") or "")
-        payload = verify_body(inner, secret)
+        inner_payload = verify_body(inner, secret)
+        # Section 16.2 step 4: the inner body's key_id MUST match
+        # the envelope's, as the runner enforces it (CHECKLIST-04
+        # G6). A key_id matches in Section 10's sense -- it selects
+        # the same secret -- not as a raw string: one key answers
+        # to several names (Q94), the empty name, its fingerprint,
+        # and the name the caller selected it by, and a name is a
+        # label, never a second identity. The runner's own result
+        # for an unnamed job pairs the shapes: the body names the
+        # key by its fingerprint (so an unnamed sender learns the
+        # name) while the envelope carries no key_id member at
+        # all (Section 16.1 puts one there only for a non-default
+        # secret). Both bodies verified under the one secret here;
+        # 2 names of that secret match, a name of any other key
+        # refuses.
+        if not _key_ids_match(inner_payload.get("key_id") or "",
+                              payload.get("key_id") or "",
+                              secret, selected):
+            raise ValueError(
+                "encrypted envelope key_id does not match its body")
+        payload = inner_payload
     return payload
+
+
+def _key_ids_match(inner_kid, outer_kid, secret, selected=None):
+    """Whether 2 key_id names match for Section 16.2 step 4:
+    equal, or both names of the one secret both bodies verified
+    under -- its empty name, its fingerprint, or the name the
+    caller selected that secret by."""
+    if inner_kid == outer_kid:
+        return True
+    names = {""}
+    try:
+        names.add(key_fingerprint(secret))
+    except Exception:
+        pass
+    if isinstance(selected, str) and selected:
+        names.add(selected)
+    return inner_kid in names and outer_kid in names
 
 
 def cmd_verify(args) -> int:
@@ -1095,13 +1145,14 @@ def _queue_call(url, method, path, token_env=None, opener=None):
 
 
 def _result_job_id(subject):
-    """The job id a result subject names: the word after `result`
-    (or `qresult`), as the Worker reads it. None otherwise."""
-    words = subject.split() if isinstance(subject, str) else []
-    for i, w in enumerate(words[:-1]):
-        if w in ("result", "qresult"):
-            return words[i + 1]
-    return None
+    """The job id a result subject names, read with the one wire
+    subject grammar (runner/wire/subject.py): the posted ECMAScript
+    gap set as separators and the kind matched case-insensitively,
+    as the Worker reads it (CHECKLIST-04 N2). None otherwise."""
+    if not isinstance(subject, str):
+        return None
+    m = _subject.RESULT_ID_RE.search(subject)
+    return m.group(1) if m else None
 
 
 def _queue_plain(cmd):

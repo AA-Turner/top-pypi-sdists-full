@@ -50,17 +50,33 @@ def _is_otel_primitive_sequence(value: Sequence[OperationDataValue]) -> bool:
 
 
 def _json_attribute(value: OperationDataValue) -> str:
-    return json.dumps(_jsonable(value), sort_keys=True, separators=(",", ":"))
+    # Keep non-ASCII text as is: Studio and Dora show and search the stored string,
+    # where ``\uXXXX`` escapes make Korean, Japanese or Arabic arguments unreadable.
+    return json.dumps(_jsonable(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _strip_surrogates(text: str) -> str:
+    """Remove UTF-16 surrogate code points, which cannot be encoded as UTF-8.
+
+    With ``ensure_ascii=False`` they would reach the OTLP exporter raw and fail its
+    protobuf serialization. Well-formed text holds an emoji as one code point, so a
+    surrogate is always broken input, such as a truncated emoji.
+    """
+    if not any("\ud800" <= char <= "\udfff" for char in text):
+        return text
+    return "".join(char for char in text if not "\ud800" <= char <= "\udfff")
 
 
 def _jsonable(value: object) -> object:
+    if isinstance(value, str):
+        return _strip_surrogates(value)
     if value is None or isinstance(value, _OTEL_PRIMITIVE_TYPES):
         return value
     if isinstance(value, bytes):
         return value.decode(errors="replace")
     if isinstance(value, Mapping):
         mapping = cast("Mapping[str, object]", value)
-        return {key: _jsonable(nested_value) for key, nested_value in mapping.items()}
+        return {_strip_surrogates(key): _jsonable(nested_value) for key, nested_value in mapping.items()}
     if isinstance(value, Sequence):
         sequence = cast("Sequence[object]", value)
         return [_jsonable(nested_value) for nested_value in sequence]

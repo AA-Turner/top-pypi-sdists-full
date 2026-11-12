@@ -11,7 +11,6 @@ from test.apps.catalog.openapi import basic
 from test.utils import to_float32
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_data_rejection_displays_all_cases(ctx, cli, snapshot_cli):
     raw_schema = {
         "openapi": "3.0.0",
@@ -90,7 +89,6 @@ def test_negative_data_rejection_displays_all_cases(ctx, cli, snapshot_cli):
     ],
     ids=["swagger-2.0", "openapi-3.0"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_data_rejection_accepted_path_parameter(ctx, cli, snapshot_cli, version, path, parameter):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -121,7 +119,6 @@ def test_negative_data_rejection_accepted_path_parameter(ctx, cli, snapshot_cli,
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, cli, snapshot_cli):
     # Like the integer variant, string mutations for a float path parameter can decode to valid floats.
     # E.g., "+1.5" becomes /api/rate/%2B1.5 - URL-decoded to "+1.5" which float() accepts.
@@ -351,7 +348,6 @@ def test_negative_data_rejection_wildcard_media_type_link_body_no_false_positive
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, cli, snapshot_cli):
     # Type mutations for XML body string fields serialize all non-string values to their string
     # representations via _escape_xml (False -> "False", 0 -> "0", None -> "").
@@ -513,6 +509,95 @@ def test_negative_data_rejection_body_override_restoring_mutated_field(ctx, cli)
     assert re.findall(r"Invalid component: in body - violates `(\w+)` at (\S+)", result.stdout) == [
         ("type", "/properties/name")
     ], result.stdout
+
+
+@pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
+def test_positive_data_acceptance_body_override_of_shared_ref_field_no_false_positive(ctx, cli, snapshot_cli, phase):
+    # `id` and `owner` share one definition, so a mutation recorded at `owner` must not leak into `id`.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/resources": {
+                "post": {
+                    "operationId": "createResource",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"$ref": "#/components/schemas/Id"},
+                                        "owner": {"$ref": "#/components/schemas/Id"},
+                                    },
+                                    "required": ["id", "owner"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetResource": {
+                                    "operationId": "getResource",
+                                    "parameters": {"id": "$response.body#/id"},
+                                }
+                            },
+                        },
+                        "400": {"description": "Invalid"},
+                    },
+                }
+            },
+            "/resources/{id}": {
+                "get": {
+                    "operationId": "getResource",
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"$ref": "#/components/schemas/Id"}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        components={"schemas": {"Id": {"type": "string", "format": "uuid"}}},
+    )
+
+    def is_uuid(value):
+        try:
+            return isinstance(value, str) and str(uuid.UUID(value)) == value
+        except ValueError:
+            return False
+
+    @app.route("/resources", methods=["POST"])
+    def create_resource():
+        body = request.get_json(silent=True, force=True)
+        if not isinstance(body, dict) or set(body) != {"id", "owner"} or not all(map(is_uuid, body.values())):
+            return jsonify({"error": "invalid body"}), 400
+        return jsonify(body), 201
+
+    @app.route("/resources/<id>", methods=["GET"])
+    def get_resource(id):
+        return jsonify({"id": id}), 200
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=positive_data_acceptance",
+            f"--phases={phase}",
+            # Few negative bodies mutate `owner`, so the run needs enough cases to always draw one.
+            "--max-examples=100",
+            "--seed=1",
+            config={
+                "operations": [
+                    {
+                        "include-name": "POST /resources",
+                        "parameters": {"body.owner": "7c4a4a3e-24b6-4bd5-9a37-2a4b8a9e3b4f"},
+                    }
+                ]
+            },
+        )
+        == snapshot_cli
+    )
 
 
 def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_false_positive(ctx, cli, app_runner):
@@ -740,7 +825,6 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, cli, snapshot_
     assert cli.run_openapi_app(app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=3") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_final_line_when_no_checks_ran(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     assert (
@@ -749,7 +833,7 @@ def test_final_line_when_no_checks_ran(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_test_cases=False)
+@pytest.mark.snapshot(replace_test_cases=False)
 def test_login_redirect_counts_as_enforced_auth(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {"/me": {"get": {"security": [{"session": []}], "responses": {"200": {"description": "OK"}}}}},
@@ -778,7 +862,7 @@ TOKEN_HEADER_SCHEME = {"type": "apiKey", "in": "header", "name": "Token"}
 BEARER_SCHEME = {"type": "http", "scheme": "bearer"}
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True, replace_test_cases=False)
+@pytest.mark.snapshot(replace_test_cases=False)
 @pytest.mark.parametrize(
     ["scheme", "enforced", "args"],
     [
@@ -856,6 +940,7 @@ def test_optional_auth_should_not_trigger_missing_required_header(ctx, cli, snap
     assert cli.run_openapi_app(app, "-c missing_required_header") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_format_parameter_csv_response(ctx, cli, snapshot_cli):
     raw_schema = {
         "openapi": "3.0.0",
@@ -938,6 +1023,7 @@ def schema(ctx):
         ["200", 201, 400, 401],
     ],
 )
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, expected_statuses):
     api = ctx.openapi.apps.success()
     schema_path = ctx.makefile(schema)
@@ -957,7 +1043,6 @@ def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, expected_statu
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_positive_data_acceptance_accepts_redirect_to_another_host(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {"/authorize": {"get": {"responses": {"303": {"description": "Redirect to the provider"}}}}},
@@ -1196,7 +1281,6 @@ def test_response_schema_conformance(ctx, cli, app_runner, snapshot_cli, app):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_stateful_resource_checks_do_not_trigger_on_error(cli, snapshot_cli, app):
     assert (
         cli.run_openapi_app(
@@ -1210,7 +1294,6 @@ def test_stateful_resource_checks_do_not_trigger_on_error(cli, snapshot_cli, app
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_stateful_custom_method_path_segments(ctx, cli, snapshot_cli):
     job = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
     job_id = [{"name": "job_id", "in": "path", "required": True, "schema": {"type": "string"}}]
@@ -1579,7 +1662,6 @@ def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, cli,
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_positive_data_acceptance_float_format_exclusive_minimum_no_false_positive(ctx, cli, snapshot_cli):
     # `format: float` is single precision; values valid as float64 (e.g. 5e-324) collapse to 0 once narrowed.
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -1623,7 +1705,6 @@ def test_positive_data_acceptance_float_format_exclusive_minimum_no_false_positi
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 @pytest.mark.parametrize(
     ("serialization", "allowed_keys"),
     [({}, {"kind"}), ({"style": "deepObject", "explode": True}, {"p[kind]"})],
@@ -1673,7 +1754,6 @@ def test_positive_data_acceptance_empty_exploded_object_query_no_false_positive(
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_positive_data_acceptance_additional_properties_hint(ctx, cli, snapshot_cli):
     # When Hypothesis adds extra properties to a schema without `additionalProperties: false`,
     # the failure message should include a hint explaining the likely cause.
@@ -1793,7 +1873,6 @@ def _has_nul(value):
         pytest.param({**_NUL_PRODUCER, "/things": _things_operation(_NAME_BODY)}, "stateful", id="stateful-link"),
     ],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_positive_data_acceptance_no_additional_properties_hint_for_nul(
     ctx, cli, snapshot_cli, paths, phases, allow_x00
 ):
@@ -1979,7 +2058,6 @@ def test_missing_required_header_body_first_server_no_false_negative(ctx, cli, a
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_response_schema_conformance_groups_multiple_violations(ctx, cli, snapshot_cli):
     # 4 violations on one response should render under a single header with a violation count,
     # not 4 separate `- Response violates schema` blocks.
@@ -2025,7 +2103,6 @@ def test_response_schema_conformance_groups_multiple_violations(ctx, cli, snapsh
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_data_rejection_nested_body_description(ctx, cli, snapshot_cli):
     # Schema with no type at root/intermediate levels so coverage only generates
     # property constraint violations, surfacing the nested path in the description
@@ -2077,7 +2154,6 @@ def test_negative_data_rejection_nested_body_description(ctx, cli, snapshot_cli)
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_coverage_scalar_query_negation_reported_next_to_array_parameter(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -2110,7 +2186,6 @@ def test_coverage_scalar_query_negation_reported_next_to_array_parameter(ctx, cl
     assert cli.run_openapi_app(app, "--checks=negative_data_rejection", "--phases=coverage") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_readonly_in_allof_branch_does_not_collapse_positive_generation(ctx, cli, snapshot_cli):
     # Server bug behind valid POST body; reachable only when positive-mode generates valid data.
     app, _ = ctx.openapi.make_flask_app(
@@ -2161,7 +2236,6 @@ def test_readonly_in_allof_branch_does_not_collapse_positive_generation(ctx, cli
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_response_schema_conformance_large_pattern(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -2199,7 +2273,6 @@ def test_response_schema_conformance_large_pattern(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_alternative_security_requirements_should_not_trigger_negative_data_rejection(ctx, cli, snapshot_cli):
     # OpenAPI OR-s security alternatives, so dropping one credential is fine while another one is supplied.
     app, _ = ctx.openapi.make_flask_app(
@@ -2250,7 +2323,6 @@ def test_ignored_auth_probes_each_operation_until_enforcement_is_confirmed(ctx, 
 
 
 @pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_phase_without_checks_is_skipped(ctx, cli, snapshot_cli, phase):
     api = ctx.openapi.apps.users_crud()
     assert (

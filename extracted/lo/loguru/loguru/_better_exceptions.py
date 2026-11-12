@@ -29,6 +29,21 @@ else:
             return isinstance(exc, ExceptionGroup)
 
 
+def _get_string_tokens():
+    strings = {tokenize.STRING}
+    string_middles = set()
+
+    if sys.version_info >= (3, 12):
+        strings |= {tokenize.FSTRING_START, tokenize.FSTRING_END, tokenize.FSTRING_MIDDLE}
+        string_middles.add(tokenize.FSTRING_MIDDLE)
+
+    if sys.version_info >= (3, 14):
+        strings |= {tokenize.TSTRING_START, tokenize.TSTRING_END, tokenize.TSTRING_MIDDLE}
+        string_middles.add(tokenize.TSTRING_MIDDLE)
+
+    return frozenset(strings), frozenset(string_middles)
+
+
 class SyntaxHighlighter:
     _default_style = frozenset(
         {
@@ -49,14 +64,7 @@ class SyntaxHighlighter:
     _constants = frozenset({"True", "False", "None"})
     _punctuation = frozenset({"(", ")", "[", "]", "{", "}", ":", ",", ";"})
 
-    if sys.version_info >= (3, 12):
-        _strings = frozenset(
-            {tokenize.STRING, tokenize.FSTRING_START, tokenize.FSTRING_MIDDLE, tokenize.FSTRING_END}
-        )
-        _fstring_middle = tokenize.FSTRING_MIDDLE
-    else:
-        _strings = frozenset({tokenize.STRING})
-        _fstring_middle = None
+    _strings, _string_middles = _get_string_tokens()
 
     def __init__(self, style=None):
         self._style = style or dict(self._default_style)
@@ -69,7 +77,7 @@ class SyntaxHighlighter:
         for token in self.tokenize(source):
             type_, string, (start_row, start_column), (_, end_column), line = token
 
-            if type_ == self._fstring_middle:
+            if type_ in self._string_middles:
                 # When an f-string contains "{{" or "}}", they appear as "{" or "}" in the "string"
                 # attribute of the token. However, they do not count in the column position.
                 end_column += string.count("{") + string.count("}")
@@ -196,24 +204,28 @@ class ExceptionFormatter:
             return False
         return not any(filepath.startswith(d) for d in self._lib_dirs)
 
+    def _should_include_frame(self, frame):
+        return frame.f_code.co_filename != self._hidden_frames_filename
+
     def _extract_frames(self, tb, is_first, *, limit=None, from_decorator=False):
         frames, final_source = [], None
 
         if tb is None or (limit is not None and limit <= 0):
             return frames, final_source
 
-        def is_valid(frame):
-            return frame.f_code.co_filename != self._hidden_frames_filename
-
         def get_info(frame, lineno):
             filename = frame.f_code.co_filename
             function = frame.f_code.co_name
-            source = linecache.getline(filename, lineno).strip()
+            if lineno is None:  # Upstream bug, see python/cpython#89726.
+                source = ""
+                lineno = 0
+            else:
+                source = linecache.getline(filename, lineno).strip()
             return filename, lineno, function, source
 
         infos = []
 
-        if is_valid(tb.tb_frame):
+        if self._should_include_frame(tb.tb_frame):
             infos.append((get_info(tb.tb_frame, tb.tb_lineno), tb.tb_frame))
 
         get_parent_only = from_decorator and not self._backtrace
@@ -221,7 +233,7 @@ class ExceptionFormatter:
         if (self._backtrace and is_first) or get_parent_only:
             frame = tb.tb_frame.f_back
             while frame:
-                if is_valid(frame):
+                if self._should_include_frame(frame):
                     infos.insert(0, (get_info(frame, frame.f_lineno), frame))
                     if get_parent_only:
                         break
@@ -235,7 +247,7 @@ class ExceptionFormatter:
         tb = tb.tb_next
 
         while tb:
-            if is_valid(tb.tb_frame):
+            if self._should_include_frame(tb.tb_frame):
                 infos.append((get_info(tb.tb_frame, tb.tb_lineno), tb.tb_frame))
             tb = tb.tb_next
 
@@ -512,12 +524,17 @@ class ExceptionFormatter:
         yield from self._indent("".join(frames_lines), group_nesting)
 
         if is_grouped:
-            exc = None
+            # The closing ruler must be omitted only if the last formatted exception is itself a
+            # group, since the nested call already took care of closing it.
+            closed_by_nested_group = False
             for n, exc in enumerate(value.exceptions, start=1):
+                closed_by_nested_group = False
                 ruler = "+" + (" %s " % ("..." if n > 15 else n)).center(35, "-")
                 yield from self._indent(ruler, group_nesting, prefix="+-" if n == 1 else "  ")
                 if n > 15:
-                    message = "and %d more exceptions\n" % (len(value.exceptions) - 15)
+                    remaining = len(value.exceptions) - 15
+                    plural = "s" if remaining > 1 else ""
+                    message = "and %d more exception%s\n" % (remaining, plural)
                     yield from self._indent(message, group_nesting + 1)
                     break
                 elif group_nesting == 10 and is_exception_group(exc):
@@ -530,7 +547,8 @@ class ExceptionFormatter:
                         seen=seen,
                         group_nesting=group_nesting + 1,
                     )
-            if not is_exception_group(exc) or group_nesting == 10:
+                    closed_by_nested_group = is_exception_group(exc)
+            if not closed_by_nested_group:
                 yield from self._indent("-" * 35, group_nesting + 1, prefix="+-")
 
     def _format_list(self, frames):

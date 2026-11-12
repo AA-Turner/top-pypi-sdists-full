@@ -65,6 +65,7 @@ def scale_by_rss(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.sum_of_squares)
     sum_of_squares = jax.tree.map(
         lambda g, t: abs_sq(g) + t, updates, state.sum_of_squares
     )
@@ -129,6 +130,7 @@ def scale_by_rms(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
     nu = optax.tree.update_moment_per_elem_norm(updates, state.nu, decay, 2)
     if bias_correction:
       count_inc = numerics.safe_increment(state.count)
@@ -202,6 +204,7 @@ def scale_by_stddev(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
     mu = optax.tree.update_moment(updates, state.mu, decay, 1)
     nu = optax.tree.update_moment_per_elem_norm(updates, state.nu, decay, 2)
     if bias_correction:
@@ -280,6 +283,8 @@ def scale_by_adam(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     nu = optax.tree.update_moment_per_elem_norm(updates, state.nu, b2, 2)
     count_inc = numerics.safe_increment(state.count)
@@ -361,6 +366,8 @@ def scale_by_amsgrad(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     nu = optax.tree.update_moment_per_elem_norm(updates, state.nu, b2, 2)
     count_inc = numerics.safe_increment(state.count)
@@ -415,6 +422,7 @@ def scale_by_adamax(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
     count_inc = numerics.safe_increment(state.count)
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     nu = optax.tree.update_infinity_moment(updates, state.nu, b2, eps)
@@ -477,7 +485,7 @@ def scale_by_lion(
       elif mode == 'refined':
         # Keep small values linear, saturate to sign for large values.
         return jnp.where(jnp.abs(x) < 1.0, x, jnp.sign(x))
-      else:  # pytype: disable=unreachable
+      else:
         raise ValueError(
             f'Unknown lion mode: {mode}. '
             'It needs to be one of ["hard", "smooth", "refined"].'
@@ -533,6 +541,7 @@ def scale_by_param_block_norm(
     )
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(base.init_empty_state, update_fn)
 
 
@@ -561,6 +570,7 @@ def scale_by_param_block_rms(
     )
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(base.init_empty_state, update_fn)
 
 
@@ -594,6 +604,7 @@ def scale_by_adadelta(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.e_g)
     e_g = optax.tree.update_moment(updates, state.e_g, rho, 2)
     updates = jax.tree.map(
         lambda g, cur_e_g, prev_e_x: (
@@ -653,6 +664,8 @@ def scale_by_adan(
   def update_fn(updates, state, params=None):
     """Based on Algorithm 1 in https://arxiv.org/pdf/2208.06677v4#page=6."""
     del params
+    numerics.maybe_static_check_eps(eps, state.n)
+    numerics.maybe_static_check_eps(eps_root, state.n, name='eps_root')
     g = updates
 
     diff = optax.tree.where(
@@ -728,6 +741,8 @@ def scale_by_belief(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     prediction_error = optax.tree.sub(updates, mu)
     nu = optax.tree.update_moment_per_elem_norm(prediction_error, state.nu, b2,
@@ -774,8 +789,9 @@ def scale_by_yogi(
     eps: Term added to the denominator to improve numerical stability.
     eps_root: Term added to the denominator inside the square-root to improve
       numerical stability when backpropagating gradients through the rescaling.
-    initial_accumulator_value: The starting value for accumulators. Only
-      positive values are allowed.
+    initial_accumulator_value: The starting value for the second moment
+      accumulator. Only positive values are allowed. The first moment always
+      starts at zero.
 
   Returns:
     A :class:`optax.GradientTransformation` object.
@@ -783,13 +799,15 @@ def scale_by_yogi(
 
   def init_fn(params):
     # First moment
-    mu = optax.tree.full_like(params, initial_accumulator_value)
+    mu = optax.tree.zeros_like(params)
     # Second moment
     nu = optax.tree.full_like(params, initial_accumulator_value)
     return ScaleByAdamState(count=jnp.zeros([], jnp.int32), mu=mu, nu=nu)
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     nu = jax.tree.map(
         lambda g, v: v - (1 - b2) * jnp.sign(v - abs_sq(g)) * abs_sq(g),
@@ -859,6 +877,8 @@ def scale_by_radam(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     nu = optax.tree.update_moment_per_elem_norm(updates, state.nu, b2, 2)
     count_inc = numerics.safe_increment(state.count)
@@ -875,6 +895,7 @@ def scale_by_radam(
       mu_hat = optax.tree.bias_correction(mu, b1, count_inc)
     nu_hat = optax.tree.bias_correction(nu, b2, count_inc)
     updates = jax.tree.map(
+        # pyrefly: ignore[unsupported-operation]
         lambda t, f: jnp.where(ro >= threshold, t, f),
         _radam_update(ro, mu_hat, nu_hat),
         mu_hat,
@@ -1076,6 +1097,7 @@ def scale_by_trust_ratio(
     updates = jax.tree.map(_scale_update, updates, params)
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(base.init_empty_state, update_fn)
 
 
@@ -1114,6 +1136,7 @@ def apply_every(k: jax.typing.ArrayLike = 1) -> base.GradientTransformation:
     emit = c == (k - 1)
     updates = jax.tree.map(lambda ga: emit * ga, grad_acc)
     count_inc = numerics.safe_increment(state.count)
+    # pyrefly: ignore[unsupported-operation]
     return updates, ApplyEvery(count=count_inc % k, grad_acc=grad_acc)
 
   return base.GradientTransformation(init_fn, update_fn)
@@ -1225,6 +1248,7 @@ def scale_by_sm3(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.mu)
 
     def f(g, v):
       return [
@@ -1313,6 +1337,8 @@ def scale_by_novograd(
     )
 
   def update_fn(updates, state, params):
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     count_inc = numerics.safe_increment(state.count)
 
     nu = jax.lax.cond(count_inc == 1, init_nu, update_nu, updates, state.nu)
@@ -1324,6 +1350,7 @@ def scale_by_novograd(
     updates = mu
     return updates, ScaleByNovogradState(count=count_inc, mu=mu, nu=nu)
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(init_fn, update_fn)
 
 
@@ -1451,6 +1478,7 @@ def scale_by_distance_over_gradients(
 
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(init_fn, update_fn)
 
 
@@ -1502,6 +1530,7 @@ def scale_by_polyak(
     # extra_args
     del extra_args
     grad_sq_norm = optax.tree.norm(updates, squared=True)
+    # pyrefly: ignore[unsupported-operation]
     gap = jnp.array(value - f_min).astype(grad_sq_norm.dtype)
     if variant == 'sps':
       pass
@@ -1518,6 +1547,7 @@ def scale_by_polyak(
     updates = optax.tree.scale(step, updates)
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformationExtraArgs(base.init_empty_state, update_fn)
 
 
@@ -1587,13 +1617,15 @@ def _precondition_by_lbfgs(
     , 1999
   """
   rhos = weights_memory
-  memory_size = weights_memory.shape[0]  # pytype: disable=attribute-error  # jax-arraylike # noqa: E501
+  # pyrefly: ignore [missing-attribute]
+  memory_size = weights_memory.shape[0]
   indices = (memory_idx + jnp.arange(memory_size)) % memory_size
 
   def right_product(vec, idx):
     dwi, dui = jax.tree.map(
         lambda x: x[idx], (diff_params_memory, diff_updates_memory)
     )
+    # pyrefly: ignore[bad-index]
     alpha = rhos[idx] * optax.tree.real(optax.tree.vdot(dwi, vec))
     vec_new = optax.tree.add_scale(vec, -alpha, dui)
     vec_new = optax.tree.cast_like(vec_new, vec)
@@ -1610,6 +1642,7 @@ def _precondition_by_lbfgs(
     dwi, dui = jax.tree.map(
         lambda x: x[idx], (diff_params_memory, diff_updates_memory)
     )
+    # pyrefly: ignore[bad-index]
     beta = rhos[idx] * optax.tree.real(optax.tree.vdot(dui, vec))
     vec_new = optax.tree.add_scale(vec, alpha - beta, dwi)
     vec_new = optax.tree.cast_like(vec_new, vec)
@@ -1713,7 +1746,7 @@ def scale_by_lbfgs(
     # represented by e.g. diff_params_memory through the ith stacked
     # element in the leaves, see update_fn below for practical examples.
     stacked_zero_params = jax.tree.map(
-        lambda leaf: jnp.zeros((memory_size,) + leaf.shape, dtype=leaf.dtype),
+        lambda x: jnp.broadcast_to(jnp.zeros_like(x), (memory_size,) + x.shape),
         params,
     )
     return ScaleByLBFGSState(
@@ -1730,7 +1763,9 @@ def scale_by_lbfgs(
   ) -> tuple[base.Updates, ScaleByLBFGSState]:
     # Essentially memory_idx is the iteration k (modulo the memory size)
     # and prev_memory_idx is k-1 (modulo the memory size).
+    # pyrefly: ignore[unsupported-operation]
     memory_idx = state.count % memory_size
+    # pyrefly: ignore[unsupported-operation]
     prev_memory_idx = (state.count - 1) % memory_size
 
     # We first update the preconditioner and then preconditon the updates.
@@ -1751,6 +1786,7 @@ def scale_by_lbfgs(
     # that are not defined at the first iteration. Hence we keep them at 0 if
     # state.count = 0.
     diff_params, diff_updates, weight = jax.tree.map(
+        # pyrefly: ignore[unsupported-operation]
         lambda x: jnp.where(state.count > 0, x, jnp.zeros_like(x)),
         (diff_params, diff_updates, weight),
     )
@@ -1778,7 +1814,10 @@ def scale_by_lbfgs(
       update_norm = optax.tree.norm(jax.lax.stop_gradient(updates))
       capped_inv_norm = jnp.minimum(1.0, 1.0 / update_norm)
       identity_scale = jnp.where(
-          state.count > 0, identity_scale, capped_inv_norm
+          # pyrefly: ignore[unsupported-operation]
+          state.count > 0,
+          identity_scale,
+          capped_inv_norm,
       )
     else:
       identity_scale = 1.0
@@ -1802,6 +1841,7 @@ def scale_by_lbfgs(
         weights_memory=weights_memory,
     )
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(init_fn, update_fn)
 
 
@@ -1849,6 +1889,7 @@ def normalize_by_update_norm(
     updates = jax.tree.map(lambda g: g / g_norm, updates)
     return updates, state
 
+  # pyrefly: ignore[bad-argument-type]
   return base.GradientTransformation(base.init_empty_state, update_fn)
 
 

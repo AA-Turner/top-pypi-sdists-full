@@ -20,6 +20,11 @@ def validate_http_server_config(
     is_server: bool = False,
 ): ...
 
+class _DirectServerCls:
+    """Placeholder class for a direct Server, which is started by its Image's own command."""
+
+    ...
+
 class _Server:
     """Server runs an HTTP server started in an `@modal.enter` method.
 
@@ -250,7 +255,9 @@ class _Server:
 
     @staticmethod
     def _validate_wrapped_user_cls_decorators(
-        wrapped_user_cls: typing.Union[type, modal._partial_function._PartialFunction], enable_memory_snapshot: bool
+        wrapped_user_cls: typing.Union[type, modal._partial_function._PartialFunction],
+        enable_memory_snapshot: bool,
+        direct: bool = False,
     ): ...
     @staticmethod
     def _validate_construction_mechanism(

@@ -1,7 +1,7 @@
 """The Redis cache the cached repositories put in front of their store: exactly what the asset service does.
 
-`ChattyAssetContainerWithCollection` (`services/chatty_assets/base_container_with_collection.py`) is how every module
-used the cache before the layered refactor, and other readers still go through it on the same keys. Each
+`ChattyAssetContainerWithCollection` (retired in ENG-406, letschatty 0.6.82) was how every module used the cache before the
+layered refactor; its logger name stays on the ERROR lines below. Each
 `Cached*Repository` (ADR-001: the cache is a decorator of the repository) uses this one helper so the observable
 behavior stays the asset service's (ADR-006): the same keys, TTLs, invalidation, logger, log texts and levels, and
 the same reads to the store — a cached read reaches the store only on a miss.
@@ -33,7 +33,7 @@ from typing import Any, Awaitable, Callable, Dict, Generic, Iterable, List, Opti
 
 from ..models.cache import CacheProtocol
 from ..models.utils.types import StrObjectId
-from ..services.chatty_assets.base_container_with_collection import CacheConfig
+from ..models.cache import CacheConfig
 
 # The asset service's logger: the logs stay as they were before the refactor (alerts and searches read them).
 logger = logging.getLogger("ChattyAssetContainerWithCollection")

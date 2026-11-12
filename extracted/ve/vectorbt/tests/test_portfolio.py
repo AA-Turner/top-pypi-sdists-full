@@ -8,7 +8,8 @@ from numba import njit, typeof
 from numba.typed import List
 
 import vectorbt as vbt
-from tests.utils import record_arrays_close
+from tests.utils import SIZE_GRANULARITY_CASES, make_index_representations, record_arrays_close
+from vectorbt.base import reshape_fns
 from vectorbt.generic.enums import drawdown_dt
 from vectorbt.portfolio import dispatch, nb
 from vectorbt.portfolio.enums import *
@@ -699,6 +700,65 @@ def from_orders_shortonly(close=price, size=order_size, **kwargs):
 
 
 class TestFromOrders:
+    @pytest.mark.parametrize("kind", ["string", "datetime", "timedelta"])
+    @pytest.mark.parametrize("wrapped_first", [False, True])
+    @pytest.mark.parametrize("representation", ["categorical", "one_level"])
+    @pytest.mark.parametrize("cash_sharing", [False, True])
+    def test_equal_length_representation_column_alignment(self, kind, wrapped_first, representation, cash_sharing):
+        keys, wrapped = make_index_representations(kind, representation, name="asset")
+        size_columns, price_columns = (wrapped, keys) if wrapped_first else (keys, wrapped)
+        size = pd.DataFrame([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], columns=size_columns)
+        close = pd.DataFrame(
+            [[10.0, 100.0, 1000.0], [20.0, 120.0, 1100.0], [30.0, 140.0, 1200.0]], columns=price_columns
+        ).iloc[:, [2, 0, 1]]
+        # Native metadata is selected only after an independent explicit reorder; accounting is hand-derived.
+        expected_columns = reshape_fns.broadcast_index(
+            [size, close.iloc[:, [1, 2, 0]]], close.shape, index_from="stack", axis=1
+        )
+        pf = vbt.Portfolio.from_orders(
+            close, size=size, init_cash=1000.0, cash_sharing=cash_sharing, freq="1D", engine="numba"
+        )
+        pd.testing.assert_index_equal(pf.wrapper.columns, expected_columns)
+        # One unit of the first timestamp/tenor buys at 10, leaving cash 990 and assets 10/20/30.
+        record_arrays_close(pf.order_records, np.array([(0, 0, 0, 1.0, 10.0, 0.0, 0)], dtype=order_dt))
+        pd.testing.assert_frame_equal(
+            pf.asset_value(group_by=False),
+            pd.DataFrame([[10.0, 0.0, 0.0], [20.0, 0.0, 0.0], [30.0, 0.0, 0.0]], columns=expected_columns),
+        )
+        if cash_sharing:
+            pd.testing.assert_series_equal(pf.value(), pd.Series([1000.0, 1010.0, 1020.0], name="group"))
+        else:
+            pd.testing.assert_frame_equal(
+                pf.value(),
+                pd.DataFrame(
+                    [[1000.0, 1000.0, 1000.0], [1010.0, 1000.0, 1000.0], [1020.0, 1000.0, 1000.0]],
+                    columns=expected_columns,
+                ),
+            )
+
+    @pytest.mark.parametrize("cash_sharing", [False, True])
+    def test_equal_length_column_alignment(self, cash_sharing):
+        close = pd.DataFrame([[10.0, 100.0], [20.0, 120.0], [30.0, 140.0]], columns=pd.Index(["A", "B"], name="asset"))
+        size = pd.DataFrame([[0.0, 1.0], [0.0, 0.0], [0.0, 0.0]], columns=pd.Index(["B", "A"], name="asset"))
+        pf = vbt.Portfolio.from_orders(
+            close, size=size, init_cash=1000.0, cash_sharing=cash_sharing, freq="1D", engine="numba"
+        )
+
+        # Size is the first labeled input: preserve its column order, but buy A at A's price.
+        pd.testing.assert_index_equal(pf.wrapper.columns, size.columns)
+        record_arrays_close(pf.order_records, np.array([(0, 1, 0, 1.0, 10.0, 0.0, 0)], dtype=order_dt))
+        pd.testing.assert_frame_equal(
+            pf.asset_value(group_by=False),
+            pd.DataFrame([[0.0, 10.0], [0.0, 20.0], [0.0, 30.0]], columns=size.columns),
+        )
+        # One unit of A earns 20; B never trades, with individual or shared cash.
+        if cash_sharing:
+            expected = pd.Series([1000.0, 1010.0, 1020.0], name="group")
+            pd.testing.assert_series_equal(pf.value(), expected)
+        else:
+            expected = pd.DataFrame([[1000.0, 1000.0], [1000.0, 1010.0], [1000.0, 1020.0]], columns=size.columns)
+            pd.testing.assert_frame_equal(pf.value(), expected)
+
     def test_one_column(self):
         record_arrays_close(
             from_orders_both().order_records,
@@ -831,6 +891,90 @@ class TestFromOrders:
             from_orders_shortonly(fees=0.1, fixed_fees=0.1, size_granularity=1).order_records,
             np.array([(0, 0, 0, 90.0, 1.0, 9.1, 1), (1, 0, 1, 82.0, 2.0, 16.5, 0)], dtype=order_dt),
         )
+
+    def test_size_granularity_fractional(self):
+        close = pd.Series([10.0, 10.0])
+        record_arrays_close(
+            vbt.Portfolio.from_orders(close, pd.Series([1.0, -1.0]), size_granularity=0.1).order_records,
+            np.array([(0, 0, 0, 1.0, 10.0, 0.0, 0), (1, 0, 1, 1.0, 10.0, 0.0, 1)], dtype=order_dt),
+        )
+        record_arrays_close(
+            vbt.Portfolio.from_orders(close, pd.Series([0.9, -0.9]), size_granularity=0.1).order_records,
+            np.array([(0, 0, 0, 0.9, 10.0, 0.0, 0), (1, 0, 1, 0.9, 10.0, 0.0, 1)], dtype=order_dt),
+        )
+        record_arrays_close(
+            vbt.Portfolio.from_orders(close, pd.Series([np.inf, np.nan]), size_granularity=0.1).order_records,
+            np.array([(0, 0, 0, 10.0, 10.0, 0.0, 0)], dtype=order_dt),
+        )
+        record_arrays_close(
+            vbt.Portfolio.from_orders(
+                close, pd.Series([1.0, np.nan]), size_granularity=0.001, allow_partial=False
+            ).order_records,
+            np.array([(0, 0, 0, 1.0, 10.0, 0.0, 0)], dtype=order_dt),
+        )
+
+    def test_size_granularity_lot_boundary(self):
+        close = pd.Series([10.0, 10.0])
+        for size, size_granularity in ((4.3, 0.1), (8.1, 0.1), (0.29, 0.01), (0.58, 0.01)):
+            record_arrays_close(
+                vbt.Portfolio.from_orders(
+                    close, pd.Series([size, np.nan]), size_granularity=size_granularity
+                ).order_records,
+                np.array([(0, 0, 0, size, 10.0, 0.0, 0)], dtype=order_dt),
+            )
+        pf = vbt.Portfolio.from_orders(close, pd.Series([4.3, -4.3]), size_granularity=pd.Series([np.nan, 0.1]))
+        record_arrays_close(
+            pf.order_records,
+            np.array([(0, 0, 0, 4.3, 10.0, 0.0, 0), (1, 0, 1, 4.3, 10.0, 0.0, 1)], dtype=order_dt),
+        )
+        assert pf.assets().iloc[-1] == 0
+        pf = vbt.Portfolio.from_orders(
+            close, pd.Series([4.3, -np.inf]), size_granularity=pd.Series([np.nan, 0.1]), direction="longonly"
+        )
+        record_arrays_close(
+            pf.order_records,
+            np.array([(0, 0, 0, 4.3, 10.0, 0.0, 0), (1, 0, 1, 4.3, 10.0, 0.0, 1)], dtype=order_dt),
+        )
+        assert pf.assets().iloc[-1] == 0
+        record_arrays_close(
+            vbt.Portfolio.from_orders(
+                close, pd.Series([4.3, -4.3]), size_granularity=0.1, allow_partial=False
+            ).order_records,
+            np.array([(0, 0, 0, 4.3, 10.0, 0.0, 0), (1, 0, 1, 4.3, 10.0, 0.0, 1)], dtype=order_dt),
+        )
+        record_arrays_close(
+            vbt.Portfolio.from_orders(
+                close, pd.Series([np.inf, np.nan]), size_granularity=0.1, init_cash=43.0
+            ).order_records,
+            np.array([(0, 0, 0, 4.3, 10.0, 0.0, 0)], dtype=order_dt),
+        )
+        record_arrays_close(
+            vbt.Portfolio.from_orders(close, pd.Series([4.35, np.nan]), size_granularity=0.1).order_records,
+            np.array([(0, 0, 0, 4.3, 10.0, 0.0, 0)], dtype=order_dt),
+        )
+
+    @pytest.mark.parametrize("size,size_granularity,expected", SIZE_GRANULARITY_CASES)
+    def test_size_granularity_rounding_bound(self, size, size_granularity, expected, test_engine):
+        pf = vbt.Portfolio.from_orders(
+            pd.Series([10.0, 10.0]),
+            pd.Series([size, np.nan]),
+            size_granularity=size_granularity,
+            init_cash=1e6,
+            engine=test_engine,
+        )
+        assert pf.order_records["size"].tolist() == ([] if np.isnan(expected) else [expected])
+
+    @pytest.mark.parametrize("size_granularity", [0.1, 0.01, 0.001])
+    def test_size_granularity_accumulated_close(self, size_granularity, test_engine):
+        # A position summed from a few fills of one lot closes flat
+        pf = vbt.Portfolio.from_orders(
+            pd.Series(np.full(11, 10.0)),
+            pd.Series([size_granularity] * 10 + [-np.inf]),
+            size_granularity=size_granularity,
+            direction="longonly",
+            engine=test_engine,
+        )
+        assert pf.assets().iloc[-1] == 0
 
     def test_price(self):
         record_arrays_close(
@@ -9920,11 +10064,11 @@ class TestPortfolio:
             pd.DataFrame(
                 np.array(
                     [
-                        [0.0, 0.01000999998999, 0.0],
-                        [0.0, 0.021825370842812494, 0.0],
-                        [0.0, 0.021825370842812494, 0.0],
-                        [0.0, 0.03909759620159034, 0.0],
-                        [0.0, 0.09689116931945001, 0.0],
+                        [0.0, 0.010012004393267528, 0.0],
+                        [0.0, 0.02227258977169786, 0.0],
+                        [0.0, 0.02227258977169786, 0.0],
+                        [0.0, 0.04146449271095683, 0.0],
+                        [0.0, 0.10496640130460641, 0.0],
                     ]
                 ),
                 index=price_na.index,
@@ -9934,11 +10078,11 @@ class TestPortfolio:
         result = pd.DataFrame(
             np.array(
                 [
-                    [0.0, 0.01000999998999, 0.010012024441354066],
-                    [0.00200208256628545, 0.021825370842812494, 0.021830620581035857],
-                    [0.0, 0.021825370842812494, 0.002949383274126105],
-                    [0.0, 0.03909759620159034, 0.0],
-                    [0.050155728521486365, 0.09689116931945001, 0.0],
+                    [0.0, 0.010012004393267528, 0.010012024441354066],
+                    [0.00200208256628545, 0.02227258977169786, 0.021830620581035857],
+                    [0.0, 0.02227258977169786, 0.002949383274126105],
+                    [0.0, 0.04146449271095683, 0.0],
+                    [0.050155728521486365, 0.10496640130460641, 0.0],
                 ]
             ),
             index=price_na.index,
@@ -9951,11 +10095,11 @@ class TestPortfolio:
             pd.DataFrame(
                 np.array(
                     [
-                        [0.0, 0.0050024987481246875, 0.010012024441354066],
-                        [0.0010005203706447724, 0.010956168751293576, 0.021830620581035857],
-                        [0.0, 0.010956168751293576, 0.002949383274126105],
-                        [0.0, 0.019771825228137207, 0.0],
-                        [0.025038871596209537, 0.049210520540028384, 0.0],
+                        [0.0, 0.005002999298079199, 0.010012024441354066],
+                        [0.0010005203706447724, 0.011067727853828719, 0.021830620581035857],
+                        [0.0, 0.011067727853828719, 0.002949383274126105],
+                        [0.0, 0.020359541356539952, 0.0],
+                        [0.025038871596209537, 0.0512115159540772, 0.0],
                     ]
                 ),
                 index=price_na.index,
@@ -9965,11 +10109,11 @@ class TestPortfolio:
         result = pd.DataFrame(
             np.array(
                 [
-                    [0.0050024987481246875, 0.010012024441354066],
-                    [0.011958382893456152, 0.021830620581035857],
-                    [0.010962173376438594, 0.002949383274126105],
-                    [0.019782580537729116, 0.0],
-                    [0.07392874356988736, 0.0],
+                    [0.005002999298079199, 0.010012024441354066],
+                    [0.01208020653126433, 0.021830620581035857],
+                    [0.011073855417629569, 0.002949383274126105],
+                    [0.020370945755278022, 0.0],
+                    [0.07693961302144477, 0.0],
                 ]
             ),
             index=price_na.index,
@@ -9979,15 +10123,43 @@ class TestPortfolio:
         pd.testing.assert_frame_equal(pf_grouped.gross_exposure(), result)
         pd.testing.assert_frame_equal(pf_shared.gross_exposure(), result)
 
+    def test_gross_exposure_long_short_and_mixed_group(self, test_engine):
+        close = pd.Series([100.0, 50.0, 150.0, 100.0])
+        size = pd.Series([-1.0, np.nan, np.nan, np.nan])
+        close_mixed = pd.DataFrame({"a": [100.0, 120.0, 80.0], "b": [100.0, 50.0, 150.0]})
+        size_mixed = pd.DataFrame({"a": [1.0, np.nan, np.nan], "b": [-1.0, np.nan, np.nan]})
+        # Long only: 100 in assets with a portfolio value of 200 is 0.5
+        pf_long = vbt.Portfolio.from_orders(close, -size, init_cash=200, freq="1D", engine=test_engine)
+        np.testing.assert_allclose(pf_long.value().values, [200.0, 150.0, 250.0, 200.0])
+        np.testing.assert_allclose(pf_long.gross_exposure().values, [0.5, 50 / 150, 150 / 250, 0.5])
+        # Short only: abs(asset value) over portfolio value, which moves against the price
+        pf_short = vbt.Portfolio.from_orders(close, size, init_cash=100, freq="1D", engine=test_engine)
+        np.testing.assert_allclose(pf_short.gross_exposure().values, [1.0, 50 / 150, 3.0, 1.0])
+        np.testing.assert_allclose(pf_short.net_exposure().values, [-1.0, -50 / 150, -3.0, -1.0])
+        assert pf_short.stats()["Max Gross Exposure [%]"] == 300.0
+        # Long a and short b in one group: sum of abs(asset value) over the group value
+        for cash_sharing, init_cash in ((True, 200.0), (False, [100.0, 100.0])):
+            pf_mixed = vbt.Portfolio.from_orders(
+                close_mixed,
+                size_mixed,
+                group_by=True,
+                cash_sharing=cash_sharing,
+                init_cash=init_cash,
+                engine=test_engine,
+            )
+            np.testing.assert_allclose(pf_mixed.value().values, [200.0, 270.0, 130.0])
+            np.testing.assert_allclose(pf_mixed.gross_exposure().values, [1.0, 170 / 270, 230 / 130])
+            np.testing.assert_allclose(pf_mixed.net_exposure().values, [0.0, 70 / 270, -70 / 130])
+
     def test_net_exposure(self):
         result = pd.DataFrame(
             np.array(
                 [
-                    [0.0, -0.01000999998999, 0.010012024441354066],
-                    [0.00200208256628545, -0.021825370842812494, 0.021830620581035857],
-                    [0.0, -0.021825370842812494, 0.002949383274126105],
-                    [0.0, -0.03909759620159034, 0.0],
-                    [0.050155728521486365, -0.09689116931945001, 0.0],
+                    [0.0, -0.010012004393267528, 0.010012024441354066],
+                    [0.00200208256628545, -0.02227258977169786, 0.021830620581035857],
+                    [0.0, -0.02227258977169786, 0.002949383274126105],
+                    [0.0, -0.04146449271095683, 0.0],
+                    [0.050155728521486365, -0.10496640130460641, 0.0],
                 ]
             ),
             index=price_na.index,
@@ -10000,11 +10172,11 @@ class TestPortfolio:
             pd.DataFrame(
                 np.array(
                     [
-                        [0.0, -0.005002498748124688, 0.010012024441354066],
-                        [0.0010005203706447724, -0.010956168751293576, 0.021830620581035857],
-                        [0.0, -0.010956168751293576, 0.002949383274126105],
-                        [0.0, -0.019771825228137207, 0.0],
-                        [0.025038871596209537, -0.049210520540028384, 0.0],
+                        [0.0, -0.005002999298079199, 0.010012024441354066],
+                        [0.0010005203706447724, -0.011067727853828719, 0.021830620581035857],
+                        [0.0, -0.011067727853828719, 0.002949383274126105],
+                        [0.0, -0.020359541356539952, 0.0],
+                        [0.025038871596209537, -0.0512115159540772, 0.0],
                     ]
                 ),
                 index=price_na.index,
@@ -10014,11 +10186,11 @@ class TestPortfolio:
         result = pd.DataFrame(
             np.array(
                 [
-                    [-0.005002498748124688, 0.010012024441354066],
-                    [-0.009965205542937988, 0.021830620581035857],
-                    [-0.010962173376438594, 0.002949383274126105],
-                    [-0.019782580537729116, 0.0],
-                    [-0.0246106361476199, 0.0],
+                    [-0.005002999298079199, 0.010012024441354066],
+                    [-0.010066838776053608, 0.021830620581035857],
+                    [-0.011073855417629569, 0.002949383274126105],
+                    [-0.020370945755278022, 0.0],
+                    [-0.02564653767381492, 0.0],
                 ]
             ),
             index=price_na.index,
@@ -10422,7 +10594,7 @@ class TestPortfolio:
                         98.88877000000001,
                         -1.11123,
                         283.3333333333333,
-                        5.629250614065742,
+                        5.898425013570955,
                         0.42223000000000005,
                         1.6451238489727062,
                         pd.Timedelta("3 days 08:00:00"),
@@ -10727,7 +10899,7 @@ class TestPortfolio:
                         194.95809,
                         -2.520955,
                         275.0,
-                        7.392873929961589,
+                        7.693961302144476,
                         0.82091,
                         2.46248125751388,
                         pd.Timedelta("4 days 00:00:00"),

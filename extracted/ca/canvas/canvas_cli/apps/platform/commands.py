@@ -10,7 +10,8 @@ person signed in with ``canvas login``:
     by convention, records the publisher in its manifest and registers it with platform.
   * ``canvas deploy``: commits and pushes the working tree, or pushes a snapshot of a
     plugin inside a larger repository, to ``main`` or to the branch ``--branch``
-    names, then deploys it.
+    names, then deploys it. With ``--plugin``, deploys released versions of several
+    plugins together in one deployment, pushing nothing.
   * ``canvas clone``: checks out a plugin's repository, ready to push.
   * ``canvas enable`` / ``disable``, ``canvas config list`` / ``set`` / ``unset`` and
     ``canvas uninstall``: through platform for a plugin it manages. Signed in, any
@@ -43,11 +44,11 @@ from canvas_cli.apps.platform.routing import managed_instance as managed_instanc
 from canvas_cli.apps.platform.routing import refuse_unmanaged, require_managed
 from canvas_cli.apps.plugin import plugin as instance_plugin
 from canvas_cli.utils.platform_notice import print_credentials_ini_deprecation
+from canvas_cli.utils.validators.validators import normalized_version
 
 PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
-# A plugin name is a Python package and a Postgres identifier (see PG_NAMEDATALEN in
-# plugin_runner/namespace.py).
-PLUGIN_NAME_MAX_LENGTH = 63
+# Canvas Platform's limit.
+PLUGIN_NAME_MAX_LENGTH = 255
 
 DEPLOYMENT_TERMINAL = frozenset({"succeeded", "partial", "failed", "cancelled"})
 POLL_INTERVAL_SECONDS = 2.0
@@ -225,15 +226,15 @@ def _edit_publisher_line(text: str, indent: str, slug: str) -> str | None:
 
 
 def require_valid_name(name: str) -> None:
-    """Refuse a manifest name that is not a valid Python package and Postgres identifier."""
-    if PLUGIN_NAME_PATTERN.match(name) and len(name) <= PLUGIN_NAME_MAX_LENGTH:
+    """Refuse a manifest name that is not a valid Python package name within the length limit."""
+    if PLUGIN_NAME_PATTERN.fullmatch(name) and len(name) <= PLUGIN_NAME_MAX_LENGTH:
         return
     package: str = re.sub(r"[^a-z0-9_]", "_", name.lower()).strip("_") or "package"
     package = package.lstrip("0123456789_")[:PLUGIN_NAME_MAX_LENGTH] or "package"
     raise typer.BadParameter(
         f"The plugin name '{name}' is not valid. A name starts with a lowercase letter, then "
         f"holds lowercase letters, digits and underscores, at most {PLUGIN_NAME_MAX_LENGTH} "
-        "characters, because it is a Python package and a Postgres identifier. Rename it in "
+        "characters, because it is a Python package. Rename it in "
         f"the manifest, the package folder and its imports, for example `{package}`."
     )
 
@@ -307,18 +308,43 @@ def _matching_organization(organizations: list[dict[str, Any]], name: str) -> di
     return max(matches, key=lambda o: len(o["plugin_prefix"]), default=None)
 
 
+def _legacy_publisher(client: PlatformClient, name: str, declared: str | None) -> str | None:
+    """The slug of the organization that publishes the plugin named ``name`` the person sees
+    on Canvas Platform, member or not, else None. Platform authorizes the push and the
+    deployment itself. A 409 ``ambiguous`` (several publishers) is settled by the manifest
+    ``publisher`` when it names one, and otherwise counts as none.
+    """
+    try:
+        plugin: dict[str, Any] | None = client.plugin(name)
+    except PlatformError as error:
+        if error.code != "ambiguous":
+            raise
+        if not declared:
+            return None
+        plugin = client.plugin(name, declared)
+    if plugin is None:
+        return None
+    return str(plugin.get("publisher") or "") or None
+
+
 def _publisher(
-    client: PlatformClient, plugin_dir: Path, name: str, *, pushing: bool, records: bool
+    client: PlatformClient,
+    plugin_dir: Path,
+    name: str,
+    *,
+    pushing: bool,
+    records: bool,
+    held: str | None,
 ) -> tuple[str, bool]:
     """The slug of the organization that publishes ``name``, and whether the person picked it.
 
-    It is the manifest's ``publisher`` when it names an organization the person belongs
-    to, or any ``publisher`` for a deploy that pushes nothing, whose deployment Canvas
-    Platform authorizes on its own (a Canvas employee deploys in every organization
-    without belonging to it); else the person's organization whose ``plugin_prefix`` the
-    name carries; else the only organization the person can publish in; else, at a
-    terminal, the one the person picks. The choice is returned, not written: a regular
-    push records it in the manifest once the package is accepted (``records``), and any
+    It is ``held`` when the manifest names no other ``publisher``; else the manifest's
+    ``publisher`` when it names an organization the person belongs to, or any
+    ``publisher`` for a deploy that pushes nothing, whose deployment Canvas Platform
+    authorizes on its own (a Canvas employee deploys in every organization without
+    belonging to it); else the person's organization whose ``plugin_prefix`` the name
+    carries; else the only organization the person can publish in; else, at a terminal,
+    the one the person picks. The choice is returned, not written: a regular push records it in the manifest once the package is accepted (``records``), and any
     other deploy prints the line to add instead. Without a terminal, several
     organizations are refused with the manifest line that chooses one.
 
@@ -329,6 +355,8 @@ def _publisher(
         pushing (bool): Whether the command pushes code, which needs ``push_plugin_code``.
         records (bool): Whether the command is a regular push, which records a picked
             publisher in the manifest.
+        held (str | None): The organization that publishes ``name`` on Platform, for a
+            legacy name outside the character rule, whether or not the person belongs to it.
 
     Returns:
         tuple[str, bool]: The publishing organization's slug, and whether the person
@@ -340,6 +368,10 @@ def _publisher(
     organizations: list[dict[str, Any]] = client.me().get("organizations", [])
     slugs: str = ", ".join(str(o["slug"]) for o in organizations)
     declared: str | None = manifest_publisher(plugin_dir)
+    if held is not None and declared in (None, held):
+        # Platform refuses a push or deployment the person may not make.
+        print(f"Publishing as {held}, which publishes {name} on Canvas Platform.")
+        return held, False
     if declared is not None:  # "" is a value too, and is refused below as no organization
         match: dict[str, Any] | None = next(
             (o for o in organizations if o["slug"] == declared), None
@@ -516,7 +548,8 @@ def _report(deployment: dict[str, Any] | None, deployment_id: str, *, what: str)
         raise typer.Exit(1)
     skipped_because = _SKIPPED_BECAUSE.get(str(deployment.get("action")), "nothing to do there")
     for target in deployment.get("targets", []):
-        line = f"  {target.get('plugin')} on {target.get('instance')}: {target.get('status')}"
+        wave = f" (wave {target['wave']})" if "wave" in target else ""
+        line = f"  {target.get('plugin')} on {target.get('instance')}{wave}: {target.get('status')}"
         if target.get("error"):
             line += f": {target['error']}"
         elif target.get("status") == "skipped":
@@ -535,6 +568,28 @@ def _report(deployment: dict[str, Any] | None, deployment_id: str, *, what: str)
     raise typer.Exit(1)
 
 
+def _describe(entry: dict[str, str]) -> str:
+    """One deploy entry as ``[<publisher>/]<name>@<version or ref>``."""
+    publisher = f"{entry['publisher']}/" if entry.get("publisher") else ""
+    at = entry["version"] if "version" in entry else entry["ref"][:12]
+    return f"{publisher}{entry['name']}@{at}"
+
+
+def _holds(entries: list[dict[str, str]], plugin: dict[str, str]) -> bool:
+    """Whether ``entries`` already name ``plugin``: the same name, and the same publisher
+    where both name one.
+    """
+    return any(
+        entry["name"] == plugin["name"]
+        and (
+            not entry.get("publisher")
+            or not plugin.get("publisher")
+            or entry["publisher"] == plugin["publisher"]
+        )
+        for entry in entries
+    )
+
+
 def _dispatch(
     client: PlatformClient,
     action: str,
@@ -544,8 +599,35 @@ def _dispatch(
     what: str,
     assume_yes: bool = False,
 ) -> None:
-    """Create a deployment, walk its consent requests, and wait for it to settle."""
-    deployment = client.create_deployment(action, plugins, instances)
+    """Create a deployment, walk its consent requests, and wait for it to settle.
+
+    A deploy refused because plugins left running pin another version of a shared
+    plugin can go out together with releases of those plugins that fit. Canvas
+    Platform names them; a person at a terminal decides, since it deploys plugins
+    the command did not name. The request is resent as it was, each entry keeping
+    its ref or version, with the named plugins it did not hold added by version.
+    Under ``--yes``, without a TTY, or for a request that already named several
+    plugins, the refusal stands.
+    """
+    try:
+        deployment = client.create_deployment(action, plugins, instances)
+    except PlatformError as refusal:
+        if action != "deploy" or refusal.code != "dependency_conflict" or not refusal.together:
+            raise
+        refusal.show()
+        if assume_yes or len(plugins) > 1 or not git.interactive():
+            raise typer.Exit(1) from None
+        if not typer.confirm("Deploy them together?", default=False):
+            raise typer.Exit(1) from None
+        added = [
+            {"name": entry["name"], "version": entry["version"]}
+            | ({"publisher": entry["publisher"]} if entry.get("publisher") else {})
+            for entry in refusal.together
+            if not _holds(plugins, entry)
+        ]
+        plugins = [*plugins, *added]
+        what = "Deploy of " + ", ".join(_describe(entry) for entry in plugins)
+        deployment = client.create_deployment(action, plugins, instances)
     print(f"Deployment {deployment['id']} created.")
     if deployment.get("status") == "pending_consent":
         _walk_consent(client, deployment, assume_yes=assume_yes)
@@ -845,8 +927,70 @@ def _push(
     return sha
 
 
+_PLUGIN_EXAMPLE = "canvas-medical/scribe_core@2.0.0"
+
+
+def _parse_released_plugin(value: str) -> dict[str, str]:
+    """The deployment entry for one ``--plugin [<publisher>/]<name>@<version>``."""
+    spec, at, version = value.rpartition("@")
+    if not at:
+        raise typer.BadParameter(
+            f"--plugin '{value}' names no version. Write [<publisher>/]<name>@<version>, "
+            f"such as {_PLUGIN_EXAMPLE}."
+        )
+    publisher, slash, name = spec.rpartition("/")
+    valid_name = PLUGIN_NAME_PATTERN.match(name) and len(name) <= PLUGIN_NAME_MAX_LENGTH
+    if not valid_name or (slash and (not publisher or "/" in publisher)):
+        raise typer.BadParameter(
+            f"--plugin '{value}' does not name a plugin. Write [<publisher>/]<name>@<version>, "
+            f"such as {_PLUGIN_EXAMPLE}, where the name starts with a lowercase letter and holds "
+            f"only lowercase letters, digits and underscores, at most {PLUGIN_NAME_MAX_LENGTH} "
+            "characters."
+        )
+    normalized = normalized_version(version)
+    if normalized is None:
+        raise typer.BadParameter(
+            f"--plugin '{value}': '{version}' is not an exact version. --plugin deploys one "
+            f"released version, such as {_PLUGIN_EXAMPLE}, rather than a range."
+        )
+    if normalized != version:
+        raise typer.BadParameter(
+            f"--plugin '{value}': '{version}' is not written as an exact version; write it as "
+            f"'{normalized}'."
+        )
+    return {"name": name, "version": version} | ({"publisher": publisher} if publisher else {})
+
+
+def _deploy_released(plugins: list[str], instance: list[str], *, assume_yes: bool) -> None:
+    """Deploy released versions of several plugins together, in one deployment."""
+    entries = [_parse_released_plugin(value) for value in plugins]
+    client = PlatformClient(auth.resolve_platform_url())
+    targets = _resolve_instances(client, instance, "deploy_plugin", verb="deploy plugins to")
+    print(f"Deploying {', '.join(plugins)} to {', '.join(targets)}…")
+    _dispatch(
+        client,
+        "deploy",
+        entries,
+        targets,
+        what=f"Deploy of {', '.join(plugins)}",
+        assume_yes=assume_yes,
+    )
+
+
 def deploy(
-    plugin_dir: Path = typer.Argument(..., help="Path to the plugin package to deploy"),
+    plugin_dir: Path | None = typer.Argument(
+        None,
+        help="Path to the plugin package to deploy. Omit it when naming plugins with --plugin.",
+    ),
+    plugin: list[str] = typer.Option(
+        [],
+        "--plugin",
+        help=(
+            "Deploy this released plugin, written [<publisher>/]<name>@<version> with an exact "
+            "version, without a plugin folder or a push (repeatable). Every --plugin goes out "
+            "in one deployment."
+        ),
+    ),
     instance: list[str] = typer.Option([], "--instance", help=_INSTANCE_HELP),
     ref: str | None = typer.Option(
         None,
@@ -891,10 +1035,12 @@ def deploy(
 ) -> None:
     """Publish the plugin's code to Canvas Platform and deploy it.
 
-    The manifest `name` is a plain package name: lowercase, at most 63 characters,
-    with an org prefix recommended. The publisher is the manifest `publisher`, else
-    your organization whose prefix the name carries, else the only organization you
-    can publish in, else, at a terminal, the organization you pick. A regular push records the pick in the manifest once the package is
+    The manifest `name` is a plain package name: lowercase, at most 255 characters,
+    with an org prefix recommended. A name outside that rule deploys when Canvas Platform
+    holds a plugin of exactly that name you can see, under its publisher, and Platform
+    decides whether you may push and deploy it. Otherwise the publisher is the manifest
+    `publisher`, else your organization whose prefix the name carries, else the only
+    organization you can publish in, else, at a terminal, the organization you pick. A regular push records the pick in the manifest once the package is
     accepted, so the push commits it; --ref, --no-push and --snapshot print the
     manifest line to add instead.
 
@@ -931,7 +1077,49 @@ def deploy(
     it exists, and the checks against edits made in Canvas Platform and against
     rolling back read that branch. Otherwise it builds on `main` and the checks read
     `main`.
+
+    A manifest with `dependencies`, such as a bundle, deploys like any other
+    plugin: Canvas Platform resolves the dependencies, which their publishers have
+    already pushed, and installs them with it.
+
+    With --plugin, given once per plugin as `[<publisher>/]<name>@<version>` in
+    place of a plugin folder, deploy pushes nothing and creates one deployment of
+    those released versions, so plugins that have to move together, such as two
+    products moving to a new major version of a dependency they share, install
+    together. Each version is exact. Without a publisher, Canvas Platform finds the
+    plugin by name. --plugin takes no plugin folder, --ref, --no-push, --push-only,
+    --snapshot or --branch.
+
+    When Canvas Platform refuses a deploy because plugins already installed pin
+    another version of a dependency, and names releases that fit, deploy prints the
+    refusal and, at a terminal, for one plugin and without --yes, asks whether to
+    deploy them together.
     """
+    if plugin:
+        given = [
+            option
+            for option, used in (
+                ("a plugin folder", plugin_dir is not None),
+                ("--ref", ref is not None),
+                ("--no-push", no_push),
+                ("--push-only", push_only),
+                ("--snapshot", snapshot),
+                ("--branch", branch is not None),
+            )
+            if used
+        ]
+        if given:
+            raise typer.BadParameter(
+                "--plugin deploys released versions without pushing, so it takes no "
+                f"{' or '.join(given)}."
+            )
+        _deploy_released(plugin, instance, assume_yes=assume_yes)
+        return
+    if plugin_dir is None:
+        raise typer.BadParameter(
+            "Name the plugin folder to deploy, or name released plugins with "
+            f"--plugin, such as --plugin {_PLUGIN_EXAMPLE}."
+        )
     if push_only and (instance or ref is not None or no_push):
         raise typer.BadParameter(
             "--push-only pushes without deploying, so it takes no --instance, --ref or --no-push."
@@ -949,20 +1137,29 @@ def deploy(
     if branch is not None:
         _require_branch_name(plugin_dir, branch)
     name = manifest_name(plugin_dir)
-    require_valid_name(name)
+    platform = auth.resolve_platform_url()
+    client = PlatformClient(platform)
+    # A legacy name Platform holds a plugin of for the person deploys as is: on an
+    # instance a rename is a new plugin.
+    held: str | None = (
+        None
+        if len(name) > PLUGIN_NAME_MAX_LENGTH or PLUGIN_NAME_PATTERN.fullmatch(name)
+        else _legacy_publisher(client, name, manifest_publisher(plugin_dir))
+    )
+    if held is None:
+        require_valid_name(name)
     pushing = ref is None and not no_push
     if pushing:
         require_folder_matches_name(plugin_dir, name)
         instance_plugin.validate(plugin_dir)
 
-    platform = auth.resolve_platform_url()
-    client = PlatformClient(platform)
     publisher, picked = _publisher(
         client,
         plugin_dir,
         name,
         pushing=pushing,
         records=pushing and not snapshot,
+        held=held,
     )
     if push_only:
         sha = _push(

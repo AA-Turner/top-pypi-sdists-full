@@ -280,6 +280,7 @@ __all__ = (
     "HarnessReasoningContentBlockTypeDef",
     "HarnessReasoningTextBlockTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
+    "HarnessRemoteMcpOutboundAuthTypeDef",
     "HarnessSkillAwsSkillsSourceTypeDef",
     "HarnessSkillGitAuthTypeDef",
     "HarnessSkillGitSourceTypeDef",
@@ -298,6 +299,7 @@ __all__ = (
     "HarnessToolUseBlockDeltaTypeDef",
     "HarnessToolUseBlockStartTypeDef",
     "HarnessToolUseBlockTypeDef",
+    "IamCredentialProviderTypeDef",
     "IngestDataInputTypeDef",
     "IngestDataOutputTypeDef",
     "IngestPayloadTypeTypeDef",
@@ -1324,9 +1326,9 @@ class HarnessReasoningTextBlockTypeDef(TypedDict):
     signature: NotRequired[str]
 
 
-class HarnessRemoteMcpConfigTypeDef(TypedDict):
-    url: str
-    headers: NotRequired[Mapping[str, str]]
+class IamCredentialProviderTypeDef(TypedDict):
+    service: str
+    region: NotRequired[str]
 
 
 class HarnessSkillAwsSkillsSourceTypeDef(TypedDict):
@@ -2176,6 +2178,11 @@ class HarnessReasoningContentBlockTypeDef(TypedDict):
     redactedContent: NotRequired[BlobTypeDef]
 
 
+class HarnessRemoteMcpOutboundAuthTypeDef(TypedDict):
+    awsIam: NotRequired[IamCredentialProviderTypeDef]
+    none: NotRequired[Mapping[str, Any]]
+
+
 class HarnessSkillGitSourceTypeDef(TypedDict):
     url: str
     path: NotRequired[str]
@@ -2667,6 +2674,12 @@ class HarnessContentBlockStartEventTypeDef(TypedDict):
 class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthTypeDef]
+
+
+class HarnessRemoteMcpConfigTypeDef(TypedDict):
+    url: str
+    headers: NotRequired[Mapping[str, str]]
+    outboundAuth: NotRequired[HarnessRemoteMcpOutboundAuthTypeDef]
 
 
 class HarnessSkillTypeDef(TypedDict):

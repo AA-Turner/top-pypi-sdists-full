@@ -175,7 +175,8 @@ the core flow:
 
 policy      ls status logs doctor shell debug versions source upgrade rollback stop start rename rm
             set settings fork data
-robot       add set list status revoke                    (each robot's own key to a policy, a robot now)
+robot       create list show set rm key                   (a robot of your own: make it, set its policies)
+gpu         add places list ssh remove                    (GPU machines you run yourself, root over SSH)
 record      add list revoke                               (keys for your own recorder of a policy's steps)
 key         list add set revoke                           (your keys: you, signed in)
 benchmark   ls tasks versions source logs shell status upgrade cancel rm
@@ -526,31 +527,40 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 
-    rsub = _group(ap, sub, "robot", "Each robot's own key to a policy: issue one, change it, list them, see one "
-                                    "connected now, revoke one.")
-    p = rsub.add_parser("add", help="issue a new robot key to a policy, printed this once")
-    p.add_argument("--policy", required=True, help="the policy its robot connects to")
-    p.add_argument("--expires", metavar="WHEN", choices=KEY_EXPIRIES,
-                   help="when it expires: 7d, 1m, 3m, 6m, 1y or never (default: never)")
-    p.add_argument("--limit", type=float, metavar="USD",
-                   help="the most its robot may spend, in dollars (default: no cap)")
-    p = rsub.add_parser("set", help="change a robot key's expiry or spending limit")
-    p.add_argument("key", help="the key's id, or its last four")
-    p.add_argument("--expires", metavar="WHEN", choices=KEY_EXPIRIES,
-                   help="when it expires: 7d, 1m, 3m, 6m, 1y, or never to lift the expiry")
-    p.add_argument("--limit", default=None, metavar="USD|none",
-                   help="the most its robot may spend, in dollars; none lifts the limit")
-    rsub.add_parser("list", help="the account's robot keys, offline ones too, by their id and last four, each with its "
-                                 "connections now, expiry, limit and spend")
-    p = rsub.add_parser("status", help="one robot connected now, as the console's Machines page opens it: what its "
-                                       "worker holds of each connection - its cameras' newest frames, its episode and "
-                                       "step, its link (round trip, retransmits, two-trip uploads), its latest actions "
-                                       "and plans")
-    p.add_argument("key", help="the key's name, id or last four")
+    rsub = _group(ap, sub, "robot", "A robot of your own: make one, list them, see one, set the policies it connects "
+                                    "to, delete one, replace its key.")
+    p = rsub.add_parser("create", help="make a robot and print its key once - connect with the key, then set the "
+                                       "policies it may connect to with `seq robot set`")
+    p.add_argument("name", help="a name for the robot, yours to choose (unique in your account)")
+    rsub.add_parser("list", help="your robots, offline ones too, each by its name, whether it is connected now, the "
+                                 "policies it connects to and when it was last seen, with your robot count against its "
+                                 "limit")
+    p = rsub.add_parser("show", help="one robot by its name, offline ones too: its live connections as the console's "
+                                     "Robots page opens them - each connection's cameras, episode and step, its link "
+                                     "(round trip, retransmits, two-trip uploads), its latest actions and plans")
+    p.add_argument("name", help="the robot's name")
     p.add_argument("-o", "--out", default=None, metavar="DIR",
                    help="save each camera's newest frame here as a JPEG file, <connection>-<camera>.jpg")
-    rsub.add_parser("revoke", help="revoke a robot key: its robot is cut off now and connects no more").add_argument(
-        "key", help="the key's id, or its last four")
+    p = rsub.add_parser("set", help="set the whole list of policies a robot may connect to: policies=<p1>,<p2> "
+                                    "(policies= clears it), and whether it keeps what it does: record=on|off")
+    p.add_argument("name", help="the robot's name")
+    p.add_argument("pairs", nargs="+", metavar="KEY=VALUE",
+                   help="policies=<p1>,<p2> (policies= to clear the list); record=on|off; record.retention_days=<days>")
+    rsub.add_parser("rm", help="delete a robot and its key: it connects no more, and its name is free again"
+                    ).add_argument("name", help="the robot's name")
+    rsub.add_parser("key", help="replace a robot's key with a new one, printed once - the old one fails at once"
+                    ).add_argument("name", help="the robot's name")
+
+
+
+    p = rsub.add_parser("add", description="Gone: make a robot first (seq robot create), then point it at a policy "
+                                           "(seq robot set).")
+    p.add_argument("rest", nargs="*", help=argparse.SUPPRESS)
+    p.add_argument("--policy", help=argparse.SUPPRESS)
+    p.add_argument("--expires", choices=KEY_EXPIRIES, help=argparse.SUPPRESS)
+    p.add_argument("--limit", help=argparse.SUPPRESS)
+    rsub.add_parser("revoke", description="Gone: replace a robot's key (seq robot key), or delete the robot and its key "
+                                          "(seq robot rm).").add_argument("rest", nargs="*", help=argparse.SUPPRESS)
 
 
 
@@ -788,6 +798,38 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("gpus", description="The cards gpu= can name: memory, price per hour, whether a policy and a "
                                        "benchmark may use it, RT cores, video encoding; and what a CPU core and a "
                                        "GiB of memory cost.")
+
+    gpusub = _group(ap, sub, "gpu", "GPU machines you run yourself: open them near a place, list them, ssh in as root, "
+                                    "remove them. A machine is a container you are root in, on one card — install and "
+                                    "run what you like; remove ends it and its disk. (seq gpus, plural, is the card "
+                                    "catalogue and its prices.)")
+    p = gpusub.add_parser("add", help="open GPU machines near a place — a machine with that card you are root on, "
+                                      "yours until seq gpu remove; reach it with seq gpu ssh")
+    p.add_argument("--place", required=True, metavar="PLACE",
+                   help='where to open them near: a city ("San Francisco, CA") or lat,lon ("37.77,-122.42"), as seq '
+                        "gpu places lists them - the platform opens each on the nearest place it can get the card")
+    p.add_argument("--gpu", required=True, metavar="CARD", help="the card, as seq gpus names them (L4, A100-40GB)")
+    p.add_argument("--count", type=int, default=1, metavar="N", help="how many, all opened or none (default 1)")
+    p = gpusub.add_parser("places", help="the cities a --place can be, whose name or another name they go by starts "
+                                         "with the words, the largest first: each with its latitude and longitude, "
+                                         "and the other name it was found by (as Paris of the North)")
+    p.add_argument("text", nargs="*", metavar="WORDS",
+                   help='the start of a city\'s name or another name it goes by, a state or a country after a comma '
+                        '("san fr", "Springfield, IL"); none lists the largest cities')
+    p.add_argument("--limit", type=int, default=8, metavar="N", help="how many to list, 1 to 20 (default 8)")
+    gpusub.add_parser("list", help="your GPU machines: id, where, card, status, when it started, what it has cost, and "
+                                   "how many of your GPU limit they hold")
+    p = gpusub.add_parser("ssh", help="SSH into a GPU machine as root, with your ~/.ssh key (one is made if you have "
+                                      "none); a command after -- runs once, else a shell opens")
+    p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
+    p.add_argument("command", nargs="*",
+                   help="after --: a command to run once on the machine, e.g. -- nvidia-smi; none opens a shell")
+    p.add_argument("--print", action="store_true", dest="ssh_print",
+                   help="instead of connecting, keep the certificate under ~/.config/sequences and print an ~/.ssh/config "
+                        "Host block for it - for VS Code Remote-SSH or a plain ssh gpu-<id>")
+    p = gpusub.add_parser("remove", help="shut a GPU machine down now - this ends the machine and its disk; billing "
+                                         "stops")
+    p.add_argument("id", metavar="ID", help="the machine id, as seq gpu list shows it")
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
                                                  "the payment method its bill goes to, and your GPUs: the limit, how "
                                                  "many serving, evals, "

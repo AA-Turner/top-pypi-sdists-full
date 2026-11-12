@@ -1,5 +1,26 @@
 import re
+from contextlib import contextmanager
 from string import Formatter
+
+
+@contextmanager
+def try_formatting(*exceptions):
+    try:
+        yield
+    except exceptions as e:
+        raise ValueError(
+            "The logging message could not be formatted with the provided arguments.\n"
+            "Common causes include:\n"
+            "  - The message contains unmatched or malformed curly braces.\n"
+            "  - Positional or keyword arguments are missing for the placeholders.\n"
+            "  - The message is not a string.\n"
+            "  - f-strings were used causing double interpolation.\n"
+            "  - Contextual values were passed via kwargs but not meant for formatting.\n"
+            "To avoid this, consider:\n"
+            "  - Escaping non-formatting braces by doubling them.\n"
+            "  - Avoiding f-string in the logged message.\n"
+            "  - Using `logger.bind()` for structured context instead of kwargs.\n"
+        ) from e
 
 
 class Style:
@@ -166,7 +187,8 @@ class AnsiParser:
         }
     )
 
-    _regex_tag = re.compile(r"(\\*)(</?(?:[fb]g\s)?[^<>\s]*>)")
+    # The negative lookbehind prevents quadratic re-scan of the whole input.
+    _regex_tag = re.compile(r"(?<!\\)(\\*)(</?(?:[fb]g\s)?[^<>\s]*>)")
 
     def __init__(self):
         self._tokens = []
@@ -259,7 +281,7 @@ class AnsiParser:
                 if ansi is None:
                     raise ValueError(
                         'Tag "%s" does not correspond to any known color directive, '
-                        "make sure you did not misspelled it (or prepend '\\' to escape it)"
+                        "make sure you have not misspelled it (or prepend '\\' to escape it)"
                         % markup
                     )
 
@@ -295,7 +317,7 @@ class AnsiParser:
 
         # An alternative syntax for setting the color (e.g. <fg red>, <bg red>).
         if tag.startswith("fg ") or tag.startswith("bg "):
-            st, color = tag[:2], tag[3:]
+            st, color = tag[:2], tag[3:].strip(" ")
             code = "38" if st == "fg" else "48"
 
             if st == "fg" and color.lower() in foreground:
@@ -304,10 +326,15 @@ class AnsiParser:
                 return background[color.upper()]
             if color.isdigit() and int(color) <= 255:
                 return "\033[%s;5;%sm" % (code, color)
-            if re.match(r"#(?:[a-fA-F0-9]{3}){1,2}$", color):
+            if (
+                color.startswith("#")
+                and all(s in "0123456789abcdef" for s in color[1:].lower())
+                and len(color[1:]) in [3, 6]
+            ):
                 hex_color = color[1:]
                 if len(hex_color) == 3:
-                    hex_color *= 2
+                    r, g, b = list(hex_color)
+                    hex_color = (r * 2) + (g * 2) + (b * 2)
                 rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
                 return "\033[%s;2;%s;%s;%sm" % ((code, *rgb))
             if color.count(",") == 2:
@@ -398,7 +425,10 @@ class Colorizer:
         formatter = Formatter()
         parser = AnsiParser()
 
-        for literal_text, field_name, format_spec, conversion in formatter.parse(string):
+        with try_formatting(TypeError, ValueError):
+            parsing_output = list(formatter.parse(string))
+
+        for literal_text, field_name, format_spec, conversion in parsing_output:
             parser.feed(literal_text, raw=recursive)
 
             if field_name is not None:
@@ -420,7 +450,9 @@ class Colorizer:
                         )
                     auto_arg_index = False
 
-                obj, _ = formatter.get_field(field_name, args, kwargs)
+                with try_formatting(KeyError, IndexError, AttributeError):
+                    obj, _ = formatter.get_field(field_name, args, kwargs)
+
                 obj = formatter.convert_field(obj, conversion)
 
                 format_spec, auto_arg_index = Colorizer._parse_with_formatting(

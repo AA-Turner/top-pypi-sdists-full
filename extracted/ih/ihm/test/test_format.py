@@ -215,8 +215,14 @@ x
         # data_ should be quoted to distinguish from data blocks
         self.assertEqual(w._repr('data_foo'), "'data_foo'")
         self.assertEqual(w._repr('data_'), "'data_'")
-        # [ is a reserved character and cannot start a nonquoted string
+        # [ and ] are reserved characters and cannot start a nonquoted string
         self.assertEqual(w._repr('[foo'), "'[foo'")
+        self.assertEqual(w._repr('[foo]'), "'[foo]'")
+        self.assertEqual(w._repr('['), "'['")
+        self.assertEqual(w._repr(']foo'), "']foo'")
+        self.assertEqual(w._repr(']'), "']'")
+        # [ and ] are OK elsewhere in a nonquoted string
+        self.assertEqual(w._repr('foo[1]'), "foo[1]")
         # _ indicates an identifier and cannot start a nonquoted string
         self.assertEqual(w._repr('_foo'), "'_foo'")
         # Empty string must be quoted
@@ -503,6 +509,55 @@ save_
                            {'_foo': h})
             self.assertEqual(h.data, [{'bar': '1', 'baz': '2'}])
 
+    def test_loop_row_layout(self):
+        """Check loop rows split over lines, or sharing a line"""
+        class SlowStringIO(StringIO):
+            # Return a single character per read, so that the line
+            # buffer is moved as each new line is read
+            def read(self, size=-1):
+                return super().read(1)
+
+        cif = ("loop_\n_foo.bar\n_foo.baz\n_foo.var1\n"
+               "1 one x1\n"
+               "2 two\nx2\n"
+               "3\n;multi\nline\n;\nx3\n"
+               "4 four x4 5 five x5\n"
+               "6 'quoted value' \"q6\"\n"
+               "loop_\n_bar.var2\n"
+               "solo1\nsolo2\n;solo\n3\n;\n")
+        for fh in (StringIO(cif), SlowStringIO(cif)):
+            h1 = GenericHandler()
+            h2 = GenericHandler()
+            r = ihm.format.CifReader(fh, {'_foo': h1, '_bar': h2})
+            r.read_file()
+            self.assertEqual(h1.data, [
+                {'bar': '1', 'baz': 'one', 'var1': 'x1'},
+                {'bar': '2', 'baz': 'two', 'var1': 'x2'},
+                {'bar': '3', 'baz': 'multi\nline', 'var1': 'x3'},
+                {'bar': '4', 'baz': 'four', 'var1': 'x4'},
+                {'bar': '5', 'baz': 'five', 'var1': 'x5'},
+                {'bar': '6', 'baz': 'quoted value', 'var1': 'q6'}])
+            self.assertEqual(h2.data, [{'var2': 'solo1'}, {'var2': 'solo2'},
+                                       {'var2': 'solo\n3'}])
+
+    def test_loop_repeated_values(self):
+        """Check handling of values repeated in successive loop rows"""
+        cif = ("loop_\n_foo.bar\n_foo.baz\n"
+               "abc xyz\nabc xyz\nabcd uvw\nabc ?\n'' .\nabc xyz\n")
+        for real_file in (True, False):
+            h = GenericHandler()
+            self._read_cif(cif, real_file, {'_foo': h})
+            self.assertEqual(h.data, [
+                {'bar': 'abc', 'baz': 'xyz'}, {'bar': 'abc', 'baz': 'xyz'},
+                {'bar': 'abcd', 'baz': 'uvw'},
+                {'bar': 'abc', 'baz': ihm.unknown}, {'bar': ''},
+                {'bar': 'abc', 'baz': 'xyz'}])
+            if _format is not None:
+                # The C parser should reuse the same object for a
+                # repeated value
+                self.assertIs(h.data[0]['bar'], h.data[1]['bar'])
+                self.assertIs(h.data[0]['baz'], h.data[1]['baz'])
+
     def test_keyword_free(self):
         """Make sure keyword data is cleaned up"""
         for real_file in (True, False):
@@ -656,6 +711,37 @@ oneval
             h = GenericHandler()
             self.assertRaises(ValueError, self._read_cif, "_foo.floatkey1 str",
                               real_file, {'_foo': h})
+
+    def test_number_formats(self):
+        """Check that numbers in a variety of formats are parsed exactly"""
+        floats = ['0', '-0', '-0.0', '+1.5', '1.', '.5', '-.5', '007.50',
+                  '0.1', '0.3', '2.675', '393.230', '-1016.300',
+                  '999999999999999', '9999999999999999', '0.999999999999999',
+                  '0.9999999999999999', '.000000000000001',
+                  '0.30000000000000004', '1.5e3', '1E-2', '-2.5e+2']
+        ints = ['0', '-0', '+5', '-5', '007', '999999999', '-999999999',
+                '1234567890', '2147483647', '-2147483647']
+        for real_file in (True, False):
+            for val in floats:
+                h = GenericHandler()
+                self._read_cif("_foo.floatkey1 %s" % val, real_file,
+                               {'_foo': h})
+                # Compare reprs so that exact value and sign of zero are
+                # checked
+                self.assertEqual(repr(h.data[0]['floatkey1']),
+                                 repr(float(val)))
+            for val in ints:
+                h = GenericHandler()
+                self._read_cif("_foo.intkey1 %s" % val, real_file, {'_foo': h})
+                self.assertEqual(h.data[0]['intkey1'], int(val))
+            for val in ('-', '+', '1.2.3', '--1', '1-', '12a', '1,5'):
+                h = GenericHandler()
+                self.assertRaises(ValueError, self._read_cif,
+                                  "_foo.floatkey1 %s" % val, real_file,
+                                  {'_foo': h})
+                self.assertRaises(ValueError, self._read_cif,
+                                  "_foo.intkey1 %s" % val, real_file,
+                                  {'_foo': h})
 
     def test_float_keys_loop(self):
         """Check handling of float keywords in loop construct"""

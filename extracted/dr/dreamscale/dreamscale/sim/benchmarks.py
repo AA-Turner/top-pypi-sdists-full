@@ -11,14 +11,19 @@ from dreamscale_transport import catalog
 from dreamscale import errors
 from dreamscale.model_names import public_model
 
+from .abc_catalog import MODELS as ABC_MODELS
+
 BENCHMARK_LABELS = {"libero": "LIBERO", "robocasa365": "RoboCasa365",
-                    "molmospaces": "MolmoSpaces", "roboeval": "RoboEval"}
-# The models each benchmark runs: the catalog's (each entry's ``client.sim.benchmarks``).
+                    "molmospaces": "MolmoSpaces", "roboeval": "RoboEval", "abc": "ABC"}
+# The models each benchmark runs: the catalog's (each entry's ``client.sim.benchmarks``). ABC
+# is the YAM robot's simulator, not a model's sim: it runs the robot's joint models through
+# the robot's own run loop (``sim/abc.py``).
 BENCHMARK_MODELS = {
     benchmark: tuple(entry.id for entry in catalog.CATALOG
                      if entry.client.sim is not None and benchmark in entry.client.sim.benchmarks)
     for benchmark in BENCHMARK_LABELS
 }
+BENCHMARK_MODELS["abc"] = ABC_MODELS
 LIBERO_MODELS = BENCHMARK_MODELS["libero"]
 LIBERO_SUITES = {"libero_spatial": 10, "libero_object": 10, "libero_goal": 10,
                  "libero_10": 10, "libero_90": 90}
@@ -60,7 +65,11 @@ def resolve_task(benchmark: str, suite: str, task_id: str | int) -> str | int:
         from .roboeval_catalog import resolve_variant
 
         return resolve_variant(suite, task_id)
-    raise ValueError("benchmark must be libero, robocasa365, molmospaces or roboeval")
+    if benchmark == "abc":
+        from .abc_catalog import resolve_task as resolve_abc_task
+
+        return resolve_abc_task(suite, task_id)
+    raise ValueError("benchmark must be libero, robocasa365, molmospaces, roboeval or abc")
 
 
 def validate_selection(benchmark: str, model: str, suite: str, task_id: str | int) -> str | int:
@@ -95,6 +104,10 @@ def default_task_horizon(
         from .roboeval_catalog import FAMILIES
 
         return FAMILIES[suite].horizon
+    if benchmark == "abc":
+        from .abc_catalog import HORIZON_STEPS
+
+        return HORIZON_STEPS
     record = next(item for item in robocasa_tasks(suite) if item["name"] == task)
     steps = record.get("horizon") or 2400
     if action_hz is None or action_hz == ROBOCASA_TASK_HZ:

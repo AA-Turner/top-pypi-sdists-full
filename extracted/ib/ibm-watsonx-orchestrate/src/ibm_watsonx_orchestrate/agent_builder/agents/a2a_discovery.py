@@ -75,7 +75,8 @@ class A2ADiscoveryService:
         base_url: str,
         endpoint: str = ".well-known/agent-card.json",
         agent_name: Optional[str] = None,
-        app_id: Optional[str] = None
+        app_id: Optional[str] = None,
+        control_plane_only: Optional[bool] = None,
     ) -> dict:
         """
         Discover an A2A agent and convert it to WxO external agent format.
@@ -85,6 +86,7 @@ class A2ADiscoveryService:
             endpoint: Well-known endpoint path
             agent_name: Override agent name (optional)
             app_id: Connection app_id for authentication (optional)
+            control_plane_only: Whether the agent is registered for control plane only (optional)
             
         Returns:
             Dictionary in WxO external agent YAML format
@@ -93,9 +95,14 @@ class A2ADiscoveryService:
         agent_card = self.discover_from_wellknown(base_url, endpoint)
         
         # Convert to WxO format
+        kwargs = {}
+        if control_plane_only is not None:
+            kwargs["control_plane_only"] = control_plane_only
+
         wxo_spec = agent_card.convert_to_wxo_external_agent_dict(
             agent_name=agent_name,
-            app_id=app_id
+            app_id=app_id,
+            **kwargs
         )
         
         return wxo_spec

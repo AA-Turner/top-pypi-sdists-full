@@ -1,5 +1,5 @@
 """
-Unit tests for cyice top-level function dispatching.
+Unit tests for cyice top-level function dispatching and error handling.
 
 The top-level cyice functions (no _s/_v suffix) inspect their key argument
 and route to the scalar (_s) or vectorized (_v) implementation. These tests
@@ -8,8 +8,7 @@ scalars, numpy scalars, 0-d numpy arrays, and 1-d numpy arrays. They also
 cover the ndim guards on the string-input _v functions.
 
 Benchmark coverage for the same functions lives in
-spiceypy/benchmarks/test_cyice.py; this file is only for
-dispatch correctness.
+spiceypy/benchmarks/test_cyice.py.
 """
 
 import numpy as np
@@ -18,8 +17,16 @@ import pytest
 
 import spiceypy as spice
 from spiceypy import cyice
+from spiceypy.utils.exceptions import (
+    SpiceEMPTYSTRING,
+    SpiceIDCODENOTFOUND,
+    SpiceKERNELVARNOTFOUND,
+    SpiceORBITDECAY,
+    SpiceVALUEOUTOFRANGE,
+)
 from spiceypy.tests.gettestkernels import (
     download_kernels,
+    CassiniKernels,
     CoreKernels,
     ExtraKernels,
 )
@@ -42,11 +49,11 @@ def load_voyager_kernels():
 
 @pytest.fixture(autouse=True)
 def clear_kernel_pool_and_reset():
-    spice.kclear()
     spice.reset()
+    spice.kclear()
     yield
-    spice.kclear()
     spice.reset()
+    spice.kclear()
 
 
 # constructors producing every scalar-like numeric form a user might pass
@@ -61,6 +68,7 @@ numeric_scalar_ctors = [
     pytest.param(lambda x: np.int64(x), id="np_int64"),
     pytest.param(lambda x: np.array(int(x), dtype=np.int64), id="ndarray_0d_i8"),
 ]
+
 
 # constructors producing every scalar-like string form
 string_scalar_ctors = [
@@ -127,6 +135,46 @@ def test_getelm_scalar_dispatch(ctor, load_core_kernels):
     expected_epoch, expected_elems = cyice.getelm_s(2019, tle_lines)
     assert epoch == expected_epoch
     npt.assert_array_equal(elems, expected_elems)
+
+
+@pytest.mark.parametrize("function", [cyice.getelm_v, cyice.getelm])
+@pytest.mark.parametrize(
+    "frstyr",
+    [
+        pytest.param(np.full(3, 2019, dtype=np.int64), id="ndarray_i8"),
+        pytest.param(np.full(3, 2019, dtype=np.int32), id="ndarray_i4"),
+        pytest.param(np.full(6, 2019, dtype=np.int64)[::2], id="ndarray_i8_strided"),
+    ],
+)
+def test_getelm_vector_int_dtypes(function, frstyr, load_core_kernels):
+    lines = np.array([tle_lines] * 3)
+    epochs, elems = function(frstyr, lines)
+    expected_epoch, expected_elems = spice.getelm(2019, tle_lines)
+    npt.assert_array_equal(epochs, np.full(3, expected_epoch))
+    npt.assert_array_equal(elems, np.repeat(expected_elems[None, :], 3, axis=0))
+
+
+@pytest.mark.parametrize("function", [cyice.xfmsta_v, cyice.xfmsta])
+@pytest.mark.parametrize("writable", [False, True])
+def test_xfmsta_batch_preserves_input_states(function, writable):
+    states = np.array(
+        [
+            [7000.0, 1200.0, 2000.0, 1.0, 7.0, 0.3],
+            [7100.0, 1300.0, 2100.0, 1.1, 7.1, 0.4],
+        ]
+    )
+    original = states.copy()
+    states.flags.writeable = writable
+    expected = np.array(
+        [
+            spice.xfmsta(state, "RECTANGULAR", "LATITUDINAL", "EARTH")
+            for state in original
+        ]
+    )
+    actual = function(states, "RECTANGULAR", "LATITUDINAL", "EARTH")
+    npt.assert_array_equal(actual, expected)
+    npt.assert_array_equal(states, original)
+    assert states.flags.writeable == writable
 
 
 # string-dispatching functions: str2et, utc2et, scencd, scs2e
@@ -201,6 +249,42 @@ def test_numeric_v_rejects_0d():
         cyice.etcal_v(np.array(0.0))
 
 
+# read-only inputs: array params must be const memoryviews, otherwise Cython
+# rejects read-only buffers (np.broadcast_to views, flags.writeable=False)
+
+readonly_input_calls = [
+    pytest.param(lambda ro: cyice.convrt_v(ro([1.0, 2.0]), "KM", "M"), id="convrt_v"),
+    pytest.param(lambda ro: cyice.recgeo_s(ro([6378.0, 1.0, 2.0]), 6378.0, 0.003), id="recgeo_s"),
+    pytest.param(lambda ro: cyice.recpgr_v("EARTH", ro([[6378.0, 1.0, 2.0]]), 6378.0, 0.003), id="recpgr_v"),
+    pytest.param(lambda ro: cyice.azlrec_v(ro([1.0]), ro([0.5]), ro([0.25]), True, True), id="azlrec_v"),
+    pytest.param(lambda ro: cyice.conics_s(ro([7000.0, 0.1, 0.5, 0.2, 0.3, 0.4, 0.0, 398600.0]), 100.0), id="conics_s"),
+    pytest.param(lambda ro: cyice.conics_v(ro([[7000.0, 0.1, 0.5, 0.2, 0.3, 0.4, 0.0, 398600.0]]), ro([100.0])), id="conics_v"),
+    pytest.param(lambda ro: cyice.reclat_s(ro([1.0, 2.0, 3.0])), id="reclat_s"),
+    pytest.param(lambda ro: cyice.etcal_v(ro([0.0, 1.0])), id="etcal_v"),
+    pytest.param(lambda ro: cyice.pxform_v("J2000", "IAU_EARTH", ro([0.0, 1.0])), id="pxform_v"),
+    pytest.param(lambda ro: cyice.unitim_v(ro([0.0, 1.0]), "TDB", "TDT"), id="unitim_v"),
+    pytest.param(lambda ro: cyice.et2utc_v(ro([0.0, 1.0]), "C", 3), id="et2utc_v"),
+    pytest.param(lambda ro: cyice.spkezr_v("MOON", ro([0.0, 1.0]), "J2000", "NONE", "EARTH"), id="spkezr_v"),
+    pytest.param(lambda ro: cyice.spkpos_v("MOON", ro([0.0, 1.0]), "J2000", "NONE", "EARTH"), id="spkpos_v"),
+    pytest.param(lambda ro: cyice.spkcpo_s("SUN", 0.0, "J2000", "OBSERVER", "NONE", ro([6378.0, 0.0, 0.0]), "EARTH", "J2000"), id="spkcpo_s"),
+]
+
+
+@pytest.mark.parametrize("call", readonly_input_calls)
+def test_accepts_readonly_inputs(call, load_core_kernels):
+    def readonly(values):
+        arr = np.array(values, dtype=np.double)
+        arr.flags.writeable = False
+        return arr
+
+    expected = call(lambda values: np.array(values, dtype=np.double))
+    actual = call(readonly)
+    if not isinstance(actual, tuple):
+        actual, expected = (actual,), (expected,)
+    for a, e in zip(actual, expected):
+        npt.assert_array_equal(a, e)
+
+
 def test_aux_string_params_accept_np_str(load_core_kernels):
     et = cyice.str2et("July 4, 2003 11:00 AM PST")
     state, lt = cyice.spkezr(
@@ -232,3 +316,263 @@ def test_numeric_dispatch_rejects_0d_string(load_core_kernels):
     # which rejects it via the buffer protocol
     with pytest.raises((ValueError, TypeError)):
         cyice.spkssb(499, np.array("not a time"), "J2000")
+
+
+@pytest.fixture
+def decaying_satellite(load_core_kernels):
+    spice.furnsh(ExtraKernels.geophKer)
+    # SL-14 debris from Vallado's SGP4 verification data.
+    line1 = "1 29141U 85108AA  06170.26783845  .99999999  00000-0  13519-0 0   718"
+    line2 = "2 29141  82.4288 273.4882 0015848 277.2124  83.9133 15.93343074  6828"
+    tle = [line1, line2]
+    names = ["J2", "J3", "J4", "KE", "QO", "SO", "ER", "AE"]
+    geophs = np.array([spice.bodvcd(399, name, 1)[1] for name in names]).ravel()
+    epoch, elems = spice.getelm(1957, tle)
+    return epoch, geophs, elems
+
+
+@pytest.mark.parametrize("function", [cyice.evsgp4_s, cyice.evsgp4])
+def test_evsgp4_scalar_error_recovery(function, decaying_satellite):
+    epoch, geophs, elems = decaying_satellite
+    with pytest.raises(SpiceORBITDECAY):
+        function(epoch + 440 * 60, geophs, elems)
+    assert not spice.failed()
+    npt.assert_array_equal(
+        function(epoch, geophs, elems), spice.evsgp4(epoch, geophs, elems)
+    )
+
+
+@pytest.mark.parametrize("function", [cyice.evsgp4_v, cyice.evsgp4])
+@pytest.mark.parametrize("error_index", [0, 1, 2])
+def test_evsgp4_vector_error_recovery(function, error_index, decaying_satellite):
+    epoch, geophs, elems = decaying_satellite
+    ets = np.full(3, epoch)
+    ets[error_index] += 440 * 60
+    elements = np.repeat(elems[None, :], 3, axis=0)
+    with pytest.raises(SpiceORBITDECAY):
+        function(ets, geophs, elements)
+    assert not spice.failed()
+    ets[error_index] = epoch
+    expected = np.repeat(spice.evsgp4(epoch, geophs, elems)[None, :], 3, axis=0)
+    npt.assert_array_equal(function(ets, geophs, elements), expected)
+
+
+rect = np.array([1000.0, 2000.0, 3000.0])
+rects = np.array([rect, rect * 2.0, rect * 3.0])
+lons = np.array([0.1, 0.2, 0.3])
+lats = np.array([0.4, 0.5, 0.6])
+alts = np.array([1.0, 2.0, 3.0])
+
+# (cyice function, bad args, good args, expected error, ctypes equivalent)
+error_cases = [
+    pytest.param(
+        cyice.georec_s,
+        (0.1, 0.4, 1.0, -1.0, 0.5),
+        (0.1, 0.4, 1.0, 6378.0, 0.003),
+        SpiceVALUEOUTOFRANGE,
+        spice.georec,
+        id="georec_s",
+    ),
+    pytest.param(
+        cyice.georec_v,
+        (lons, lats, alts, -1.0, 0.5),
+        (lons, lats, alts, 6378.0, 0.003),
+        SpiceVALUEOUTOFRANGE,
+        None,
+        id="georec_v",
+    ),
+    pytest.param(
+        cyice.recgeo_s,
+        (rect, 6378.0, 2.0),
+        (rect, 6378.0, 0.003),
+        SpiceVALUEOUTOFRANGE,
+        spice.recgeo,
+        id="recgeo_s",
+    ),
+    pytest.param(
+        cyice.recgeo_v,
+        (rects, 6378.0, 2.0),
+        (rects, 6378.0, 0.003),
+        SpiceVALUEOUTOFRANGE,
+        None,
+        id="recgeo_v",
+    ),
+    pytest.param(
+        cyice.pgrrec_s,
+        ("NOTABODY", 0.1, 0.4, 1.0, 3396.0, 0.006),
+        ("MARS", 0.1, 0.4, 1.0, 3396.0, 0.006),
+        SpiceIDCODENOTFOUND,
+        spice.pgrrec,
+        id="pgrrec_s",
+    ),
+    pytest.param(
+        cyice.pgrrec_v,
+        ("NOTABODY", lons, lats, alts, 3396.0, 0.006),
+        ("MARS", lons, lats, alts, 3396.0, 0.006),
+        SpiceIDCODENOTFOUND,
+        None,
+        id="pgrrec_v",
+    ),
+    pytest.param(
+        cyice.recpgr_s,
+        ("NOTABODY", rect, 3396.0, 0.006),
+        ("MARS", rect, 3396.0, 0.006),
+        SpiceIDCODENOTFOUND,
+        spice.recpgr,
+        id="recpgr_s",
+    ),
+    pytest.param(
+        cyice.recpgr_v,
+        ("NOTABODY", rects, 3396.0, 0.006),
+        ("MARS", rects, 3396.0, 0.006),
+        SpiceIDCODENOTFOUND,
+        None,
+        id="recpgr_v",
+    ),
+    pytest.param(
+        cyice.srfrec_s,
+        (-99999, 0.1, 0.4),
+        (399, 0.1, 0.4),
+        SpiceKERNELVARNOTFOUND,
+        spice.srfrec,
+        id="srfrec_s",
+    ),
+    pytest.param(
+        cyice.srfrec_v,
+        (-99999, lons, lats),
+        (399, lons, lats),
+        SpiceKERNELVARNOTFOUND,
+        None,
+        id="srfrec_v",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "function, bad_args, good_args, error, ctypes_function", error_cases
+)
+def test_error_recovery(
+    function, bad_args, good_args, error, ctypes_function, load_core_kernels
+):
+    with pytest.raises(error):
+        function(*bad_args)
+    assert not spice.failed()
+    result = function(*good_args)
+    if ctypes_function is not None:
+        npt.assert_allclose(result, ctypes_function(*good_args), rtol=1e-14)
+
+
+def test_unload_error_recovery(load_core_kernels):
+    with pytest.raises(SpiceEMPTYSTRING):
+        cyice.unload("")
+    assert not spice.failed()
+    cyice.unload(CoreKernels.testMetaKernel)
+    assert spice.ktotal("ALL") == 0
+
+
+# fixed-size array inputs: CSPICE reads exactly 3/5/6/8/10 doubles through the
+# pointer it is given, and boundscheck is disabled, so a wrong-length input
+# must be rejected up front rather than read out of bounds
+
+v3_short, v3_long, v6_short = np.ones(2), np.ones(4), np.ones(5)
+
+wrong_dim_calls = [
+    pytest.param(lambda: cyice.recgeo_s(v3_short, 6378.0, 0.003), id="recgeo_s-short"),
+    pytest.param(lambda: cyice.recgeo_s(np.empty(0), 6378.0, 0.003), id="recgeo_s-empty"),
+    pytest.param(lambda: cyice.reclat_s(v3_long), id="reclat_s-long"),
+    pytest.param(lambda: cyice.recgeo_v(np.ones((2, 2)), 6378.0, 0.003), id="recgeo_v"),
+    pytest.param(lambda: cyice.recsph_v(np.ones((2, 4))), id="recsph_v"),
+    pytest.param(lambda: cyice.conics_s(np.ones(7), 0.0), id="conics_s"),
+    pytest.param(lambda: cyice.conics_v(np.ones((1, 7)), np.zeros(1)), id="conics_v"),
+    pytest.param(lambda: cyice.evsgp4_s(0.0, np.ones(7), np.ones(10)), id="evsgp4_s-geophs"),
+    pytest.param(lambda: cyice.evsgp4_s(0.0, np.ones(8), np.ones(9)), id="evsgp4_s-elems"),
+    pytest.param(lambda: cyice.spkcpo_s("SUN", 0.0, "J2000", "OBSERVER", "NONE", v3_short, "EARTH", "J2000"), id="spkcpo_s"),
+    pytest.param(lambda: cyice.spkcvo_s("SUN", 0.0, "J2000", "OBSERVER", "NONE", v6_short, 0.0, "EARTH", "J2000"), id="spkcvo_s"),
+    pytest.param(lambda: cyice.spkpvn_s(1, np.ones(4), 0.0), id="spkpvn_s"),
+    pytest.param(lambda: cyice.sincpt_v("ELLIPSOID", "EARTH", np.zeros(1), "IAU_EARTH", "NONE", "SUN", "J2000", v3_short), id="sincpt_v"),
+    pytest.param(lambda: cyice.ilumin_v("ELLIPSOID", "EARTH", np.zeros(1), "IAU_EARTH", "NONE", "SUN", np.ones((1, 2))), id="ilumin_v"),
+]
+
+
+@pytest.mark.parametrize("call", wrong_dim_calls)
+def test_fixed_size_inputs_reject_wrong_dim(call):
+    with pytest.raises(ValueError, match="elements along its last axis"):
+        call()
+
+
+@pytest.mark.parametrize("et", [-1e11, 3e11])
+def test_etcal_v_not_truncated(et):
+    # B.C. dates and 5 digit years overflowed the old 25 byte etcal_v buffer
+    assert cyice.etcal_v(np.array([et]))[0] == cyice.etcal_s(et)
+
+
+@pytest.mark.parametrize("function", [cyice.ckgp_v, cyice.ckgpav_v])
+def test_ckg_v_found_flags(function, load_core_kernels, monkeypatch):
+    # found flags are written by CSPICE as 4 byte SpiceBooleans; the buffer
+    # must be sized for that and the result handed back as uint8
+    for kernel in (
+        CassiniKernels.cassSclk,
+        CassiniKernels.cassCk,
+        CassiniKernels.cassIk,
+        CassiniKernels.cassFk,
+        CassiniKernels.cassPck,
+    ):
+        spice.furnsh(kernel)
+    monkeypatch.setattr(spice.config, "catch_false_founds", False)
+    ckid = spice.ckobj(CassiniKernels.cassCk)[0]
+    cover = spice.ckcov(CassiniKernels.cassCk, ckid, False, "INTERVAL", 0.0, "SCLK")
+    found = function(ckid, np.array([cover[0], 0.0, cover[0]]), 256, "J2000")[-1]
+    assert found.dtype == np.uint8
+    npt.assert_array_equal(found, [1, 0, 1])
+
+
+
+# array-like inputs: double array params go through _as_double_array, so
+# lists of floats and strided or read-only float64 views are accepted, while
+# any other dtype raises TypeError instead of being converted to double
+
+array_like_ctors = [
+    pytest.param(lambda a: np.repeat(np.asarray(a, dtype=np.double)[..., None], 2, axis=-1)[..., 0], id="strided"),
+    pytest.param(lambda a: np.asarray(a, dtype=np.double).tolist(), id="float-list"),
+]
+
+non_float64_ctors = [
+    pytest.param(lambda a: np.asarray(a, dtype=np.int64), id="int64"),
+    pytest.param(lambda a: np.asarray(a, dtype=np.int64).tolist(), id="int-list"),
+    pytest.param(lambda a: np.asarray(a, dtype=np.bool_), id="bool"),
+    pytest.param(lambda a: np.asarray(a, dtype=np.float32), id="float32"),
+]
+
+array_like_calls = [
+    pytest.param(lambda ctor: cyice.convrt_v(ctor([1, 2]), "KM", "M"), id="convrt_v"),
+    pytest.param(lambda ctor: cyice.convrt(ctor([1, 2]), "KM", "M"), id="convrt"),
+    pytest.param(lambda ctor: cyice.reclat_s(ctor([1, 2, 3])), id="reclat_s"),
+    pytest.param(lambda ctor: cyice.reclat(ctor([1, 2, 3])), id="reclat-1d"),
+    pytest.param(lambda ctor: cyice.reclat(ctor([[1, 2, 3], [4, 5, 6]])), id="reclat-2d"),
+    pytest.param(lambda ctor: cyice.cyllat_v(ctor([1, 2]), ctor([0, 1]), ctor([3, 4])), id="cyllat_v"),
+    pytest.param(lambda ctor: cyice.etcal(ctor([0, 3600])), id="etcal"),
+    pytest.param(lambda ctor: cyice.spkpos_v("MOON", ctor([0, 3600]), "J2000", "NONE", "EARTH"), id="spkpos_v"),
+]
+
+
+@pytest.mark.parametrize("ctor", array_like_ctors)
+@pytest.mark.parametrize("call", array_like_calls)
+def test_accepts_array_like_inputs(call, ctor, load_core_kernels):
+    expected = call(lambda a: np.asarray(a, dtype=np.double))
+    actual = call(ctor)
+    if not isinstance(actual, tuple):
+        actual, expected = (actual,), (expected,)
+    for a, e in zip(actual, expected):
+        npt.assert_array_equal(a, e)
+
+
+@pytest.mark.parametrize("ctor", non_float64_ctors)
+@pytest.mark.parametrize("call", array_like_calls)
+def test_rejects_non_float64_array_inputs(call, ctor, load_core_kernels):
+    with pytest.raises(TypeError, match="expected a float64 array"):
+        call(ctor)
+
+
+def test_array_input_wrong_ndim():
+    with pytest.raises(ValueError, match="expected a 1-D array, got 2-D"):
+        cyice.reclat_s(np.ones((1, 3)))

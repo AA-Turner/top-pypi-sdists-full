@@ -15,7 +15,7 @@ from hypothesis.strategies._internal.featureflags import FeatureFlags, FeatureSt
 
 from schemathesis.core.error_feedback.store import ParameterPath
 from schemathesis.core.jsonschema import ALL_KEYWORDS, BUNDLE_STORAGE_KEY, get_type
-from schemathesis.core.jsonschema.bundler import REFERENCE_TO_BUNDLE_PREFIX
+from schemathesis.core.jsonschema.bundler import REFERENCE_TO_BUNDLE_PREFIX, definition_location
 from schemathesis.core.jsonschema.types import JsonSchemaObject, JsonValue
 from schemathesis.core.media_types import is_form_urlencoded, is_xml
 from schemathesis.core.mutations import Mutation, MutationChannel, MutationMetadata, OperatorKind
@@ -158,6 +158,7 @@ def _materialize_one(
     new_schema: JsonSchemaObject,
     descriptor: MutationTargetDescriptor,
     bundle_map: JsonSchemaObject,
+    owned: set[str],
 ) -> MutationTarget | None:
     """Replay one descriptor against `new_schema` and return the resolved MutationTarget.
 
@@ -165,14 +166,15 @@ def _materialize_one(
     the parent has no `properties` key, or a `$ref` hop into a missing bundle entry).
     This happens when error-feedback adjustments transform the schema between
     strategy build and case generation.
+
+    `owned` names the bundle entries this case already copied for its own walks.
     """
     steps: list[PathStep] = []
     current: JsonSchemaObject = new_schema
     for hop in descriptor.walk:
         if hop.keyword == "$ref":
-            assert isinstance(hop.selector, str)
-            target = bundle_map.get(hop.selector) if isinstance(bundle_map, dict) else None
-            if not isinstance(target, dict):
+            target = _own_reference(current, bundle_map, owned)
+            if target is None:
                 return None
             current = target
             continue
@@ -186,6 +188,28 @@ def _materialize_one(
     # walk on `$ref` is intentional — sibling-bearing wrappers (`{$ref, minLength: 3}`) need their siblings
     # mutated, not the dereferenced target. Don't defensively dereference here.
     return MutationTarget(schema=current, path=tuple(steps))
+
+
+def _own_reference(node: JsonSchemaObject, bundle_map: JsonSchemaObject, owned: set[str]) -> JsonSchemaObject | None:
+    # Other places may reference the same definition, so mutate a copy to keep the change at the recorded path.
+    reference = node.get("$ref")
+    if not isinstance(reference, str) or not reference.startswith(REFERENCE_TO_BUNDLE_PREFIX):
+        return None
+    name = reference.rsplit("/", 1)[-1]
+    target = bundle_map.get(name)
+    if not isinstance(target, dict):
+        return None
+    if name in owned:
+        return target
+    index = len(bundle_map)
+    while f"{name}-{index}" in bundle_map:
+        index += 1
+    copy_name = f"{name}-{index}"
+    copy = deepclone(target)
+    bundle_map[copy_name] = copy
+    owned.add(copy_name)
+    node["$ref"] = f"{REFERENCE_TO_BUNDLE_PREFIX}/{copy_name}"
+    return copy
 
 
 def _propagate_required_path(path: tuple[PathStep, ...]) -> None:
@@ -270,10 +294,13 @@ def _disjoint_descriptor_pool(
     return [candidate for candidate in candidates if keep(candidate)]
 
 
-def _absolutize(target: MutationTarget, local: Mutation) -> Mutation:
+def _absolutize(
+    target: MutationTarget, descriptor: MutationTargetDescriptor, local: Mutation, name_to_uri: dict[str, str]
+) -> Mutation:
     """Prefix a local Mutation's path/schema_pointer with the target's path-from-root.
 
-    Also derives the parameter name from the path's last `properties` step when the
+    Past a `$ref`, the schema pointer starts over at the referenced definition's location in the
+    original document. Also derives the parameter name from the path's last `properties` step when the
     operator didn't set one explicitly. Operators only set `parameter` when negating
     a single-element `required` list; for any other mutation on a parameter-shaped
     target (a single property under root), we want the parameter name to surface
@@ -283,12 +310,14 @@ def _absolutize(target: MutationTarget, local: Mutation) -> Mutation:
     body_path_prefix: ParameterPath = tuple(
         step.selector for step in target.path if step.keyword == "properties" and isinstance(step.selector, str)
     )
-    pointer_segments: list[str] = []
-    for step in target.path:
-        pointer_segments.append(step.keyword)
-        if step.selector is not None:
-            pointer_segments.append(str(step.selector))
-    schema_pointer_prefix = "/" + "/".join(pointer_segments) if pointer_segments else ""
+    schema_pointer_prefix = ""
+    for hop in descriptor.walk:
+        if hop.keyword == "$ref":
+            schema_pointer_prefix = definition_location(str(hop.selector), name_to_uri)
+            continue
+        schema_pointer_prefix += f"/{hop.keyword}"
+        if hop.selector is not None:
+            schema_pointer_prefix += f"/{hop.selector}"
     parameter = local.parameter
     if parameter is None:
         for step in reversed(target.path):
@@ -486,7 +515,8 @@ class MutationContext:
         # in Regehr, "Helping Generative Fuzzers Avoid Looking Only Where the Light is Good"
         # (blog.regehr.org/archives/1700, 2019): without it, deeper leaves draw exponentially less weight than the root
         primary_descriptor = draw(st.sampled_from(descriptors)) if len(descriptors) > 1 else descriptors[0]
-        primary = _materialize_one(new_schema, primary_descriptor, bundle_map)
+        owned: set[str] = set()
+        primary = _materialize_one(new_schema, primary_descriptor, bundle_map, owned)
         if primary is None:
             reject()
         assert primary is not None
@@ -504,7 +534,7 @@ class MutationContext:
             if not pool:
                 break
             secondary_descriptor = draw(st.sampled_from(pool)) if len(pool) > 1 else pool[0]
-            secondary = _materialize_one(new_schema, secondary_descriptor, bundle_map)
+            secondary = _materialize_one(new_schema, secondary_descriptor, bundle_map, owned)
             if secondary is None:
                 continue
             secondary_operators = self._applicable_operators(secondary)
@@ -514,11 +544,11 @@ class MutationContext:
             chosen.append((secondary, secondary_operators))
 
         mutations: list[Mutation] = []
-        for target, applicable in chosen:
+        for descriptor, (target, applicable) in zip(chosen_descriptors, chosen, strict=True):
             mutation = self._apply_one_at_target(draw, target, applicable, enabled_operators)
             if mutation is None:
                 continue
-            mutations.append(_absolutize(target, mutation))
+            mutations.append(_absolutize(target, descriptor, mutation, self.name_to_uri))
             _propagate_required_path(target.path)
 
         if not mutations:

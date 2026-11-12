@@ -28,9 +28,12 @@ from anyscale.client.openapi_client.models import (
     DecoratedproductionjobListResponse,
     DecoratedProductionServiceV2APIModel,
     DecoratedProductionServiceV2VersionAPIModel,
+    DescribeSystemWorkloadResponse,
     GpuDetail,
     InternalProductionJob,
     JobQueueSortDirective,
+    LogDownloadResult,
+    LogFileChunk,
     LogItemBatch,
     NodeGpusResponse,
     OrganizationCollaborator,
@@ -1134,6 +1137,65 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_log_files(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        log_type: str,
+        latest: bool,
+        page_size: int,
+        next_page_token: Optional[str] = None,
+        job_run: Optional[str] = None,
+        service_version: Optional[str] = None,
+        ray_session: Optional[str] = None,
+        node_type: Optional[str] = None,
+        node_ip: Optional[str] = None,
+        instance_id: Optional[str] = None,
+        glob: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> LogDownloadResult:
+        """One page of the log files a workload wrote to its cloud bucket, with a presigned
+        URL per chunk (`GET /api/v2/logs/{entity_type}/{entity_id}/files`).
+
+        `entity_type` is the backend's name (production_job, service, workspace, session)
+        and `node_type` its NodeType value (head-node, worker-nodes).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_cluster_cloud_id(self, cluster_id: str) -> str:
+        """The cloud a cluster runs in. Raises on an unknown cluster."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def describe_ray_observability_api(
+        self, *, cloud_id: str, cluster_id: str, start_cluster: bool
+    ) -> DescribeSystemWorkloadResponse:
+        """Where the cloud's Ray task and actor data (observability_api) is served from.
+
+        Describes the system cluster of the cloud resource `cluster_id` last ran in, and
+        with `start_cluster` starts it when it is not running. `workload_service_url` and
+        `workload_service_url_auth` are set only once the cluster serves the API; `status`
+        says how far along it is, `is_enabled` whether the cloud has it at all. Raises
+        ValueError when the backend refuses to start the cluster.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_observability_api_json(
+        self, *, service_url: str, auth_url: str, path: str, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """GET `path` on the observability_api at `service_url` and return its JSON.
+
+        `auth_url` is the describe response's `workload_service_url_auth`: one GET on it
+        exchanges its token for the cookie every data request needs, the way the console
+        does. Raises ValueError with the server's text on a 4xx or 5xx.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_cluster_node(
         self,
         *,
@@ -1146,6 +1208,18 @@ class AnyscaleClientInterface(ABC):
         `session_name` picks a Ray session; None means the newest recent session that
         has the node. Raises on an unknown node, or on a cluster that is not ready yet.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def download_log_chunks(
+        self,
+        chunks: List[LogFileChunk],
+        *,
+        bearer_token: Optional[str] = None,
+        parallelism: int = 10,
+    ) -> List[str]:
+        """The decoded text of each chunk, in the order given, fetched from its presigned
+        URL with `bearer_token` as a Bearer Authorization header when set (GCP)."""
         raise NotImplementedError
 
     @abstractmethod

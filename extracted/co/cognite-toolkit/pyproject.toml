@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.73"
+version = "0.9.84"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -80,6 +80,8 @@ dev = [
 ]
 
 [tool.uv]
+exclude-newer = "7 days"
+required-version = ">=0.9.17"
 package = true
 
 [tool.uv.build-backend]

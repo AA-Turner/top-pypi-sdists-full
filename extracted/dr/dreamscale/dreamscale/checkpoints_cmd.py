@@ -1118,19 +1118,19 @@ def parse_feature_cameras(values: list[str] | None) -> list[dict] | None:
 RUNNER_PRESETS = {"yam": "bimanual_yam", "so101": "so101"}
 # Robots `dreamscale run` drives with custom π0.5 deployments only: fine-tunes on a LeRobot
 # recording of that robot, whose cameras keep the recording's names (Embodiment.recording_keys).
-RECORDED_RUNNERS = frozenset({"ur", "xarm7"})
+RECORDED_RUNNERS = frozenset({"ur", "xarm7", "openarm"})
 
 
 def _recorded_on(
     embodiment: Any, cameras: tuple[str, ...], state_dim: Any, action_dim: Any
 ) -> bool:
-    """A custom π0.5 deployment fine-tuned on a recording of this robot: its cameras, in
-    order, and joint targets of its width."""
-    width = len(embodiment.arms) * embodiment.arm_size
+    """A custom π0.5 deployment fine-tuned on a recording of this robot: its cameras and
+    joint targets of its width (Embodiment.records)."""
     return (
         embodiment.name in RECORDED_RUNNERS
-        and cameras == embodiment.recording_keys
-        and state_dim == action_dim == width
+        and state_dim == action_dim
+        and type(state_dim) is int
+        and embodiment.records(cameras, state_dim)
     )
 
 

@@ -17,7 +17,7 @@ from ...domain.messaging.coexistence_import_sync import CoexistenceImportSyncRep
 from ...models.cache import CacheProtocol
 from ...models.chat.coexistence_import_sync import CoexistenceImportSync
 from ...models.utils.types import StrObjectId
-from ...services.chatty_assets.base_container_with_collection import CacheConfig
+from ...models.cache import CacheConfig
 from ..asset_cache import AssetCache
 
 # The legacy asset service's logger: the log keeps its name, text and level.

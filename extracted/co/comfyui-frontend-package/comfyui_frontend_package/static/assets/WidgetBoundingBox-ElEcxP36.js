@@ -1,0 +1,1 @@
+import{t as e}from"./WidgetBoundingBox-BJ4Olthb.js";export{e as default};

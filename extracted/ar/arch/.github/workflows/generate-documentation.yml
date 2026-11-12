@@ -19,7 +19,7 @@ jobs:
         python-version: ["3.13"]
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
@@ -27,15 +27,14 @@ jobs:
       uses: r-lib/actions/setup-pandoc@v2
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install -r requirements-dev.txt
+        python -m pip install --group dev --group doc
 
     - name: Install arch
       run: |
@@ -45,8 +44,7 @@ jobs:
     - name: Build documentation
       run: |
         pushd doc
-        make html
-        make html
+        make html SPHINXOPTS="-j 1"
         popd
 
     - name: Deploy documentation

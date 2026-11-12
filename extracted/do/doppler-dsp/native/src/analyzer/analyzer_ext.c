@@ -201,15 +201,29 @@ static PyModuleDef analyzer_moduledef = {
     "density (dBFS) over a chosen span and resolution bandwidth, mirroring a "
     "hardware spectrum analyser's span / RBW / averaging controls.\n"
     "\n"
+    "Specan takes the instrument parameters an operator already knows -- "
+    "center,\n"
+    "span, RBW and reference level -- instead of the DSP knobs under them\n"
+    "(transform length, Kaiser beta). It composes the DDC tuner/decimator and "
+    "the\n"
+    "PSD averaging core, so the chain lives in C once and the "
+    "`doppler.specan`\n"
+    "application is a display shell over it. Moving the center is a cheap\n"
+    "`retune` that keeps the filter history; a new span or RBW changes the\n"
+    "decimation rate and window, so it is a new Specan. Peaks are not "
+    "computed in\n"
+    "the core: compose `doppler.spectral.find_peaks_f32` on the returned dB "
+    "band.\n"
+    "\n"
     "Examples\n"
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.analyzer import Specan\n"
     ">>> sp = Specan(fs=1.024e6, span=200e3, rbw=2e3, src_center=0.0,\n"
     "...             center=0.0, offset_db=0.0, full_scale=1.0, bits=0,\n"
-    "...             window=\"kaiser\", navg=1)\n"
+    "...             navg=1)\n"
     ">>> sp.execute(np.ones(4096, np.complex64)).shape\n"
-    "(201,)\n",
+    "(401,)\n",
   .m_size    = -1,
   .m_methods = NULL,
 };

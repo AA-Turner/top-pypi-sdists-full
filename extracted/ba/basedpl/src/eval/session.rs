@@ -2,8 +2,8 @@
 
 use super::{
     Argument, Binding, Bound, Closure, Evaluation, FUNCTION_CLASS, Function, FunctionNode, MAX_CALL_DEPTH, OPERATOR_CLASS, Operator, OperatorNode,
-    STACK_SEGMENT, SUBJECT_CLASS, Session, Step, Turn, binder::{Binder, Category, before}, bindings::{Frame, Place}, depth_error,
-    dissect::Expression, released, room, undefined
+    STACK_SEGMENT, SUBJECT_CLASS, Session, Step, Turn, binder::{Binder, Category, before}, bindings::{Frame, Place}, depth_error, dissect::Expression,
+    released, room, undefined
 };
 use crate::syntax::Statement;
 use crate::{
@@ -162,6 +162,8 @@ impl Session {
     pub(crate) fn holds_fresh(&self, value: &Value) -> bool { self.levels.borrow().holds_fresh(value) }
     /// The id and frame of the batched map that is running, if one is (`transform::Levels::batched`).
     pub(crate) fn batched(&self) -> Option<(u64, crate::array::Layout)> { self.levels.borrow().batched().map(|(id, frame)| (id, frame.clone())) }
+    /// Whether the current batched run permits per-cell rules rather than only whole-batch work.
+    pub(crate) fn batch_itemwise(&self) -> bool { self.levels.borrow().batch_itemwise() }
     /// The id of the batched run, if one is running, without the frame that `batched` clones.
     pub(crate) fn batch_level(&self) -> Option<u64> { self.levels.borrow().batched().map(|(id, _)| id) }
     /// Whether the running levels let a map run batched (`transform::Levels::admits_batch`).
@@ -202,7 +204,7 @@ impl Session {
             crate::explain::explained(|| self.execute(None, right, span).and_then(|r| r.array(span)).and_then(|value| value.forced().map(|()| value)));
         events.report(result?, span)
     }
-    /// `•literal text` reads a value from BPL source, as `•literal⁻` writes it, without running code. The text may hold literals and the functions that `•literal⁻` writes: `⍴`, `⊂`, `,`, `:` and `•ucs`.
+    /// `•literal text` reads a value from BPL source, as `•literal⁻` writes it, without running code. The text may hold literals and the functions that `•literal⁻` writes: `ρ`, `⊂`, `,`, `:` and `•ucs`.
     pub(crate) fn system_literal(&self, _: Option<&Value>, right: &Value, span: &Span) -> Result<Value, Error> {
         let parsed = self.parse(Source::new("<•literal>", Self::source_text(right, span)?)).complete()?;
         let [statement] = parsed.statements.as_slice() else { return Err(Error::domain("•literal reads one value").at(span)) };
@@ -360,6 +362,14 @@ impl Session {
     /// The program in `source`, with numbers that have no marker read as floats of the default width, or of the width that a leading `•prefs` statement on a literal record sets.
     pub fn parse(&self, source: Arc<Source>) -> crate::ParseStatus { crate::syntax::parse_with_aliases(source, crate::settings::hanzi_aliases()) }
     pub fn eval_parsed(&self, parsed: &Parsed, options: crate::EvalOptions) -> Evaluation { self.evaluation(options, |s| s.eval_display(parsed, false, false)) }
+    /// Evaluate syntax containing native host items at complete placeholder ranges. A part's final flag marks literal data; the ordinary parser and binder own all expression semantics.
+    pub fn eval_embedded(&self, code: &str, parts: Vec<(std::ops::Range<usize>, Value, bool)>, options: crate::EvalOptions) -> Evaluation {
+        self.evaluation(options, |s| {
+            match crate::syntax::parse_embedded(Source::new("<expression>", code), parts, crate::settings::hanzi_aliases()).complete() {
+                Ok(parsed) => s.eval_display(&parsed, false, false), Err(error) => Evaluation::failed(error)
+            }
+        })
+    }
     fn eval_display(&self, parsed: &Parsed, diagram: bool, dissect: bool) -> Evaluation {
         let mut result = Evaluation::default();
         let mut leading = true;
@@ -464,9 +474,7 @@ impl Session {
     }
     pub(super) fn bind(&self, nodes: &[Node]) -> Result<Bound, Error> {
         self.nested(nodes, |session| {
-            let Step::Done(bound) = Binder::evaluate(nodes, session, false)? else {
-                unreachable!("a statement that isn't a dfn's last gives its value")
-            };
+            let Step::Done(bound) = Binder::evaluate(nodes, session, false)? else { unreachable!("a statement that isn't a dfn's last gives its value") };
             Ok(bound)
         })
     }
@@ -600,6 +608,7 @@ impl Session {
     pub(super) fn resolve(&self, node: &Node) -> Result<Bound, Error> {
         Ok(Bound::new(match &node.kind {
             NodeKind::Literal(a) => Binding::Value(a.clone()),
+            NodeKind::Embedded(a) => Binding::from_element(a.clone()),
             NodeKind::Script(kind, indices) => Binding::Operator(self::OperatorNode::Script(*kind, indices.clone())),
             NodeKind::Function(builtin) => Binding::Function(builtin.function()),
             NodeKind::Operator(op) => Binding::Operator(OperatorNode::Primitive(*op)),
@@ -637,8 +646,7 @@ impl Session {
         }))
     }
 
-    /// A bracket literal, evaluated left to right with each value before its key. An absent value skips its key.
-    /// `[a:]` means `["a":a]`. Evaluate the value separately before the key so an absent value never evaluates its key.
+    /// A bracket literal, evaluated left to right with each value before its key. An absent value skips its key. `[a:]` means `["a":a]`. Evaluate the value separately before the key so an absent value never evaluates its key.
     fn bracket(&self, node: &Node) -> Result<Binding, Error> {
         let NodeKind::ArrayLiteral(literal) = &node.kind else { unreachable!("a bracket literal") };
         let constant = &literal.constant;
@@ -659,10 +667,7 @@ impl Session {
         }
         let mut entries = Vec::new();
         for (k, nodes) in cells.iter().enumerate() {
-            let Some(colon) = crate::syntax::key_colon(nodes) else {
-                entries.extend(self.item_result(nodes)?.map(|item| (None, item)));
-                continue;
-            };
+            let Some(colon) = crate::syntax::key_colon(nodes) else { entries.extend(self.item_result(nodes)?.map(|item| (None, item))); continue; };
             let named = match &nodes[..colon] {
                 _ if colon + 1 < nodes.len() => None, [Node { kind: NodeKind::Name(name, _), .. }] => Some(crate::keyed::text(name.text())),
                 _ => return Err(Error::new(ErrorKind::Syntax, "a key with no value is a name, as in [a:]").at(&nodes[colon].span))
@@ -698,7 +703,7 @@ impl Session {
         let form = literal.form;
         if arrays.is_empty() { return Ok(Binding::from_element(crate::syntax::zilde(crate::Number::float(0.0, crate::settings::float_width())))); }
         let result = if form == ListForm::Cells {
-            // Each row is a major cell, so unit rows give a vector: `[1⋄2]` is `1 2`.
+            // Each row is a major cell, so unit rows give a vector: `[1◇2]` is `1 2`.
             Value::assemble(&[arrays.len()], &arrays, &arrays[0])
         } else { Value::new(vec![arrays.len()], arrays) };
         Ok(Binding::Value(result.described("invalid array literal").at(&node.span)?))
@@ -717,7 +722,7 @@ impl Session {
                 FunctionNode::Defined(c) => (c, None, None), FunctionNode::Derived(c, operand, right) => (c, Some(operand), right.as_ref()), _ => unreachable!()
             };
             let frame = Frame::new(closure.environment, closure.module, closure.definition.locals());
-            // The six names that a call binds itself, in slot order (`Name::implicit`): ⍺, absent without a left argument, then ⍵ ⍶ ⍹ ∇ ⍢.
+            // The six names that a call binds itself, in slot order (`Name::implicit`): α, absent without a left argument, then ω ⍶ ⍹ ∇ ⍢.
             let implicit = [
                 Some(left.map_or(Binding::Absent, Binding::Value)), Some(Binding::Value(right)), operand.map(|f| f.value()), right_operand.map(|f| f.value()),
                 Some(Binding::Function(function.clone())), operand.map(|_| Binding::Operator(OperatorNode::Defined(closure.clone()))),
@@ -764,7 +769,7 @@ impl Session {
     }
 
     pub(super) fn array_result(&self, nodes: &[Node]) -> Result<Value, Error> { self.bind(nodes)?.array(&nodes[0].span) }
-    /// An item of a bracket list, or `None` for an absent `⍺`, which drops out of the list.
+    /// An item of a bracket list, or `None` for an absent `α`, which drops out of the list.
     fn item_result(&self, nodes: &[Node]) -> Result<Option<Value>, Error> { listed(self.bind(nodes)?.value, &nodes[0].span) }
 
     /// A body's last statement, or an error handler's expression, as the dfn's result.
@@ -831,7 +836,6 @@ impl Session {
         result
     }
 
-
     /// Runs `run` in the batched run widened to `frame`, the run's frame followed by the frame of a map inside the run (`batch::tried`). Until it returns, a write to a binding in a frame that started before the widening stops the run (`transform::Levels::widen`), and code reads each batch of the run that such a frame holds laid over `frame` (`read_binding`).
     pub(crate) fn widened<T>(&self, frame: &crate::array::Layout, run: impl FnOnce() -> Result<T, Error>) -> Result<T, Error> {
         self.levels.borrow_mut().widen(self.bindings.depth(), frame.clone());
@@ -891,7 +895,7 @@ fn caught(error: &Error) -> Value {
     crate::keyed::vector(["kind", "message", "source", "line", "column"].map(Into::into).to_vec(), values).expect("an error fits in a record")
 }
 
-/// A bracket item's value as its list takes it (`Session::item_result`): `None` for an absent `⍺`, which drops out, or the value as an array, where `span` reports one that isn't.
+/// A bracket item's value as its list takes it (`Session::item_result`): `None` for an absent `α`, which drops out, or the value as an array, where `span` reports one that isn't.
 pub(super) fn listed(value: Binding, span: &Span) -> Result<Option<Value>, Error> {
     if matches!(value, Binding::Absent) { Ok(None) } else { value.into_value(span).map(Some) }
 }

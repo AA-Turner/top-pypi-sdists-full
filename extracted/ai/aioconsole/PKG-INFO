@@ -1,30 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aioconsole
-Version: 0.8.2
+Version: 0.9.0
 Summary: Asynchronous console and interfaces for asyncio
 Author-email: Vincent Michel <vxgmichel@gmail.com>
-License: GPL-3.0-or-later
+License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/vxgmichel/aioconsole
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10.3
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-repeat; extra == "dev"
-Requires-Dist: uvloop; (platform_python_implementation != "PyPy" and sys_platform != "win32") and extra == "dev"
+Dynamic: license-file
 
 aioconsole
 ==========
@@ -77,7 +69,7 @@ The python console exposed by `aioconsole`_ is quite limited compared to modern 
 Requirements
 ------------
 
-*  Python \>= 3.8
+*  Python \>= 3.10.3
 
 
 Installation

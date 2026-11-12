@@ -7181,70 +7181,90 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                     print(f"{Fore.light_steel_blue}Qty was still {Fore.orange_red_1}{Qty}{Style.reset}")
 
     def bcd_btch(self,cp2=None):
-        data=None
-        SUPPORTEDOUT=barcode.PROVIDED_BARCODES
-        batchd=Path('Batch')
-        if batchd.exists() == False:
-                batchd.mkdir(parents=True)
-        barcode_or_code=Control(ptext="Barcode [default,True] or Code [False]:",helpText="encode Barcode, if True or default, or Code, if false.",data="boolean")
-        if barcode_or_code in BooleanAnswers.NONE:
-            return
-        if barcode_or_code in ['',' ','d']:
-            barcode_or_code=True
-        with Session(ENGINE) as session:
-            results=session.query(Entry).filter(Entry.InList==True)
-            results=orderQuery(results,Entry.Timestamp)
-            results=results.all()
-            cta=len(results)
-            for num,i in enumerate(results):
-                if barcode_or_code == True:
-                    data=i.Barcode
-                elif barcode_or_code == False:
-                    data=i.Code
-                else:
-                    data=i.Barcode
+        with localcontext() as ctx:
+            ctx.prec=50
+            data=None
+            SUPPORTEDOUT=barcode.PROVIDED_BARCODES
+            batchd=Path('Batch')
+            if batchd.exists():
+                shutil.rmtree(batchd)
+            if batchd.exists() == False:
+                    batchd.mkdir(parents=True)
 
-                final_out=str(batchd/Path(f"GENERATED_BCD_{num}"))
-                ct=len(SUPPORTEDOUT)
-                if cp2 is None:
-                    for num,ii in enumerate(SUPPORTEDOUT):
-                        msg=f'''{Fore.medium_violet_red}{num}{Fore.light_magenta}/{num+1} of {Fore.dark_goldenrod}{ct} -> {Fore.light_green}{ii}{Style.reset}'''
-                        print(msg)
-                    msg=std_colorize(f"Name = '{i.Name}' | Barcode = '{i.Barcode}'",num,cta)
-                    which=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"{msg}\nWhich {Fore.medium_violet_red}index? {Fore.light_yellow}",helpText="which {Fore.medium_violet_red}index? {Fore.light_yellow}",data="integer")
-                    if which in ['d']:
-                        which=SUPPORTEDOUT.index("code128")
-                    elif which in [None,]:
-                        return
-                try:
-                    if data in [None,]:
-                        continue
-                    options={}
-                    options['writer']=barcode.writer.ImageWriter()
-                    if data in ['d',None]:
-                        return
-                    if cp2 is None:    
-                        if SUPPORTEDOUT[which] == 'code39':
-                            options['add_checksum']=False
+            barcode_or_code=Control(ptext="Barcode [default,True] or Code [False]:",helpText="encode Barcode, if True or default, or Code, if false.",data="boolean")
+            if barcode_or_code in BooleanAnswers.NONE:
+                return
+            if barcode_or_code in ['',' ','d']:
+                barcode_or_code=True
+            with Session(ENGINE) as session:
+                results=session.query(Entry).filter(Entry.InList==True)
+                results=orderQuery(results,Entry.Timestamp)
+                results=results.all()
+                cta=len(results)
+                for num,i in enumerate(results):
+                    if barcode_or_code == True:
+                        data=i.Barcode
+                    elif barcode_or_code == False:
+                        data=i.Code
                     else:
-                        if cp2 == "code39":
-                            options['add_checksum']=False
-                            
+                        data=i.Barcode
+
+                    final_out=str(batchd/Path(f"GENERATED_BCD_{num}"))
+                    ct=len(SUPPORTEDOUT)
                     if cp2 is None:
-                        bcd_class=barcode.get_class(SUPPORTEDOUT[which])
-                    else:
-                        bcd_class=barcode.get_class(cp2)
+                        for numi,ii in enumerate(SUPPORTEDOUT):
+                            msg=f'''{Fore.medium_violet_red}{numi}{Fore.light_magenta}/{numi+1} of {Fore.dark_goldenrod}{ct} -> {Fore.light_green}{ii}{Style.reset}'''
+                            print(msg)
+                        which=''
+                        which1=''
+                        if barcode_or_code:
+                            which1=f'{Back.dark_blue}[x]{Back.black}'
+                            which=''
+                        else:
+                            which=f'{Back.dark_blue}[x]{Back.black}'
+                            which1=''
+                        msg=std_colorize(f"Name = '{i.Name}' | Barcode = '{i.Barcode}' len({len(i.Barcode)}){which1} | Code = '{i.Code}' len({len(i.Code)}){which}",num,cta)
+                        which=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"{msg}\nWhich {Fore.medium_violet_red}index? {Fore.light_yellow}",helpText="which {Fore.medium_violet_red}index? {Fore.light_yellow}",data="integer")
+                        if which in ['d']:
+                            which=SUPPORTEDOUT.index("code128")
+                        elif which in [None,]:
+                            return
+                    try:
+                        if data in [None,]:
+                            continue
+                        options={}
+                        options['writer']=barcode.writer.ImageWriter()
+                        if data in ['d',None]:
+                            return
+                        if cp2 is None:    
+                            if SUPPORTEDOUT[which] == 'code39':
+                                options['add_checksum']=False
+                        else:
+                            if cp2 == "code39":
+                                options['add_checksum']=False
+                                
+                        if cp2 is None:
+                            bcd_class=barcode.get_class(SUPPORTEDOUT[which])
+                        else:
+                            bcd_class=barcode.get_class(cp2)
 
-                    cde=bcd_class(data,**options)
-                    readme=Path(str(final_out)+'.txt')
-                    with readme.open("w+") as rdm:
-                        rdm.write(i.seeShortRaw())
-                        print(f"'{readme}' written!")
+                        cde=bcd_class(data,**options)
+                        readme=Path(str(final_out)+'.txt')
+                        with readme.open("w+") as rdm:
+                            msg=f"""Name = '{i.Name}'#Barcode = '{i.Barcode}'#Code/SKU = '{i.Code}'#Price = {i.Price}#Tax = {i.Tax}#CRV = {i.CRV}#Total Price Qty of 1 = {(decc(i.Price,cf=6)+decc(i.CRV,cf=6)+decc(i.Tax,cf=6))*1:0.6f}#Tax Rate = {decc(i.Tax,cf=6)/((decc(i.Price,cf=6)+decc(i.CRV,cf=6))):0.6f}#Tax Percent = {(decc(i.Tax,cf=6)/((decc(i.Price,cf=6)+decc(i.CRV,cf=6))))*100:0.6f}#Description = '{i.Description}'#Note = '{i.Note}'#Pallet Load = {i.PalletCount}#Case Count = {i.CaseCount}"""
+                            msg=[i for i in msg.split("#")]
+                            m2=[]
+                            ctaz=len(msg)
+                            for num,i in enumerate(msg):
+                                m2.append(f"{num+1}/{ctaz}.) {i}")
+                            msg='\n'.join(m2)
+                            rdm.write(msg)
+                            print(f"'{readme}' written!")
 
-                    cde.save(final_out)
-                    print(f"Saved to '{final_out}'!")
-                except Exception as e:
-                    print(e)
+                        cde.save(final_out)
+                        print(f"Saved to '{final_out}'!")
+                    except Exception as e:
+                        print(e)
 
     def bcd_img(self,cp2=None,data=None):
         SUPPORTEDOUT=barcode.PROVIDED_BARCODES

@@ -1,1 +1,0 @@
-import"./rolldown-runtime-CM1DJQSe.js";var e=new WeakMap;function registerComboWidgetInventory(t,n){e.set(t,n)}function getComboWidgetInventory(t){return e.get(t)}export{registerComboWidgetInventory as n,getComboWidgetInventory as t};

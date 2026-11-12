@@ -18,7 +18,7 @@ from anyscale._private.models.validation import RAY_VERSION_DEPRECATION_MESSAGE
 from anyscale._private.sdk import _LAZY_SDK_SINGLETONS
 from anyscale.authenticate import get_auth_api_client
 from anyscale.cli_logger import BlockLogger
-from anyscale.commands import command_examples, events_commands
+from anyscale.commands import command_examples, events_commands, resource_logs_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -2228,3 +2228,5 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
 # `anyscale workspace events` is implemented once for every resource in
 # events_commands.py; only the registration lives here.
 workspace_cli.add_command(events_commands.workspace_events)
+# Same shape for `anyscale workspace_v2 logs`: resource_logs_commands.py.
+workspace_cli.add_command(resource_logs_commands.workspace_logs)

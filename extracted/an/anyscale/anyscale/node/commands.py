@@ -64,7 +64,10 @@ def get(  # noqa: PLR0913
     _private_sdk: Optional[PrivateNodeSDK] = None,
 ) -> Node:
     """Get one node of a cluster, workspace, job or service: state, IPs, instance type,
-    resources and labels."""
+    resources and labels.
+
+    Needs Ray 2.50.0 or newer; on an older version the node is not found.
+    """
     return _private_sdk.get(  # type: ignore
         node_id,
         cluster_id=cluster_id,
@@ -94,7 +97,10 @@ def list(  # noqa: A001, PLR0913
     _private_sdk: Optional[PrivateNodeSDK] = None,
 ) -> NodeList:
     """List the nodes of a cluster, workspace, job or service, newest Ray session first,
-    with optional filters."""
+    with optional filters.
+
+    Needs Ray 2.50.0 or newer; on an older version the list is empty.
+    """
     return _private_sdk.list(  # type: ignore
         cluster_id=cluster_id,
         workspace_id=workspace_id,

@@ -90,6 +90,7 @@ from datamodel_code_generator._target_render import (
     runtime_record,
 )
 from datamodel_code_generator._target_templates import roles, templated
+from datamodel_code_generator._target_types import admits_none, opened, without_none
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
@@ -1201,15 +1202,22 @@ class _Typing:
     def argument(self, module: TargetModule, parameter: ParameterSpec) -> str:
         """Return the type of one parameter's keyword argument, with UNSET when it is optional without a default.
 
-        A model type is spelled as the type its argument takes, through its aliases and root models.
+        A model type is spelled as the type its argument takes, through its aliases and root models. A required
+        parameter written by its style leaves out None: a query string, header, cookie or path has no spelling for it.
         """
         kind = media_kind(parameter.plan.content_media_type) if parameter.plan.content_media_type else "json"
         use = parameter.use
         key = self.key("json" if kind == "form" else kind, use)
-        surface = self.spell(
-            module,
-            _Model(use.argument) if isinstance(key, _Model) and use is not None and use.argument is not None else key,
-        )
+        if (
+            parameter.required
+            and not parameter.plan.content_media_type
+            and parameter.argument is not None
+            and admits_none(argument := opened(parameter.argument))
+        ):
+            key = _Model(without_none(argument))
+        elif isinstance(key, _Model) and use is not None and use.argument is not None:
+            key = _Model(use.argument)
+        surface = self.spell(module, key)
         if parameter.required or parameter.default is not None:
             return surface
         return module.union(surface, module.local("options", "UNSET"))

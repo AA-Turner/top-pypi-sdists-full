@@ -28,6 +28,15 @@ class TrainingStepSummary(BaseModel):
   max_turns: int | None
   """Most agent turns among finished rollouts at this training step."""
 
+  p25_turns: float | None
+  """25th percentile of agent turns among finished rollouts at this training step."""
+
+  p50_turns: float | None
+  """Median agent turns among finished rollouts at this training step."""
+
+  p75_turns: float | None
+  """75th percentile of agent turns among finished rollouts at this training step."""
+
   avg_tokens: float | None
   """Mean generated tokens per finished rollout."""
 
@@ -36,6 +45,15 @@ class TrainingStepSummary(BaseModel):
 
   max_tokens: int | None
   """Most generated tokens among finished rollouts at this training step."""
+
+  p25_tokens: float | None
+  """25th percentile of generated tokens among finished rollouts at this training step."""
+
+  p50_tokens: float | None
+  """Median generated tokens among finished rollouts at this training step."""
+
+  p75_tokens: float | None
+  """75th percentile of generated tokens among finished rollouts at this training step."""
 
   tool_failure_count: int
   """

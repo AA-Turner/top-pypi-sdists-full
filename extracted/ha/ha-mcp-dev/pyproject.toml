@@ -4,10 +4,10 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "9.2.0.dev3482"
+version = "9.3.0.dev3518"
 description = "Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants."
 readme = "README.md"
-requires-python = ">=3.13,<3.15"
+requires-python = ">=3.14,<3.15"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = [
@@ -21,14 +21,12 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Home Automation",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "anyio>=4.10; python_version >= '3.14'",
-    "anyio>=4.9; python_version < '3.14'",
+    "anyio>=4.10",
     "authlib>=1.6.11",
     "certifi>=2026.10.19",
     "cyclopts>=4.0.0",
@@ -123,7 +121,6 @@ disable_error_code = [
 module = [
     "tests.addon.test_addon_startup",
     "tests.addon.test_addon_structure",
-    "tests.addon.test_webhook_proxy",
     "tests.haos_image_build.build_image",
     "tests.haos_image_build.dev_addon_tree",
     "tests.src.e2e._conftest_readiness",
@@ -139,22 +136,17 @@ module = [
     "tests.src.unit.policy.test_model",
     "tests.src.unit.policy.test_mrtr",
     "tests.src.unit.policy.test_mrtr_transport",
-    "tests.src.unit.test_addon_connection_hints",
     "tests.src.unit.test_area_filter_search",
     "tests.src.unit.test_auto_backup_e2e_isolation",
-    "tests.src.unit.test_auto_backup_path_refusal",
     "tests.src.unit.test_backup_access",
-    "tests.src.unit.test_backup_bulk_delete_outcomes",
     "tests.src.unit.test_backup_calendar_restore",
     "tests.src.unit.test_backup_capture_cancellation",
     "tests.src.unit.test_backup_diff",
-    "tests.src.unit.test_backup_diff_error_mapping",
     "tests.src.unit.test_backup_files",
     "tests.src.unit.test_backup_integrations",
     "tests.src.unit.test_backup_manager",
     "tests.src.unit.test_backup_manager_review",
     "tests.src.unit.test_backup_restore_consumers",
-    "tests.src.unit.test_backup_restore_preflight",
     "tests.src.unit.test_backup_snapshot",
     "tests.src.unit.test_backup_snapshot_restore",
     "tests.src.unit.test_backup_todo",
@@ -181,7 +173,6 @@ module = [
     "tests.src.unit.test_component_helper_collections",
     "tests.src.unit.test_component_helpers_list",
     "tests.src.unit.test_component_oauth_callbacks_ws",
-    "tests.src.unit.test_component_readapi_contract",
     "tests.src.unit.test_component_search_locations",
     "tests.src.unit.test_component_template_diagnose",
     "tests.src.unit.test_component_ws_phase2_async",
@@ -191,24 +182,19 @@ module = [
     "tests.src.unit.test_config_flow_server",
     "tests.src.unit.test_config_get_dashboard_search_error",
     "tests.src.unit.test_core_contract",
-    "tests.src.unit.test_creation_snapshot_flow",
     "tests.src.unit.test_custom_component_file_edits",
     "tests.src.unit.test_custom_component_file_writes",
     "tests.src.unit.test_dashboard_edit_routing",
-    "tests.src.unit.test_dashboard_get_no_config_routing",
     "tests.src.unit.test_dashboard_patch",
     "tests.src.unit.test_dashboard_screenshot",
     "tests.src.unit.test_dashboard_screenshot_theme_guard",
-    "tests.src.unit.test_deep_search_error_handling",
     "tests.src.unit.test_deep_search_helper_rename_1794",
     "tests.src.unit.test_domain_handlers",
     "tests.src.unit.test_e2e_failure_diagnostics",
     "tests.src.unit.test_e2e_lane_env_shape",
     "tests.src.unit.test_e2e_session_fixture_cleanup",
-    "tests.src.unit.test_embedded_listen",
     "tests.src.unit.test_embedded_server",
     "tests.src.unit.test_embedded_setup",
-    "tests.src.unit.test_embedded_teardown",
     "tests.src.unit.test_embedded_version_dist",
     "tests.src.unit.test_embedded_worker_teardown_2127",
     "tests.src.unit.test_entity_backup_component",
@@ -233,7 +219,6 @@ module = [
     "tests.src.unit.test_ha_search_component_routing",
     "tests.src.unit.test_ha_search_merge",
     "tests.src.unit.test_ha_search_request_count",
-    "tests.src.unit.test_ha_search_response_contract",
     "tests.src.unit.test_ha_write_file_edits",
     "tests.src.unit.test_hacs_actions",
     "tests.src.unit.test_hacs_own_repository",
@@ -242,7 +227,6 @@ module = [
     "tests.src.unit.test_haos_image_workflow_shape",
     "tests.src.unit.test_haos_supervisor_wait",
     "tests.src.unit.test_helper_config_fold",
-    "tests.src.unit.test_helper_core_payload",
     "tests.src.unit.test_helper_flows",
     "tests.src.unit.test_helper_input_validation",
     "tests.src.unit.test_helper_response_shape",
@@ -253,7 +237,6 @@ module = [
     "tests.src.unit.test_individual_fetch_settings",
     "tests.src.unit.test_integration_reconfigure",
     "tests.src.unit.test_integration_ws_commands",
-    "tests.src.unit.test_list_services_fields_projection",
     "tests.src.unit.test_listen_sockets",
     "tests.src.unit.test_llm_api",
     "tests.src.unit.test_llm_api_call_exposure",
@@ -269,7 +252,6 @@ module = [
     "tests.src.unit.test_oauth_ha_auth",
     "tests.src.unit.test_oauth_legacy_component",
     "tests.src.unit.test_oidc_compat",
-    "tests.src.unit.test_options_restore_review",
     "tests.src.unit.test_overview_repairs",
     "tests.src.unit.test_overview_system_info",
     "tests.src.unit.test_performance_parallelization",
@@ -279,7 +261,6 @@ module = [
     "tests.src.unit.test_redaction_app_option_keys",
     "tests.src.unit.test_reference_validator",
     "tests.src.unit.test_release_notes_wiring_shape",
-    "tests.src.unit.test_remove_helper_storage_id",
     "tests.src.unit.test_renamed_tools",
     "tests.src.unit.test_resource_codec",
     "tests.src.unit.test_rest_client_admin_gate",
@@ -287,7 +268,6 @@ module = [
     "tests.src.unit.test_rest_client_get_error_log",
     "tests.src.unit.test_rest_client_scenes",
     "tests.src.unit.test_rest_client_scripts",
-    "tests.src.unit.test_rest_client_states",
     "tests.src.unit.test_scene_fragment_matcher",
     "tests.src.unit.test_search_fields_projection",
     "tests.src.unit.test_search_pagination",
@@ -303,7 +283,6 @@ module = [
     "tests.src.unit.test_standard_mode_logging",
     "tests.src.unit.test_startup_log_collector",
     "tests.src.unit.test_stdio_settings_sidecar",
-    "tests.src.unit.test_stdio_sidecar_disable",
     "tests.src.unit.test_storage_helper_backup",
     "tests.src.unit.test_strict_bps",
     "tests.src.unit.test_supply_chain_workflow_shape",
@@ -347,7 +326,6 @@ module = [
     "tests.src.unit.test_webhook_proxy_sync",
     "tests.src.unit.test_websocket_client",
     "tests.src.unit.test_ws_close_pending_requests_1721",
-    "tests.src.unit.test_ws_credential_guard",
     "tests.src.unit.test_ws_degraders_warn",
     "tests.src.unit.test_ws_pool_loop_change_1994",
     "tests.src.unit.test_yaml_config_tool",
@@ -382,6 +360,11 @@ extend-exclude = [
     "src/ha_mcp/resources/skills-vendor",
     "custom_components/**/*.json",
 ]
+
+[tool.ruff.per-file-target-version]
+"src/ha_mcp/__init__.py" = "py313"
+"homeassistant-addon-webhook-proxy/**" = "py313"
+"homeassistant-addon-webhook-proxy-dev/**" = "py313"
 
 [tool.ruff.lint]
 select = [

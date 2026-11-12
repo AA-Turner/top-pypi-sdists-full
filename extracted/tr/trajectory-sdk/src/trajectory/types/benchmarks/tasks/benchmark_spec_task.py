@@ -40,3 +40,9 @@ class BenchmarkSpecTask(BaseModel):
     Keys must match [A-Za-z_][A-Za-z0-9_]* and cannot start with TRAJECTORY_ or use
     MODEL_ENDPOINT_ID, MODEL_ENDPOINT_ACCESS_TOKEN, or MODEL_ENDPOINT_URL.
     """
+
+  position: int | None = None
+  """
+    The task's upload order within the benchmark; appended tasks follow earlier ones. Null
+    for tasks uploaded before upload order was recorded.
+    """

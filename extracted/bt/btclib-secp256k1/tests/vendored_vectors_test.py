@@ -402,7 +402,7 @@ def test_a_path_the_branch_walked_never_held_answers_none(
     Unpacking one commit out of it would raise, the run would go red and
     no issue would open. A path upstream deleted or renamed away is not
     this case: the listing answers with the commit that removed it, an
-    ordinary tip (btclib-org/bitcoin-node-tests#150).
+    ordinary tip (btclib-org/functional-tests#150).
 
     Args:
         monkeypatch: the fixture `subprocess.run` is replaced through.
@@ -510,7 +510,7 @@ def test_a_removing_commit_is_drift_that_may_be_a_removal(
     or renamed away with the commit that removed it, which is not the
     pin: ordinary drift, reported as a change that may in fact be a
     removal rather than as `has_no_tip`
-    (btclib-org/bitcoin-node-tests#150).
+    (btclib-org/functional-tests#150).
 
     Args:
         monkeypatch: the fixture the tip lookup is replaced through.
@@ -602,24 +602,110 @@ def test_the_tracking_issue_is_looked_for_by_its_title(
     Args:
         monkeypatch: the fixture `subprocess.run` is replaced through.
     """
-    run = _Run('[{"number": 7}]')
+    title = "A title of the caller's own"
+    run = _Run(json.dumps([{"number": 7, "title": title}]))
     monkeypatch.setattr(check.subprocess, "run", run)
 
-    assert check._open_issue_number("A title of the caller's own") == "7"
+    assert check._open_issue_number(title) == "7"
     assert '"A title of the caller\'s own" in:title' in run.calls[-1]
 
     monkeypatch.setattr(check.subprocess, "run", _Run("[]"))
 
-    assert check._open_issue_number("A title of the caller's own") is None
+    assert check._open_issue_number(title) is None
+
+
+def test_a_longer_title_holding_the_one_searched_is_another_issue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An issue the search finds under a longer title is not this one.
+
+    It is listed first, ahead of the exact title where there is one
+    (issue btclib-org/.github#2152).
+
+    Args:
+        monkeypatch: the fixture `subprocess.run` is replaced through.
+    """
+    title = "Vendored vectors behind upstream"
+    longer = {"number": 41, "title": "Two vendored vectors behind upstream, in tests"}
+    monkeypatch.setattr(check.subprocess, "run", _Run(json.dumps([longer])))
+
+    assert check._open_issue_number(title) is None
+
+    exact = {"number": 42, "title": title}
+    monkeypatch.setattr(check.subprocess, "run", _Run(json.dumps([longer, exact])))
+
+    assert check._open_issue_number(title) == "42"
+
+
+# what `gh issue list --help` gives as `--limit`'s default
+_GH_DEFAULT_LIMIT = 30
+
+
+class _IssueList:
+    """A `subprocess.run` stand-in answering `gh issue list` as gh pages it.
+
+    It answers at most `--limit` of `issues`, in order, and gh's default
+    where no `--limit` is given.
+    """
+
+    def __init__(self, issues: list[dict[str, Any]]) -> None:
+        """Answer from `issues`, every one the search would find.
+
+        Args:
+            issues: the issues the search matches, in the order it lists them.
+        """
+        self.issues = issues
+
+    def __call__(self, args: list[str], **_kwargs: Any) -> SimpleNamespace:
+        """Answer one call with the first page of `issues`.
+
+        Args:
+            args: the argument list the script built.
+            **_kwargs: whatever it passed beside it, unread here.
+
+        Returns:
+            A completed process carrying as many issues as `--limit` asks.
+        """
+        limit = (
+            int(args[args.index("--limit") + 1])
+            if "--limit" in args
+            else _GH_DEFAULT_LIMIT
+        )
+        return SimpleNamespace(stdout=json.dumps(self.issues[:limit]))
+
+
+def test_the_exact_title_is_found_behind_a_full_default_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The exact title is found behind a full default page of longer ones.
+
+    Those sort first, and the lookup asks for more than gh's default
+    (issue btclib-org/.github#2185).
+
+    Args:
+        monkeypatch: the fixture `subprocess.run` is replaced through.
+    """
+    title = "Vendored vectors behind upstream"
+    issues = [
+        {"number": number, "title": f"{title}, part {number}"}
+        for number in range(_GH_DEFAULT_LIMIT)
+    ]
+    issues.append({"number": 42, "title": title})
+    monkeypatch.setattr(check.subprocess, "run", _IssueList(issues))
+
+    assert check._open_issue_number(title) == "42"
+
+
+_OPEN = '[{"number": 7, "title": "Vendored vectors behind upstream"}]'
 
 
 @pytest.mark.parametrize(
     "open_issues, drifted, expected",
     [
         ("[]", [], None),
-        ('[{"number": 7}]', [], "close"),
+        (_OPEN, [], "close"),
         ("[]", [check.Drift(_ENTRY, _TIP, "2026-02-03")], "create"),
-        ('[{"number": 7}]', [check.Drift(_ENTRY, _TIP, "2026-02-03")], "edit"),
+        (_OPEN, [check.Drift(_ENTRY, _TIP, "2026-02-03")], "edit"),
     ],
 )
 def test_the_report_is_one_gh_command_per_outcome(
@@ -712,7 +798,7 @@ def test_a_dry_run_prints_the_finding_and_touches_no_issue(
     assert f"BEHIND: {_AT_THE_TIP}" in out
     assert _TIP[:12] in out
     assert "SKIPPED: `tests/no_block.csv` (no fenced block)" in out
-    assert reported == []
+    assert not reported
 
 
 def test_a_path_with_no_tip_is_printed_as_no_commit_rather_than_as_behind(
@@ -906,8 +992,8 @@ class _Gh:
 
     The trees API answers from `trees`, keyed on the repository and the
     `<commit>:<directory>` the script asks for; the commits API from
-    `commits`; `gh issue list` finds the issue `open_issue` names, and
-    every other `gh issue` call answers nothing.
+    `commits`; `gh issue list` finds the issue `open_issue` names, under
+    the title searched, and every other `gh issue` call answers nothing.
     """
 
     def __init__(self) -> None:
@@ -949,7 +1035,11 @@ class _Gh:
             commit = {"sha": sha, "commit": {"committer": {"date": date}}}
             return SimpleNamespace(stdout=json.dumps([commit]))
         if argv[2] == "list":
-            issues = [{"number": self.open_issue}] if self.open_issue else []
+            search = argv[argv.index("--search") + 1]
+            title = search.removeprefix('"').removesuffix('" in:title')
+            issues = (
+                [{"number": self.open_issue, "title": title}] if self.open_issue else []
+            )
             return SimpleNamespace(stdout=json.dumps(issues))
         return SimpleNamespace(stdout="")
 
@@ -1339,7 +1429,7 @@ def test_every_vendored_file_the_readme_names_is_the_blob_it_records(
     wrong = [
         pin.local for pin in pins if check._git_blob(Path(pin.local)) != pin.expected
     ]
-    assert wrong == []
+    assert not wrong
 
 
 def test_every_file_the_readme_names_is_marked_minus_text() -> None:
@@ -1354,7 +1444,7 @@ def test_every_file_the_readme_names_is_marked_minus_text() -> None:
     marked = (_ROOT / ".gitattributes").read_text("utf-8").splitlines()
 
     assert pins
-    assert [pin.local for pin in pins if f"{pin.local} -text" not in marked] == []
+    assert not [pin.local for pin in pins if f"{pin.local} -text" not in marked]
 
 
 def _failing_gh(

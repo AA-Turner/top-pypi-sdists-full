@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "openrewrite"
 description = "OpenRewrite automated refactoring for Python."
-version = "8.105.0"  # Updated dynamically during release
+version = "8.106.1"  # Updated dynamically during release
 authors = [{ name = "Moderne Inc.", email = "support@moderne.io" }]
 license = "LicenseRef-Moderne-Source-Available"
 readme = "README.md"

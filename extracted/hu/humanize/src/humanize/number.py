@@ -7,12 +7,15 @@ __lazy_modules__ = {"bisect"}
 import bisect
 
 from .i18n import _gettext as _
+from .i18n import _gettext_noop as N_
 from .i18n import _ngettext, decimal_separator, thousands_separator
 from .i18n import _ngettext_noop as NS_
 from .i18n import _pgettext as P_
+from .i18n import _pgettext_noop as PS_
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import TypeAlias
 
     # This type can be better defined by typing.SupportsFloat
@@ -35,18 +38,43 @@ _SUPERSCRIPT_MAP = {
 }
 _SUPERSCRIPT_TRANS = str.maketrans(_SUPERSCRIPT_MAP)
 
-_ORDINAL_SUFFIXES = ("th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th")
+_ORDINAL_SUFFIXES = {
+    "male": (
+        PS_("0 (male)", "th"),
+        PS_("1 (male)", "st"),
+        PS_("2 (male)", "nd"),
+        PS_("3 (male)", "rd"),
+        PS_("4 (male)", "th"),
+        PS_("5 (male)", "th"),
+        PS_("6 (male)", "th"),
+        PS_("7 (male)", "th"),
+        PS_("8 (male)", "th"),
+        PS_("9 (male)", "th"),
+    ),
+    "female": (
+        PS_("0 (female)", "th"),
+        PS_("1 (female)", "st"),
+        PS_("2 (female)", "nd"),
+        PS_("3 (female)", "rd"),
+        PS_("4 (female)", "th"),
+        PS_("5 (female)", "th"),
+        PS_("6 (female)", "th"),
+        PS_("7 (female)", "th"),
+        PS_("8 (female)", "th"),
+        PS_("9 (female)", "th"),
+    ),
+}
 _APNUMBER_WORDS = (
-    "zero",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
+    N_("zero"),
+    N_("one"),
+    N_("two"),
+    N_("three"),
+    N_("four"),
+    N_("five"),
+    N_("six"),
+    N_("seven"),
+    N_("eight"),
+    N_("nine"),
 )
 
 
@@ -110,7 +138,7 @@ def ordinal(value: NumberOrString, gender: str = "male") -> str:
         return str(value)
     gender = "male" if gender == "male" else "female"
     digit = 0 if value % 100 in (11, 12, 13) else value % 10
-    return f"{value}{P_(f'{digit} ({gender})', _ORDINAL_SUFFIXES[digit])}"
+    return f"{value}{P_(*_ORDINAL_SUFFIXES[gender][digit])}"
 
 
 def intcomma(value: NumberOrString, ndigits: int | None = None) -> str:
@@ -160,7 +188,7 @@ def intcomma(value: NumberOrString, ndigits: int | None = None) -> str:
                 value = float(value)
             else:
                 value = int(value)
-        else:
+        elif not isinstance(value, int):
             if not math.isfinite(float(value)):
                 return _format_not_finite(float(value))
             float(value)
@@ -255,8 +283,12 @@ def intword(value: NumberOrString, format: str = "%.1f") -> str:
     chopped = value / power
     rounded_value = float(format % chopped)
 
-    if not largest_ordinal and rounded_value * power == powers[ordinal + 1]:
-        # After rounding, we end up just at the next power
+    if not largest_ordinal and rounded_value == powers[ordinal + 1] // power:
+        # After rounding, we end up just at the next power. Compare against the
+        # integer ratio between the two powers instead of ``rounded_value * power``:
+        # for values above ~10**22 the latter is evaluated in floating point and
+        # no longer equals the exact ``powers[ordinal + 1]``, so the carry was
+        # silently skipped (e.g. 10**24 - 1 rendered as "1000.0 sextillion").
         ordinal += 1
         rounded_value = 1.0
 
@@ -361,10 +393,12 @@ def fractional(value: NumberOrString) -> str:
     frac = Fraction(number - whole_number).limit_denominator(1000)
     numerator = frac.numerator
     denominator = frac.denominator
-    if whole_number and not numerator and denominator == 1:
-        # this means that an integer was passed in
-        # (or variants of that integer like 1.0000)
-        return f"{whole_number:.0f}"
+    if denominator == 1:
+        # The fractional part reduced to a whole number: either an integer
+        # was passed in (e.g. 1 or 1.0000, giving 0/1), or the fractional part
+        # rounded up to 1/1 (e.g. 2.9999999). Fold it into the integer part
+        # instead of emitting a degenerate "0/1" or "2 1/1".
+        return f"{whole_number + numerator:.0f}"
 
     if not whole_number:
         return f"{numerator:.0f}/{denominator:.0f}"
@@ -425,13 +459,13 @@ def scientific(value: NumberOrString, precision: int = 2) -> str:
 
 
 def clamp(
-    value: float,
-    format: str = "{:}",
+    value: float | None,
+    format: str | Callable[[float], str] = "{:}",
     floor: float | None = None,
     ceil: float | None = None,
     floor_token: str = "<",
     ceil_token: str = ">",
-) -> str:
+) -> str | None:
     """Returns number with the specified format, clamped between floor and ceil.
 
     If the number is larger than ceil or smaller than floor, then the respective limit
@@ -455,7 +489,7 @@ def clamp(
         ```
 
     Args:
-        value (int, float): Input number.
+        value (int, float, None): Input number, or `None` to return `None`.
         format (str OR callable): Can either be a formatting string, or a callable
             function that receives value and returns a string.
         floor (int, float): Smallest value before clamping.
@@ -466,7 +500,8 @@ def clamp(
             to output.
 
     Returns:
-        str: Formatted number. The output is clamped between the indicated floor and
+        str | None: Formatted number, or `None` when `value` is `None`.
+            The output is clamped between the indicated floor and
             ceil. If the number is larger than ceil or smaller than floor, the output
             will be prepended with a token indicating as such.
 
@@ -517,11 +552,20 @@ def metric(value: float, unit: str = "", precision: int = 3) -> str:
 
         ```
 
-    The unit prefix is always chosen so that non-significant zero digits are required.
-    i.e. `123,000` will become `123k` instead of `0.123M` and `1,230,000` will become
-    `1.23M` instead of `1230K`. For numbers that are either too huge or too tiny to
-    represent without resorting to either leading or trailing zeroes, it falls back to
-    `scientific()`.
+    The unit prefix keeps the scaled value compact, avoiding unnecessary leading or
+    trailing zeroes. For example, `123_000` uses kilo (`k`) rather than `0.123 M`,
+    and `1_230_000` uses mega (`M`) rather than `1230 k`:
+
+    ```pycon
+    >>> metric(123_000)
+    '123 k'
+    >>> metric(1_230_000)
+    '1.23 M'
+
+    ```
+
+    For numbers that are either too huge or too tiny to represent without resorting
+    to either leading or trailing zeroes, it falls back to `scientific()`.
     ```pycon
     >>> metric(1e40)
     '1.00 x 10⁴⁰'
@@ -540,7 +584,7 @@ def metric(value: float, unit: str = "", precision: int = 3) -> str:
 
     if not math.isfinite(value):
         return _format_not_finite(value)
-    exponent = int(math.floor(math.log10(abs(value)))) if value != 0 else 0
+    exponent = math.floor(math.log10(abs(value))) if value != 0 else 0
 
     if exponent >= 33 or exponent < -30:
         return scientific(value, precision - 1) + unit
@@ -548,8 +592,9 @@ def metric(value: float, unit: str = "", precision: int = 3) -> str:
     old_bucket = exponent // 3 * 3
     value /= 10**old_bucket
     digits = int(max(0, precision - exponent % 3 - 1))
-    if exponent < 30 and round(abs(value), digits) >= 1000:
-        exponent += 3 - exponent % 3
+    # Absorb a rounding carry (9.999 -> 10.0) by bumping the exponent.
+    if exponent < 30 and round(abs(value), digits) >= 10 ** (exponent % 3 + 1):
+        exponent += 1
         new_bucket = exponent // 3 * 3
         value /= 10 ** (new_bucket - old_bucket)
         digits = int(max(0, precision - exponent % 3 - 1))

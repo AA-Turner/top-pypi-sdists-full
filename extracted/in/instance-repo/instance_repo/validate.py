@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -96,6 +97,8 @@ class ValidationReport:
     ok: bool = True
     missing: list[str] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    config: dict = field(default_factory=dict)
+    snapshot: object = field(default=None, repr=False, compare=False)
 
 
 def check_layout(local_dir: str | Path) -> ValidationReport:
@@ -104,6 +107,17 @@ def check_layout(local_dir: str | Path) -> ValidationReport:
     d = Path(local_dir)
     if not d.is_dir():
         raise LayoutError(f"not a directory: {d}")
+    # Multi-step tasks put instructions under steps/<name>, not at the root.
+    if (d / "task.toml").is_file():
+        try:
+            config = tomllib.loads((d / "task.toml").read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+            raise SchemaError(f"{d.name}: task.toml is not valid TOML") from exc
+        steps = config.get("steps", [])
+        if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+            raise SchemaError("task.toml steps must be an array of tables")
+        if steps:
+            return _check_multi_step(d, config)
     missing = [rel for rel in REQUIRED_FILES if not (d / rel).is_file()]
     for group in REQUIRED_ONE_OF:
         if not any((d / rel).is_file() for rel in group):
@@ -122,6 +136,39 @@ def check_layout(local_dir: str | Path) -> ValidationReport:
     instance_id = d.name
     validate_instance_id(instance_id, source=str(d))
     return ValidationReport(instance_id=instance_id, ok=True, missing=[], metadata=meta)
+
+
+def _check_multi_step(directory: Path, config: dict) -> ValidationReport:
+    from ._harbor_filetree import FileTree
+    validate_instance_id(directory.name, source=str(directory))
+    tree = FileTree(directory)
+    # Bind the parsed configuration to the same inventory used for delivery.
+    if tomllib.loads(tree.read_bytes("task.toml").decode("utf-8")) != config:
+        raise LayoutError("task.toml changed during validation")
+    seen = set()
+    for index, step in enumerate(config["steps"]):
+        name = step.get("name")
+        if (not isinstance(name, str) or not name or name in (".", "..")
+                or name.endswith((".", " ")) or len(name.encode("utf-8")) > 255
+                or any(c in '/\\<>:"|?*' or unicodedata.category(c) == "Cc" for c in name)):
+            raise SchemaError(f"task.toml steps[{index}].name is invalid")
+        key = unicodedata.normalize("NFC", name).casefold()
+        device = key.split(".", 1)[0].upper()
+        if device in {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} or re.fullmatch(r"(?:COM|LPT)[1-9¹²³]", device):
+            raise SchemaError(f"task.toml steps[{index}].name is reserved")
+        if key in seen:
+            raise SchemaError("task.toml steps contains duplicate names")
+        seen.add(key)
+        with tree.open_file(f"steps/{name}/instruction.md"):
+            pass
+    metadata = config.get("metadata", {})
+    environment = config.get("environment", {})
+    if not isinstance(metadata, dict) or not isinstance(environment, dict):
+        raise SchemaError("task.toml metadata and environment must be tables")
+    if not isinstance(environment.get("docker_image", ""), str):
+        raise SchemaError("task.toml environment.docker_image must be a string")
+    tree.check_readable()
+    return ValidationReport(directory.name, metadata=metadata, config=config, snapshot=tree)
 
 
 # ── SWE 格式校验 ─────────────────────────────────────────────────────────────

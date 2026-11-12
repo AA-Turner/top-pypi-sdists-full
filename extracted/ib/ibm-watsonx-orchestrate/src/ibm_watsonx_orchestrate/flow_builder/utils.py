@@ -55,12 +55,27 @@ def _get_json_schema_obj(parameter_name: str, type_def: type[BaseModel] | ToolRe
             exclude_defaults=True,
             by_alias=True,
         )
+        if isinstance(type_def, ToolRequestBody):
+            schema_json.setdefault("type", type_def.type)
         schema_obj = JsonSchemaObject.model_validate(schema_json)
 
         if openapi_decode:
             # during tool import for openapi - we convert header, path and query parameter
             # with a prefix "header_", "path_" and "query_".  We need to remove it.
             if schema_obj.type == 'object':
+                # OpenAPI tools wrap the request body under a '__requestBody__' property.
+                # Flatten it so the body's own properties become the node's input properties;
+                # otherwise the wrapper and the body share the same title and the generated
+                # schema ends up referencing itself.
+                body_schema = (schema_obj.properties or {}).get('__requestBody__')
+                if body_schema is not None and body_schema.type == 'object' and body_schema.properties:
+                    new_properties = {k: v for k, v in schema_obj.properties.items() if k != '__requestBody__'}
+                    new_properties.update(body_schema.properties)
+                    new_required = [r for r in (schema_obj.required or []) if r != '__requestBody__']
+                    new_required.extend(r for r in (body_schema.required or []) if r not in new_required)
+                    schema_obj.properties = new_properties
+                    schema_obj.required = new_required
+
                 # for each element in properties, we need to check the key and if it is
                 # prefixed with "header_", "path_" and "query_", we need to remove the prefix.
                 if hasattr(schema_obj, "properties") and schema_obj.properties is not None:
@@ -181,7 +196,7 @@ async def import_flow_model(model):
 
     tool_id = None
     exist = False
-    existing_tools = client.get_draft_by_name(tool.__tool_spec__.name)
+    existing_tools = client.get_draft_by_name(tool.__tool_spec__.name, include_escalation=True)
     if len(existing_tools) > 1:
         raise ValueError(f"Multiple existing tools found with name '{tool.__tool_spec__.name}'. Failed to update tool")
 

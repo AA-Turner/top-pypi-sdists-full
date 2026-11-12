@@ -20,7 +20,6 @@ import httpx
 from ..errors import AuthError, CertPinError, InvalidRequest, StreamRefused
 from . import msgpack_io as _msgpack
 from . import observe_stream as _observe
-from . import teleop_robot as _teleop
 from . import worker_stream as _stream
 from .transport import Transport
 
@@ -30,8 +29,6 @@ from .transport import Transport
 
 
 OPEN_TRIES_S = (5.0, 10.0)
-
-_TELEOP_AGAIN_S = 0.5
 
 _log = logging.getLogger("sequence_ai._core.direct")
 
@@ -108,7 +105,7 @@ class StreamLink:
             quiet_s, on_quiet = self.quiet if self.quiet is not None else (None, None)
             headers, driven = dict(self._headers), self.teleop
             if driven is not None:
-                headers[_teleop.HEADER] = driven.said
+                headers.update(driven.headers())
             while True:
                 tries += 1
                 left = self._timeout_s - (time.monotonic() - began)
@@ -120,7 +117,6 @@ class StreamLink:
                                                  options=self._stream_options,
                                                  quiet_s=quiet_s, on_quiet=on_quiet,
                                                  on_push=driven.push if driven is not None else None,
-                                                 on_end=self._stream_ended if driven is not None else None,
                                                  trace=trace)
                 except Exception as exc:
                     took = time.monotonic() - began
@@ -152,6 +148,8 @@ class StreamLink:
             if closed:
                 stream.close()
                 return
+            if driven is not None:
+                driven.stream_opened(self.post_teleop)
             self._trace_opened(trace)
             self._trace_streamed(began)
 
@@ -163,16 +161,6 @@ class StreamLink:
                 self._done()
 
         threading.Thread(target=run, daemon=True, name="seq-stream-open").start()
-
-    def _stream_ended(self, why: str) -> None:
-        """A teleop robot's stream ended: stopped here while a person drove it (teleop_robot.Driven.ended), and opened
-        again _TELEOP_AGAIN_S on while this transport is open - a robot stopped here sends no act that would open it,
-        and only on it can a console release it."""
-        self.teleop.ended(why)
-        if not self._closed:
-            timer = threading.Timer(_TELEOP_AGAIN_S, self._ensure_stream)
-            timer.daemon = True
-            timer.start()
 
     def _open_stream(self, timeout_s: float) -> "_stream.WorkerStream":
         """The open stream: one that ended opened again, and one opening waited for, `timeout_s` at most. Past that, or
@@ -282,6 +270,19 @@ class StreamLink:
                 stream.submit("GET", "/ping", [], b"")
             except _stream.StreamClosed:
                 pass
+
+    def post_teleop(self, message: dict) -> bool:
+        """What a robot a console drives tells its worker (teleop_robot.Driven): one message on the robot's stream, ahead
+        of everything waiting, as a heartbeat goes - True once handed to the stream, False with none open (the robot
+        keeps what it must say again)."""
+        stream = self._stream
+        if stream is None or not stream.alive:
+            return False
+        try:
+            stream.send_message(message)
+        except _stream.StreamClosed:
+            return False
+        return True
 
     def post_heartbeat(self, body: dict) -> None:
         """The robot's SDK heard from (heartbeat.py): one message on the robot's stream, ahead of everything waiting - no

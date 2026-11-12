@@ -61,7 +61,7 @@ def run_franka(
     model,
     instruction=None,
     config_path=DEFAULT_CONFIG_PATH,
-    mode="async",
+    mode="auto",
     max_actions=None,
     keep_warm=300,
     region="available",

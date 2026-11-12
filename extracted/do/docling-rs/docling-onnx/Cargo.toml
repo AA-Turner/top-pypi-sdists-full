@@ -1,7 +1,7 @@
 [package]
 name = "docling-onnx"
 description = "Shared ONNX Runtime execution-provider selection for docling.rs (DOCLING_RS_EP)."
-version = "2.80.1"
+version = "2.82.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/docling-project/docling.rs"
@@ -41,7 +41,7 @@ xnnpack = ["ort/xnnpack"]
 load-dynamic = ["ort/load-dynamic", "dep:libloading"]
 
 [dependencies]
-docling-core = { path = "../docling-core", version = "2.80.1", default-features = false }
+docling-core = { path = "../docling-core", version = "2.82.1", default-features = false }
 # Same ort build as docling-pdf/docling-asr so the workspace keeps a single
 # ONNX Runtime.
 ort = { version = "2.0.0-rc.14", default-features = false, features = ["std", "download-binaries", "tls-rustls"] }

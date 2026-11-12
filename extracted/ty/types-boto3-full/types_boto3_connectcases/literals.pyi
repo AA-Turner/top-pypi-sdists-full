@@ -29,6 +29,7 @@ __all__ = (
     "FieldNamespaceType",
     "FieldTypeType",
     "ListCaseRulesPaginatorName",
+    "MergeStatusType",
     "OrderType",
     "PaginatorName",
     "RegionName",
@@ -48,6 +49,7 @@ __all__ = (
 
 AuditEventTypeType = Literal[
     "Case.Created",
+    "Case.Merged",
     "Case.Updated",
     "RelatedItem.Created",
     "RelatedItem.Deleted",
@@ -58,6 +60,7 @@ DomainStatusType = Literal["Active", "CreationFailed", "CreationInProgress"]
 FieldNamespaceType = Literal["Custom", "System"]
 FieldTypeType = Literal["Boolean", "DateTime", "Number", "SingleSelect", "Text", "Url", "User"]
 ListCaseRulesPaginatorName = Literal["list_case_rules"]
+MergeStatusType = Literal["COMPLETED", "IN_PROGRESS"]
 OrderType = Literal["Asc", "Desc"]
 RelatedItemTypeType = Literal["Comment", "ConnectCase", "Contact", "Custom", "File", "Sla"]
 RuleTypeType = Literal["FieldOptions", "Hidden", "Required"]

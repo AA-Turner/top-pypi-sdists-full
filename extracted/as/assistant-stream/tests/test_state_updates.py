@@ -82,6 +82,19 @@ async def test_streaming_path_emits_append_text_deltas_not_set() -> None:
 
 
 @pytest.mark.anyio
+async def test_create_run_detaches_initial_state() -> None:
+    initial = {"cfg": {}}
+
+    async def run_callback(controller: RunController):
+        initial["cfg"]["theme"] = "dark"
+        assert controller.state["cfg"] == {}
+
+    chunks = [chunk async for chunk in create_run(run_callback, state=initial)]
+
+    assert chunks == []
+
+
+@pytest.mark.anyio
 async def test_string_assignment_non_extension_emits_set() -> None:
     ops: list[dict[str, Any]] = []
     manager = StateManager(
@@ -182,3 +195,39 @@ async def test_run_controller_flush_emits_pending_ops() -> None:
     assert chunk.operations == [
         {"type": "set", "path": ["user", "name"], "value": "Alice"}
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("iteration", ["list", "values", "items"])
+async def test_iterated_state_writes_reach_the_client(iteration) -> None:
+    from assistant_stream.state import AssistantState
+
+    tasks = [{"done": False}] if iteration == "list" else {"first": {"done": False}}
+    initial = {"tasks": tasks}
+
+    async def callback(controller):
+        if iteration == "list":
+            for task in controller.state["tasks"]:
+                task["done"] = True
+        elif iteration == "values":
+            for task in controller.state["tasks"].values():
+                task["done"] = True
+        else:
+            for _, task in controller.state["tasks"].items():
+                task["done"] = True
+
+    chunks = [chunk async for chunk in create_run(callback, state=initial)]
+    operations = [
+        operation
+        for chunk in chunks
+        if chunk.type == "update-state"
+        for operation in chunk.operations
+    ]
+    key = "0" if iteration == "list" else "first"
+    assert operations == [
+        {"type": "set", "path": ["tasks", key, "done"], "value": True}
+    ]
+    client = AssistantState(initial)
+    client.apply(operations)
+    expected = [{"done": True}] if iteration == "list" else {"first": {"done": True}}
+    assert client.state == {"tasks": expected}

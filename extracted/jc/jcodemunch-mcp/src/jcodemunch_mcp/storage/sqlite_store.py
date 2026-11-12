@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Callable, NamedTuple, Optional, cast
 
+from ..parser.imports import written_imports
 from ..parser.symbols import Symbol
 from ..path_map import parse_path_map, remap
 from .embedding_store import META_KEY_PREFIX as _EMBED_META_PREFIX
@@ -237,6 +238,11 @@ CREATE TABLE IF NOT EXISTS scip_unmapped (
 CREATE TABLE IF NOT EXISTS scip_meta (
     key   TEXT PRIMARY KEY,
     value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS token_counts (
+    hash   TEXT PRIMARY KEY,
+    cl100k INTEGER NOT NULL
 );
 """
 
@@ -1589,7 +1595,7 @@ class SQLiteIndexStore:
                     (file_mtimes or {}).get(fp),
                     (file_languages or {}).get(fp, ""),
                     (file_summaries or {}).get(fp, ""),
-                    json.dumps((file_imports or {}).get(fp, [])),
+                    json.dumps(written_imports((file_imports or {}).get(fp, []))),
                     file_sizes.get(fp),
                 ))
             for fp in deleted_files:
@@ -2072,7 +2078,7 @@ class SQLiteIndexStore:
                         (file_languages or {}).get(fp, ""),
                         (file_summaries or {}).get(fp, ""),
                         (file_blob_shas or {}).get(fp, ""),
-                        json.dumps((imports or {}).get(fp, [])),
+                        json.dumps(written_imports((imports or {}).get(fp, []))),
                         file_sizes.get(fp),
                     )
                     for fp in normalized_source_files
@@ -2082,6 +2088,11 @@ class SQLiteIndexStore:
             from . import bm25_stats
 
             bm25_stats.write_in_txn(conn, bm25_blob)
+
+            # Per-file token counts for tokens_saved (storage/token_counts.py).
+            from . import token_counts
+
+            token_counts.record(conn, self._content_dir_or_none(owner, name), raw_files)
 
             conn.commit()
         finally:
@@ -2936,7 +2947,7 @@ class SQLiteIndexStore:
                         (file_languages or {}).get(fp, ""),
                         (file_summaries or {}).get(fp, ""),
                         (file_blob_shas or {}).get(fp, ""),
-                        json.dumps((imports or {}).get(fp, [])),
+                        json.dumps(written_imports((imports or {}).get(fp, []))),
                         incr_file_sizes.get(fp),
                     ),
                 )
@@ -2999,6 +3010,11 @@ class SQLiteIndexStore:
                 ]
                 if mtime_only:
                     conn.executemany("UPDATE files SET mtime_ns = ? WHERE path = ?", mtime_only)
+
+            # Per-file token counts for tokens_saved (storage/token_counts.py).
+            from . import token_counts
+
+            token_counts.record(conn, self._content_dir_or_none(owner, name), raw_files)
 
             # Always read meta (small). Only read all rows when no cached index to patch.
             meta = self._read_meta(conn)
@@ -3735,6 +3751,12 @@ class SQLiteIndexStore:
         serialises concurrent writers to a repo, so the pid-suffixed temp name
         cannot collide.
         """
+        # The text is in hand here, so this is where its token count is
+        # taken (storage/token_counts.py); `metadata_only` keeps no copy to
+        # count from later.
+        from . import token_counts
+
+        token_counts.note(content)
         try:
             from .. import config as _cfg
             if _cfg.get("cache_mode", "full") == "metadata_only":
@@ -4419,7 +4441,7 @@ class SQLiteIndexStore:
                         merged_fl.get(fp, ""),
                         file_summaries.get(fp, ""),
                         file_blob_shas.get(fp, ""),
-                        json.dumps(imports_map.get(fp, [])),
+                        json.dumps(written_imports(imports_map.get(fp, []))),
                     ),
                 )
 

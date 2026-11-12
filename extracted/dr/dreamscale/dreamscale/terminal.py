@@ -288,6 +288,18 @@ def describe_runtime_summary(
                 f"rtc_hold_gap_steps={rtc_hold_gap_steps}",
             ]
         )
+    if int(getattr(runtime_stats, "context_reports", 0) or 0) > 0:
+        # What the server reported of its context and kinematics (Praxis-1, DSL-424): a lost
+        # context, or a missing frame, means the model planned from less than the robot saw.
+        parts.extend(
+            f"{label}={int(getattr(runtime_stats, name, 0) or 0)}"
+            for label, name in (
+                ("context_restarts", "context_restarts"),
+                ("frames_missing", "history_frames_missing"),
+                ("ik_retries", "ik_retries"),
+                ("ik_misses", "ik_misses"),
+            )
+        )
     latency_health = getattr(calibration_profile, "latency_health", None)
     if latency_health:
         parts.append(f"latency={latency_health}")

@@ -13,6 +13,7 @@ from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from .idempotency import same_arguments_key
+from .response_format import format_payload
 
 
 def _decode_base64(value: str) -> bytes:
@@ -57,7 +58,7 @@ def _format_response(response: Any) -> str:
             # generic 'accounts' branch (which would print only 'platform: username' and
             # drop currentFollowers/growth and the daily series). 'stats' attr is unique
             # to FollowerStatsResponse, so no other tool's response matches.
-            return response.model_dump_json(by_alias=True, exclude_none=True)
+            return format_payload(response)
         if hasattr(response, "accounts") and response.accounts:
             accs = response.accounts
             lines = [f"Found {len(accs)} account(s):"]
@@ -81,7 +82,7 @@ def _format_response(response: Any) -> str:
         if hasattr(response, "profile") and response.profile:
             p = response.profile
             return f"Profile: {getattr(p, 'name', 'N/A')} (ID: {getattr(p, 'field_id', 'N/A')})"
-    return str(response)
+    return format_payload(response)
 
 
 def register_generated_tools(mcp, _get_client):
@@ -780,7 +781,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id. A 24-character hexadecimal value is read as an account id and matches only that exact account. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack, iMessage, LINE and WeChat, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
                 sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -1054,9 +1055,12 @@ def register_generated_tools(mcp, _get_client):
             "redditads",
             "microsoftads",
             "whopads",
+            "applovinads",
             "hubspot",
             "webflow",
             "googleanalytics",
+            "line",
+            "wechat",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -2291,6 +2295,53 @@ def register_generated_tools(mcp, _get_client):
                 log_messages=log_messages,
                 report_deals=report_deals,
                 use_deals_as_results=use_deals_as_results,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Stripe account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_stripe_settings(account_id: str) -> str:
+        """Get Stripe account settings
+
+        Read a connected Stripe account and whether its sales go to the ad platforms.
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_stripe_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update Stripe account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_stripe_settings(account_id: str, forward_sales: bool) -> str:
+        """Update Stripe account settings
+
+        Turn sending Stripe sales to the ad platforms on or off for a connected Stripe account. Sales are always stored and counted in campaign results; this only decides whether they are also forwarded.
+
+        Args:
+            account_id: (required)
+            forward_sales: Send one-off sales as `Purchase`, a subscription's first payment as `Subscribe` and trial starts as `StartTrial` through the profile's forwarding rules that take the `stripe` source. Renewals and refunds are never sent. (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.update_stripe_settings(
+                account_id=account_id, forward_sales=forward_sales
             )
             return _format_response(response)
         except Exception as e:
@@ -6071,7 +6122,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaign_results_list_campaign_result_metrics() -> str:
         """List your result metrics
 
-        The metric keys your team has sent, with their label and kind, then the formulas: your own and the built-in ones (`cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale`). A new key appears as a `count` labelled from the key; name it, or define a formula, with `PUT /v1/ads/campaign-results/metrics/{key}`.
+        The metric keys your team has sent, with their label and kind, then the formulas: your own and the built-in ones (`cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale`, `qualified_rate`). A new key appears as a `count` labelled from the key; name it, or define a formula, with `PUT /v1/ads/campaign-results/metrics/{key}`.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
         client = _get_client()
@@ -6133,7 +6184,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_list_ads(
         page: int = 1,
-        limit: int = 50,
+        limit: int = 10,
         source: Literal["zernio", "all"] = "all",
         status: Literal[
             "active",
@@ -6169,53 +6220,63 @@ def register_generated_tools(mcp, _get_client):
         effective_instagram_media_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        view: Literal["full", "summary"] = "summary",
     ) -> str:
         """List ads
 
-        Lists your ads with their performance over a date range, including ads created directly in each platform's ads manager.
+            Lists your ads with their performance over a date range, including ads created directly in each platform's ads manager.
 
-        Returns a paginated list of ads with metrics computed over an optional date range. Use source=all to include externally-synced ads from platform ad managers.
+            Returns a paginated list of ads with metrics computed over an optional date range. Use source=all to include externally-synced ads from platform ad managers.
 
-        If no date range is provided, it defaults to the last 90 days. The date range is capped at 730 days max.
+            If no date range is provided, it defaults to the last 90 days. The date range is capped at 730 days max.
 
-        ### History
+            ### History
 
-        When an ad account connects, Zernio imports its last 90 days of metrics, so the metrics hold no data for days before that.
+            When an ad account connects, Zernio imports its last 90 days of metrics, so the metrics hold no data for days before that.
 
-        When `accountId` or `adAccountId` resolves to a Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the covered part. The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200.
+            When `accountId` or `adAccountId` resolves to a Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the covered part. The older days (up to 730 days back) are imported in the background; repeat the request until it returns 200.
 
-        A request scoped to no Meta account never returns `202`.
+            A request scoped to no Meta account never returns `202`.
 
-        ### Finding the ad behind a comment
+            ### Finding the ad behind a comment
 
-        To find the Zernio ad behind a comment you see in Meta Business Manager:
+            To find the Zernio ad behind a comment you see in Meta Business Manager:
 
-        1. Filter by platformAdId (the Meta ...
+            1. Filter by platformAdId (the Meta ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
 
-        Args:
-            page: Page number (1-based)
-            limit
-            source: all (default) = Zernio-created + platform-discovered ads. zernio = restrict to Zernio-created only.
-            status
-            platform
-            account_id: Account ID
-            ad_account_id: Platform ad account ID (e.g. act_123 for Meta). Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
-            page_id: Meta only: Facebook Page ID. Returns only ads whose creative is backed by this Page (a Meta ad account serves ads for every Page in the Business Manager). Matches each ad's `creative.pageId`; ads with no page signal (rare IG-only creatives) never match. Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
-            profile_id: Profile ID
-            campaign_id: Platform campaign ID (filter ads within a campaign)
-            ad_set_id: Platform ad set ID (filter ads within an ad set, the /{adset_id}/ads read of an adset-centric dashboard).
-            platform_ad_id: Meta ad ID. Returns the ad with this platform-side ad ID.
-            effective_object_story_id: Facebook `{pageId}_{postId}` of the post the ad's engagement lives on (Meta `effective_object_story_id`). Use to map a Business-Manager-visible post back to the Zernio ad.
-            effective_instagram_media_id: Instagram media ID of the boosted post (Meta `effective_instagram_media_id`). Use to map a Business-Manager-visible IG post back to the Zernio ad.
-            from_date: Start of metrics date range (YYYY-MM-DD). Defaults to 90 days ago.
-            to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range."""
+            Args:
+                page: Page number (1-based)
+                limit: Default 10, at most 20 per call; page through for more.
+                source: all (default) = Zernio-created + platform-discovered ads. zernio = restrict to Zernio-created only.
+                status
+                platform
+                account_id: Account ID
+                ad_account_id: Platform ad account ID (e.g. act_123 for Meta). Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
+                page_id: Meta only: Facebook Page ID. Returns only ads whose creative is backed by this Page (a Meta ad account serves ads for every Page in the Business Manager). Matches each ad's `creative.pageId`; ads with no page signal (rare IG-only creatives) never match. Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
+                profile_id: Profile ID
+                campaign_id: Platform campaign ID (filter ads within a campaign)
+                ad_set_id: Platform ad set ID (filter ads within an ad set, the /{adset_id}/ads read of an adset-centric dashboard).
+                platform_ad_id: Meta ad ID. Returns the ad with this platform-side ad ID.
+                effective_object_story_id: Facebook `{pageId}_{postId}` of the post the ad's engagement lives on (Meta `effective_object_story_id`). Use to map a Business-Manager-visible post back to the Zernio ad.
+                effective_instagram_media_id: Instagram media ID of the boosted post (Meta `effective_instagram_media_id`). Use to map a Business-Manager-visible IG post back to the Zernio ad.
+                from_date: Start of metrics date range (YYYY-MM-DD). Defaults to 90 days ago.
+                to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
+                view: `full` (default) returns every field. `summary` is about 80% smaller per ad and keeps only:
+
+        - `_id`, `name`, `platform`, `status`, `platformStatus`, `servingStatuses` (left out when empty), `configuredStatus`, `reviewStatus`, `rejectionReason`, `goal`.
+        - The platform ids, `accountId`, `profileId`, `campaignName`, `adSetName`, `budget`, `currency`, `isExternal`, `creativeType`, `platformCreatedAt`, `createdAt`.
+        - `postId` as the post id, not the expanded post.
+        - `creative` with only `headline`, `body` (cut to 200 characters), `linkUrl`, `callToAction` and `effectiveObjectStoryId`.
+        - `metrics` without `costPerAction` and without any metric that is 0: an absent metric means 0.
+
+        Read one ad with `platformAdId` and `view=full` for the rest. Defaults to summary here; pass full for everything."""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ads(
                 page=page,
-                limit=limit,
+                limit=max(1, min(limit, 20)),
                 source=source,
                 status=status,
                 platform=platform,
@@ -6230,6 +6291,7 @@ def register_generated_tools(mcp, _get_client):
                 effective_instagram_media_id=effective_instagram_media_id,
                 from_date=from_date,
                 to_date=to_date,
+                view=view,
             )
             return _format_response(response)
         except Exception as e:
@@ -7859,8 +7921,9 @@ def register_generated_tools(mcp, _get_client):
         ]
         | None = None,
         page: int = 1,
-        limit: int = 500,
+        limit: int = 20,
         live: bool = False,
+        view: Literal["full", "summary"] = "summary",
     ) -> str:
         """List ad sets
 
@@ -7890,7 +7953,7 @@ def register_generated_tools(mcp, _get_client):
                 platform
                 status: Filter by the ad set's stored `status`, the value each row returns. A live read does not change it. Rows whose `status` is null match no filter.
                 page
-                limit
+                limit: Default 20, at most 40 per call; page through for more.
                 live: Read the on/off switches live from the platform instead of returning synced values. See "Status freshness" in the operation description.
 
         - The fresh values are stored (later reads return them too), and the response carries `statusReadAt`, the time of the read.
@@ -7902,7 +7965,8 @@ def register_generated_tools(mcp, _get_client):
         **On X** the budget is read live too:
 
         - GET /v1/ads/{adId}: `budget`, `adSetBudget`, `campaignBudget` and `budgetLevel` are the line item and campaign budgets X holds now (stored like the switches).
-        - Ad set and campaign listings: `budget` is what that line item or campaign holds now (returned, not stored). A row whose budget the other level holds keeps its synced `budget`."""
+        - Ad set and campaign listings: `budget` is what that line item or campaign holds now (returned, not stored). A row whose budget the other level holds keeps its synced `budget`.
+                view: `full` returns every field. `summary` leaves `targeting` out of each ad set, which is most of a row's size; read one ad set's targeting with `adSetId` and `view=full`. Defaults to summary here; pass full for everything."""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ad_sets(
@@ -7913,8 +7977,9 @@ def register_generated_tools(mcp, _get_client):
                 platform=platform,
                 status=status,
                 page=page,
-                limit=limit,
+                limit=max(1, min(limit, 40)),
                 live=live,
+                view=view,
             )
             return _format_response(response)
         except Exception as e:
@@ -8530,7 +8595,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_get_ad_tree(
         page: int = 1,
-        limit: int = 20,
+        limit: int = 10,
         source: Literal["zernio", "all"] = "all",
         platform: Literal[
             "facebook",
@@ -8571,6 +8636,7 @@ def register_generated_tools(mcp, _get_client):
         daily_level: Literal["campaign", "adset", "ad"] = "campaign",
         compare: Literal["previous"] | None = None,
         results: bool | None = None,
+        depth: Literal["campaign", "adset", "ad"] = "campaign",
     ) -> str:
         """Get campaign tree
 
@@ -8596,7 +8662,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 page: Page number (1-based)
-                limit: Campaigns per page
+                limit: Campaigns per page. Default 10, at most 20 per call; page through for more.
                 source: `all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager. Matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default; use the `status` param for that.
                 platform
                 status: Filter by derived campaign status (post-aggregation). `not_deleted` keeps every status except `cancelled`.
@@ -8639,12 +8705,17 @@ def register_generated_tools(mcp, _get_client):
         - `adset`: on ad sets too.
         - `ad`: on every ad in `ads[]` as well. Heaviest (a long range × up to 100 ads per ad set); scope with `campaignId` to keep responses small.
                 compare: Set to `previous` to also read the period of the same length that ends the day before `fromDate`. Every campaign, ad set and ad gains `previousMetrics` (same fields as `metrics`) and the response gains `previousRange`, so a table can show the change against the previous period in one call.
-                results: Set to `true` to add your own results (see [Campaign results](/guides/campaign-results)): every campaign gains `results`, the values you sent for the range plus each formula they allow, and the response gains `resultMetrics` to label them."""
+                results: Set to `true` to add your own results (see [Campaign results](/guides/campaign-results)): every campaign gains `results`, the values you sent for the range plus each formula they allow, and the response gains `resultMetrics` to label them.
+                depth: How deep the tree goes. Metrics always roll up over every ad, whatever the depth.
+
+        - `ad` (default): campaigns, their ad sets and each ad set's ads.
+        - `adset`: campaigns and ad sets; every `ads[]` is empty and `adCount` still counts the ads.
+        - `campaign`: campaigns only; every `adSets[]` is empty and `adSetCount` / `adCount` still count them. Defaults to campaign here; pass adset with campaign_id for one campaign's ad sets, or ad for everything."""
         client = _get_client()
         try:
             response = client.ad_campaigns.get_ad_tree(
                 page=page,
-                limit=limit,
+                limit=max(1, min(limit, 20)),
                 source=source,
                 platform=platform,
                 status=status,
@@ -8664,6 +8735,7 @@ def register_generated_tools(mcp, _get_client):
                 daily_level=daily_level,
                 compare=compare,
                 results=results,
+                depth=depth,
             )
             return _format_response(response)
         except Exception as e:
@@ -13412,7 +13484,7 @@ def register_generated_tools(mcp, _get_client):
             filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
             groups
             lifecycle: Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required) (required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required) (required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ... (required)
             schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (array or null) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string or null) - The rule runs from this time on.; endsAt (string or null) - The rule stops running after this time.; quietHours (object or null) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes: How long the rule leaves an object alone after acting on it.
@@ -13601,7 +13673,7 @@ def register_generated_tools(mcp, _get_client):
             filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
             groups: Null removes the groups; each campaign is then judged on its own.
             lifecycle: Null removes it; every matching run then acts and notifies again.
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ...
             schedule: Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (array or null) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string or null) - The rule runs from this time on.; endsAt (string or null) - The rule stops running after this time.; quietHours (object or null) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes
@@ -14148,7 +14220,7 @@ def register_generated_tools(mcp, _get_client):
         source: Literal["all", "late", "external"] = "all",
         from_date: str | None = None,
         to_date: str | None = None,
-        limit: int = 50,
+        limit: int = 20,
         page: int = 1,
         sort_by: Literal[
             "date",
@@ -14172,6 +14244,7 @@ def register_generated_tools(mcp, _get_client):
         ] = "date",
         order: Literal["asc", "desc"] = "desc",
         tags: str | None = None,
+        view: Literal["full", "summary"] = "summary",
     ) -> str:
         """Get post analytics
 
@@ -14199,11 +14272,12 @@ def register_generated_tools(mcp, _get_client):
             source: Filter by post source: late (posted via Zernio API), external (synced from platform), all (default)
             from_date: Inclusive lower bound (YYYY-MM-DD). Defaults to 90 days ago if omitted. Max range is 366 days.
             to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today if omitted.
-            limit: Page size (default 50)
+            limit: Page size. Default 20, at most 40 per call; page through for more.
             page: Page number (default 1)
             sort_by: Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views, website_clicks) sort a null value as 0.
             order: Sort order
-            tags: Comma-separated tags (at most 20). Lists only posts created through Zernio that carry every listed tag, matched exactly and case-sensitively. Up to 200 published posts can match within the date range; more returns 400 asking to narrow fromDate and toDate. Ignored when postId is set."""
+            tags: Comma-separated tags (at most 20). Lists only posts created through Zernio that carry every listed tag, matched exactly and case-sensitively. Up to 200 published posts can match within the date range; more returns 400 asking to narrow fromDate and toDate. Ignored when postId is set.
+            view: full returns the listing as before. summary leaves out the accounts list, each platform entry's copy of analytics, the impressionSources, audienceTypes, audienceCountries and retentionCurve maps, and mediaItems (thumbnailUrl stays). Ignored when postId is set. Defaults to summary here; pass full for everything."""
         client = _get_client()
         try:
             response = client.analytics.get_analytics(
@@ -14214,11 +14288,12 @@ def register_generated_tools(mcp, _get_client):
                 source=source,
                 from_date=from_date,
                 to_date=to_date,
-                limit=limit,
+                limit=max(1, min(limit, 40)),
                 page=page,
                 sort_by=sort_by,
                 order=order,
                 tags=tags,
+                view=view,
             )
             return _format_response(response)
         except Exception as e:
@@ -16560,7 +16635,7 @@ def register_generated_tools(mcp, _get_client):
             trigger: Object with keys: type (string, required); every (one of: 15m, 30m, 1h, 3h, 6h, 12h, 1d) - Run every interval. Send this or `times`, not both.; times (list of objects with keys days, at) - Set weekly times. Send this or `every`, not both.; startsAt (string) - Runs from this time on.; endsAt (string) - Stops running after this time. Must be after `startsAt`.; quietHours (object with keys from, to) - A daily window with no checks. It may wrap past midnight, such as `22:00` to `06:00`.
             subjects: Object with keys: each (one of: campaign, adset, ad; required) - The objects judged one by one.; adAccounts (list of objects with keys accountId, adAccountId, required) - The ad account to check. One per ad rule, and an edit cannot move it to another.; campaignIds (list of string) - Only these platform campaigns or their ad sets and ads. Leave out to check the whole ad account.; filters (list of objects with keys field, op, value) - All must hold.; groups (list of objects with keys name, filters) - Judges campaigns together (campaign rules only): each group's numbers are summed and its rates computed on the totals, and a matching group acts on each of ...
             filter: Object with keys: field (string, required) - A fact name from the catalog.; op (one of: equals, not_equals, contains, not_contains, starts_with, ends_with, exists, not_exists, matches, greater_than, less_than, greater_or_equal, less_or_equal, before, after, has_tag, not_has_tag, is_true, is_false; required); value (string or number, required)
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required)
             alert
             steps: The steps the automation's kind takes. Each item is an object with keys: id (string); type (string, required)
             limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, over its whole history. Needs an `ads.*` step."""
@@ -17855,6 +17930,8 @@ def register_generated_tools(mcp, _get_client):
         - `enterpriseId`: a new identity for a registered business.
         - Neither: the business registers itself and its first identity.
 
+        On balance billing, a link that creates an identity needs its first month in the balance first (402 otherwise).
+
         The person opening the link can forward a fresh one to someone else, which retires theirs.
 
         Args:
@@ -18303,6 +18380,7 @@ def register_generated_tools(mcp, _get_client):
             "sms",
             "slack",
             "imessage",
+            "line",
         ],
         name: str,
         description: str | None = None,
@@ -21361,6 +21439,7 @@ def register_generated_tools(mcp, _get_client):
         sort_by: Literal["date", "comments"] = "date",
         sort_order: Literal["asc", "desc"] = "desc",
         limit: int = 50,
+        view: Literal["full", "summary"] = "summary",
         cursor: str | None = None,
         account_id: str | None = None,
     ) -> str:
@@ -21393,6 +21472,7 @@ def register_generated_tools(mcp, _get_client):
                 sort_by: Sort field
                 sort_order: Sort order
                 limit
+                view: full returns every post as before. summary leaves out `picture` and cuts `content` to 280 characters, marking a cut caption with `contentTruncated: true`. Defaults to summary here; pass full for everything.
                 cursor
                 account_id: Filter by specific account ID.
 
@@ -21409,6 +21489,7 @@ def register_generated_tools(mcp, _get_client):
                 sort_by=sort_by,
                 sort_order=sort_order,
                 limit=limit,
+                view=view,
                 cursor=cursor,
                 account_id=account_id,
             )
@@ -21431,6 +21512,7 @@ def register_generated_tools(mcp, _get_client):
         limit: int = 25,
         cursor: str | None = None,
         comment_id: str | None = None,
+        view: Literal["full", "summary"] = "summary",
     ) -> str:
         """Get post comments
 
@@ -21464,7 +21546,12 @@ def register_generated_tools(mcp, _get_client):
                 subreddit: (Reddit only) Subreddit name
                 limit: Maximum number of comments to return
                 cursor: Pagination cursor, returned by a previous call as `pagination.cursor`. This is the platform's own opaque paging value passed through verbatim: never construct, decode or validate it client-side.
-                comment_id: (Facebook, Instagram, Reddit and TikTok) Get replies to a specific comment. On Facebook and Instagram, the requested comment is returned in the top-level `comment` field and comments[] holds its replies."""
+                comment_id: (Facebook, Instagram, Reddit and TikTok) Get replies to a specific comment. On Facebook and Instagram, the requested comment is returned in the top-level `comment` field and comments[] holds its replies.
+                view: `full` returns every comment as before. `summary` is a lighter page for agents and large polls:
+
+        - Each comment leaves out `from.picture`, `url`, `platform` and every flag that is false.
+        - At most 3 nested replies per comment. A comment with more replies than it carries has `repliesHasMore: true`: fetch the rest with `commentId` (Facebook, Instagram, Reddit, TikTok) or with view=full.
+        - `post` leaves out `thumbnailUrl` and `mediaUrl`. Defaults to summary here; pass full for everything."""
         client = _get_client()
         try:
             response = client.comments.get_inbox_post_comments(
@@ -21474,6 +21561,7 @@ def register_generated_tools(mcp, _get_client):
                 limit=limit,
                 cursor=cursor,
                 comment_id=comment_id,
+                view=view,
             )
             return _format_response(response)
         except Exception as e:
@@ -22080,6 +22168,8 @@ def register_generated_tools(mcp, _get_client):
         created_after: str | None = None,
         created_before: str | None = None,
         updated_after: str | None = None,
+        customer_id: str | None = None,
+        email: str | None = None,
     ) -> str:
         """List orders
 
@@ -22111,7 +22201,9 @@ def register_generated_tools(mcp, _get_client):
             cursor
             created_after
             created_before
-            updated_after: Only orders changed after this time, oldest change first."""
+            updated_after: Only orders changed after this time, oldest change first.
+            customer_id: Only this customer's orders (`customer.id` on an order, or `id` from the customers endpoints).
+            email: Only orders placed with this email. Shopify only; WooCommerce answers 400 platform_not_supported."""
         client = _get_client()
         try:
             response = client.commerce.list_commerce_orders(
@@ -22121,6 +22213,8 @@ def register_generated_tools(mcp, _get_client):
                 created_after=created_after,
                 created_before=created_before,
                 updated_after=updated_after,
+                customer_id=customer_id,
+                email=email,
             )
             return _format_response(response)
         except Exception as e:
@@ -22148,6 +22242,353 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.commerce.get_commerce_order(
                 order_id=order_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Refund an order",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_refund(
+        order_id: str,
+        account_id: str,
+        line_items: list[dict[str, Any]] | None = None,
+        shipping: dict[str, Any] | None = None,
+        amount: str | None = None,
+        currency: str | None = None,
+        note: str | None = None,
+        notify_customer: bool = False,
+        validate_only: bool = False,
+    ) -> str:
+        """Refund an order
+
+        Refunds line items, shipping or an amount of money to the buyer's original payment methods. Needs orders.refund.
+
+        - Preview first with `validateOnly: true`: it returns what the buyer gets back and to which payments, without refunding anything.
+        - A real refund needs an `Idempotency-Key` header (a UUID per refund): a retry with the same key never refunds twice.
+        - Every amount, sent or returned, is in the currency the buyer paid in, the one refunds are made in. Send `currency` to have a mismatch refused instead of guessed.
+
+        Platforms: shopify
+
+        Args:
+            order_id: Platform-native order id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            line_items: Each item is an object with keys: lineItemId (string, required) - A line item id from the order (`lineItems[].id`).; quantity (integer, required); restock (boolean) - Put the units back in stock. Unshipped units are cancelled and shipped ones count as returned.
+            shipping: Refund the shipping: `{ "full": true }` for what is left of it, or `{ "amount": "5.00" }` for part of it. Object with keys: full (boolean, required) - Must be true.
+            amount: Refund this much money instead of what the lines and shipping are worth, for a goodwill refund or a partial one. Taken from the order's payments in order, up to what each can still refund.
+            currency: The currency your amounts are in. Refused (400) unless it is the one the buyer paid in, which every refund amount uses.
+            note: Kept on the refund, visible to staff.
+            notify_customer: Email the buyer about the refund.
+            validate_only: Return the refund the platform would make, without refunding anything."""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_refund(
+                order_id=order_id,
+                account_id=account_id,
+                line_items=line_items,
+                shipping=shipping,
+                amount=amount,
+                currency=currency,
+                note=note,
+                notify_customer=notify_customer,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Edit an order",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_order_edit(
+        order_id: str,
+        account_id: str,
+        add: list[dict[str, Any]] | None = None,
+        quantities: list[dict[str, Any]] | None = None,
+        notify_customer: bool = False,
+        staff_note: str | None = None,
+        validate_only: bool = False,
+    ) -> str:
+        """Edit an order
+
+        Adds products to an order and changes or removes its lines. Needs orders.edit.
+
+        - Preview first with `validateOnly: true`: it returns the new totals and what the buyer would owe, and changes nothing.
+        - A real edit needs an `Idempotency-Key` header (a UUID per edit): a retry with the same key never applies it twice.
+        - When the edit raises the total, the buyer owes `outstanding`; `notifyCustomer` emails them the change. When it lowers it, refund the difference with the refunds endpoint.
+
+        Platforms: shopify
+
+        Args:
+            order_id: Platform-native order id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            add: Each item is an object with keys: variantId (string, required); quantity (integer, required)
+            quantities: Each item is an object with keys: lineItemId (string, required) - A line item id from the order.; quantity (integer, required) - The new quantity; 0 removes the line.; restock (boolean) - Put removed units back in stock.
+            notify_customer
+            staff_note
+            validate_only: Return the edited totals without changing the order."""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_order_edit(
+                order_id=order_id,
+                account_id=account_id,
+                add=add,
+                quantities=quantities,
+                notify_customer=notify_customer,
+                staff_note=staff_note,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Cancel an order",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_cancel_commerce_order(
+        order_id: str,
+        account_id: str,
+        reason: Literal["customer", "declined", "fraud", "inventory", "staff", "other"],
+        refund: bool = True,
+        restock: bool = True,
+        notify_customer: bool = False,
+        staff_note: str | None = None,
+    ) -> str:
+        """Cancel an order
+
+        Cancels an order, by default refunding it to the original payment methods and restocking it. Needs orders.cancel.
+
+        The platform cancels in the background. The call waits a few seconds: `200` with `cancelled: true` when it finished, `202` with `cancelled: false` when it is still running (the `commerce.order.updated` webhook reports the outcome).
+
+        Platforms: shopify
+
+        Args:
+            order_id: Platform-native order id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            reason: (required)
+            refund: Refund the payments to the original methods. Authorized payments are voided either way.
+            restock
+            notify_customer
+            staff_note: Visible to staff only."""
+        client = _get_client()
+        try:
+            response = client.commerce.cancel_commerce_order(
+                order_id=order_id,
+                account_id=account_id,
+                reason=reason,
+                refund=refund,
+                restock=restock,
+                notify_customer=notify_customer,
+                staff_note=staff_note,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a draft order",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_create_commerce_draft_order(
+        account_id: str,
+        line_items: list[dict[str, Any]] | None,
+        customer_id: str | None = None,
+        email: str | None = None,
+        discount: dict[str, Any] | None = None,
+        shipping: dict[str, Any] | None = None,
+        shipping_address: dict[str, Any] | None = None,
+        note: str | None = None,
+        tags: list[str] | None = None,
+    ) -> str:
+        """Create a draft order
+
+        Creates a draft order for a customer, for a replacement, a phone order or a custom quote. Needs draft_orders.write.
+
+        Send the buyer its checkout link with the invoice endpoint; the draft becomes an order once they pay. Amounts in the response are in the currency the buyer pays in; custom prices you send are in the store currency.
+
+        Platforms: shopify
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            customer_id: The customer it is for, from the customers endpoints.
+            email
+            line_items: A product variant (variantId) or a custom item (title and price). Each item is an object with keys: variantId (string); title (string) - Custom item only.; price (string) - Custom item only, in the store currency.; quantity (integer, required); taxable (boolean) - Custom item only.; requiresShipping (boolean) - Custom item only. (required)
+            discount: A discount on the whole draft. Object with keys: type (one of: percentage, fixed; required); value (number, required) - A percentage (at most 100) or an amount in the store currency.; title (string)
+            shipping: Object with keys: title (string, required); price (string, required)
+            shipping_address: Where to ship. Without one, the customer's default address is used. Object with keys: firstName (string); lastName (string); company (string); phone (string); line1 (string); line2 (string); city (string); region (string) - State or province code, e.g. CA.; postalCode (string); countryCode (string, required) - ISO 3166 code, e.g. US.
+            note
+            tags"""
+        client = _get_client()
+        try:
+            response = client.commerce.create_commerce_draft_order(
+                account_id=account_id,
+                customer_id=customer_id,
+                email=email,
+                line_items=line_items,
+                discount=discount,
+                shipping=shipping,
+                shipping_address=shipping_address,
+                note=note,
+                tags=tags,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a draft order",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_draft_order(draft_order_id: str, account_id: str) -> str:
+        """Get a draft order
+
+        One draft order with its status, checkout link and, once paid, the order it became. Needs draft_orders.read.
+
+        Platforms: shopify
+
+        Args:
+            draft_order_id: Platform-native draft order id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_draft_order(
+                draft_order_id=draft_order_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send a draft order invoice",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def commerce_send_commerce_draft_order_invoice(
+        draft_order_id: str,
+        account_id: str,
+        to: str | None = None,
+        subject: str | None = None,
+        custom_message: str | None = None,
+    ) -> str:
+        """Send a draft order invoice
+
+        Emails the buyer the draft's checkout link. The draft becomes an order when they pay. Needs draft_orders.write.
+
+        Platforms: shopify
+
+        Args:
+            draft_order_id: Platform-native draft order id. (required)
+            account_id: Connected store SocialAccount id. (required)
+            to: Defaults to the draft's email.
+            subject
+            custom_message"""
+        client = _get_client()
+        try:
+            response = client.commerce.send_commerce_draft_order_invoice(
+                draft_order_id=draft_order_id,
+                account_id=account_id,
+                to=to,
+                subject=subject,
+                custom_message=custom_message,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List customers",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_list_commerce_customers(
+        account_id: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        search: str | None = None,
+    ) -> str:
+        """List customers
+
+        The store's customers, most recently updated first. Needs customers.read.
+
+        Find the customer behind a support ticket with `email`, `phone` or `search`, then read their orders with `GET /v1/commerce/orders?customerId=`.
+
+        Platforms: shopify
+
+        Args:
+            account_id: Connected store SocialAccount id. (required)
+            limit
+            cursor
+            email
+            phone
+            search: Free text matched against name, email and phone."""
+        client = _get_client()
+        try:
+            response = client.commerce.list_commerce_customers(
+                account_id=account_id,
+                limit=limit,
+                cursor=cursor,
+                email=email,
+                phone=phone,
+                search=search,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a customer",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def commerce_get_commerce_customer(customer_id: str, account_id: str) -> str:
+        """Get a customer
+
+        One customer with their order count, total spent and default address. Needs customers.read.
+
+        Platforms: shopify
+
+        Args:
+            customer_id: Platform-native customer id. (required)
+            account_id: Connected store SocialAccount id. (required)"""
+        client = _get_client()
+        try:
+            response = client.commerce.get_commerce_customer(
+                customer_id=customer_id, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -24768,9 +25209,11 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         reconnect_account_id: str | None = None,
         oauth_app_id: str | None = None,
+        purpose: Literal["notifications"] | None = None,
         expected_platform_user_id: str | None = None,
         expected_username: str | None = None,
         force_reauth: bool = False,
+        allow_no_location: bool = False,
         redirect_url: str | None = None,
         scopes: str | None = None,
         login_hint: str | None = None,
@@ -24827,6 +25270,9 @@ def register_generated_tools(mcp, _get_client):
         - If the platform refuses a permission your app is not approved for, the redirect carries `error=oauth_app_scope_not_allowed`.
 
         The account remembers the app, and token refresh, publishing and inbox run on it. Reconnecting through another app, or without one, moves the account to that app.
+                purpose: Connect the account for notifications only. Slack and Telegram only: `GET /v1/connect/{platform}` returns 400 for any other platform, and other platforms' own connect endpoints ignore it.
+
+        The account is free, receives Zernio notifications, and cannot publish. To publish with it, connect it again without `purpose`. Refused with 400 when the channel or chat is already connected for publishing: connect a separate one for notifications.
                 expected_platform_user_id: Only connect if the login lands on this platform account. Any other account ends the flow with `error=account_mismatch` (a 409 `account_mismatch` on POST /v1/connect/instagram/select-account) and nothing is written.
 
         Compared with every id the platform reports for the authorized account:
@@ -24844,6 +25290,11 @@ def register_generated_tools(mcp, _get_client):
                 force_reauth: Instagram Login only (the default loginMethod); ignored elsewhere. Makes Instagram show its login page and ask for the credentials of the account to connect, even when another Instagram account is logged in on the device or app. Also hides the Facebook login option on that page.
 
         Use it when the person connecting manages several Instagram accounts on one phone: otherwise Instagram logs in, and converts to a professional account, whichever account is active, before any consent screen. Pair it with expectedUsername to also refuse a wrong account at the end.
+                allow_no_location: Google Business only (`platform=googlebusiness`); any other platform answers 400. Lets a Google account with no Business Profile location finish the connect instead of ending with `error=no_google_locations`.
+
+        The selection step (`step=select_location`, or the hosted page) then lists no locations. Call `POST /v1/connect/googlebusiness/select-location` without `locationId` or `locations` to connect the account with no location (`needsLocation: true`).
+
+        Without it, a sign-in that lists no location still ends with `no_google_locations`. The marker travels in the redirect_url we hand you, so pass that URL back unchanged in headless mode.
                 redirect_url: Your custom redirect URL after the connection completes. It MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback). A relative path is rejected with 400 `INVALID_REDIRECT_URL`.
 
         **Exit notice:** when `redirect_url` is an http(s) URL on another site (anything but zernio.com), every redirect of the flow lands first on `https://zernio.com/connect/continue?to=<your URL>`, a Zernio page that names your site and continues to it with one click. All params below reach your URL unchanged.
@@ -25025,8 +25476,8 @@ def register_generated_tools(mcp, _get_client):
         - **Copy**: `heading` (up to 120 characters); `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button); `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls).
         - **Closing page** (shown when there is no `redirect_url`): `successHeading` and `errorHeading` (up to 120), `successBody` and `errorBody` (up to 200). All copy may contain the placeholders `{brand}` and `{platform}`.
         - **Colors**: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor`, all as `#RRGGBB`.
-        - **Style**: `cornerRadius` as an integer from 0 to 24 (pixels); `font` as `sans`, `serif` or `mono`; `bannerStyle` as `halftone` (default), `solid` (a flat tint of `accentColor`) or `plain` (no banner fill).
-        - **Icons**: `trustLineIcon` (default `shield`) and `consentLineIcon` (default `link`), each one of `shield`, `lock`, `link`, `check`, `user`, `sparkles` or `none`.
+        - **Style**: `cornerRadius` as an integer from 0 to 24 (pixels); `font` as `sans`, `serif` or `mono`; `bannerStyle` as `waves` (default, halftone waves in `accentColor`), `solid` (a flat tint of `accentColor`) or `plain` (no banner fill); `halftone`, the former default, is still accepted and shows as `waves`.
+        - **Icons**: `trustLineIcon` (default `shield`) and `consentLineIcon` (default `user`), each one of `shield`, `lock`, `link`, `check`, `user`, `sparkles` or `none`.
         - **Visibility**: `hide`, an array of any of `heading`, `trustLine`, `consentLine`, `statusLine`, `successBody` and `errorBody`, removes those lines from the screens.
         - **Links**: `termsUrl` and `privacyUrl` (https, up to 2048 characters) add small Terms and Privacy links at the bottom of every hosted screen.
 
@@ -25051,9 +25502,11 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 reconnect_account_id=reconnect_account_id,
                 oauth_app_id=oauth_app_id,
+                purpose=purpose,
                 expected_platform_user_id=expected_platform_user_id,
                 expected_username=expected_username,
                 force_reauth=force_reauth,
+                allow_no_location=allow_no_location,
                 redirect_url=redirect_url,
                 scopes=scopes,
                 login_hint=login_hint,
@@ -26123,6 +26576,7 @@ def register_generated_tools(mcp, _get_client):
         location_id: str | None = None,
         locations: list[dict[str, Any]] | None = None,
         account_id: str | None = None,
+        google_account_id: str | None = None,
         redirect_url: str | None = None,
     ) -> str:
         """Select Google Business Profile location
@@ -26131,9 +26585,10 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Profile ID from your connection flow (required)
-            location_id: The Google Business Profile location ID selected by the user. Send this or locations, not both.
+            location_id: The Google Business Profile location ID selected by the user. Send this or locations, not both. Omit both to connect with no location (`needsLocation: true`), allowed only when the connect used allowNoLocation=true, the sign-in listed no locations and it is not a reconnect.
             locations: Several locations to connect from one sign-in, each as its own account. A single location behaves exactly like locationId. The sign-in is used once for the whole batch and handed back only if none connected. With two or more distinct locations, the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect. Each item is an object with keys: locationId (string, required); accountId (string) - The location's Google Business Profile Account resource name, as for the top-level accountId.
             account_id: Optional but recommended. The Google Business Profile Account resource name ("accounts/123") that owns the selected location (returned per-location by GET /v1/connect/googlebusiness/locations). When provided, the location is resolved directly instead of by enumerating the account, which is required for accounts that own many locations. Omit only for small accounts.
+            google_account_id: Only when connecting with no location. The Google Business Profile Account resource name ("accounts/123") to attach. Defaults to the sign-in's personal account, else its first account. Must be one of the accounts the sign-in lists, otherwise 400.
             pending_data_token: Token from the OAuth callback redirect (pendingDataToken query param). Tokens and profile data are retrieved server-side from this token. (required)
             redirect_url: Optional custom redirect URL to return to after selection"""
         client = _get_client()
@@ -26143,8 +26598,52 @@ def register_generated_tools(mcp, _get_client):
                 location_id=location_id,
                 locations=locations,
                 account_id=account_id,
+                google_account_id=google_account_id,
                 pending_data_token=pending_data_token,
                 redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Google Business Profile categories",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_list_google_business_categories(
+        account_id: str,
+        region_code: str,
+        language_code: str,
+        query: str | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """List Google Business Profile categories
+
+        Lists the business categories Google accepts for a region, localized to `languageCode`.
+        Use the returned `name` (e.g. `categories/gcid:afghani_restaurant`) as the primary category when creating or updating a location.
+
+        Not location-scoped: works for a Google Business Profile account that has no location yet.
+
+        `query` matches only the START of the display name in `languageCode` (`Restaurante` returns `Restaurante afgano`, but `afgano` returns nothing). Results are paginated with `nextPageToken`, 100 per page.
+
+        Args:
+            account_id: The Zernio account ID (from /v1/accounts) (required)
+            region_code: CLDR region code the categories are relevant for (e.g. "US", "ES"). (required)
+            language_code: BCP-47 language code the category names are returned in (e.g. "en", "es"). (required)
+            query: Prefix of the localized category display name.
+            page_token: Pagination token from a previous response's nextPageToken field."""
+        client = _get_client()
+        try:
+            response = client.connect.list_google_business_categories(
+                account_id=account_id,
+                region_code=region_code,
+                language_code=language_code,
+                query=query,
+                page_token=page_token,
             )
             return _format_response(response)
         except Exception as e:
@@ -27092,6 +27591,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str | None = None,
         redirect_url: str | None = None,
         scopes: str | None = None,
+        purpose: Literal["notifications"] | None = None,
     ) -> str:
         """List Slack channels for the channel picker
 
@@ -27123,7 +27623,12 @@ def register_generated_tools(mcp, _get_client):
 
         - `posting`: installs the bot with the channel scopes it needs to post.
         - `messaging`: adds the history, DM and reaction scopes the inbox reads.
-        - `analytics`, `comments`, `ads`: add nothing on Slack."""
+        - `analytics`, `comments`, `ads`: add nothing on Slack.
+                purpose: Start-OAuth mode only. Connect the account for notifications only. Slack and Telegram only: `GET /v1/connect/{platform}` returns 400 for any other platform, and other platforms' own connect endpoints ignore it.
+
+        The account is free, receives Zernio notifications, and cannot publish. To publish with it, connect it again without `purpose`. Refused with 400 when the channel or chat is already connected for publishing: connect a separate one for notifications.
+
+        Adding another channel with `accountId` keeps the notifications-only setting of the account whose workspace token it reuses."""
         client = _get_client()
         try:
             response = client.connect.list_slack_channels(
@@ -27132,6 +27637,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 redirect_url=redirect_url,
                 scopes=scopes,
+                purpose=purpose,
             )
             return _format_response(response)
         except Exception as e:
@@ -27180,22 +27686,140 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Connect LINE Official Account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_line_credentials(
+        channel_id: str,
+        channel_secret: str,
+        state: str,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect LINE Official Account
+
+        Connect a LINE Official Account with the Channel ID and Channel secret of its Messaging API channel (LINE Official Account Manager > Settings > Messaging API, also shown in the LINE Developers Console under the channel's Basic settings).
+
+        Zernio issues a channel access token, reads the bot's profile and sets the channel's webhook URL for you. A channel has one webhook URL, so if it already pointed somewhere else, that integration stops receiving events; the response names it in `webhook.previousUrl`.
+
+        Two settings stay on the customer's side, in LINE Official Account Manager > Settings > Response settings. `nextSteps` in the response lists them:
+
+        - Turn on Webhooks. Until it is on, LINE delivers nothing to Zernio.
+        - Turn off auto-response and greeting messages.
+
+        Reconnecting the same channel on the same profile updates the existing account.
+        To get your userId for the state parameter, call GET /v1/users which includes a currentUserId field.
+
+        Args:
+            channel_id: The Messaging API channel's Channel ID (digits only). (required)
+            channel_secret: The Messaging API channel's Channel secret (32 hex characters). (required)
+            state: Required state formatted as {userId}-{profileId}. Get userId from GET /v1/users and profileId from GET /v1/profiles. (required)
+            redirect_url: Optional URL to redirect to after a successful connection."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_line_credentials(
+                channel_id=channel_id,
+                channel_secret=channel_secret,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect WeChat Official Account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_wechat_credentials(
+        app_id: str,
+        app_secret: str,
+        state: str,
+        display_name: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect WeChat Official Account
+
+        Connect a verified WeChat Official Account (Service Account) with its AppID and AppSecret (Weixin Official Accounts Platform > Settings and Development > Basic Configuration).
+
+        Before calling this, add every IP from GET /v1/connect/wechat/ip-whitelist to the account's API IP whitelist on the same page. WeChat refuses calls from any other IP, and this endpoint then returns 400 with code `wechat_ip_not_whitelisted`.
+
+        The response carries a Server URL, a Token and an EncodingAESKey. Paste them into Server Configuration on the same page, choose Safe mode for message encryption, and enable the configuration. Until then WeChat delivers nothing to Zernio.
+
+        Enabling Server Configuration turns off the auto-replies and menus set in the WeChat dashboard.
+
+        Reconnecting the same AppID on the same profile keeps the existing Token and EncodingAESKey, so nothing has to be pasted again.
+        To get your userId for the state parameter, call GET /v1/users which includes a currentUserId field.
+
+        Args:
+            app_id: The Official Account's AppID (starts with wx). (required)
+            app_secret: The Official Account's AppSecret (32 characters). (required)
+            state: Required state formatted as {userId}-{profileId}. Get userId from GET /v1/users and profileId from GET /v1/profiles. (required)
+            display_name: Name to show for the account. Defaults to "WeChat Official Account".
+            redirect_url: Optional URL to redirect to after a successful connection."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_wechat_credentials(
+                app_id=app_id,
+                app_secret=app_secret,
+                state=state,
+                display_name=display_name,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get WeChat IP whitelist",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_wechat_ip_whitelist() -> str:
+        """Get WeChat IP whitelist
+
+        The IPs Zernio calls WeChat from. Add all of them to the Official Account's API IP whitelist before calling POST /v1/connect/wechat/credentials."""
+        client = _get_client()
+        try:
+            response = client.connect.get_wechat_ip_whitelist()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Generate Telegram code",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
-    def connect_get_telegram_connect_status(profile_id: str) -> str:
+    def connect_get_telegram_connect_status(
+        profile_id: str, purpose: Literal["notifications"] | None = None
+    ) -> str:
         """Generate Telegram code
 
-        Generate an access code (valid 15 minutes) for connecting a Telegram channel or group. Add the bot as admin, then send the code + @yourchannel to the bot. Poll PATCH /v1/connect/telegram to check status.
+            Generate an access code (valid 15 minutes) for connecting a Telegram channel or group. Add the bot as admin, then send the code + @yourchannel to the bot. Poll PATCH /v1/connect/telegram to check status.
 
-        Args:
-            profile_id: The profile ID to connect the Telegram account to (required)"""
+            Args:
+                profile_id: The profile ID to connect the Telegram account to (required)
+                purpose: Connect the account for notifications only. Slack and Telegram only: `GET /v1/connect/{platform}` returns 400 for any other platform, and other platforms' own connect endpoints ignore it.
+
+        The account is free, receives Zernio notifications, and cannot publish. To publish with it, connect it again without `purpose`. If the chat is already connected for publishing, the bot refuses the code in the private chat and the code stays pending."""
         client = _get_client()
         try:
-            response = client.connect.get_telegram_connect_status(profile_id=profile_id)
+            response = client.connect.get_telegram_connect_status(
+                profile_id=profile_id, purpose=purpose
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -27208,18 +27832,23 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_initiate_telegram_connect(chat_id: str, profile_id: str) -> str:
+    def connect_initiate_telegram_connect(
+        chat_id: str, profile_id: str, purpose: Literal["notifications"] | None = None
+    ) -> str:
         """Connect Telegram directly
 
-        Connect a Telegram channel/group directly using the chat ID. Alternative to the access code flow. The bot must already be an admin in the channel/group.
+            Connect a Telegram channel/group directly using the chat ID. Alternative to the access code flow. The bot must already be an admin in the channel/group.
 
-        Args:
-            chat_id: The Telegram chat ID. Numeric ID (e.g. "-1001234567890") or username with @ prefix (e.g. "@mychannel"). (required)
-            profile_id: The profile ID to connect the account to (required)"""
+            Args:
+                chat_id: The Telegram chat ID. Numeric ID (e.g. "-1001234567890") or username with @ prefix (e.g. "@mychannel"). (required)
+                profile_id: The profile ID to connect the account to (required)
+                purpose: Connect the account for notifications only. Slack and Telegram only: `GET /v1/connect/{platform}` returns 400 for any other platform, and other platforms' own connect endpoints ignore it.
+
+        The account is free, receives Zernio notifications, and cannot publish. To publish with it, connect it again without `purpose`. Refused with 400 when the channel or chat is already connected for publishing: connect a separate one for notifications."""
         client = _get_client()
         try:
             response = client.connect.initiate_telegram_connect(
-                chat_id=chat_id, profile_id=profile_id
+                chat_id=chat_id, profile_id=profile_id, purpose=purpose
             )
             return _format_response(response)
         except Exception as e:
@@ -27740,6 +28369,114 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 selected_location_id=selected_location_id,
                 google_account_id=google_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create Google Business Profile location",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_create_google_business_location(
+        account_id: str,
+        title: str,
+        language_code: str,
+        primary_category: str,
+        additional_categories: list[str] | None = None,
+        storefront_address: dict[str, Any] | None = None,
+        service_area: dict[str, Any] | None = None,
+        phone: str | None = None,
+        website_uri: str | None = None,
+        description: str | None = None,
+        regular_hours: dict[str, Any] | None = None,
+        validate_only: bool | None = None,
+    ) -> str:
+        """Create Google Business Profile location
+
+        Creates a Google Business Profile listing under the Google account of this Zernio account and attaches it to this account, so verification, details, posts and reviews work on it right away.
+
+        Only for an account with no location yet (connected with `allowNoLocation`). If the account already has a location, the request is rejected with 409 and nothing is created.
+
+        Search first with `POST /v1/accounts/{accountId}/gmb-locations/search` to avoid duplicating an existing listing, and pick `primaryCategory` from `GET /v1/accounts/{accountId}/gmb-categories`.
+
+        Required by Google: `title`, `languageCode` (immutable once set) and `primaryCategory`. At least one of `storefrontAddress` or `serviceArea` is required. When `storefrontAddress` is absent, at least one of `phone` or `websiteUri` is required. Both rules are checked before Google is called and a violation returns 400 naming the field.
+
+        Set `validateOnly` to check the request with Google without creating anything: the response carries the ...
+
+        Args:
+            account_id: (required)
+            title: Business name as shown on Google. (required)
+            language_code: BCP-47 language of the listing (e.g. "es"). Immutable after creation. (required)
+            primary_category: Category name from GET gmb-categories (e.g. "categories/gcid:cafe"). A bare "gcid:cafe" is also accepted. (required)
+            additional_categories: Further category names, same format as primaryCategory.
+            storefront_address: Physical address of the business. Required unless serviceArea is provided. Object with keys: regionCode (string, required) - CLDR region code (e.g. \"ES\").; languageCode (string); postalCode (string); administrativeArea (string); locality (string); addressLines (list of string, required)
+            service_area: Areas the business serves. Required unless storefrontAddress is provided. Object with keys: businessType (one of: CUSTOMER_LOCATION_ONLY, CUSTOMER_AND_BUSINESS_LOCATION; required); regionCode (string) - Required when businessType is CUSTOMER_LOCATION_ONLY.; places (object with keys placeInfos)
+            phone: Primary phone number. Required when storefrontAddress is absent and websiteUri is not set.
+            website_uri: Website URL. Required when storefrontAddress is absent and phone is not set.
+            description: Business description (Google profile.description).
+            regular_hours: Google `regularHours` object (periods with openDay, openTime, closeDay, closeTime).
+            validate_only: Validate with Google without creating the listing or attaching anything."""
+        client = _get_client()
+        try:
+            response = client.connect.create_google_business_location(
+                account_id=account_id,
+                title=title,
+                language_code=language_code,
+                primary_category=primary_category,
+                additional_categories=additional_categories,
+                storefront_address=storefront_address,
+                service_area=service_area,
+                phone=phone,
+                website_uri=website_uri,
+                description=description,
+                regular_hours=regular_hours,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Search existing Google listings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_search_google_business_locations(
+        account_id: str,
+        query: str | None = None,
+        location: dict[str, Any] | None = None,
+        page_size: int | None = None,
+    ) -> str:
+        """Search existing Google listings
+
+        Searches Google Maps for listings that match a business name or a partial location, so you can check whether the business already exists before creating a new listing.
+
+        Not location-scoped: works for a Google Business Profile account that has no location yet.
+
+        Send exactly one of `query` (free text) or `location` (a partial location with at least `title`). Google returns at most 10 matches and does not paginate.
+
+        `requestAdminRightsUri` is present only when the listing is already claimed; send the business owner there to request admin rights instead of creating a duplicate.
+
+        Args:
+            account_id: The Zernio account ID (from /v1/accounts) (required)
+            query: Free-text search (business name and address). Mutually exclusive with location.
+            location: Partial Google Business Information location (e.g. title and storefrontAddress). Mutually exclusive with query. Object with keys: title (string, required); storefrontAddress (object)
+            page_size: Maximum matches to return. Google defaults to 3."""
+        client = _get_client()
+        try:
+            response = client.connect.search_google_business_locations(
+                account_id=account_id,
+                query=query,
+                location=location,
+                page_size=page_size,
             )
             return _format_response(response)
         except Exception as e:
@@ -28372,6 +29109,8 @@ def register_generated_tools(mcp, _get_client):
             "whatsapp",
             "slack",
             "sms",
+            "line",
+            "wechat",
         ]
         | None = None,
         group: str | None = None,
@@ -28439,6 +29178,8 @@ def register_generated_tools(mcp, _get_client):
             "whatsapp",
             "slack",
             "sms",
+            "line",
+            "wechat",
         ]
         | None = None,
         platform_identifier: str | None = None,
@@ -29416,6 +30157,8 @@ def register_generated_tools(mcp, _get_client):
             "web",
         ]
         | None = None,
+        platform: str | None = None,
+        delivery_status: Literal["sent", "failed"] | None = None,
         cursor: str | None = None,
     ) -> str:
         """List stored events
@@ -29433,6 +30176,8 @@ def register_generated_tools(mcp, _get_client):
             to: Only events before this time (ISO 8601, on the event time).
             event_name: Only events with this name, such as `Purchase`.
             source: Only events from this source, such as `stripe` for the payments of a connected Stripe account.
+            platform: Only events sent to this ad platform, such as `metaads` or `googleads`.
+            delivery_status: Only events whose latest send to a destination (of `platform`, when given) was accepted (`sent`) or was not (`failed`: failed or still retrying).
             cursor: `nextCursor` from the previous page."""
         client = _get_client()
         try:
@@ -29443,6 +30188,8 @@ def register_generated_tools(mcp, _get_client):
                 to=to,
                 event_name=event_name,
                 source=source,
+                platform=platform,
+                delivery_status=delivery_status,
                 cursor=cursor,
             )
             return _format_response(response)
@@ -29503,6 +30250,30 @@ def register_generated_tools(mcp, _get_client):
                 test_code=test_code,
                 mode=mode,
             )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get today's tracking overview",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_events_overview(profile_id: str) -> str:
+        """Get today's tracking overview
+
+        How a profile's conversion tracking is doing today (UTC day): events stored, how many reached the ad platforms,
+        each forwarding rule's destination, each event source and, when the profile has a tracking site, the site's funnel.
+        Requires the Ads add-on.
+
+        Args:
+            profile_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.get_events_overview(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -29717,10 +30488,12 @@ def register_generated_tools(mcp, _get_client):
                 "tiktok_leads",
                 "shopify",
                 "woocommerce",
+                "stripe",
                 "web",
             ]
         ]
         | None = None,
+        api_secret: str | None = None,
     ) -> str:
         """Add a forwarding rule
 
@@ -29731,9 +30504,10 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: (required)
             account_id: Connected ads account ID that owns the destination. (required)
-            destination_id: The platform destination: a pixel, a conversion action or a conversion rule. (required)
+            destination_id: The platform destination: a pixel, a conversion action, a conversion rule, or a GA4 web stream measurement id (`G-…`). (required)
             event_names
-            sources: Forward only events from these sources, such as only `web` for a tracked website. Leave it out to forward events from every source."""
+            sources: Forward only events from these sources, such as only `web` for a tracked website. Leave it out to forward events from every source.
+            api_secret: Google Analytics streams only: the stream's Measurement Protocol API secret (GA4 Admin › Data streams). Optional when the connection has edit access, since Zernio then creates it. Checked against Google's validation server, stored encrypted, never returned. Change it with `PATCH /v1/events/forwarding-rules/{ruleId}`."""
         client = _get_client()
         try:
             response = client.conversions.create_forwarding_rule(
@@ -29742,6 +30516,32 @@ def register_generated_tools(mcp, _get_client):
                 destination_id=destination_id,
                 event_names=event_names,
                 sources=sources,
+                api_secret=api_secret,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Change a forwarding rule's API secret",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_update_forwarding_rule(rule_id: str, api_secret: str) -> str:
+        """Change a forwarding rule's API secret
+
+        Replaces the `apiSecret` of a rule whose destination needs one, such as a Google Analytics data stream's Measurement Protocol API secret. Before saving, Zernio sends one hit to Google's validation server; Google does not confirm the secret itself, so check GA4 Realtime after the next events.
+
+        Args:
+            rule_id: The rule `id`. (required)
+            api_secret: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.update_forwarding_rule(
+                rule_id=rule_id, api_secret=api_secret
             )
             return _format_response(response)
         except Exception as e:
@@ -38283,6 +39083,8 @@ def register_generated_tools(mcp, _get_client):
             "whatsapp",
             "imessage",
             "sms",
+            "line",
+            "wechat",
         ]
         | None = None,
         status: Literal["active", "archived"] | None = None,
@@ -38297,7 +39099,7 @@ def register_generated_tools(mcp, _get_client):
 
             Fetch conversations (DMs) from all connected messaging accounts in a single API call. Supports filtering by profile and platform. Results are aggregated and deduplicated.
 
-            Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram, WhatsApp, iMessage and SMS.
+            Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram, WhatsApp, iMessage, SMS, LINE and WeChat.
 
             ### X limitation
 
@@ -38307,7 +39109,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Instagram and Facebook pre-connect history
 
-            When one of these accounts is connected, Zernio replays the DM history the account already holds on Meta, so conversations that began before the account was connected appear here. Up to 500 conversations per account are ...
+            When one of these accounts is connected, Zernio replays the DM history the account already holds on Meta, so conversations that began before the account was connected appear here. Up to 500 conversations per ...
 
             Args:
                 profile_id: Filter by profile ID
@@ -38476,6 +39278,8 @@ def register_generated_tools(mcp, _get_client):
             "rcs",
             "slack",
             "imessage",
+            "line",
+            "wechat",
         ]
         | None = None,
         account_id: str | None = None,
@@ -42189,6 +42993,7 @@ def register_generated_tools(mcp, _get_client):
         offset: int | None = None,
         cursor: str | None = None,
         fields: str | None = None,
+        view: Literal["full", "summary"] = "summary",
         updated_since: str | None = None,
         source: Literal["zernio", "external"] = "zernio",
         status: Literal[
@@ -42228,7 +43033,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 page: Page number (1-based)
-                limit: Page size. Values above the maximum return 400 rather than being clamped.
+                limit: Page size. Default 10, at most 40 per call; page through for more.
                 offset: Row offset. Takes precedence over page when both are sent; the response pagination.page is derived from it.
                 cursor: Opaque cursor from a previous response's `pagination.nextCursor`. Returns the next page in the same `sortBy` order and takes precedence over `page` and `offset`.
 
@@ -42241,6 +43046,13 @@ def register_generated_tools(mcp, _get_client):
         Accepted: `userId`, `title`, `content`, `mediaItems`, `platforms`, `scheduledFor`, `timezone`, `status`, `tags`, `hashtags`, `mentions`, `visibility`, `metadata`, `recycling`, `recycledFromPostId`, `queuedFromProfile`, `queueId`, `createdAt`, `updatedAt`.
 
         An unknown field returns 400 naming it. `fields=_id` returns ids only. Omit it (or send it empty) for the full post. Not available with `source=external`.
+                view: `full` returns the whole post. `summary` returns only what an agent needs to read a page of posts:
+
+        - Post: `_id`, `title`, `content`, `status`, `scheduledFor`, `timezone`, `tags`, `createdAt`, `updatedAt`, and `contentNotRetained` when set.
+        - Each platform: `platform`, `status`, `accountId` (the id), `username`, `scheduledFor`, `publishedAt`, `platformPostId`, `platformPostUrl`, `errorMessage`, `errorCategory`.
+        - Left out: the author (`userId`), `mediaItems`, `metadata`, `recycling`, and each platform's custom content, custom media and `platformSpecificData`. Null values are left out too.
+
+        Works with both sources. Send either `fields` or `view=summary`: both together return 400. Defaults to summary here; pass full for everything.
                 updated_since: Only posts whose `updatedAt` is at or after this ISO 8601 timestamp (an offset or `Z` required).
 
         `updatedAt` moves when the post or any of its platforms changes (an edit, a status change, a platform publishing or failing). To keep a copy in sync, send the time of your previous sync instead of reading every page again.
@@ -42264,10 +43076,11 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.posts.list_posts(
                 page=page,
-                limit=limit,
+                limit=max(1, min(limit, 40)),
                 offset=offset,
                 cursor=cursor,
                 fields=fields,
+                view=view,
                 updated_since=updated_since,
                 source=source,
                 status=status,
@@ -45124,6 +45937,9 @@ def register_generated_tools(mcp, _get_client):
             "reddit",
             "whatsapp",
             "slack",
+            "imessage",
+            "line",
+            "wechat",
         ],
         name: str,
         description: str | None = None,
@@ -48738,9 +49554,13 @@ def register_generated_tools(mcp, _get_client):
 
         Outbound calls are capped per rolling hour (429 when hit).
 
+        ### Balance time limit
+
+        On balance billing a call runs only as long as the balance, plus what auto top-up can still add this month, funds at its per-minute price, minus calls already in progress. Then it ends with `hangup_cause: time_limit`. Under one minute is refused with 402.
+
         ### Idempotency
 
-        Send an `Idempotency-Key` header to make retries safe. Same key + same body replays the original response instead of dialing (and billing) a second call.
+        Send an `Idempotency-Key` header to make retries safe. Same key + same body replays the original response instead of dialing (and billing) ...
 
         Args:
             to: Destination to dial, E.164 with leading +. (required)
@@ -49018,6 +49838,7 @@ def register_generated_tools(mcp, _get_client):
 
         - The call is logged as outbound (from = your number, to = target) and recorded per the number's settings.
         - `ringTimeoutSeconds` applies to the target's phone, not to the browser.
+        - On balance billing the call gets the same time limit as `POST /v1/voice/calls`.
 
         Args:
             to: The number to call, E.164 with leading +. (required)
@@ -49487,6 +50308,7 @@ def register_generated_tools(mcp, _get_client):
                 "campaign_sample.approved",
                 "campaign_sample.shipped",
                 "campaign_sample.declined",
+                "notification.sent",
             ]
         ]
         | None,
@@ -49725,6 +50547,7 @@ def register_generated_tools(mcp, _get_client):
                 "campaign_sample.approved",
                 "campaign_sample.shipped",
                 "campaign_sample.declined",
+                "notification.sent",
             ]
         ]
         | None = None,
@@ -50113,6 +50936,7 @@ def register_generated_tools(mcp, _get_client):
             "balance.low",
             "balance.empty",
             "balance.charged",
+            "notification.sent",
             "api.changelog.published",
         ]
         | None = None,
@@ -52117,6 +52941,10 @@ def register_generated_tools(mcp, _get_client):
             safe; same key + same body replays the original response instead of
             dialing (and billing) a second call.
 
+            **Balance time limit:** on balance billing the call runs only as long
+            as the balance, plus what auto top-up can still add this month, funds
+            (never past the number's `maxCallDurationSeconds`). Under one ...
+
             Args:
                 account_id: (required)
                 to: Consumer wa_id (E.164, leading + optional) (required)
@@ -53958,6 +54786,8 @@ def register_generated_tools(mcp, _get_client):
             "bluesky",
             "reddit",
             "tiktok",
+            "line",
+            "wechat",
         ] = "whatsapp",
         description: str | None = None,
         nodes: list[dict[str, Any]] | None = None,

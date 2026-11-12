@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
-from windows_mcp.config import enable_debug
-from windows_mcp.infrastructure.config import ControlConfig
+from windows_mcp.config import enable_debug, is_debug
+from windows_mcp.infrastructure.config import ControlConfig, validate_idle_timeout
 from windows_mcp.infrastructure import (
     AuthKeyMiddleware,
     OAuthOnlyMiddleware,
@@ -133,6 +133,13 @@ def _choose_value(ctx: click.Context, name: str, cli_value, config_value, defaul
     return default_value
 
 
+def _control_timeout_option(ctx, param, value):
+    try:
+        return validate_idle_timeout(value)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), ctx=ctx, param=param) from exc
+
+
 class OptionsMiddleware:
     """ASGI middleware that intercepts OPTIONS preflight requests.
 
@@ -259,7 +266,7 @@ def _build_mcp() -> FastMCP:
     except ModuleNotFoundError as exc:
         _exit_missing_dependency(exc)
     from windows_mcp.tools.control_notifications import ControlNotifier, ControlToolGate
-    from windows_mcp.desktop.control import get_controller
+    from windows_mcp.desktop.control import describe_failure, get_controller
     from windows_mcp.desktop import control_overlay
 
     controller = get_controller()
@@ -284,10 +291,19 @@ def _build_mcp() -> FastMCP:
                 control_overlay.set_pending(True, generation=generation)
             else:
                 control_overlay.set_active(False, generation=generation)
-        except Exception:
+        except Exception as exc:
             # A missing visual indicator invalidates the AI control lease.
-            controller._fail_open()
+            release_control(f"AI control indicator failed: {describe_failure(exc)}")
             logger.exception("AI control indicator failed; releasing physical input")
+
+    def release_control(reason: str) -> None:
+        # Fail open without letting the reason plumbing raise or block.
+        # Controllers without fail_open_with_reason keep the plain fail-open.
+        fail_with_reason = getattr(controller, "fail_open_with_reason", None)
+        if callable(fail_with_reason):
+            fail_with_reason(reason)
+        else:
+            controller._fail_open()
 
     def show_control_state(status: dict) -> None:
         if threading.current_thread() is controller._thread or not (
@@ -305,14 +321,23 @@ def _build_mcp() -> FastMCP:
                         asyncio.to_thread(apply_control_state, status.copy())
                     )
                 )
-            except RuntimeError:
-                controller._fail_open()
+            except RuntimeError as exc:
+                release_control(f"Could not schedule AI control indicator: {describe_failure(exc)}")
                 logger.exception("Could not schedule AI control indicator update")
         else:
             # begin_call waits for the visible AI indicator before any tool runs.
             apply_control_state(status)
 
     controller.subscribe(show_control_state)
+
+    def ask_consent(seconds: int) -> str:
+        from windows_mcp.desktop import control_consent
+
+        control_overlay.set_consent(True)
+        try:
+            return control_consent.ask(seconds)
+        finally:
+            control_overlay.set_consent(False)
 
     @asynccontextmanager
     async def lifespan(app: FastMCP):
@@ -331,12 +356,18 @@ def _build_mcp() -> FastMCP:
         # Set thresholds before installing input hooks; invalid TOML was rejected at load.
         controller.mouse_takeover_units = _control_config.mouse_takeover_units
         controller.mouse_takeover_pixels = _control_config.mouse_takeover_pixels
+        controller.enabled = _control_config.enabled
+        controller.policy = _control_config.policy
+        controller.idle_timeout_seconds = _control_config.idle_timeout_seconds
+        controller.consent_countdown_seconds = _control_config.consent_countdown_seconds
 
         try:
-            control_overlay.start()
-            controller.set_health_probe(control_overlay.is_healthy)
+            if controller.enabled:
+                control_overlay.start()
+                controller.set_health_probe(control_overlay.is_healthy)
             controller.start()
-            notifier.start()
+            if controller.enabled:
+                notifier.start()
             logger.debug("Server started, entering main loop")
             yield
         finally:
@@ -345,7 +376,8 @@ def _build_mcp() -> FastMCP:
                 controller.stop()
             finally:
                 try:
-                    control_overlay.stop()
+                    if controller.enabled:
+                        control_overlay.stop()
                 finally:
                     logger.debug("Shutting down: stopping watchdog and analytics")
                     if watchdog:
@@ -355,7 +387,7 @@ def _build_mcp() -> FastMCP:
                     control_loop = None
 
     _mcp = FastMCP(name="windows-mcp", instructions=instructions, lifespan=lifespan)
-    _mcp.add_middleware(ControlToolGate(controller, notifier))
+    _mcp.add_middleware(ControlToolGate(controller, notifier, ask_consent=ask_consent))
     register_all(_mcp, get_desktop=_get_desktop, get_analytics=_get_analytics)
     return _mcp
 
@@ -397,6 +429,10 @@ _LEGACY_SERVE_FLAGS = {
     "--exclude-tools",
     "--allow-insecure-remote",
     "--debug",
+    "--control",
+    "--no-control",
+    "--control-idle-timeout",
+    "--control-policy",
 }
 
 
@@ -656,6 +692,30 @@ def main():
     envvar="WINDOWS_MCP_STATELESS_HTTP",
     show_default=True,
 )
+@click.option(
+    "--control/--no-control",
+    default=True,
+    envvar="WINDOWS_MCP_CONTROL",
+    show_default=True,
+    help="Enable desktop ownership, input protection and control indicator. Restart required.",
+)
+@click.option(
+    "--control-idle-timeout",
+    type=float,
+    default=10.0,
+    show_default=True,
+    envvar="WINDOWS_MCP_CONTROL_IDLE_TIMEOUT",
+    callback=_control_timeout_option,
+    help="Positive finite user idle wait in seconds before control resumes. Restart required.",
+)
+@click.option(
+    "--control-policy",
+    type=click.Choice(["relaxed", "balanced", "strict"]),
+    default="relaxed",
+    envvar="WINDOWS_MCP_CONTROL_POLICY",
+    show_default=True,
+    help="Desktop gate: relaxed (direct actions), balanced (also possible interference), strict (all tools). Restart required.",
+)
 def serve(
     ctx,
     transport,
@@ -674,14 +734,22 @@ def serve(
     oauth_client_id,
     oauth_client_secret,
     stateless_http,
+    control,
+    control_idle_timeout,
+    control_policy,
 ):
     global _control_config
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     install_selfpipe_guard()
     if transport == Transport.STDIO.value:
         os.environ.setdefault("NO_COLOR", "1")
+    debug = debug or is_debug()
     if debug:
         enable_debug()
+        # fastmcp and uvicorn set up only their own loggers. With no handler on the
+        # root logger, Python prints WARNING and above only. basicConfig() adds one
+        # on stderr (stdout carries the stdio protocol) unless root already has one.
+        logging.basicConfig()
         logging.getLogger().setLevel(logging.DEBUG)
         for name in ["uvicorn", "uvicorn.error", "uvicorn.access", "fastmcp"]:
             logging.getLogger(name).setLevel(logging.DEBUG)
@@ -693,6 +761,13 @@ def serve(
     except (FileNotFoundError, ValueError) as exc:
         raise click.ClickException(str(exc))
     _control_config = cfg.control
+    _control_config.policy = _choose_value(
+        ctx, "control_policy", control_policy, cfg.control.policy, "relaxed"
+    )
+    _control_config.enabled = _choose_value(ctx, "control", control, cfg.control.enabled, True)
+    _control_config.idle_timeout_seconds = _choose_value(
+        ctx, "control_idle_timeout", control_idle_timeout, cfg.control.idle_timeout_seconds, 10.0
+    )
 
     transport = _choose_value(ctx, "transport", transport, cfg.server.transport, "stdio")
     host = _choose_value(ctx, "host", host, cfg.server.host, "localhost")
@@ -833,6 +908,21 @@ def serve(
         raise
 
 
+def _client_host(host: str) -> str:
+    """Return the URL host for reaching a server bound to ``host`` from this machine.
+
+    A wildcard bind address is not one to connect to (Winsock rejects 0.0.0.0 with
+    WinError 10049), so use the loopback address of the same family, one of the
+    names ``_gen_tls`` asks mkcert for. IPv6 literals need brackets in a URL; an
+    address that already has them is kept as it is.
+    """
+    if host in ("0.0.0.0", ""):
+        return "127.0.0.1"
+    if host == "::":
+        return "[::1]"
+    return f"[{host}]" if ":" in host and not host.startswith("[") else host
+
+
 def _gen_tls(host: str, cert_path, key_path) -> None:
     """Generate a TLS cert/key pair, preferring mkcert over openssl."""
     from pathlib import Path
@@ -848,7 +938,7 @@ def _gen_tls(host: str, cert_path, key_path) -> None:
         if install.returncode != 0:
             raise click.ClickException(f"mkcert -install failed:\n{install.stderr.strip()}")
 
-        sans = [host] if host not in ("0.0.0.0", "") else ["localhost", "127.0.0.1", "::1"]
+        sans = [host] if host not in ("0.0.0.0", "::", "") else ["localhost", "127.0.0.1", "::1"]
         result = subprocess.run(
             [
                 "mkcert",
@@ -915,11 +1005,30 @@ def _build_start_script(program_args: list[str]) -> str:
     log_out = CONFIG_DIR / "server.log"
     log_err = CONFIG_DIR / "server.error.log"
     command = subprocess.list2cmdline(program_args)
-    return f'@echo off\nsetlocal\n{command} 1>>"{log_out}" 2>>"{log_err}"\n'
+    # The file is written as UTF-8, but cmd.exe decodes each line with the console code page.
+    # Switch to UTF-8 first, since the paths below can contain a non-ASCII profile folder name.
+    return f'@echo off\nchcp 65001 >nul\nsetlocal\n{command} 1>>"{log_out}" 2>>"{log_err}"\n'
+
+
+def _run_console_tool(args: list[str]) -> subprocess.CompletedProcess:
+    """Run a Windows console tool and capture its output as text.
+
+    schtasks and PowerShell write in the console code page (GBK on a zh-CN system),
+    not in UTF-8 or the locale encoding text=True would use. Decoding with the wrong
+    codec raises UnicodeDecodeError in subprocess's reader thread, which prints a
+    traceback and drops the output. Decode with the OEM code page instead, and replace
+    anything that still does not fit rather than failing.
+    """
+    return subprocess.run(args, capture_output=True, encoding="oem", errors="replace")
 
 
 def _schtasks(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["schtasks", *args], capture_output=True, text=True)
+    return _run_console_tool(["schtasks", *args])
+
+
+def _headless_task_argument(script_path: str) -> str:
+    """Return the conhost argument string that runs ``script_path`` without a visible window."""
+    return f'--headless cmd.exe /c "{script_path}"'
 
 
 def _register_task_powershell(task_name: str, script_path: str) -> subprocess.CompletedProcess:
@@ -927,19 +1036,21 @@ def _register_task_powershell(task_name: str, script_path: str) -> subprocess.Co
 
     Unlike `schtasks /Create /SC ONLOGON`, Register-ScheduledTask with
     -RunLevel Limited does not require an elevated shell.
+
+    The .cmd wrapper is started through ``conhost.exe --headless`` so the long-running
+    server gets a hidden console. Executing the .cmd directly allocates a visible
+    console (a Windows Terminal window on Windows 11) that stays open for the whole
+    session, and closing it kills the server.
     """
     ps = (
-        f"$action  = New-ScheduledTaskAction -Execute '{script_path}';"
+        f"$action  = New-ScheduledTaskAction -Execute 'conhost.exe'"
+        f" -Argument '{_headless_task_argument(script_path)}';"
         f"$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME;"
         f"$set     = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries;"
         f"Register-ScheduledTask -TaskName '{task_name}' -Action $action"
         f" -Trigger $trigger -Settings $set -RunLevel Limited -Force"
     )
-    return subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
-        capture_output=True,
-        text=True,
-    )
+    return _run_console_tool(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps])
 
 
 @main.command()
@@ -1081,8 +1192,9 @@ def auth(transport: str, host: str, port: int, with_tls: bool, force: bool) -> N
         return
 
     scheme = "https" if with_tls else "http"
-    mcp_url = f"{scheme}://{host}:{port}/mcp/"
-    sse_url = f"{scheme}://{host}:{port}/sse"
+    url_host = _client_host(host)
+    mcp_url = f"{scheme}://{url_host}:{port}/mcp/"
+    sse_url = f"{scheme}://{url_host}:{port}/sse"
 
     _echo_section("Start the server")
     click.echo("  windows-mcp serve")

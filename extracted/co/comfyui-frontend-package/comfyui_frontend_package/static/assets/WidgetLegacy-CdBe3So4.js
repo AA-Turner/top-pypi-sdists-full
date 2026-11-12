@@ -1,1 +1,0 @@
-import{t as e}from"./WidgetLegacy-DLxnL-fO.js";export{e as default};

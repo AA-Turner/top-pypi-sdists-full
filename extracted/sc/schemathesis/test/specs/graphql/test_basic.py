@@ -8,7 +8,7 @@ import pytest
 import requests
 import strawberry
 from graphql import GraphQLError
-from hypothesis import HealthCheck, Phase, find, given, settings
+from hypothesis import HealthCheck, Phase, given, settings
 from strawberry.extensions import MaxAliasesLimiter, MaxTokensLimiter, QueryDepthLimiter
 
 import schemathesis
@@ -47,7 +47,7 @@ from schemathesis.specs.openapi.checks import (
 from schemathesis.transport.prepare import get_default_headers
 from schemathesis.transport.wsgi import WSGI_TRANSPORT
 from test.apps.catalog.graphql import bookstore
-from test.utils import assert_requests_call, check_context, run_given
+from test.utils import assert_requests_call, check_context, find_first, run_given
 
 
 def _books_schema(ctx):
@@ -66,7 +66,11 @@ def test_tags(ctx):
 
 def test_graphql_positive_case_keeps_its_mode_after_body_change(ctx):
     schema = _books_schema(ctx)
-    case = find(schema["Mutation"]["addBook"].as_strategy(generation_mode=GenerationMode.POSITIVE), lambda case: True)
+    case = find_first(
+        schema["Mutation"]["addBook"].as_strategy(generation_mode=GenerationMode.POSITIVE),
+        lambda case: True,
+        max_examples=1,
+    )
     case.body = "{ __typename }"
     assert case.meta.generation.mode == GenerationMode.POSITIVE
 
@@ -598,7 +602,6 @@ def test_federation_infrastructure_is_tested_when_selected(ctx):
     assert (schema.statistic.operations.total, schema.statistic.operations.selected) == (2, 1)
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_federated_subgraph_cli(ctx, cli, snapshot_cli):
     api = ctx.graphql.apps.federated_subgraph()
     assert cli.run(api.schema_url, "--max-examples=5") == snapshot_cli
@@ -658,6 +661,7 @@ def test_schema_error(ctx, cli, snapshot_cli, schema, extension):
     assert cli.run(str(schema_file), f"--url={api.schema_url}") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_disallow_null(ctx, cli, snapshot_cli):
     schema = """type Query {
     getValue(value: Int): Int
@@ -745,11 +749,10 @@ def test_type_as_strategy(ctx, type_name):
     strategy = operations.as_strategy()
     for operation in operations.values():
         # All fields should be possible to generate
-        # Note: Phase.explain excluded due to Hypothesis 6.149.0 bug with variable-length strategies
-        find(
+        find_first(
             strategy,
             lambda x, op=operation: op.definition.field_name in x.body,
-            settings=settings(phases=[Phase.generate, Phase.shrink]),
+            max_examples=100,
         )
 
 
@@ -759,11 +762,10 @@ def test_schema_as_strategy(ctx):
     for operations in schema.values():
         for operation in operations.values():
             # All fields should be possible to generate
-            # Note: Phase.explain excluded due to Hypothesis 6.149.0 bug with variable-length strategies
-            find(
+            find_first(
                 strategy,
                 lambda x, op=operation: op.definition.field_name in x.body,
-                settings=settings(phases=[Phase.generate, Phase.shrink]),
+                max_examples=100,
             )
 
 
@@ -778,13 +780,11 @@ def test_ignored_checks(ctx, check):
     assert check(None, None, case)
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_coverage_phase_cli(ctx, cli, snapshot_cli):
     api = ctx.graphql.serve(bookstore.coverage_inputs())
     assert cli.run(api.schema_url, "--phases=coverage", "--checks=all") == snapshot_cli
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_negative_mode_cli(ctx, cli, snapshot_cli):
     # Test that negative mode generates invalid queries for mutations with required arguments
     api = ctx.graphql.apps.books()

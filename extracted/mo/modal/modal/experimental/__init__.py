@@ -36,6 +36,15 @@ from .flash_server import (  # noqa: F401
     ServerManager,
     server_forward,
 )
+from .stream import (
+    AppendResult as AppendResult,
+    Entry as Entry,
+    IdempotencyConflict as IdempotencyConflict,
+    Stream as Stream,
+    StreamInfo as StreamInfo,
+    StreamToken as StreamToken,
+    StreamWriter as StreamWriter,
+)
 
 
 @synchronizer.create_blocking

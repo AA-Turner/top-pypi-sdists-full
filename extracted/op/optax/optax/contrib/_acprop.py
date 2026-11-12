@@ -61,6 +61,8 @@ def scale_by_acprop(
 
   def update_fn(updates, state, params=None):
     del params
+    numerics.maybe_static_check_eps(eps, state.nu)
+    numerics.maybe_static_check_eps(eps_root, state.nu, name='eps_root')
     mu = optax.tree.update_moment(updates, state.mu, b1, 1)
     prediction_error = jax.tree.map(lambda g, m: g - m, updates, state.mu)
     nu = optax.tree.update_moment_per_elem_norm(prediction_error, state.nu, b2,
@@ -156,6 +158,7 @@ def acprop(
   """
   return combine.chain(
       scale_by_acprop(b1=b1, b2=b2, eps=eps, eps_root=eps_root),
+      # pyrefly: ignore[bad-argument-type]
       transform.add_decayed_weights(weight_decay, mask),
       transform.scale_by_learning_rate(learning_rate),
   )

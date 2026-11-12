@@ -41,6 +41,10 @@ def ask_model_agent(cfg, question, output_text, max_chars, patterns=None,
     patterns = patterns if patterns is not None else _runner().BUILTIN_REDACT_PATTERNS
     if not isinstance(cfg, dict):
         return {"op": "ask", "rejected": "inference_unconfigured"}
+    # F2: the run tool's mode rides this dict (inference_config
+    # resolves it from the top-level config and passes it through);
+    # absent means the charter default, full.
+    tool_mode = cfg.get("oracle_tool_mode")
     # One read of the disclosure rule per question: the file tools
     # refuse what it withholds for the whole exchange.
     withheld = _runner()._withheld_for_tools(base_dir)
@@ -60,12 +64,21 @@ def ask_model_agent(cfg, question, output_text, max_chars, patterns=None,
     if cap < 0:
         cap = 0
     timeout = _runner()._inference_timeout(cfg)
-    # docs/oracle/configuring-oracle.md: agent_wall_clock_sec default 300. A
+    # docs/infrastructure-documents/oracle/configuring-oracle.md: agent_wall_clock_sec default 300. A
     # boolean is not a wall clock (true once gave the agent loop one
     # second).
     wall_clock = _confval.integer(cfg.get("agent_wall_clock_sec"),
                                   R._ORACLE_AGENT_WALL_CLOCK_SEC, lo=1)
-    system = _runner().ASK_AGENT_SYSTEM + (
+    # The briefing layers ride between the door's charter and the
+    # deployment's own instructions, the same order as the ask
+    # seam (the design record is
+    # docs/steady/design/oracle-briefing-design.md, shape 4).
+    system = _runner().ASK_AGENT_SYSTEM
+    briefing = _runner().assemble_oracle_briefing(
+        base_dir, "agent", owner_instructions=instructions)
+    if briefing:
+        system += "\n\n" + briefing
+    system += (
         ("\n\nOwner instructions for this box:\n" + _runner()._as_text(instructions).strip())
         if instructions and _runner()._as_text(instructions).strip() else "")
     state = _runner()._tool_base_dir(base_dir)
@@ -186,8 +199,9 @@ def ask_model_agent(cfg, question, output_text, max_chars, patterns=None,
                 preview = "?"
             R.log(f"oracle tool: {name} {preview}")
             _progress(f"Running {name}")
-            result_text = _runner()._run_oracle_tool(name, fargs, base_dir,
-                                           withheld=withheld)
+            result_text = _runner()._run_oracle_tool(
+                name, fargs, base_dir, withheld=withheld,
+                tool_mode=tool_mode)
             scan_text += "\n" + result_text
             executed.append((call_id, name, fargs, result_text))
         if executed and executed[0][0].startswith(R._CONTENT_CALL_ID_PREFIX):
@@ -354,6 +368,93 @@ def _collect_outputs(work, names, cfg):
     return out
 
 
+WORK_RETENTION_DEFAULT_SEC = 604800  # 7 days
+WORK_SWEEP_CAP = 512
+
+
+def reap_work_dir(work):
+    """Remove one per-job workspace. True when this call
+    removed it. A path that is not there — never created, or
+    moved away (a seized workspace leaves by quarantine's
+    move, and this reap is then a no-op by construction) —
+    is False: nothing was reaped. A symlink is never
+    followed. Never raises."""
+    if not isinstance(work, str) or not work:
+        return False
+    try:
+        if os.path.islink(work) or not os.path.isdir(work):
+            return False
+        shutil.rmtree(work, ignore_errors=True)
+    except OSError:
+        return False
+    return not os.path.exists(work)
+
+
+def _work_retention_sec(cfg):
+    """The work_retention_sec setting, as a number of seconds.
+
+    Default 604800 (7 days): a job runs at most 3600 seconds,
+    so a workspace older than a week is certainly orphaned,
+    and a kept refused result gets a week of operator
+    visibility. 0 disables the startup sweep. A present but
+    unusable value reads as the default; the key is
+    registered in runner/guard/defaulted.py, whose startup
+    line names it (Decision 1: this setting changes neither
+    who can reach the box, nor what it executes, nor what it
+    protects, so it defaults rather than refusing to start)."""
+    if not isinstance(cfg, dict):
+        return WORK_RETENTION_DEFAULT_SEC
+    n = _confval.number(cfg.get("work_retention_sec"), None, lo=0)
+    if n is None:
+        return WORK_RETENTION_DEFAULT_SEC
+    return int(n)
+
+
+def reap_work_orphans(base_dir, cfg=None, now=None):
+    """The startup orphan sweep: reap leftover job workspaces.
+
+    Domain: the direct children of base_dir/work/ only. A
+    child is reaped only when it is a real directory (never a
+    symlink or reparse point), its name matches the runner's
+    own safe job_id shape, and its mtime is older than the
+    retention age. At most WORK_SWEEP_CAP directories go per
+    sweep. Returns how many were reaped. Never raises: a
+    sweep failure must not stop startup, and what it could
+    not reap it leaves for the next start."""
+    retention = _work_retention_sec(cfg)
+    if retention <= 0:
+        return 0
+    if not isinstance(base_dir, str) or not base_dir:
+        return 0
+    root = os.path.join(base_dir, "work")
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return 0
+    if now is None:
+        now = time.time()
+    R = _runner()
+    reaped = 0
+    for name in names:
+        if reaped >= WORK_SWEEP_CAP:
+            break
+        if name in (".", "..") or not R._SAFE_JOB_ID.match(name):
+            continue
+        path = os.path.join(root, name)
+        try:
+            st = os.lstat(path)
+        except OSError:
+            continue
+        if not stat.S_ISDIR(st.st_mode) or stat.S_ISLNK(st.st_mode) \
+                or R._reparse_point(st):
+            continue
+        if now - st.st_mtime <= retention:
+            continue
+        if reap_work_dir(path):
+            reaped += 1
+    return reaped
+
+
 def execute_job(cfg, job: dict, base_dir: str) -> dict:
     R = _runner()
     if not isinstance(job, dict):
@@ -379,6 +480,28 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
     # The canonical root, once per job: every staging check, both
     # sweeps and the sandbox bind answer for this path (review item 5).
     root = _runner()._workspace_root(work)
+    try:
+        return _execute_job_body(cfg, job, base_dir, work, root, job_id)
+    finally:
+        # The workspace is the runner's per-job temp: staged
+        # files, the script, the outputs — already collected
+        # into the result by the time the body returns. It is
+        # reaped on every path out (success, refusal, failure);
+        # left in place it fills the state disk one job at a
+        # time, and on a box whose state dir sits in the system
+        # temp it fills that. A workspace remediation seized
+        # was MOVED into quarantine inside the body, so this
+        # reap finds nothing at the path and the seized copy
+        # keeps its own bounds. A reap that cannot finish (a
+        # file still held open) leaves the directory behind
+        # for the startup orphan sweep, and says so.
+        if not reap_work_dir(work) and os.path.isdir(work):
+            R.log(f"job {job_id}: workspace could not be fully "
+                  f"removed; the startup sweep will retry", "WARN")
+
+
+def _execute_job_body(cfg, job, base_dir, work, root, job_id):
+    R = _runner()
     kind = job.get("kind")
 
     if kind == "ping":
@@ -605,6 +728,17 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
     c_argv, use_host_env, sandboxed = _runner()._confinement_argv(
         cfg, base_dir, job.get("job_id", ""), interpreter, script_path,
         root, args, env)
+    if not c_argv:
+        # Q135: the confinement decision answers a denial as an
+        # empty argv instead of raising; the refusal lives here,
+        # at the job-acceptance boundary, and the job is refused
+        # exactly as it was when the decision raised. The audit
+        # record the decision wrote names the cause (a sandbox
+        # that cannot engage, a build failure, a malformed
+        # confinement block).
+        raise _runner().JobRejected(
+            "confinement cannot engage for this job; job refused "
+            "under security.modes.confinement=enforce")
     # Hardening M8: drop to the job user when configured (POSIX,
     # root only). None when off or unavailable.
     preexec = _runner()._job_user_preexec(cfg, base_dir, job.get("job_id", ""), work)
@@ -618,14 +752,31 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
     except _runner().JobRejected:
         shutil.rmtree(work, ignore_errors=True)
         raise
+    # Confinement on Windows: the process must be CREATED under
+    # the restricted, low-integrity token -- a token cannot be
+    # applied to a running process -- so the confined spawn
+    # replaces Popen there. It returns None everywhere else (and
+    # in every mode but enforce), and refuses the job itself when
+    # the backend cannot engage, so no path falls through to an
+    # unconfined process under enforce. Its release runs in the
+    # finally below, beside the job_user release.
+    conf_release = None
+    proc = None
+    _conf_spawn = getattr(_runner(), "_confinement_spawn", None)
+    if _conf_spawn is not None:
+        _spawned = _conf_spawn(cfg, base_dir, job_id, c_argv, run_dir,
+                               env if use_host_env else None)
+        if _spawned is not None:
+            proc, conf_release = _spawned
     try:
-        proc = subprocess.Popen(
-            c_argv,
-            cwd=run_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env=env if use_host_env else None,
-            start_new_session=(os.name != "nt"),
-            preexec_fn=preexec,
-        )
+        if proc is None:
+            proc = subprocess.Popen(
+                c_argv,
+                cwd=run_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                env=env if use_host_env else None,
+                start_new_session=(os.name != "nt"),
+                preexec_fn=preexec,
+            )
         R.log(f"job {job['job_id']} process started pid={proc.pid} "
             f"interpreter={interpreter[0]}"
             f"{' sandboxed' if sandboxed else ''}")
@@ -634,6 +785,26 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
         # Missing binary, a null in argv, or an unusable interpreter
         # fails the same way every cycle. Poison, not transient.
         raise _runner().JobRejected(f"cannot start interpreter: {e}")
+    # job_user on Windows: the Job Object assignment needs the
+    # started process, so enforce applies here, just after Popen,
+    # not in the preexec hook (which returns None on win32 when
+    # the backend can engage). A refusal there has already killed
+    # the process and rejects the job before it runs a line
+    # uncontained. The release runs in the finally below, once
+    # the process has exited. Off win32 this returns None at once.
+    win_release = None
+    _postspawn = getattr(_runner(), "_job_user_postspawn", None)
+    if _postspawn is not None:
+        try:
+            win_release = _postspawn(cfg, base_dir, job_id, proc)
+        except Exception:
+            if conf_release is not None:
+                try:
+                    conf_release()
+                except Exception:
+                    pass
+                conf_release = None
+            raise
     # The panic word (Q100) stops every live job; a box that fired
     # while this one was being staged kills it at once.
     _runner()._panic.register(proc)
@@ -644,7 +815,7 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
     except Exception:
         owner = ""
     _runner()._cancel.register(job_id, owner, proc)
-    # Remediation watches the run (docs/design/remediation-design.md).
+    # Remediation watches the run (docs/steady/design/remediation-design.md).
     # A monitor that fails to start changes nothing: the job runs
     # exactly as it did before remediation existed.
     monitor = None
@@ -663,11 +834,37 @@ def execute_job(cfg, job: dict, base_dir: str) -> dict:
     except subprocess.TimeoutExpired:
         R.log(f"job {job['job_id']} timed out after {timeout}s; killing tree", "WARN")
         _runner().kill_tree(proc)
-        outs, errs = proc.communicate()
+        try:
+            outs, errs = proc.communicate(timeout=15)
+        except subprocess.TimeoutExpired:
+            # The tree kill did not reap the pipes (a Windows
+            # taskkill that misses the grandchild, then a
+            # communicate with no timeout, is how a shard sits
+            # at the wall). One more kill, then a short wait.
+            # A process that still will not die must not hold
+            # the shard.
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            try:
+                outs, errs = proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                outs, errs = b"", b""
         timed_out = True
     finally:
         _runner()._panic.unregister(proc)
         cancelled = _runner()._cancel.unregister(job_id)
+        if win_release is not None:
+            try:
+                win_release()
+            except Exception:
+                pass
+        if conf_release is not None:
+            try:
+                conf_release()
+            except Exception:
+                pass
         if monitor is not None:
             try:
                 monitor.stop()

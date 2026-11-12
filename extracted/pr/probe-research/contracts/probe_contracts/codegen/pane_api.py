@@ -35,6 +35,9 @@ _ENUMS = (
     ("PanePartialReason", "reasons", "Why a resolved entry is `partial`."),
     ("PaneCheckStatus", "check_statuses", "What the render check at push answered."),
     ("PaneCheckState", "check_states", "A state the render check draws the pane in."),
+    ("PanePreviewState", "preview_states", "A project's canvas preview choice."),
+    ("PaneWriterKind", "writer_kinds", "Who last wrote a pane or a preview choice, from the credential."),
+    ("PanePreviewErrorCode", "preview_error_codes", "The `code` of a preview refusal."),
 )
 
 

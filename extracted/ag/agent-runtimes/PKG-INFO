@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent_runtimes
-Version: 1.6.22
+Version: 1.6.28
 Summary: Agent Runtimes
 Project-URL: Homepage, https://github.com/datalayer/agent-runtimes
 Project-URL: Documentation, https://agent-runtimes.datalayer.tech
@@ -22,7 +22,7 @@ Requires-Python: >=3.11
 Requires-Dist: agent-codemode>=1.1.0
 Requires-Dist: agent-skills>=1.2.0
 Requires-Dist: agent-teams<2,>=1.0.0
-Requires-Dist: agentspecs>=0.0.174
+Requires-Dist: agentspecs>=0.0.180
 Requires-Dist: code-sandboxes>=1.12.0
 Requires-Dist: croniter
 Requires-Dist: datalayer-agent-shield<0.3,>=0.2.18
@@ -128,6 +128,7 @@ Requires-Dist: openai<4.0.0,>=2.29.0; extra == 'openai'
 Requires-Dist: pydantic-ai-slim[openai]<2.60,>=2.35.0; extra == 'openai'
 Provides-Extra: test
 Requires-Dist: agent-runtimes[a2a,aws,cli,memory,openai]; extra == 'test'
+Requires-Dist: cfn-lint>=1.20; extra == 'test'
 Requires-Dist: coverage>=7.9.2; extra == 'test'
 Requires-Dist: faiss-cpu>=1.8; extra == 'test'
 Requires-Dist: hatchling; extra == 'test'

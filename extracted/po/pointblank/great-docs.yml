@@ -142,6 +142,8 @@ skill:
       file: skills/scan-and-profile/SKILL.md
     - name: generate-data
       file: skills/generate-data/SKILL.md
+    - name: check-training-data
+      file: skills/check-training-data/SKILL.md
 
 # API Reference Structure
 # Organized to match the current quartodoc sections
@@ -231,6 +233,12 @@ reference:
             - col_vals_regex
             - col_vals_within_spec
             - col_vals_str_len
+            - col_vals_scored
+            - col_vals_chat_format
+            - col_vals_text_quality
+            - col_vals_in_language
+            - col_vals_token_len
+            - col_vals_no_pii
             - col_vals_in_table
             - col_vals_expr
             - col_exists
@@ -240,6 +248,8 @@ reference:
             - col_missing_only_coded
             - col_missing_consistent
             - rows_distinct
+            - rows_near_distinct
+            - rows_not_contaminated
             - rows_complete
             - col_schema_match
             - row_count_match
@@ -267,8 +277,8 @@ reference:
       desc: >
         Import external schema definitions (JSON Schema, Frictionless Table Schema, and more) into
         Pointblank validation workflows, or export Pointblank contracts to those formats. Use
-        `import_contract()` as the entry point, `export_contract()` for the reverse, and
-        `register_adapter()` to add support for custom formats.
+        `~~pointblank.import_contract()` as the entry point, `~~pointblank.export_contract()` for
+        the reverse, and `register_adapter()` to add support for custom formats.
       contents:
         - import_contract
         - export_contract
@@ -331,6 +341,14 @@ reference:
         - Validate.conjointly
         - Validate.specially
         - Validate.prompt
+        - Validate.col_vals_scored
+        - Validate.rows_near_distinct
+        - Validate.rows_not_contaminated
+        - Validate.col_vals_chat_format
+        - Validate.col_vals_text_quality
+        - Validate.col_vals_in_language
+        - Validate.col_vals_token_len
+        - Validate.col_vals_no_pii
 
     - title: Aggregation Steps
       desc: >
@@ -353,11 +371,41 @@ reference:
         - Validate.col_sd_le
         - Validate.col_sd_eq
 
+    - title: Scorers
+      desc: >
+        Scorers give each row a score with a model, for `Validate.col_vals_scored()`. Any function
+        of a batch of rows is a scorer; `from_function()` gives one a name, a version, and a batch
+        size, and the adapters use models from common packages (embeddings, rerankers, text
+        classifiers, language identification, and perplexity). Scores are cached by the scorer's
+        name and version, in memory or on disk.
+      contents:
+        - scorers.Scorer
+        - scorers.from_function
+        - scorers.embedding_similarity
+        - scorers.reranker
+        - scorers.classifier
+        - scorers.langid
+        - scorers.perplexity
+        - scorers.text_stat
+        - scorers.token_count
+        - scorers.clear_cache
+
+    - title: RAG Checks
+      desc: >
+        Checks of the data of a retrieval-augmented generation (RAG) system. Each function makes a
+        `Steps` collection of ordinary validation steps: `rag.corpus_checks()` checks the chunks of
+        the corpus (text, unique ids, metadata, length, near duplicates, and freshness), and
+        `rag.eval_checks()` checks the evaluation set (queries, near-duplicate queries, gold
+        documents in the corpus, and the relevance of the gold passages).
+      contents:
+        - rag.corpus_checks
+        - rag.eval_checks
+
     - title: Column Selection
       desc: >
         Use the `col()` function along with column selection helpers to flexibly select columns for
-        validation. Combine `col()` with `starts_with()`, `matches()`, etc. for selecting multiple
-        target columns.
+        validation. Combine `col()` with `starts_with()`, `~~pointblank.matches()`, etc. for
+        selecting multiple target columns.
       contents:
         - col
         - starts_with
@@ -389,10 +437,13 @@ reference:
         - Validate.to_code
         - Validate.to_yaml
         - Validate.to_json_schema
+        - Validate.to_data_card
         - Validate.suggest_improvements
         - Validate.from_prompt
         - Validate.get_sundered_data
+        - Validate.get_row_flags
         - Validate.get_data_extracts
+        - Validate.calibrate_prompt
         - Validate.all_passed
         - Validate.assert_passing
         - Validate.assert_below_threshold
@@ -442,9 +493,9 @@ reference:
 
     - title: Table Comparison
       desc: >
-        Compare two tables row by row. `compare()` aligns the rows of a source and a target table
-        (by key, by position, or as multisets) and reports missing, extra, and changed rows, plus
-        schema differences. The result is a `Comparison` object with counts, row samples, and a
+        Compare two tables row by row. `~~pointblank.compare()` aligns the rows of a source and a
+        target table (by key, by position, or as multisets) and reports missing, extra, and changed
+        rows, plus schema differences. The result is a `Comparison` object with counts, row samples, and a
         tabular report. The same comparison is available as a validation step through
         `Validate.tbl_match()`, and `Validate.tbl_reconcile()` compares aggregates (e.g., totals
         per group) instead of rows.
@@ -469,6 +520,36 @@ reference:
         - Comparison.to_dict
         - Comparison.to_json
 
+    - title: Split Checks
+      desc: >
+        Check the splits of a dataset (training, validation, and test) before training a model:
+        `check_splits()` finds the rows of a later split that are also in an earlier one (exactly
+        or nearly the same), labels that a split is missing or that only it has, and columns whose
+        distribution changes between splits. The result is a `SplitCheck` object with the issues
+        found, the overlapping rows, and a tabular report.
+      contents:
+        - check_splits
+        - name: SplitCheck
+          members: false
+        - SplitCheck.get_overlap
+        - SplitCheck.get_tabular_report
+        - SplitCheck.to_dict
+
+    - title: Synthetic Data Checks
+      desc: >
+        Check synthetic data against the real data it was made from (its seed): `check_synthetic()`
+        compares the distribution and the share of missing values of each column, measures the
+        diversity of the rows and of the text, and finds synthetic rows that copy a seed row
+        (exactly or nearly). The result is a `SyntheticCheck` object with the issues found, the
+        copied rows, and a tabular report.
+      contents:
+        - check_synthetic
+        - name: SyntheticCheck
+          members: false
+        - SyntheticCheck.get_copies
+        - SyntheticCheck.get_tabular_report
+        - SyntheticCheck.to_dict
+
     - title: Table Pre-checks
       desc: >
         Helper functions for use with the `active=` parameter of validation methods. These inspect
@@ -478,6 +559,51 @@ reference:
         - has_columns
         - has_rows
 
+    - title: Preprocessing
+      desc: >
+        Helper functions for use with the `pre=` parameter of validation methods.
+      contents:
+        - row_preserving
+
+    - title: Data Ablation
+      desc: >
+        Measure how the rows that fail validation steps affect a downstream model. An `Ablation`
+        trains and evaluates a model (with a function you provide) on the full table and on
+        versions of it with the failing rows of some steps removed, repeats this over several
+        seeds, and compares each version to the full table and to a version with the same number
+        of rows removed at random.
+      contents:
+        - name: Ablation
+          members: false
+        - AblationVariant
+        - ablation.Stratified
+        - ablation.sklearn_evaluator
+
+    - title: Ablation Methods
+      desc: Methods for the Ablation class
+      contents:
+        - Ablation.drop_steps
+        - Ablation.drop_each
+        - Ablation.drop_all
+        - Ablation.drop_all_but_each
+        - Ablation.drop_groups
+        - Ablation.sweep_score
+        - Ablation.sweep_step
+        - Ablation.inject
+        - Ablation.shapley
+        - Ablation.plan
+        - Ablation.run
+        - Ablation.check_determinism
+        - Ablation.export
+        - Ablation.load_results
+        - Ablation.get_effects
+        - Ablation.get_shapley
+        - Ablation.suggest_thresholds
+        - Ablation.get_tabular_report
+        - Ablation.annotate
+        - Ablation.to_dict
+        - Ablation.to_json
+
     - title: YAML
       desc: >
         Functions for using YAML to orchestrate validation workflows.
@@ -485,6 +611,7 @@ reference:
         - yaml_interrogate
         - validate_yaml
         - yaml_to_python
+        - yaml_ablation
 
     - title: Utility Functions
       desc: >

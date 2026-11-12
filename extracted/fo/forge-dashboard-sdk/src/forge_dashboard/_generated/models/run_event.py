@@ -63,6 +63,10 @@ class RunEvent:
                 `failure`. A client decides what each word means and what to do
                 with one it doesn't know.
 
+                `startup_failure` is a workflow run that never started. It has no
+                jobs, so the check carries the workflow's name, `url` is the run's
+                page, and there is no `jobId`.
+
                 `action_required` means the job needs someone's approval, and `url`
                 is where to give it. The page shows it as waiting for approval,
                 the same as a held run whose `status` is "waiting".

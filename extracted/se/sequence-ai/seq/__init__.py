@@ -64,7 +64,8 @@ from seq.human import ask_human, planner
 
 
 from seq.settings_cli import policy_set, policy_settings
-from seq.robot_cli import robot_add, robot_list, robot_revoke, robot_set
+from seq.robot_cli import robot_add, robot_create, robot_key, robot_list, robot_revoke, robot_rm, robot_set
+from seq.gpu_cli import gpu_add, gpu_list, gpu_places, gpu_remove, gpu_ssh
 from seq.login_cli import login_list, login_revoke
 from seq.key_cli import key_add, key_list, key_revoke, key_set
 
@@ -78,7 +79,7 @@ from seq.deployments_cli import fork as policy_fork
 from seq.logs_cli import policy_logs
 from seq.run_logs import benchmark_logs, eval_logs
 
-from seq.machines_cli import robot_status
+from seq.machines_cli import robot_show
 from seq.params import OneOf, Range
 from seq.registry import registration
 from seq.secret import Secret
@@ -166,9 +167,17 @@ __all__ = [
     "billing_top_up",
     "redeem_promo_code",
     "robot_add",
+    "robot_create",
+    "robot_key",
     "robot_list",
     "robot_revoke",
+    "robot_rm",
     "robot_set",
+    "gpu_add",
+    "gpu_list",
+    "gpu_places",
+    "gpu_remove",
+    "gpu_ssh",
     "login_list",
     "login_revoke",
     "key_list",
@@ -179,7 +188,7 @@ __all__ = [
     "policy_logs",
     "benchmark_logs",
     "eval_logs",
-    "robot_status",
+    "robot_show",
     "benchmark",
     "adapter",
 

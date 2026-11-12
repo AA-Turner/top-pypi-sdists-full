@@ -1,7 +1,7 @@
-import os
+import pathlib
 import platform
 
-from numpy import arange, array, cumsum, dot, ones, vstack
+from numpy import arange, array, cumsum, dot, ndarray, ones, sqrt, vstack
 from numpy.linalg import pinv
 from numpy.random import Generator, RandomState
 
@@ -9,10 +9,12 @@ from arch._typing import UnitRootTrend
 
 # Storage Location
 if platform.system() == "Linux":
-    BASE_PATH = os.path.join("/mnt", "c")
+    BASE_PATH = pathlib.Path("/mnt", "c")
 else:
-    BASE_PATH = "C:\\\\"
-OUTPUT_PATH = os.path.join(BASE_PATH, "Users", "kevin", "Dropbox", "adf-z")
+    BASE_PATH = pathlib.Path(r"C:\\")
+# Created by the scripts that write to them, and not when this module is imported
+OUTPUT_PATH = BASE_PATH / "Users" / "kevin" / "Dropbox" / "adf-z"
+T_OUTPUT_PATH = BASE_PATH / "Users" / "kevin" / "Dropbox" / "adf-t"
 
 _PERCENTILES = (
     list(arange(1, 10))
@@ -65,10 +67,32 @@ def adf_simulation(
     n: int,
     trend: UnitRootTrend,
     b: int,
-    rng: None | RandomState | Generator = None,
-) -> float:
+    rng: RandomState | Generator | None = None,
+) -> ndarray:
     """
     Simulates the empirical distribution of the ADF z-test statistic
+    """
+    return adf_statistics(n, trend, b, rng)[0]
+
+
+def adf_statistics(
+    n: int,
+    trend: UnitRootTrend,
+    b: int,
+    rng: RandomState | Generator | None = None,
+) -> tuple[ndarray, ndarray]:
+    """
+    Simulates the empirical distributions of the ADF z- and t-test statistics
+
+    Both statistics are computed from the same b random walks of length n, and
+    are those of ADF with lags=0 and the same trend.
+
+    Returns
+    -------
+    z_stat : ndarray
+        The z-test statistics, nobs * (gamma - 1).
+    t_stat : ndarray
+        The t-test statistics, (gamma - 1) / se(gamma).
     """
     if rng is None:
         rng = RandomState(0)
@@ -84,9 +108,8 @@ def adf_simulation(
         tau = arange(1, nobs + 1)
         z = vstack((ones(nobs), tau, tau**2.0)).T
 
-    y = standard_normal((n + 50, b))
+    y = standard_normal((n, b))
     y = cumsum(y, axis=0)
-    y = y[50:, :]
     lhs = y[1:, :]
     rhs = y[:-1, :]
     if z is not None:
@@ -100,5 +123,10 @@ def adf_simulation(
     xpx = sum(rhs**2.0, 0)
     gamma = xpy / xpx
     nobs = lhs.shape[0]
-    stat = nobs * (gamma - 1.0)
-    return stat
+    z_stat = nobs * (gamma - 1.0)
+    # The residual variance is corrected for the lagged level and the trend terms,
+    # as in the OLS regression of ADF
+    num_params = 1 if z is None else 1 + z.shape[1]
+    sigma2 = sum((lhs - gamma * rhs) ** 2.0, 0) / (nobs - num_params)
+    t_stat = (gamma - 1.0) / sqrt(sigma2 / xpx)
+    return z_stat, t_stat

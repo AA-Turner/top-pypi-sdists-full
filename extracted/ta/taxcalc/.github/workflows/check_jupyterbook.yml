@@ -1,0 +1,29 @@
+name: Test that Jupyter Book builds
+on: [push, pull_request]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: taxcalc-dev
+          environment-file: environment.yml
+          python-version: 3.13
+          auto-activate: false
+
+      - name: Build # Build Jupyter Book
+        shell: bash -l {0}
+        run: |
+          pip install -e .
+          python docs/guide/make/make_uguide.py
+          python docs/api/make/make_api.py
+          cd docs
+          jupyter-book build --html --execute --strict
+          python make_redirects.py

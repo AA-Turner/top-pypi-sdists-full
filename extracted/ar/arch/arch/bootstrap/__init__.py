@@ -1,5 +1,5 @@
 """
-Tools for implementing statistical bootstraps
+Tools for implementing statistical bootstraps.
 """
 
 from arch.bootstrap import _samplers_python
@@ -7,6 +7,7 @@ from arch.bootstrap.base import (
     CircularBlockBootstrap,
     IIDBootstrap,
     IndependentSamplesBootstrap,
+    LocalBlockBootstrap,
     MovingBlockBootstrap,
     StationaryBootstrap,
     optimal_block_length,
@@ -26,6 +27,7 @@ __all__ = [
     "CircularBlockBootstrap",
     "IIDBootstrap",
     "IndependentSamplesBootstrap",
+    "LocalBlockBootstrap",
     "MovingBlockBootstrap",
     "RealityCheck",
     "StationaryBootstrap",

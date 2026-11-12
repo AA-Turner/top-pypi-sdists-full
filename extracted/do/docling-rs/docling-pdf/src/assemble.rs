@@ -5,7 +5,9 @@
 //! assigned to its best-containing region, regions are ordered in reading order
 //! (two-column aware), and each becomes a typed node by its layout label.
 
-use docling_core::{CaptionParent, ListItemDclx, Node, PictureClass, PictureImage, Table};
+use docling_core::{
+    CaptionParent, ListItemDclx, ListItemSplit, Node, PictureClass, PictureImage, Table,
+};
 #[cfg(any(feature = "ml", feature = "ocr-prep"))]
 use image::RgbImage;
 
@@ -1684,7 +1686,24 @@ fn list_item_node(text: &str, loc: [u16; 4], first_in_list: bool) -> Node {
         })
         .trim_start();
     let split = split_list_marker(text).or_else(|| split_list_marker(stripped));
-    let bullet = |text: String, marker: &str| Node::ListItem {
+    // The JSON's view of the item, whatever its Markdown spelling below:
+    // docling's `orig` (the text the match ran on), `marker`, `text` and
+    // `enumerated`. An item that matches no marker has an empty one there.
+    let json = |orig: &str, marker: &str, body: &str, enumerated: bool| {
+        Some(Box::new(ListItemSplit {
+            orig: orig.to_string(),
+            marker: marker.to_string(),
+            text: body.to_string(),
+            enumerated,
+        }))
+    };
+    // The text the marker was found in: `text`, else `stripped`.
+    let matched = if split_list_marker(text).is_some() {
+        text
+    } else {
+        stripped
+    };
+    let bullet = |text: String, marker: &str, split| Node::ListItem {
         ordered: false,
         number: 0,
         first_in_list,
@@ -1694,6 +1713,7 @@ fn list_item_node(text: &str, loc: [u16; 4], first_in_list: bool) -> Node {
         // (`<ldiv><marker>·</marker></ldiv>`); Markdown prints its own `-`.
         marker: Some(marker.to_string()),
         location: Some(loc),
+        split,
         dclx: None,
         href: None,
         layer: None,
@@ -1715,6 +1735,7 @@ fn list_item_node(text: &str, loc: [u16; 4], first_in_list: bool) -> Node {
                 level: 0,
                 marker: Some(marker.to_string()),
                 location: Some(loc),
+                split: json(matched, marker, body, true),
                 dclx: None,
                 href: None,
                 layer: None,
@@ -1734,6 +1755,7 @@ fn list_item_node(text: &str, loc: [u16; 4], first_in_list: bool) -> Node {
                 level: 0,
                 marker: None,
                 location: Some(loc),
+                split: json(matched, marker, body, true),
                 dclx: Some(ListItemDclx {
                     ordered: false,
                     marker: Some(marker.to_string()),
@@ -1744,8 +1766,14 @@ fn list_item_node(text: &str, loc: [u16; 4], first_in_list: bool) -> Node {
                 layer: None,
             }
         }
-        Some((marker, body, false)) => bullet(body.to_string(), marker),
-        None => bullet(stripped.to_string(), "·"),
+        Some((marker, body, false)) => {
+            bullet(body.to_string(), marker, json(matched, marker, body, false))
+        }
+        None => bullet(
+            stripped.to_string(),
+            "·",
+            json(stripped, "", stripped, false),
+        ),
     }
 }
 
@@ -2231,7 +2259,15 @@ fn assign_cells(regions: &[Region], cells: &[TextCell]) -> Vec<Vec<usize>> {
                 continue;
             }
             let ov = inter(r, c.l, c.t, c.r, c.b) / ca;
-            if ov > 0.2 && best.is_none_or(|(_, b)| ov > b) {
+            // A tie goes to an orphan region (score 0, its box the cells
+            // it was made from) over a model region that only reaches the
+            // cell once fitted: docling assigns a cell once, to the raw
+            // boxes, and an orphan its fitted neighbour did not fold in
+            // ([`fit_regions_to_cells`]) keeps it.
+            let wins = |(bi, b): (usize, f32)| {
+                ov > b || (ov == b && r.score == 0.0 && regions[bi].score != 0.0)
+            };
+            if ov > 0.2 && best.is_none_or(wins) {
                 best = Some((i, ov));
             }
         }
@@ -2507,8 +2543,11 @@ pub fn split_checkbox_lines(
 /// becomes a `text` region of its own. The container itself goes.
 /// Deliberate divergence from docling's merge: the paragraphs survive. Only
 /// a stack is resolved — each contained region at least half the
-/// container's width and no container line beside one — so a box over two
-/// columns or a side-by-side layout is left to cell ownership as before.
+/// container's width or a paragraph's wrapped last line (one line at the
+/// stack's left edge, directly under a full container line, no other
+/// contained region beside it: #1107), and no container line beside one —
+/// so a box over two columns or a side-by-side layout is left to cell
+/// ownership as before.
 fn split_text_containers(regions: &mut Vec<Region>, cells: &[TextCell]) {
     type Bx = (f32, f32, f32, f32);
     let union = |a: Bx, b: Bx| -> Bx { (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)) };
@@ -2564,7 +2603,33 @@ fn split_text_containers(regions: &mut Vec<Region>, cells: &[TextCell]) {
         let inner_boxes: Vec<Bx> = inner.iter().map(|(_, ls)| boxes(ls)).collect();
         let stack = inner_boxes.iter().copied().fold(boxes(&own_lines), union);
         let width = (stack.2 - stack.0).max(1.0);
-        if inner_boxes.iter().any(|b| b.2 - b.0 < 0.5 * width) {
+        // A contained box under half the stack's width reads as a column —
+        // unless it is a paragraph's wrapped last line (#1107: `alias; using
+        // definition from 'File Name'`, `assembly` on pp. 1783 / 1820): one
+        // line, at the stack's left edge, directly under a full container
+        // line, with no other contained box beside it. A container line
+        // beside it is still a column (`beside` below).
+        let wrapped_tail = |n: usize| -> bool {
+            let (ls, b) = (&inner[n].1, inner_boxes[n]);
+            let h = (ls[0].0 .3 - ls[0].0 .1).max(1.0);
+            ls.len() == 1
+                && b.0 - stack.0 < 2.0 * h
+                && own_lines.iter().any(|(lb, _)| {
+                    let gap = b.1 - lb.3;
+                    gap > -0.25 * h
+                        && gap < 1.5 * h
+                        && lb.0 - stack.0 < 2.0 * h
+                        && lb.2 - lb.0 >= 0.75 * width
+                })
+                && !inner_boxes
+                    .iter()
+                    .enumerate()
+                    .any(|(m, o)| m != n && o.1 < b.3 && o.3 > b.1)
+        };
+        if (0..inner.len()).any(|n| {
+            let b = inner_boxes[n];
+            b.2 - b.0 < 0.5 * width && !wrapped_tail(n)
+        }) {
             continue;
         }
         let beside = own_lines.iter().any(|(lb, _)| {
@@ -2717,17 +2782,29 @@ pub fn fit_regions_to_cells(regions: &mut Vec<Region>, cells: &[TextCell]) {
         return;
     }
     split_text_containers(regions, cells);
+    // Each region's box as the model proposed it. docling's merge rounds
+    // find a region's partners in an R-tree built once from the raw
+    // clusters (`regular_index`, never updated): an orphan folds only into a
+    // region whose *raw* box it touches, however far the fitted box has
+    // grown — 2305.03393's Fig. 5 caption fits down over the `_` cells
+    // under its last line (their ink boxes, below the baseline) that its
+    // model box stops short of, and docling keeps them as items of their
+    // own.
+    let mut raw: Vec<(f32, f32, f32, f32)> = regions.iter().map(|r| (r.l, r.t, r.r, r.b)).collect();
     for _ in 0..3 {
         let owned = assign_cells(regions, cells);
         let mut fitted: Vec<Region> = Vec::with_capacity(regions.len());
-        for (r, own) in regions.iter().zip(&owned) {
+        let mut fitted_raw: Vec<(f32, f32, f32, f32)> = Vec::with_capacity(regions.len());
+        for ((r, own), &rb) in regions.iter().zip(&owned).zip(&raw) {
             if !claims_cells(r) {
                 fitted.push(r.clone());
+                fitted_raw.push(rb);
                 continue;
             }
             if own.is_empty() {
                 if r.label == "formula" {
                     fitted.push(r.clone());
+                    fitted_raw.push(rb);
                 }
                 continue;
             }
@@ -2749,6 +2826,7 @@ pub fn fit_regions_to_cells(regions: &mut Vec<Region>, cells: &[TextCell]) {
                 .map(|&i| cells[i].b)
                 .fold(f32::NEG_INFINITY, f32::max);
             fitted.push(f);
+            fitted_raw.push(rb);
         }
         let mut changed = fitted.len() != regions.len();
         // Fold orphans into the regular region whose fitted box holds them.
@@ -2762,6 +2840,10 @@ pub fn fit_regions_to_cells(regions: &mut Vec<Region>, cells: &[TextCell]) {
             let mut best: Option<(usize, f32)> = None;
             for (j, r) in fitted.iter().enumerate() {
                 if j == i || drop[j] || r.score == 0.0 || !claims_cells(r) {
+                    continue;
+                }
+                let (rl, rt, rr, rb) = fitted_raw[j];
+                if rr.min(o.r) < rl.max(o.l) || rb.min(o.b) < rt.max(o.t) {
                     continue;
                 }
                 let ov = inter(r, o.l, o.t, o.r, o.b) / oa;
@@ -2780,9 +2862,12 @@ pub fn fit_regions_to_cells(regions: &mut Vec<Region>, cells: &[TextCell]) {
                 changed = true;
             }
         }
+        let mut keep = drop.iter().map(|&d| !d);
+        fitted_raw.retain(|_| keep.next().expect("aligned"));
         let mut drop = drop.into_iter();
         fitted.retain(|_| !drop.next().expect("aligned"));
         *regions = fitted;
+        raw = fitted_raw;
         if !changed {
             break;
         }
@@ -4060,7 +4145,15 @@ pub fn assemble_page(
         }
         let mut text = region_texts[i].clone();
         text.push_str(&merge_suffix[i]);
-        if text.is_empty() {
+        // A region that claimed no text is nothing to emit — except a table:
+        // docling keeps every table cluster as a `TableItem`, cells or not
+        // (a wrapper cluster is exempt from `keep_empty_clusters`), and a
+        // table without text is the common case of one pasted as an image
+        // on a page converted without OCR (#1114). Skipped here, it took
+        // the caption [`pair_graphic_captions`] had already handed it along:
+        // the caption's own slot is consumed, so its text — real text-layer
+        // text — vanished from every export.
+        if text.is_empty() && !is_table_like(region.label) {
             continue;
         }
         match region.label {
@@ -4105,23 +4198,36 @@ pub fn assemble_page(
                 // the public model, and the DocLang structure overlay derives
                 // from them so DCLX emits real span/header tokens. The
                 // geometric fallback has no per-cell records.
-                let (mut rows, cells, structure) = match table_rows[i].clone().map(normalize_grid) {
-                    Some(grid) => {
-                        let nrows = grid.rows.len();
-                        let ncols = grid.rows.first().map_or(0, Vec::len);
-                        let structure = structure_from_cells(&grid.cells, nrows, ncols);
-                        (grid.rows, Some(grid.cells), Some(structure))
-                    }
-                    None => {
-                        let rows = reconstruct_table(region, &page.cells);
-                        let rows = if rows.iter().any(|r| r.len() > 1) {
-                            rows
-                        } else {
-                            vec![vec![text.clone()]]
-                        };
-                        (rows, None, None)
-                    }
-                };
+                // A table no word landed in is docling's empty table: with
+                // nothing to match, TableFormer's structure yields no cell
+                // (`tf_predictor.predict` builds its responses from the
+                // word→cell matches, so `num_rows` = `num_cols` = 0) — not
+                // the predicted grid of blank cells, which would print as a
+                // block of empty pipes. It keeps its place, its box and its
+                // caption.
+                let blank = text.is_empty()
+                    && table_rows[i]
+                        .as_ref()
+                        .is_none_or(|g| g.rows.iter().flatten().all(|c| c.trim().is_empty()));
+                let (mut rows, cells, structure) =
+                    match table_rows[i].clone().filter(|_| !blank).map(normalize_grid) {
+                        _ if blank => (Vec::new(), None, None),
+                        Some(grid) => {
+                            let nrows = grid.rows.len();
+                            let ncols = grid.rows.first().map_or(0, Vec::len);
+                            let structure = structure_from_cells(&grid.cells, nrows, ncols);
+                            (grid.rows, Some(grid.cells), Some(structure))
+                        }
+                        None => {
+                            let rows = reconstruct_table(region, &page.cells);
+                            let rows = if rows.iter().any(|r| r.len() > 1) {
+                                rows
+                            } else {
+                                vec![vec![text.clone()]]
+                            };
+                            (rows, None, None)
+                        }
+                    };
                 // The paired caption (#265) rides on the table — docling's
                 // TableItem.captions ref; Markdown prints it above the grid,
                 // the JSON export emits the $ref, DocLang the <caption>.
@@ -5441,6 +5547,123 @@ mod tests {
         assert!(!super::geometric_table_is_reliable(&[]));
     }
 
+    /// #1114: a table pasted as an image has no text-layer cell, and the page
+    /// is converted without OCR. The caption above it is ordinary text, and
+    /// the caption matcher hands it to the table — which the emit loop then
+    /// skipped for having no text, so the caption went with it. docling keeps
+    /// the table as an empty `TableItem` (no rows: TableFormer's structure
+    /// matched no word) carrying its caption; so does the port, whether
+    /// TableFormer predicted a grid of blank cells or nothing at all. A
+    /// table with text is untouched, and a text-less paragraph box is still
+    /// nothing to emit.
+    #[test]
+    fn a_table_without_text_keeps_its_place_and_its_caption() {
+        let caption_text = "Table 1 - Decision matrix for risk insurance";
+        let cells = vec![
+            cell(
+                "Think about the consequences before you act.",
+                57.0,
+                560.0,
+                407.0,
+                572.0,
+            ),
+            cell(caption_text, 192.0, 631.0, 403.0, 643.0),
+        ];
+        let regions = || {
+            vec![
+                region("text", 0.9, 57.0, 559.0, 408.0, 573.0),
+                region("caption", 0.88, 192.0, 631.0, 403.0, 643.0),
+                region("table", 0.98, 59.0, 654.0, 560.0, 785.0),
+                // A paragraph box over nothing: no item.
+                region("text", 0.9, 57.0, 300.0, 400.0, 320.0),
+            ]
+        };
+        // TableFormer's 4 × 4 structure over the picture of a table: every
+        // cell blank.
+        let blank_grid = super::TableGrid {
+            rows: vec![vec![String::new(); 4]; 4],
+            cells: (0..16)
+                .map(|i| docling_core::TableCell {
+                    text: String::new(),
+                    bbox: Some([60.0, 655.0, 185.0, 687.0]),
+                    start_row: i / 4,
+                    start_col: i % 4,
+                    row_span: 1,
+                    col_span: 1,
+                    column_header: i < 4,
+                    row_header: false,
+                    row_section: false,
+                })
+                .collect(),
+        };
+        for grid in [Some(blank_grid), None] {
+            let page = PdfPage::from_cells(595.0, 842.0, 2.0, cells.clone());
+            let (nodes, _) = super::assemble_page(
+                &page,
+                regions(),
+                &[None, None, grid, None],
+                &[None, None, None, None],
+                None,
+            );
+            let tables: Vec<&docling_core::Table> = nodes
+                .iter()
+                .filter_map(|n| match n {
+                    Node::Located { inner, .. } => match &**inner {
+                        Node::Table(t) => Some(t),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(tables.len(), 1, "the table is an item: {nodes:?}");
+            let table = tables[0];
+            assert!(table.rows.is_empty(), "no rows: {:?}", table.rows);
+            assert!(table.cells.as_ref().is_none_or(Vec::is_empty));
+            assert_eq!(table.caption.as_deref(), Some(caption_text));
+            assert!(table.caption_location.is_some());
+
+            let mut doc = docling_core::DoclingDocument::new("t");
+            doc.nodes = nodes;
+            let md = doc.export_to_markdown();
+            assert_eq!(
+                md.trim(),
+                format!("Think about the consequences before you act.\n\n{caption_text}"),
+                "the caption prints, the empty grid does not"
+            );
+            let json = doc.export_to_json_value();
+            let t = &json["tables"][0];
+            assert_eq!(t["data"]["num_rows"], 0);
+            assert_eq!(t["data"]["num_cols"], 0);
+            assert_eq!(t["data"]["table_cells"].as_array().map(Vec::len), Some(0));
+            assert_eq!(t["captions"].as_array().map(Vec::len), Some(1));
+            let caption = json["texts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|x| x["label"] == "caption")
+                .expect("a caption item");
+            assert_eq!(caption["text"], caption_text);
+            assert_eq!(caption["parent"]["$ref"], "#/tables/0");
+        }
+
+        // A table with words keeps its grid.
+        let mut cells = cells;
+        cells.push(cell("Factors", 70.0, 660.0, 120.0, 672.0));
+        cells.push(cell("Insurance", 330.0, 660.0, 400.0, 672.0));
+        let page = PdfPage::from_cells(595.0, 842.0, 2.0, cells);
+        let (nodes, _) = super::assemble_page(
+            &page,
+            regions(),
+            &[None, None, None, None],
+            &[None, None, None, None],
+            None,
+        );
+        let mut doc = docling_core::DoclingDocument::new("t");
+        doc.nodes = nodes;
+        let md = doc.export_to_markdown();
+        assert!(md.contains("Factors") && md.contains(caption_text), "{md}");
+    }
+
     /// A `picture` region is cropped out of the rendered page, whatever built
     /// that page. The browser pipeline (#157) has no pdfium but does hand over
     /// the rasterized bitmap through `from_cells_with_image`, so it must get
@@ -5994,6 +6217,60 @@ mod tests {
         assert!(!md.contains("(1) (1)") && !md.contains("[21] [21]"), "{md}");
     }
 
+    /// The JSON carries a PDF list item as docling's `ListItemMarkerProcessor`
+    /// leaves it, whatever the Markdown spelling: `orig` with the marker,
+    /// `text` without it, the marker itself, and `enumerated` for a numbered
+    /// marker of any shape (#1111: `[21]` was written as a `-` bullet whose
+    /// text held it, and an `N.` or bullet item lost the marker from `orig`).
+    /// An item that matches no marker has an empty one.
+    #[test]
+    fn json_list_items_carry_the_marker_split() {
+        let loc = [0, 0, 100, 10];
+        let mut doc = docling_core::DoclingDocument::new("t");
+        doc.nodes = [
+            "[21] Peng Zhang",
+            "a) Option",
+            "3. Third",
+            "· Bullet",
+            "Plain <item>",
+            "•Glued",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, t)| super::list_item_node(t, loc, i == 0))
+        .collect();
+        let json = doc.export_to_json_value();
+        let got: Vec<(&str, &str, &str, bool)> = json["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| {
+                (
+                    t["orig"].as_str().unwrap(),
+                    t["text"].as_str().unwrap(),
+                    t["marker"].as_str().unwrap(),
+                    t["enumerated"].as_bool().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("[21] Peng Zhang", "Peng Zhang", "[21]", true),
+                ("a) Option", "Option", "a)", true),
+                ("3. Third", "Third", "3.", true),
+                ("· Bullet", "Bullet", "·", false),
+                ("Plain <item>", "Plain <item>", "", false),
+                ("Glued", "Glued", "", false),
+            ]
+        );
+        // The Markdown is what it was.
+        let md = doc.export_to_markdown();
+        for line in ["- [21] Peng Zhang", "- a) Option", "3. Third", "- Bullet"] {
+            assert!(md.lines().any(|l| l == line), "missing {line:?} in:\n{md}");
+        }
+    }
+
     #[test]
     fn code_language_label_above_code_is_detected() {
         // A bare "XML" token directly above a code box is a language label; a real
@@ -6232,6 +6509,7 @@ mod tests {
             level: 0,
             marker: None,
             location: None,
+            split: None,
             dclx: None,
             href: None,
             layer: None,
@@ -6694,6 +6972,171 @@ mod tests {
         );
     }
 
+    /// #1107 (`dotnet-csharp-language-reference` pp. 1783, 1820): the same
+    /// container over three paragraphs, but one contained box is the first
+    /// paragraph's short last line — under half the stack's width, which the
+    /// column guard read as a column, so the container kept every first line
+    /// as one block. A one-line box at the stack's left edge, directly under
+    /// a full container line, is a wrapped tail: the stack resolves. A box
+    /// that narrow with another contained box beside it, or not under a
+    /// container line, is still a column.
+    #[test]
+    fn a_contained_short_last_line_is_no_column() {
+        let line = |text: &str, t: f32, r: f32| cell(text, 64.0, t, r, t + 9.0);
+        let page = |tail: &str, tail_r: f32, lines: [&str; 6]| {
+            let cells = vec![
+                line(lines[0], 106.0, 520.0),
+                line(tail, 125.0, tail_r),
+                line(lines[1], 157.0, 520.0),
+                line(lines[2], 176.0, 523.0),
+                line(lines[3], 195.5, 515.0),
+                line(lines[4], 215.0, 300.0),
+                line(lines[5], 245.0, 500.0),
+            ];
+            let regions = vec![
+                region("text", 0.9, 63.0, 124.0, tail_r + 1.0, 135.0),
+                region("text", 0.9, 63.0, 175.0, 524.0, 225.0),
+                region("text", 0.5, 63.0, 105.0, 521.0, 255.0),
+            ];
+            (regions, cells)
+        };
+        let resolve = |(mut regions, cells): (Vec<Region>, Vec<TextCell>)| {
+            super::fit_regions_to_cells(&mut regions, &cells);
+            let cids = super::cluster_cids(&regions, &cells);
+            super::order_regions(&mut regions, &cids, 595.0, 842.0, &[], |r| r);
+            super::region_texts_exclusive(&regions, &cells)
+        };
+
+        // p. 1783: `alias; using definition from 'File Name'`, 202 pt of 459.
+        assert_eq!(
+            resolve(page(
+                "alias; using definition from 'File Name'",
+                266.0,
+                [
+                    "The predefined type 'System.type name' is defined in multiple assemblies in the global",
+                    "This error occurs when a predefined system type such as System.int32 is found in two",
+                    "assemblies. One way this can happen is if you are referencing mscorlib from two",
+                    "different places, such as trying to run the .NET Framework versions 1.0 and 1.1",
+                    "side-byside.",
+                    "The compiler will use the definition from only one of the assemblies.",
+                ],
+            )),
+            [
+                "The predefined type 'System.type name' is defined in multiple assemblies in the \
+                 global alias; using definition from 'File Name'",
+                "This error occurs when a predefined system type such as System.int32 is found in \
+                 two assemblies. One way this can happen is if you are referencing mscorlib from \
+                 two different places, such as trying to run the .NET Framework versions 1.0 and \
+                 1.1 side-byside.",
+                "The compiler will use the definition from only one of the assemblies.",
+            ]
+        );
+
+        // p. 1820: a one-word last line, `assembly`, 49 pt wide.
+        assert_eq!(
+            resolve(page(
+                "assembly",
+                113.0,
+                [
+                    "Added modules must be marked with the CLSCompliant attribute to match the",
+                    "A module that was compiled with the module element of the TargetType compiler",
+                    "option was added to a compilation with AddModule. However, the module's",
+                    "compliance with the Common Language Specification (CLS) does not agree with",
+                    "the CLS state of the current compilation.",
+                    "CLS compliance is indicated with the module attribute.",
+                ],
+            )),
+            [
+                "Added modules must be marked with the CLSCompliant attribute to match the assembly",
+                "A module that was compiled with the module element of the TargetType compiler \
+                 option was added to a compilation with AddModule. However, the module's \
+                 compliance with the Common Language Specification (CLS) does not agree with \
+                 the CLS state of the current compilation.",
+                "CLS compliance is indicated with the module attribute.",
+            ]
+        );
+
+        // Two narrow contained boxes side by side under a full container
+        // line: columns, left to cell ownership.
+        let cells = vec![
+            line(
+                "A full-width lead-in line that spans the whole box and",
+                106.0,
+                520.0,
+            ),
+            cell("left column", 64.0, 125.0, 250.0, 134.0),
+            cell("right column", 300.0, 125.0, 500.0, 134.0),
+        ];
+        let mut regions = vec![
+            region("text", 0.9, 63.0, 124.0, 251.0, 135.0),
+            region("text", 0.9, 299.0, 124.0, 501.0, 135.0),
+            region("text", 0.5, 63.0, 105.0, 521.0, 136.0),
+        ];
+        super::fit_regions_to_cells(&mut regions, &cells);
+        assert_eq!(regions.len(), 3);
+
+        // A short line far below the container line is no wrapped tail: the
+        // container keeps its lines around it, as before.
+        let cells = vec![
+            line(
+                "A full-width lead-in line that spans the whole box and",
+                106.0,
+                520.0,
+            ),
+            line("a short line", 160.0, 200.0),
+            line(
+                "A closing line the container alone covers, also full width.",
+                190.0,
+                520.0,
+            ),
+        ];
+        let mut regions = vec![
+            region("text", 0.9, 63.0, 159.0, 201.0, 170.0),
+            region("text", 0.5, 63.0, 105.0, 521.0, 200.0),
+        ];
+        super::fit_regions_to_cells(&mut regions, &cells);
+        assert_eq!(regions.len(), 2);
+        assert!(super::region_texts_exclusive(&regions, &cells).contains(
+            &"A full-width lead-in line that spans the whole box and \
+                        A closing line the container alone covers, also full width."
+                .to_string()
+        ));
+    }
+
+    /// 2305.03393's Fig. 5 caption: the model box stops 0.08 pt above the
+    /// two `_` cells under its file name (outline-tight boxes below the
+    /// baseline), so they are orphans; a `μ` the box does claim then fits
+    /// it down over them. docling folds an orphan only into a cluster whose
+    /// raw box it touches and never reassigns a cell to a grown box, so the
+    /// underscores stay items of their own; an orphan the raw box reaches
+    /// still folds in.
+    #[test]
+    fn an_orphan_folds_only_into_a_raw_box_it_touches() {
+        let cells = vec![
+            cell("\"PMC2807444", 134.8, 430.3, 193.0, 436.9),
+            cell("_", 193.0, 438.52, 200.2, 438.92),
+            cell("006", 200.2, 430.7, 214.0, 436.9),
+            cell("_", 214.0, 438.52, 221.1, 438.92),
+            cell("00.png\" PubTabNet.", 221.1, 430.3, 304.7, 438.49),
+            cell("μ", 342.6, 430.2, 344.8, 439.72),
+        ];
+        let mut regions = vec![region("caption", 0.96, 134.0, 396.6, 480.4, 438.44)];
+        super::add_orphan_regions(&mut regions, &cells);
+        assert_eq!(regions.len(), 3, "two orphans");
+        super::fit_regions_to_cells(&mut regions, &cells);
+        assert_eq!(regions.len(), 3, "neither folds into the grown caption");
+        assert_eq!(
+            super::region_texts_exclusive(&regions, &cells),
+            ["\"PMC2807444 006 00.png\" PubTabNet. μ", "_", "_"]
+        );
+
+        // A raw box that reaches the orphan takes it in.
+        let mut regions = vec![region("caption", 0.96, 134.0, 396.6, 480.4, 438.6)];
+        super::add_orphan_regions(&mut regions, &cells);
+        super::fit_regions_to_cells(&mut regions, &cells);
+        assert_eq!(regions.len(), 1);
+    }
+
     /// #419: fitted to its cells, a model box that cut a line in half no longer
     /// overlaps the orphan that line became, so the orphan orders where it
     /// reads; unfitted, the same page strands the line after the paragraph.
@@ -6736,15 +7179,17 @@ mod tests {
     }
 
     /// An orphan the fitted paragraph box surrounds (a short middle line the
-    /// narrow model box missed while claiming the lines around it) is folded
-    /// into the paragraph; an empty regular box goes away, a formula stays, a
-    /// picture is never refitted, and a page with no cells is left untouched.
+    /// narrow model box only grazed while claiming the lines around it) is
+    /// folded into the paragraph — the raw box touches it, as docling's
+    /// merge index requires; an empty regular box goes away, a formula stays,
+    /// a picture is never refitted, and a page with no cells is left
+    /// untouched.
     #[test]
     fn fitting_folds_surrounded_orphans_and_drops_empty_regulars() {
         let wide = |text: &str, t: f32| cell(text, 60.0, t, 400.0, t + 11.0);
         let cells = vec![
             wide("first line of the paragraph", 100.0),
-            cell("stray", 250.0, 112.0, 400.0, 123.0), // clear of the narrow box
+            cell("stray", 150.0, 112.0, 400.0, 123.0), // a 0.2 graze: unclaimed
             wide("third line of the paragraph", 124.0),
         ];
         let mut regions = vec![

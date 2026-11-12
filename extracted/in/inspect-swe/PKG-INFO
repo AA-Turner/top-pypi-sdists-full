@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_swe
-Version: 0.2.72
+Version: 0.3.0
 Summary: Software engineering agents for Inspect AI.
 Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_swe/
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_swe
@@ -8,11 +8,11 @@ Project-URL: Issue Tracker, https://github.com/meridianlabs-ai/inspect_swe/issue
 Author: Meridian Labs
 License: MIT License
 License-File: LICENSE
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: agent-client-protocol>=0.11.0
 Requires-Dist: anyio
 Requires-Dist: httpx
-Requires-Dist: inspect-ai>=0.3.261
+Requires-Dist: inspect-ai>=0.3.289
 Requires-Dist: nest-asyncio
 Requires-Dist: platformdirs
 Requires-Dist: pydantic>=2.13.0
@@ -21,19 +21,17 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions>=4.9.0
 Provides-Extra: dev
 Requires-Dist: anthropic>=1.0.0; extra == 'dev'
-Requires-Dist: griffe>=2; extra == 'dev'
+Requires-Dist: google-genai>=3.0.0; extra == 'dev'
 Requires-Dist: inspect-evals; extra == 'dev'
 Requires-Dist: inspect-k8s-sandbox; extra == 'dev'
 Requires-Dist: ipython; extra == 'dev'
-Requires-Dist: markdown; extra == 'dev'
 Requires-Dist: mini-swe-agent; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: openai>=3.1.0; extra == 'dev'
-Requires-Dist: panflute; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-dotenv; extra == 'dev'
-Requires-Dist: quarto-cli>=1.9.36; extra == 'dev'
-Requires-Dist: rich; extra == 'dev'
+Requires-Dist: pytest-timeout; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: types-pyyaml; extra == 'dev'
 Provides-Extra: doc
@@ -58,13 +56,17 @@ pip install git+https://github.com/meridianlabs-ai/inspect_swe
 
 ## Development
 
-To work on development of Inspect SWE, clone the repository and install with the `-e` flag and `[dev]` optional dependencies:
+To work on development of Inspect SWE, clone the repository and install it with [uv](https://docs.astral.sh/uv/) (0.13.4 or later) and the `[dev]` optional dependencies:
 
 ```bash
 git clone https://github.com/meridianlabs-ai/inspect_swe
 cd inspect_swe
-pip install -e ".[dev]"
+uv sync --locked --extra dev
 ```
+
+To build the docs, run `uv sync --locked --extra dev --extra doc` instead.
+
+Run the commands below from the `.venv` that `uv sync` creates: `uv run <command>`, `.venv/bin/<command>`, or `source .venv/bin/activate`.
 
 Run linting, formatting, and tests via
 

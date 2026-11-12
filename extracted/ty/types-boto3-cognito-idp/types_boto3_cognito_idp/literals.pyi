@@ -78,10 +78,12 @@ __all__ = (
     "ReplicaRoleTypeType",
     "ReplicaStatusTypeType",
     "ResourceServiceName",
+    "RevokeAssociatedSessionsTypeType",
     "RiskDecisionTypeType",
     "RiskLevelTypeType",
     "SecurityPolicyTypeType",
     "ServiceName",
+    "SessionTypeTypeType",
     "StatusTypeType",
     "TermsEnforcementTypeType",
     "TermsSourceTypeType",
@@ -90,6 +92,7 @@ __all__ = (
     "UserImportJobStatusTypeType",
     "UserPoolMfaTypeType",
     "UserPoolTierTypeType",
+    "UserSessionTrackingTypeType",
     "UserStatusTypeType",
     "UserVerificationTypeType",
     "UsernameAttributeTypeType",
@@ -206,9 +209,11 @@ PreventUserExistenceErrorTypesType = Literal["ENABLED", "LEGACY"]
 RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_phone_number"]
 ReplicaRoleTypeType = Literal["PRIMARY", "SECONDARY"]
 ReplicaStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "INACTIVE"]
+RevokeAssociatedSessionsTypeType = Literal["LINKED", "NONE"]
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
 SecurityPolicyTypeType = Literal["TLS_V1", "TLS_V1_2_2021", "TLS_V1_3_2025"]
+SessionTypeTypeType = Literal["SSO", "TOKEN"]
 StatusTypeType = Literal["Disabled", "Enabled"]
 TermsEnforcementTypeType = Literal["NONE"]
 TermsSourceTypeType = Literal["LINK"]
@@ -219,6 +224,7 @@ UserImportJobStatusTypeType = Literal[
 ]
 UserPoolMfaTypeType = Literal["OFF", "ON", "OPTIONAL"]
 UserPoolTierTypeType = Literal["ESSENTIALS", "LITE", "PLUS"]
+UserSessionTrackingTypeType = Literal["DISABLED", "ENABLED"]
 UserStatusTypeType = Literal[
     "ARCHIVED",
     "COMPROMISED",

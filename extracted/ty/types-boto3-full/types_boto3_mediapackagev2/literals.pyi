@@ -29,6 +29,7 @@ __all__ = (
     "ContentKeyPeriodTimingType",
     "CustomAdTypeType",
     "DashAudioTimelinePatternType",
+    "DashBandwidthReportingModeType",
     "DashCompactnessType",
     "DashDrmSignalingType",
     "DashPeriodTriggerType",
@@ -77,6 +78,7 @@ CustomAdTypeType = Literal[
     "ALTERNATE_CONTENT_OPPORTUNITY", "CHAPTER", "NETWORK", "PROGRAM", "UNSCHEDULED_EVENT"
 ]
 DashAudioTimelinePatternType = Literal["NONE", "PATTERNED"]
+DashBandwidthReportingModeType = Literal["AVERAGE", "MAX"]
 DashCompactnessType = Literal["NONE", "STANDARD"]
 DashDrmSignalingType = Literal["INDIVIDUAL", "REFERENCED"]
 DashPeriodTriggerType = Literal[

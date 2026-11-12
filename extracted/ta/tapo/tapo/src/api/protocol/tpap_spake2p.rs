@@ -33,6 +33,33 @@ impl Proof {
     }
 }
 
+/// The passcode that a device in setup mode takes, which is derived from
+/// `mac`, the MAC address that the device answers `discover` with, as in
+/// `AABBCCDDEEFF`.
+///
+/// # Errors
+///
+/// Returns an error if `mac` is not 12 hexadecimal digits.
+pub(super) fn default_passcode(mac: &str) -> Result<String, Error> {
+    let mac = base16ct::mixed::decode_vec(mac)
+        .ok()
+        .filter(|mac| mac.len() == 6)
+        .ok_or_else(|| Error::unsupported_setup_tpap(format!("mac: {mac}")))?;
+
+    let mut ikm = b"GqY5o136oa4i6VprTlMW2DpVXxmfW8".to_vec();
+    ikm.extend_from_slice(&mac[3..6]);
+    ikm.extend_from_slice(&mac[0..3]);
+
+    let passcode = crypto::hkdf_sha256(
+        &ikm,
+        b"tp-kdf-salt-default-passcode",
+        b"tp-kdf-info-default-passcode",
+        32,
+    )?;
+
+    Ok(base16ct::upper::encode_string(&passcode))
+}
+
 /// The string that stands in for the password, which depends on the
 /// `extra_crypt` of the device's `pake_register` response and on the
 /// `device_family`.
@@ -69,6 +96,8 @@ pub(super) fn credential(
         // short. Which of the two hashes such a device holds is not known, so
         // the whole password is hashed.
         (Some("password_shadow"), Some(2)) => Ok(crypto::sha1_hex_lower(password.as_bytes())),
+        // The H110 on firmware 1.5.4 asks for this and takes the password as it is.
+        (Some("password_shadow"), Some(4)) => Ok(password.to_string()),
         (Some("password_shadow"), Some(5)) => {
             let params = extra_crypt.get("params");
             let salt = params
@@ -346,6 +375,21 @@ mod tests {
     }
 
     #[test]
+    fn default_passcode_is_derived_from_the_mac() {
+        assert_eq!(
+            default_passcode("AABBCCDDEEFF").unwrap(),
+            "F9F270978BAA582014CFC81E2B5966D92923B7F784DD84FD75429E38CC4EEFC9"
+        );
+    }
+
+    #[test]
+    fn default_passcode_of_a_mac_that_is_not_12_hex_digits_is_unsupported() {
+        for mac in ["", "AABBCCDDEE", "AA-BB-CC-DD-EE-FF", "AABBCCDDEEFG"] {
+            assert!(default_passcode(mac).is_err(), "{mac}");
+        }
+    }
+
+    #[test]
     fn credential_without_extra_crypt_is_unsupported() {
         let error = credential("hunter2", None, DeviceFamily::Smart).unwrap_err();
 
@@ -367,6 +411,17 @@ mod tests {
         assert_eq!(
             credential("hunter2", Some(&extra_crypt), DeviceFamily::Smart).unwrap(),
             "f3bbbd66a63d4bf1747940578ec3d0103530e21d"
+        );
+    }
+
+    // What an H110 on firmware 1.5.4 asked for.
+    #[test]
+    fn credential_for_password_shadow_4_is_the_password() {
+        let extra_crypt = json!({ "type": "password_shadow", "params": { "passwd_id": 4 } });
+
+        assert_eq!(
+            credential("hunter2", Some(&extra_crypt), DeviceFamily::Smart).unwrap(),
+            "hunter2"
         );
     }
 

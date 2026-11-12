@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from raindrop.app_git import AppGitOptions
     from raindrop.handoff import TraceContext
     from raindrop.interaction import Interaction
-    from raindrop.models import Attachment
+    from raindrop.models import Attachment, FlushResult
     from raindrop.subagent import SubagentDispatch, SubagentRun
 
 __all__ = [
@@ -39,6 +39,7 @@ __all__ = [
     "AppGitOptions",
     "Interaction",
     "Attachment",
+    "FlushResult",
     # Detached async sub-agents (see raindrop.handoff for the contract).
     "TraceContext",
     "SubagentDispatch",
@@ -67,6 +68,10 @@ def __getattr__(name: str) -> Any:
         from raindrop.models import Attachment
 
         return Attachment
+    if name == "FlushResult":
+        from raindrop.models import FlushResult
+
+        return FlushResult
     if name == "TraceContext":
         from raindrop.handoff import TraceContext
 

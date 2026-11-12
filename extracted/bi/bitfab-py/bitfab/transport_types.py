@@ -7,6 +7,13 @@ from bitfab.compress import PreparedRequest
 
 TraceOperation = Literal["external_span", "external_trace", "internal_trace"]
 
+
+class DeliveryReceipt(NamedTuple):
+    """What the server's acceptance of a request means for its carriers."""
+
+    queued: bool = False
+
+
 SPAN_OPERATION: Final = "external_span"
 TRACE_OPERATION: Final = "external_trace"
 
@@ -20,7 +27,7 @@ TRACE_OPERATION: Final = "external_trace"
 # and byte counts: the exporter assembles it from per-span
 # encodes it has to produce anyway to size a request, so passing a dict here
 # would encode the same batch twice.
-DirectBatchSender = Callable[[PreparedRequest, float], None]
+DirectBatchSender = Callable[[PreparedRequest, float], DeliveryReceipt | None]
 
 
 class DeliveryError(Exception):

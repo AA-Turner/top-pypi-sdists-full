@@ -320,6 +320,8 @@ class ConversionsResource:
         to: datetime | str | None = None,
         event_name: str | None = None,
         source: str | None = None,
+        platform: str | None = None,
+        delivery_status: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List stored events"""
@@ -330,6 +332,8 @@ class ConversionsResource:
             to=to,
             event_name=event_name,
             source=source,
+            platform=platform,
+            delivery_status=delivery_status,
             cursor=cursor,
         )
         return self._client._get("/v1/events", params=params)
@@ -358,6 +362,13 @@ class ConversionsResource:
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
         return self._client._post("/v1/events", data=payload, headers=headers)
+
+    def get_events_overview(self, profile_id: str) -> dict[str, Any]:
+        """Get today's tracking overview"""
+        params = self._build_params(
+            profile_id=profile_id,
+        )
+        return self._client._get("/v1/events/overview", params=params)
 
     def get_event(self, event_id: str, profile_id: str) -> dict[str, Any]:
         """Get one stored event and its deliveries"""
@@ -434,6 +445,7 @@ class ConversionsResource:
         *,
         event_names: list[str] | None = None,
         sources: list[str] | None = None,
+        api_secret: str | None = None,
     ) -> dict[str, Any]:
         """Add a forwarding rule"""
         payload = self._build_payload(
@@ -442,8 +454,18 @@ class ConversionsResource:
             destination_id=destination_id,
             event_names=event_names,
             sources=sources,
+            api_secret=api_secret,
         )
         return self._client._post("/v1/events/forwarding-rules", data=payload)
+
+    def update_forwarding_rule(self, rule_id: str, api_secret: str) -> dict[str, Any]:
+        """Change a forwarding rule's API secret"""
+        payload = self._build_payload(
+            api_secret=api_secret,
+        )
+        return self._client._patch(
+            f"/v1/events/forwarding-rules/{rule_id}", data=payload
+        )
 
     def delete_forwarding_rule(self, rule_id: str) -> dict[str, Any]:
         """Remove a forwarding rule"""
@@ -1059,6 +1081,8 @@ class ConversionsResource:
         to: datetime | str | None = None,
         event_name: str | None = None,
         source: str | None = None,
+        platform: str | None = None,
+        delivery_status: str | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
         """List stored events (async)"""
@@ -1069,6 +1093,8 @@ class ConversionsResource:
             to=to,
             event_name=event_name,
             source=source,
+            platform=platform,
+            delivery_status=delivery_status,
             cursor=cursor,
         )
         return await self._client._aget("/v1/events", params=params)
@@ -1097,6 +1123,13 @@ class ConversionsResource:
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
         return await self._client._apost("/v1/events", data=payload, headers=headers)
+
+    async def aget_events_overview(self, profile_id: str) -> dict[str, Any]:
+        """Get today's tracking overview (async)"""
+        params = self._build_params(
+            profile_id=profile_id,
+        )
+        return await self._client._aget("/v1/events/overview", params=params)
 
     async def aget_event(self, event_id: str, profile_id: str) -> dict[str, Any]:
         """Get one stored event and its deliveries (async)"""
@@ -1175,6 +1208,7 @@ class ConversionsResource:
         *,
         event_names: list[str] | None = None,
         sources: list[str] | None = None,
+        api_secret: str | None = None,
     ) -> dict[str, Any]:
         """Add a forwarding rule (async)"""
         payload = self._build_payload(
@@ -1183,8 +1217,20 @@ class ConversionsResource:
             destination_id=destination_id,
             event_names=event_names,
             sources=sources,
+            api_secret=api_secret,
         )
         return await self._client._apost("/v1/events/forwarding-rules", data=payload)
+
+    async def aupdate_forwarding_rule(
+        self, rule_id: str, api_secret: str
+    ) -> dict[str, Any]:
+        """Change a forwarding rule's API secret (async)"""
+        payload = self._build_payload(
+            api_secret=api_secret,
+        )
+        return await self._client._apatch(
+            f"/v1/events/forwarding-rules/{rule_id}", data=payload
+        )
 
     async def adelete_forwarding_rule(self, rule_id: str) -> dict[str, Any]:
         """Remove a forwarding rule (async)"""

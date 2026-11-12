@@ -41,12 +41,15 @@ from lens.github import GitHub, GitHubError  # noqa: E402
 from lens.holistic import build_input  # noqa: E402
 from lens.index import build_index  # noqa: E402
 from lens.llm import (  # noqa: E402
+    BUDGET_PATH,
     BudgetExhausted,
     Client,
     FatalRequestError,
     Ledger,
     LLMError,
     Price,
+    gateway_cost,
+    read_stream,
 )
 from lens.lock import BUSY_NOTE, JOB_TIMEOUT, older_active_run, run_name  # noqa: E402
 from lens.review import (  # noqa: E402
@@ -166,7 +169,9 @@ def response(
             "prompt_tokens_details": {"cached_tokens": 0},
         },
     }
-    return 200, {"x-litellm-response-cost": "0.002"}, json.dumps(body)
+    # 1000 prompt x $1.50 + 100 out x $5 per Mtok = $0.002, as the gateway prices it.
+    price = json.dumps({"input": 1.5, "output": 5.0})
+    return 200, {"x-gateway-model-price": price}, json.dumps(body)
 
 
 def _is_approach(body) -> bool:
@@ -535,6 +540,139 @@ def test_budget_exceeded_429_is_never_retried():
     with pytest.raises(BudgetExhausted):
         c.complete("review", [{"role": "user", "content": "hi"}], max_tokens=10)
     assert len(sent.requests) == 1
+
+
+def test_model_gateway_budget_exceeded_429_is_never_retried():
+    body = '{"error": {"reason": "budget_exceeded", "message": "spent"}}'
+    sent = Script((429, {"Retry-After": "86400"}, body), response())
+    c = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=sent)
+    with pytest.raises(BudgetExhausted):
+        c.complete("review", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert len(sent.requests) == 1
+
+
+@pytest.mark.parametrize("reason", ["metering_rate_limited", "provider_throttled"])
+def test_model_gateway_rate_limit_429_is_retried_even_if_it_mentions_budget(reason):
+    # The reason decides, not a word in the message: a metering limit clears in seconds.
+    body = json.dumps({"error": {"reason": reason, "message": "budget meter busy"}})
+    sent = Script((429, {"Retry-After": "0"}, body), response())
+    c = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=sent)
+    c.complete("review", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert len(sent.requests) == 2
+
+
+def test_preflight_reads_the_least_remaining_budget_in_nano_usd():
+    nano = 1_000_000_000
+
+    def meta(path):
+        if path == "/v1/models":
+            return 200, json.dumps({"data": [{"id": "m"}]})
+        return 200, json.dumps(
+            {"budgets": [{"remaining": 50 * nano}, {"remaining": nano // 100}]}
+        )
+
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        transport=Script(),
+        meta_transport=meta,
+    )
+    reason = c.preflight(min_budget_usd=0.05)
+    assert reason is not None and "$0.01 of budget left" in reason
+
+
+def test_budget_check_goes_to_the_gateway_origin_not_the_openai_base(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import urllib.request  # noqa: PLC0415 - patched below
+
+    urls: list[str] = []
+
+    class _Resp:
+        status = 200
+
+        def read(self):
+            return b"{}"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req: urllib.request.Request, timeout: float | None = None):
+        urls.append(req.full_url)
+        return _Resp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        base_url="https://gw.test/openai/v1",
+        api_key="k",
+    )
+    c.preflight(min_budget_usd=0.01)
+    assert urls == ["https://gw.test/openai/v1/models", "https://gw.test" + BUDGET_PATH]
+
+
+def test_cost_is_priced_from_the_gateway_header_with_cached_tokens_at_the_cache_rate():
+    usage = {
+        "prompt_tokens": 1000,
+        "completion_tokens": 100,
+        "prompt_tokens_details": {"cached_tokens": 400},
+    }
+    header = json.dumps({"input": 1.0, "output": 10.0, "cache_read": 0.1})
+    assert gateway_cost(header, usage) == pytest.approx((600 + 40 + 1000) / 1e6)
+    no_cache_rate = json.dumps({"input": 1.0, "output": 10.0})
+    assert gateway_cost(no_cache_rate, usage) == pytest.approx((1000 + 1000) / 1e6)
+    for bad in (None, "", "not json", "[]", json.dumps({"input": 1.0})):
+        assert gateway_cost(bad, usage) is None
+
+
+def test_gateway_cost_books_uncached_prompt_tokens_at_the_cache_write_rate():
+    usage = {
+        "prompt_tokens": 1_000_000,
+        "completion_tokens": 0,
+        "prompt_tokens_details": {"cached_tokens": 0},
+    }
+    header = json.dumps(
+        {"input": 0.10, "output": 1.0, "cache_read": 0.01, "cache_write": 0.125}
+    )
+    assert gateway_cost(header, usage) == pytest.approx(0.125)
+    # A write rate below input never discounts the uncached tokens.
+    cheap_write = json.dumps({"input": 0.10, "output": 1.0, "cache_write": 0.05})
+    assert gateway_cost(cheap_write, usage) == pytest.approx(0.10)
+
+
+def test_no_price_header_books_the_list_price():
+    led = Ledger(cap_usd=1)
+    body = json.loads(response()[2])
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=led,
+        transport=Script((200, {}, json.dumps(body))),
+    )
+    comp = c.complete("review", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert comp.cost == pytest.approx(c.actual_cost(body["usage"], None))
+
+
+def test_a_provider_rejected_forced_tool_choice_downgrades_to_auto_once():
+    rejected = (400, {}, '{"error": {"reason": "provider_rejected"}}')
+    sent = Script(rejected, response())
+    c = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=sent)
+    tools = [{"type": "function", "function": {"name": "t", "parameters": {}}}]
+    c.complete(
+        "review",
+        [{"role": "user", "content": "hi"}],
+        max_tokens=10,
+        tools=tools,
+        tool_choice="required",
+    )
+    assert [r["tool_choice"] for r in sent.requests] == ["required", "auto"]
+    assert c.required_tool_choice_ok is False
 
 
 def test_transient_errors_retry_a_bounded_number_of_times():
@@ -1850,8 +1988,19 @@ def _meta(
     def get(path):
         if path == "/v1/models":
             return models_status, json.dumps({"data": [{"id": m} for m in models]})
+        assert path == BUDGET_PATH
+        nano = 1_000_000_000
         return key_status, json.dumps(
-            {"info": {"max_budget": max_budget, "spend": spend}}
+            {
+                "policies": [
+                    {
+                        "limit": int(max_budget * nano),
+                        "consumed": int(spend * nano),
+                        "remaining": int((max_budget - spend) * nano),
+                        "reset_at": "2026-12-01T00:00:00Z",
+                    }
+                ]
+            }
         )
 
     return get
@@ -1903,7 +2052,7 @@ def test_preflight_says_what_answered_an_unexpected_status_and_redacts_keys():
     assert c.preflight(min_budget_usd=0.05) is None  # neither 403 is a reason to stop
     models, key = c.diagnostics
     assert "/v1/models: HTTP 403 from a Cloudflare page" in models
-    assert "/key/info: HTTP 403 from the gateway's JSON" in key
+    assert f"{BUDGET_PATH}: HTTP 403 from the gateway's JSON" in key
     assert "sk-abc123XYZ" not in key and "sk-…" in key
 
 
@@ -2302,7 +2451,9 @@ def _responses_reply(items, input_tokens=1000, cached=0, output=100, reasoning=4
             "output_tokens_details": {"reasoning_tokens": reasoning},
         },
     }
-    return 200, {"x-litellm-response-cost": "0.0001"}, json.dumps(body)
+    # 1000 input x $0.05 + 100 out x $0.50 per Mtok = $0.0001.
+    price = json.dumps({"input": 0.05, "output": 0.5})
+    return 200, {"x-gateway-model-price": price}, json.dumps(body)
 
 
 REASONING = {
@@ -2443,7 +2594,8 @@ def test_a_gateway_without_responses_falls_back_to_chat_once_with_reasoning_off(
 
 def test_shipped_config_uses_luna_list_prices_on_the_responses_api():
     cfg = load_config(Path(__file__).resolve().parents[2] / "lens")
-    assert cfg.api == "responses" and cfg.model == "gpt-6-luna"
+    assert cfg.api == "responses"
+    assert cfg.model == "atlan-bedrock-dev/global.openai.gpt-6-luna"
     assert (
         cfg.price.input_per_mtok,
         cfg.price.cached_input_per_mtok,
@@ -3802,7 +3954,7 @@ def test_a_non_blocking_preflight_diagnostic_is_not_shown_on_the_pr(repo: Path):
 
     def factory(ledger):
         c = _factory(_review_script())(ledger)
-        c.diagnostics = ["preflight /key/info: HTTP 403 from a Cloudflare page"]
+        c.diagnostics = [f"preflight {BUDGET_PATH}: HTTP 403 from a Cloudflare page"]
         c.preflight = lambda **kw: (
             ""
         )  # the checks that matter passed; only a diagnostic is left
@@ -6472,3 +6624,211 @@ def test_github_repo_visibility_reads_the_api_and_never_raises():
     assert gh.repo_visibility("o/hidden") is None
     assert gh.repo_visibility("o/odd") is None
     assert calls == ["GET /repos/o/pub", "GET /repos/o/hidden", "GET /repos/o/odd"]
+
+
+# ---- streaming: Model Gateway cuts a non-streaming call at 90 s ------------------------------
+
+
+def _sse(*events: dict[str, Any], done: bool = True) -> list[bytes]:
+    out: list[bytes] = []
+    for e in events:
+        out.append(f"event: {e.get('type', '')}\n".encode())
+        out.append(f"data: {json.dumps(e)}\n".encode())
+        out.append(b"\n")
+    if done:
+        out.append(b"data: [DONE]\n\n")
+    return out
+
+
+_FINAL = {
+    "status": "completed",
+    "output": [{"type": "message", "content": [{"type": "output_text", "text": "hi"}]}],
+    "usage": {"input_tokens": 10, "output_tokens": 2},
+}
+
+
+def test_a_completed_stream_returns_the_final_response_object():
+    lines = _sse(
+        {"type": "response.created", "response": {"status": "in_progress"}},
+        {"type": "response.output_text.delta", "delta": "h"},
+        {"type": "response.completed", "response": _FINAL},
+    )
+    status, text = read_stream(lines)
+    assert status == 200 and json.loads(text) == _FINAL
+
+
+def test_an_incomplete_stream_still_returns_its_response():
+    partial = {**_FINAL, "status": "incomplete"}
+    status, text = read_stream(
+        _sse({"type": "response.incomplete", "response": partial})
+    )
+    assert status == 200 and json.loads(text)["status"] == "incomplete"
+
+
+def test_a_failed_stream_is_a_retryable_502():
+    failed = {
+        "type": "response.failed",
+        "response": {"error": {"code": "server_error"}},
+    }
+    status, text = read_stream(_sse(failed))
+    assert status == 502 and "server_error" in text
+
+
+def test_a_stream_cut_before_completion_is_a_transport_failure():
+    status, text = read_stream(
+        _sse({"type": "response.created", "response": {}}, done=False)
+    )
+    assert status == 0 and "before the response completed" in text
+
+
+def test_keepalive_comments_and_split_data_lines_are_tolerated():
+    payload = json.dumps({"type": "response.completed", "response": _FINAL}, indent=1)
+    lines = [b": keep-alive\n", b"\n"]
+    lines += [f"data: {part}\n".encode() for part in payload.splitlines()]
+    lines.append(b"\n")
+    # Two data lines of one event join with a newline, which JSON whitespace allows.
+    status, _ = read_stream(lines)
+    assert status == 200
+
+
+def test_responses_requests_ask_to_stream_and_a_refusal_turns_it_off_once():
+    refused = (400, {}, '{"error": {"message": "stream is not supported"}}')
+    sent = Script(refused, _responses_reply([]), _responses_reply([]))
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        transport=sent,
+        api="responses",
+    )
+    c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert [r.get("stream") for r in sent.requests] == [True, None, None]
+    assert "stream" in c.unsupported
+
+
+def test_an_upstream_error_does_not_turn_streaming_off():
+    upstream = (
+        400,
+        {},
+        '{"error": {"message": "upstream provider rejected the prompt"}}',
+    )
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        transport=Script(upstream),
+        api="responses",
+    )
+    with pytest.raises(FatalRequestError):
+        c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert "stream" not in c.unsupported
+
+
+def test_a_streamed_http_response_is_read_as_events(monkeypatch: pytest.MonkeyPatch):
+    import urllib.request  # noqa: PLC0415 - patched below
+
+    events = _sse({"type": "response.completed", "response": _FINAL})
+
+    class _Stream:
+        status = 200
+        headers = {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "x-gateway-model-price": json.dumps({"input": 0.1, "output": 0.5}),
+        }
+
+        def __iter__(self):
+            return iter(events)
+
+        def read(self):  # pragma: no cover - a stream must not be read whole
+            raise AssertionError("read() on a stream")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    sent: list[dict[str, Any]] = []
+
+    def fake_urlopen(req: urllib.request.Request, timeout: float | None = None):
+        data = req.data
+        sent.append(json.loads(data if isinstance(data, bytes) else b"{}"))
+        return _Stream()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        base_url="https://gw.test/openai",
+        api_key="k",
+        api="responses",
+    )
+    comp = c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert sent[0]["stream"] is True
+    assert comp.content == "hi" and comp.cost == pytest.approx(
+        (10 * 0.1 + 2 * 0.5) / 1e6
+    )
+
+
+def test_an_upper_case_event_stream_media_type_is_still_read_as_events(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import urllib.request  # noqa: PLC0415 - patched below
+
+    events = _sse({"type": "response.completed", "response": _FINAL})
+
+    class _Stream:
+        status = 200
+        headers = {"Content-Type": "Text/Event-Stream"}
+
+        def __iter__(self):
+            return iter(events)
+
+        def read(self):  # pragma: no cover - a stream must not be read whole
+            raise AssertionError("read() on a stream")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req: urllib.request.Request, timeout: float | None = None):
+        return _Stream()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        base_url="https://gw.test/openai",
+        api_key="k",
+        api="responses",
+    )
+    comp = c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert comp.content == "hi"
+
+
+def test_a_stream_cut_mid_chunk_is_retried_as_transport_weather():
+    import http.client  # noqa: PLC0415 - the exception under test
+
+    calls: list[int] = []
+
+    def transport(body: dict[str, Any]) -> tuple[int, dict[str, str], str]:
+        calls.append(1)
+        if len(calls) == 1:
+            raise http.client.IncompleteRead(b"partial")
+        return _responses_reply([])
+
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        transport=transport,
+        api="responses",
+        max_retries=1,
+    )
+    c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert len(calls) == 2

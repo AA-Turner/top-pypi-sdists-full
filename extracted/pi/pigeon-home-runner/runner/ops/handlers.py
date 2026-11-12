@@ -275,7 +275,10 @@ def handle_v2_mail(cfg, imap, smtp, seq, raw, subject, secrets, opts,
             R._v2_leave_unseen(ident)
             return True
         text = R._protocol_v2.local_answer_text(payload)
-        if R._oracle_mode(cfg) != "deterministic":
+        # A dry run spends nothing: no model call, as no mail and
+        # no record; the local text stands in for the answer the
+        # run would have composed.
+        if not dry and R._oracle_mode(cfg) != "deterministic":
             inf = _runner().inference_config(cfg)
             if inf is not None:
                 try:
@@ -286,7 +289,8 @@ def handle_v2_mail(cfg, imap, smtp, seq, raw, subject, secrets, opts,
                         "write a script and do not give "
                         "instructions to run.",
                         str(payload.get("question") or ""),
-                        500, R._redact_patterns(cfg))
+                        500, R._redact_patterns(cfg),
+                        base_dir=base_dir)
                     if isinstance(res, dict) and isinstance(
                             res.get("answer"), str) and res["answer"].strip():
                         text = res["answer"].strip()[:500]
@@ -304,7 +308,10 @@ def handle_v2_mail(cfg, imap, smtp, seq, raw, subject, secrets, opts,
                 "[HOMING-PIGEON] answer " + ans["msg_id"],
                 R._seal_reply(ans, secret, ans["msg_id"], key_id,
                             encrypted))
-        R.log(f"version 2 answerer replied to {ident}")
+        if dry:
+            R.log(f"dry-run: would answer version 2 question {ident}")
+        else:
+            R.log(f"version 2 answerer replied to {ident}")
         acted()
         if not dry:
             _runner().mark_seen(imap, seq)

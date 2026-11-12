@@ -77,23 +77,64 @@ def main() -> int:
             return 2
     # Hardening M0: a malformed security block stops startup here,
     # before any mailbox, model, or job work. A missing block is
-    # fine -- every security feature stays off.
+    # fine -- every security feature reads enforce, the default
+    # the mode reader applies to anything a config leaves unset.
     if R._security is not None:
         try:
             R._security.validate_security_config(cfg)
         except RuntimeError as e:
             print(e, file=sys.stderr)
             return 2
+        # S5 residue: the pinned posture assertion. When the
+        # operator pins require_posture (config security block or
+        # --require-posture), a mode lowered below enforce is a
+        # startup refusal naming the feature(s), so a later config
+        # edit cannot silently weaken a box deployed strict.
+        # Unpinned, nothing changes. The CLI overrides land in cfg
+        # further down, past the one-shot dispatches, so the gate
+        # reads the flag off args itself: a flag beats the file
+        # here exactly as the override pass makes it do later.
+        _posture_cfg = cfg
+        if getattr(args, "require_posture", None) is not None:
+            _posture_cfg = dict(cfg)
+            _posture_cfg["require_posture"] = args.require_posture
+        _posture_problem = R._security.require_posture_problem(
+            _posture_cfg)
+        if _posture_problem:
+            print("config error: " + _posture_problem,
+                  file=sys.stderr)
+            return 2
         # Hardening M5: audience binding with no runner_id configured
-        # has nothing to bind to. Warn instead of silently doing
-        # nothing; the setup wizard generates one for fresh configs.
+        # has nothing to bind to. At enforce that refuses startup
+        # (below, with the job_user naming); at audit it warns
+        # instead of silently doing nothing; the setup wizard
+        # generates one for fresh configs.
         # Q9 (Decision 1's refuse class): confinement on enforce
         # whose mechanism cannot engage changes what the box
         # protects, so the runner refuses to start and says why,
         # instead of every job finding out one at a time.
         if R._sandbox is not None \
                 and R._security.sec_mode(cfg, "confinement") == "enforce":
-            problem = R._sandbox.startup_problem()
+            if sys.platform == "win32" and getattr(
+                    R, "_confinement_startup_problem", None) is not None:
+                # Windows has its own confinement backend (Job
+                # Object + restricted token + low integrity); its
+                # probe decides here, not bwrap's.
+                problem = R._confinement_startup_problem(cfg)
+            elif sys.platform.startswith("freebsd") and getattr(
+                    R, "_confinement_startup_problem", None) is not None:
+                # FreeBSD has its own confinement backend too
+                # (jail + no network + spawn resource limits);
+                # its probe decides here, not bwrap's.
+                problem = R._confinement_startup_problem(cfg)
+            elif sys.platform == "darwin" and getattr(
+                    R, "_confinement_startup_problem", None) is not None:
+                # macOS has its own confinement backend too
+                # (Seatbelt profile + no network + spawn resource
+                # limits); its probe decides here, not bwrap's.
+                problem = R._confinement_startup_problem(cfg)
+            else:
+                problem = R._sandbox.startup_problem(cfg=cfg)
             if problem:
                 print("config error: security.modes.confinement is "
                       "enforce but the sandbox cannot engage: "
@@ -116,12 +157,97 @@ def main() -> int:
                       "job_user to audit or off.",
                       file=sys.stderr)
                 return 2
-        if R._security.sec_mode(cfg, "audience") != "off" \
-                and not cfg.get("runner_id"):
-            R.log("WARN: security.modes.audience is not off but "
-                "no runner_id is configured; the check is skipped. "
-                "Set runner_id (the setup wizard generates one for "
-                "fresh configs).", "WARN")
+        # A mode that cannot engage says so at startup (phase 2
+        # of the default-posture work): job_user at enforce with
+        # no user named engages nothing -- jobs run as the
+        # runner's own account while the mode reads enforce. That
+        # state is named in the startup record here and in the
+        # posture report, never left silent. Startup proceeds: a
+        # user can be named later, and the naming is the record
+        # that it has not happened yet.
+        if R._security.job_user_not_engaged(cfg):
+            R.log("WARN: security.modes.job_user is enforce but "
+                "no security.job_user.user is configured; the "
+                "control is not engaged and jobs run as the "
+                "runner's own account. Name a user under "
+                "security.job_user to engage it.", "WARN")
+        # Audience at enforce with no runner_id has nothing to
+        # bind to: the check would be skipped for every job while
+        # the mode reads enforce, so it joins the refusal class
+        # (phase 2 of the default-posture work). The installer
+        # and the setup wizard generate a runner_id for every
+        # config they write; a hand-written config names one, or
+        # lowers the mode. Audit keeps the warning: audit's
+        # record is the startup line itself.
+        if not cfg.get("runner_id"):
+            if R._security.sec_mode(cfg, "audience") == "enforce":
+                print("config error: security.modes.audience is "
+                      "enforce but no runner_id is configured; "
+                      "the audience check has nothing to bind to. "
+                      "Refusing to start; set runner_id in "
+                      "config.json (the installer and the setup "
+                      "wizard generate one), or set audience to "
+                      "audit or off.",
+                      file=sys.stderr)
+                return 2
+            if R._security.sec_mode(cfg, "audience") == "audit":
+                R.log("WARN: security.modes.audience is audit but "
+                    "no runner_id is configured; the check is "
+                    "skipped. Set runner_id (the setup wizard "
+                    "generates one for fresh configs).", "WARN")
+    # The disclosure posture assignment (Q137) resolves here, at
+    # startup, from runner-side state alone: a retired posture,
+    # an undeclared tag or an unreadable registry is a
+    # configuration problem named before any job work, never
+    # discovered at a job's completion. No block declares
+    # nothing and changes nothing. A declared block whose
+    # project has no assignment runs unstamped and says so
+    # once, here -- the same not-engaged record the job_user
+    # gate keeps above.
+    try:
+        _posture_declared, _posture_project, _posture_stamp = \
+            R._resolve_posture_stamp(
+                cfg, R._base_dir_for(cfg, args.config))
+    except RuntimeError as e:
+        print(e, file=sys.stderr)
+        return 2
+    R._set_posture_resolution(_posture_declared, _posture_project,
+                              _posture_stamp)
+    if _posture_stamp:
+        R.log(f"disclosure posture: project {_posture_project} "
+              f"runs under {_posture_stamp}")
+    elif _posture_declared:
+        R.log(f"disclosure posture: no assignment for project "
+              f"{_posture_project}; results are recorded "
+              f"unstamped", "WARN")
+    # The determination decision point's keys resolve here too,
+    # beside the posture gate they read: a bad v2_consult value
+    # or a question allowlist naming an undeclared or retired
+    # posture is a configuration problem named before any job
+    # work. The default (remote) announces nothing and changes
+    # nothing; a chosen consult mode is named once, here.
+    try:
+        R._validate_v2_consult(
+            cfg, R._base_dir_for(cfg, args.config))
+    except RuntimeError as e:
+        print(e, file=sys.stderr)
+        return 2
+    if R._protocol_v2 is not None:
+        _consult_mode = R._protocol_v2.consult_mode_of(cfg)
+        if _consult_mode != "remote":
+            R.log(f"version 2 consult: mode {_consult_mode}; "
+                  f"the determination decision point consults "
+                  f"in {_consult_mode} mode")
+    # F2: a present-but-invalid oracle tool mode stops startup here
+    # too. The value decides what the Oracle's run tool may do on
+    # this box, so a bad one is refused naming the key, never
+    # silently read as the full charter mode.
+    if R._oracle_ops is not None:
+        try:
+            R._oracle_ops._validate_oracle_tool_mode(cfg)
+        except RuntimeError as e:
+            print(e, file=sys.stderr)
+            return 2
     # Hardening M1b: the size caps must be non-negative integers.
     # 0 means unlimited.
     _err = R._validate_size_caps(cfg)
@@ -136,12 +262,23 @@ def main() -> int:
             R.log(_line, "WARN")
     # A bad key policy or port is a config error. Checked here so the
     # poll loop is not the thing that discovers it, every cycle.
+    # The paging thresholds are the same refuse class (Decision 1:
+    # the resource and DRI thresholds that page a human), and this
+    # gate is the only startup caller of their readers: the poll
+    # loop's check_resources / maybe_page fail closed on a bad
+    # block by contract, so without this check a bad threshold
+    # started cleanly and the monitor and the paging were silently
+    # dead for the whole run (PF-1).
     try:
         R.build_key_policies(cfg)
         if "imap_port" in cfg:
             _runner()._port(cfg, "imap_port", 993)
         if "smtp_port" in cfg:
             _runner()._port(cfg, "smtp_port", 587)
+        if R._resources is not None:
+            R._resources.parse_resources(cfg)
+        if R._dri is not None:
+            R._dri.parse_dri(cfg)
     except RuntimeError as e:
         print(e, file=sys.stderr)
         return 2
@@ -156,6 +293,12 @@ def main() -> int:
         base_dir = R._base_dir_for(cfg, args.config)
         return _auditreport.main(cfg, base_dir, since=args.since,
                                key=args.key, feature=args.feature)
+    if args.audit_verify:
+        # Read-only like --audit-report: verifies the audit log's
+        # hash chain against its checkpoint and exits.
+        _auditreport = R._load_mod("runner.ops.auditreport", "ops.auditreport")
+        base_dir = R._base_dir_for(cfg, args.config)
+        return _auditreport.verify_main(base_dir)
     if args.posture:
         # Read-only posture report; no mailbox needed.
         _posture = R._load_mod("runner.ops.posture", "ops.posture")
@@ -304,10 +447,25 @@ def main() -> int:
     R._LOG_FILE = os.path.join(base_dir, "runner.log")
     R._announce_oracle_log()
 
+    # Temp reaping: a finished job's workspace is removed when
+    # the job ends; what that misses (a crash, a kill, a kept
+    # refused result) ages out here, once per start, under
+    # work_retention_sec.
+    _swept = R.reap_work_orphans(base_dir, cfg)
+    if _swept:
+        R.log(f"work sweep: reaped {_swept} orphaned job "
+              f"workspace(s) older than work_retention_sec")
+
     seen_path = os.path.join(base_dir, "seen.json")
     seen = R.load_seen(seen_path)
 
     _runner().log_startup(cfg, args, base_dir)
+    # The briefing's contradiction check, startup pass: likely
+    # tensions between owner_instructions and the standing
+    # layer go to the audit as their own rows. No warning is
+    # logged and nothing refuses; the mark in the assembled
+    # briefing is the delivery.
+    _runner().audit_owner_instruction_tensions(cfg, base_dir)
     R._report_extensions(cfg, base_dir)
     R._report_oracle_mode(cfg)
     # Local signal front-ends (inbox watcher + loopback listener).

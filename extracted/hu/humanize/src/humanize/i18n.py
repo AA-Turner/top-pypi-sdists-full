@@ -26,16 +26,18 @@ _THOUSANDS_SEPARATOR: dict[str | None, str] = {
     "pt_BR": ".",
     "hu_HU": " ",
     "lv": " ",
+    "tr_TR": ".",
 }
 
 # Mapping of locale to decimal separator
 _DECIMAL_SEPARATOR: dict[str | None, str] = {
     "de_DE": ",",
-    "fr_FR": ".",
+    "fr_FR": ",",
     "it_IT": ",",
     "pt_BR": ",",
     "hu_HU": ",",
     "lv": ",",
+    "tr_TR": ",",
 }
 
 
@@ -59,7 +61,8 @@ def activate(
 ) -> gettext_module.NullTranslations:
     """Activate internationalisation.
 
-    Set `locale` as current locale. Search for locale in directory `path`.
+    Set `locale` as the current locale for the calling thread. Search for locale
+    in directory `path`.
 
     Args:
         locale (str | None): Language name, e.g. `en_GB`. If `None`, defaults to no
@@ -67,7 +70,7 @@ def activate(
         path (str | pathlib.Path): Path to search for locales.
 
     Returns:
-        dict: Translations.
+        gettext.NullTranslations: Translation object for the selected locale.
 
     Raises:
         FileNotFoundError: If humanize cannot find the locale folder.
@@ -93,7 +96,7 @@ def activate(
 
 
 def deactivate() -> None:
-    """Deactivate internationalisation."""
+    """Deactivate internationalisation for the calling thread."""
     _CURRENT.locale = None
 
 
@@ -177,6 +180,19 @@ def _ngettext_noop(singular: str, plural: str) -> tuple[str, str]:
         tuple: Original text, unchanged.
     """
     return singular, plural
+
+
+def _pgettext_noop(msgctxt: str, message: str) -> tuple[str, str]:
+    """Mark a contextual translation without translating it.
+
+    Args:
+        msgctxt (str): Context of the translation.
+        message (str): Text to translate in the future.
+
+    Returns:
+        tuple: Original context and text, unchanged.
+    """
+    return msgctxt, message
 
 
 def thousands_separator() -> str:

@@ -58,6 +58,8 @@ class ExperimentalWorkspace(object):
         'latest_started_at': 'datetime',
         'restart_on_env_var_change': 'bool',
         'priority': 'int',
+        'source_job_id': 'str',
+        'source_workspace_id': 'str',
         'is_imported': 'bool',
         'maximum_uptime_minutes': 'int',
         'idle_timeout_minutes': 'int',
@@ -95,6 +97,8 @@ class ExperimentalWorkspace(object):
         'latest_started_at': 'latest_started_at',
         'restart_on_env_var_change': 'restart_on_env_var_change',
         'priority': 'priority',
+        'source_job_id': 'source_job_id',
+        'source_workspace_id': 'source_workspace_id',
         'is_imported': 'is_imported',
         'maximum_uptime_minutes': 'maximum_uptime_minutes',
         'idle_timeout_minutes': 'idle_timeout_minutes',
@@ -106,7 +110,7 @@ class ExperimentalWorkspace(object):
         'kuberay_details': 'kuberay_details'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, maximum_uptime_minutes=None, idle_timeout_minutes=None, head_container_image=None, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, source_job_id=None, source_workspace_id=None, is_imported=False, maximum_uptime_minutes=None, idle_timeout_minutes=None, head_container_image=None, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
         """ExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -137,6 +141,8 @@ class ExperimentalWorkspace(object):
         self._latest_started_at = None
         self._restart_on_env_var_change = None
         self._priority = None
+        self._source_job_id = None
+        self._source_workspace_id = None
         self._is_imported = None
         self._maximum_uptime_minutes = None
         self._idle_timeout_minutes = None
@@ -189,6 +195,10 @@ class ExperimentalWorkspace(object):
             self.restart_on_env_var_change = restart_on_env_var_change
         if priority is not None:
             self.priority = priority
+        if source_job_id is not None:
+            self.source_job_id = source_job_id
+        if source_workspace_id is not None:
+            self.source_workspace_id = source_workspace_id
         if is_imported is not None:
             self.is_imported = is_imported
         if maximum_uptime_minutes is not None:
@@ -800,6 +810,52 @@ class ExperimentalWorkspace(object):
         """
 
         self._priority = priority
+
+    @property
+    def source_job_id(self):
+        """Gets the source_job_id of this ExperimentalWorkspace.  # noqa: E501
+
+        The job this workspace was duplicated from. Null when this workspace was not duplicated from a job.  # noqa: E501
+
+        :return: The source_job_id of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_job_id
+
+    @source_job_id.setter
+    def source_job_id(self, source_job_id):
+        """Sets the source_job_id of this ExperimentalWorkspace.
+
+        The job this workspace was duplicated from. Null when this workspace was not duplicated from a job.  # noqa: E501
+
+        :param source_job_id: The source_job_id of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._source_job_id = source_job_id
+
+    @property
+    def source_workspace_id(self):
+        """Gets the source_workspace_id of this ExperimentalWorkspace.  # noqa: E501
+
+        The workspace this workspace was duplicated from. Null when this workspace was not duplicated from a workspace.  # noqa: E501
+
+        :return: The source_workspace_id of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_workspace_id
+
+    @source_workspace_id.setter
+    def source_workspace_id(self, source_workspace_id):
+        """Sets the source_workspace_id of this ExperimentalWorkspace.
+
+        The workspace this workspace was duplicated from. Null when this workspace was not duplicated from a workspace.  # noqa: E501
+
+        :param source_workspace_id: The source_workspace_id of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._source_workspace_id = source_workspace_id
 
     @property
     def is_imported(self):

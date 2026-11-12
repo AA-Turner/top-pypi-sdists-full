@@ -58,7 +58,7 @@ from fivetran_connector_sdk_cli.connector_helper import (
 from fivetran_connector_sdk_common.configuration import check_dict
 from fivetran_connector_sdk_cli.options_file import find_options_file, default_options_file_path, is_toml_file_supported
 from fivetran_connector_sdk_cli.migration import run_migration, write_resolved_profile
-from fivetran_connector_sdk_cli.resolution import resolve_deploy_options
+from fivetran_connector_sdk_cli.resolution import resolve_deploy_options, warn_on_server_drift
 
 def package(
         project_path: str,
@@ -79,12 +79,16 @@ def package(
 
 def _deploy_connector(project_path: Optional[str], deploy_key: str, group: str, connection: str,
                       hd_agent_id: str, options: DeployOptions = None,
-                      configuration_form_method: Optional[Callable] = None):
+                      configuration_form_method: Optional[Callable] = None,
+                      current_connection_detail: Optional[dict] = None):
     """Implements `Connector.deploy()`; also called directly by the CLI for `--package-id`,
     which needs neither a local project nor a Connector instance since packaging is skipped.
 
     project_path and configuration_form_method are only used on the local-packaging path
     (no target_package_id), so both may be None when target_package_id is set.
+
+    current_connection_detail is the existing connection's server-side detail, when the caller
+    already fetched it; it is used to warn about values this deploy will change.
     """
     options = options or DeployOptions()
     (configuration, config_path, python_version, prompt_mode, naming, proxy_id, proxy_host_config_key,
@@ -163,6 +167,14 @@ def _deploy_connector(project_path: Optional[str], deploy_key: str, group: str, 
                 f"cannot update connection '{connection}'; not a Connector SDK connection", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
             sys.exit(1)
 
+        warn_on_server_drift({
+            constants.FIELD_PYTHON_VERSION: python_version,
+            constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID: hd_agent_id,
+            constants.FIELD_PROXY_ID: proxy_id,
+            constants.FIELD_PROXY_HOST_CONFIG_KEY: resolved_proxy_host_config_key,
+            constants.FIELD_PACKAGE_ID: target_package_id,
+        }, current_connection_detail)
+
         current_package_id = get_connection_package_id(connection_id, deploy_key)
         validate_connection_package_update(connection, current_package_id, target_package_id, deploy_key)
         left_shared_package_group = False
@@ -232,7 +244,7 @@ def _run_deploy_command(args, prompt_mode: PromptMode) -> None:
         migrated_options_path = run_migration(ft_deploy_key, default_options_file_path())
 
     group_ids: dict = {}
-    resolved = resolve_deploy_options(args, prompt_mode, ft_deploy_key,
+    resolved, current_detail = resolve_deploy_options(args, prompt_mode, ft_deploy_key,
                                       is_first_migration_deploy=bool(migrated_options_path),
                                       group_ids=group_ids)
     ft_group = resolved["destination"]
@@ -266,10 +278,12 @@ def _run_deploy_command(args, prompt_mode: PromptMode) -> None:
 
     try:
         if target_package_id:
-            _deploy_connector(None, ft_deploy_key, ft_group, ft_connection, hd_agent_id, options)
+            _deploy_connector(None, ft_deploy_key, ft_group, ft_connection, hd_agent_id, options,
+                              current_connection_detail=current_detail)
         else:
             _deploy_connector(args.project_path, ft_deploy_key, ft_group, ft_connection, hd_agent_id, options,
-                              configuration_form_method=connector_object.configuration_form_method)
+                              configuration_form_method=connector_object.configuration_form_method,
+                              current_connection_detail=current_detail)
     except Exception as e:
         print_library_log(f"deploy run failed with error: {str(e)}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
@@ -416,7 +430,12 @@ def main():
     try:
         args = parser.parse_args()
     except SystemExit as e:
-        exit_code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        if isinstance(e.code, int):
+            exit_code = e.code
+        elif e.code is None:
+            exit_code = 0
+        else:
+            exit_code = 1
         telemetry.send_cli_usage(attempted_command_for_telemetry(sys.argv[1:]),
                                  safe_option_names_from_argv(parser, sys.argv[1:]), exit_code, __version__)
         raise

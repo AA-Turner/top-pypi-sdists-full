@@ -3,7 +3,7 @@ The robot's SDK heard from by its worker: every EVERY_S - a fifth of WINDOW_S, 2
 a Policy that holds a worker says on its stream, in a message that is no request, how its arm stands (stale.py): "acting"
 while it asks ahead, "waiting" while it asks for none ahead, "stale" while the answer it plays ran out with no next one
 in hand - why, and for how long - and its stretches so far. The worker says it on its GET /robots, the platform on GET /v1/robots/{name}
-and `seq robot status`: a robot alive and acting, alive with its loop stuck, or not heard from for its window - its
+and `seq robot show`: a robot alive and acting, alive with its loop stuck, or not heard from for its window - its
 process gone, hung whole, or its link down. A stretch the worker hears under way is two lines of the policy's log,
 `seq policy logs`: heard begun, and heard ended.
 Best effort, on a thread of its own, from the first observe() or act() until close(): with no stream open it is one not

@@ -653,14 +653,14 @@ class MappedArray(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=Meta
         return dispatch.bottom_n_mapped_mask(self.values, col_map, n, engine=engine)
 
     @cached_method
-    def top_n(self: MappedArrayT, n: int, **kwargs) -> MappedArrayT:
+    def top_n(self: MappedArrayT, n: int, group_by: tp.GroupByLike = None, **kwargs) -> MappedArrayT:
         """Filter top N elements from each column/group."""
-        return self.apply_mask(self.top_n_mask(n), **kwargs)
+        return self.apply_mask(self.top_n_mask(n, group_by=group_by), group_by=group_by, **kwargs)
 
     @cached_method
-    def bottom_n(self: MappedArrayT, n: int, **kwargs) -> MappedArrayT:
+    def bottom_n(self: MappedArrayT, n: int, group_by: tp.GroupByLike = None, **kwargs) -> MappedArrayT:
         """Filter bottom N elements from each column/group."""
-        return self.apply_mask(self.bottom_n_mask(n), **kwargs)
+        return self.apply_mask(self.bottom_n_mask(n, group_by=group_by), group_by=group_by, **kwargs)
 
     @cached_method
     def is_expandable(
@@ -979,7 +979,7 @@ class MappedArray(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=Meta
             and wrap_kwargs is None
             and ddof == 1
         ):
-            return self.to_pd().describe(percentiles=percentiles)
+            return self.to_pd(ignore_index=True, group_by=group_by).describe(percentiles=percentiles)
         if percentiles is not None:
             percentiles = to_1d_array(percentiles)
         else:

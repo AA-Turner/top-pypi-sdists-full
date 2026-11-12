@@ -8259,7 +8259,7 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         '''
         :param project: -
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports just package name. Default: []
-        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
+        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``UpgradeDependencies`` component. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param marker: 
         :param minimum_release_age: (experimental) Minimum release age for packages before Renovate will propose an update. This is a supply chain security feature to avoid updating to newly published, potentially malicious versions. Default: - no minimum release age
@@ -8345,7 +8345,7 @@ class RenovatebotOptions:
         '''(experimental) Options for Renovatebot.
 
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports just package name. Default: []
-        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
+        :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``UpgradeDependencies`` component. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param marker: 
         :param minimum_release_age: (experimental) Minimum release age for packages before Renovate will propose an update. This is a supply chain security feature to avoid updating to newly published, potentially malicious versions. Default: - no minimum release age
@@ -8403,7 +8403,7 @@ class RenovatebotOptions:
         This is required since projen updates may cause changes in committed files
         and anti-tamper checks will fail.
 
-        Projen upgrades are covered through the ``ProjenUpgrade`` class.
+        Projen upgrades are covered through the ``UpgradeDependencies`` component.
 
         :default: true
 

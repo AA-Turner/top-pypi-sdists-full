@@ -27,7 +27,7 @@ FROZEN_DATE = "2010-02-02"
 
 with freeze_time(FROZEN_DATE):
     NOW = dt.datetime.now()
-    NOW_UTC = dt.datetime.now(tz=dt.timezone.utc)
+    NOW_UTC = dt.datetime.now(tz=dt.UTC)
     NOW_UTC_PLUS_01_00 = dt.datetime.now(tz=dt.timezone(offset=dt.timedelta(hours=1)))
     TODAY = dt.date.today()
     TOMORROW = TODAY + ONE_DAY_DELTA
@@ -127,6 +127,11 @@ def test_naturaldelta_nomonths(test_input: dt.timedelta, expected: str) -> None:
         (dt.timedelta(days=9), "9 days"),
         (dt.timedelta(days=365), "a year"),
         (dt.timedelta(days=365 * 1_141), "1,141 years"),
+        (dt.timedelta(days=365 * 2), "2 years"),
+        (dt.timedelta(days=365 * 2.4), "2 years"),
+        (dt.timedelta(days=365 * 2.6), "3 years"),
+        (dt.timedelta(days=365 * 2.9), "3 years"),
+        (dt.timedelta(days=365 * 3), "3 years"),
         ("NaN", "NaN"),  # Returns non-numbers unchanged.
         # largest possible timedelta
         (dt.timedelta(days=999_999_999), "2,739,726 years"),
@@ -136,6 +141,25 @@ def test_naturaldelta(test_input: float | dt.timedelta, expected: str) -> None:
     assert humanize.naturaldelta(test_input) == expected
     if not isinstance(test_input, str):
         assert humanize.naturaldelta(-test_input) == expected
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (float("nan"), "nan"),
+        (float("inf"), "inf"),
+        (float("-inf"), "-inf"),
+    ],
+)
+def test_naturaldelta_non_finite(value: float, expected: str) -> None:
+    """Non-finite floats are returned unchanged instead of raising."""
+    assert humanize.naturaldelta(value) == expected
+
+
+def test_naturaldelta_too_large_value_raises() -> None:
+    """A too-large *finite* value still raises OverflowError (unlike inf)."""
+    with pytest.raises(OverflowError):
+        humanize.naturaldelta(1e30)
 
 
 @freeze_time(FROZEN_DATE)
@@ -172,6 +196,8 @@ def test_naturaldelta(test_input: float | dt.timedelta, expected: str) -> None:
         (NOW - dt.timedelta(days=365 + 35), "1 year, 1 month ago"),
         (dt.timedelta(days=-10000), "27 years from now"),
         (dt.timedelta(days=365 + 35), "1 year, 1 month ago"),
+        (dt.datetime(9999, 12, 31), "7,995 years from now"),
+        (dt.timedelta(days=-800_000), "2,192 years from now"),
         (22.5, "22 seconds ago"),
         (23.5, "24 seconds ago"),
         (23.9, "24 seconds ago"),
@@ -303,12 +329,11 @@ def test_naturaldate(test_input: dt.date, expected: str) -> None:
 @freeze_time("2023-10-15 23:00:00+00:00")
 def test_naturaldate_tz_aware() -> None:
     """naturaldate should compare dates in the timezone of the given value."""
-    utc = dt.timezone.utc
     aedt = dt.timezone(dt.timedelta(hours=11))
     cest = dt.timezone(dt.timedelta(hours=2))
     edt = dt.timezone(dt.timedelta(hours=-4))
     pdt = dt.timezone(dt.timedelta(hours=-7))
-    future = dt.datetime(2023, 10, 16, hour=6, tzinfo=utc)
+    future = dt.datetime(2023, 10, 16, hour=6, tzinfo=dt.UTC)
 
     # UTC: now is Oct 15, future is Oct 16 => tomorrow
     assert humanize.naturaldate(future) == "tomorrow"
@@ -622,6 +647,11 @@ def test_precisedelta_one_unit_enough(
         (dt.timedelta(days=32), "seconds", "1 month and 1 day"),
         (dt.timedelta(days=62), "seconds", "2 months and 1 day"),
         (dt.timedelta(days=92), "seconds", "3 months"),
+        (
+            dt.timedelta(days=-800_000),
+            "seconds",
+            "2,191 years, 9 months and 10 days",
+        ),
         (dt.timedelta(days=31), "days", "1 month"),
         (dt.timedelta(days=32), "days", "1 month and 1 day"),
         (dt.timedelta(days=62), "days", "2 months and 1 day"),

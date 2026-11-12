@@ -146,6 +146,9 @@ __all__ = [
     "NodeSubagentNodeSkipResponseEdgeTransitionConditionEquationConditionEquation",
     "NodeSubagentNodeSkipResponseEdgeTransitionConditionUnionMember2",
     "NodeSubagentNodeTool",
+    "NodeSubagentNodeToolEscalateChatTool",
+    "NodeSubagentNodeToolEscalateChatToolDestination",
+    "NodeSubagentNodeToolEscalateChatToolDestinationDestination",
     "NodeSubagentNodeToolEndCallTool",
     "NodeSubagentNodeToolTransferCallTool",
     "NodeSubagentNodeToolTransferCallToolTransferDestination",
@@ -325,6 +328,43 @@ __all__ = [
     "NodeCodeNodeModelConfig",
     "NodeCodeNodeModelConfigNodeModelConfig",
     "NodeCodeNodeModelConfigNodeModelConfigPrimary",
+    "NodeEscalateChatNode",
+    "NodeEscalateChatNodeDestination",
+    "NodeEscalateChatNodeDestinationDestination",
+    "NodeEscalateChatNodeEdge",
+    "NodeEscalateChatNodeEdgeTransitionCondition",
+    "NodeEscalateChatNodeEdgeTransitionConditionPromptCondition",
+    "NodeEscalateChatNodeEdgeTransitionConditionEquationCondition",
+    "NodeEscalateChatNodeEdgeTransitionConditionEquationConditionEquation",
+    "NodeEscalateChatNodeEdgeTransitionConditionUnionMember2",
+    "NodeEscalateChatNodeDisplayPosition",
+    "NodeEscalateChatNodeGlobalNodeSetting",
+    "NodeEscalateChatNodeGlobalNodeSettingCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionPromptCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionEquationCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionEquationConditionEquation",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionEquation",
+    "NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionPromptCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingGoBackCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionPromptCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationCondition",
+    "NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationConditionEquation",
+    "NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExample",
+    "NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscript",
+    "NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember0",
+    "NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember1",
+    "NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember2",
+    "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExample",
+    "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscript",
+    "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0",
+    "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1",
+    "NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2",
+    "NodeEscalateChatNodeModelChoice",
+    "NodeEscalateChatNodeModelConfig",
+    "NodeEscalateChatNodeModelConfigNodeModelConfig",
+    "NodeEscalateChatNodeModelConfigNodeModelConfigPrimary",
     "NodeTransferCallNode",
     "NodeTransferCallNodeEdge",
     "NodeTransferCallNodeEdgeTransitionCondition",
@@ -1397,6 +1437,7 @@ class NodeConversationNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1411,6 +1452,7 @@ class NodeConversationNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -1451,6 +1493,7 @@ class NodeConversationNodeModelConfigNodeModelConfigPrimary(TypedDict, total=Fal
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -1465,6 +1508,7 @@ class NodeConversationNodeModelConfigNodeModelConfigPrimary(TypedDict, total=Fal
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2209,6 +2253,7 @@ class NodeSubagentNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2223,6 +2268,7 @@ class NodeSubagentNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2263,6 +2309,7 @@ class NodeSubagentNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -2277,6 +2324,7 @@ class NodeSubagentNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -2359,6 +2407,45 @@ class NodeSubagentNodeSkipResponseEdge(TypedDict, total=False):
 
     destination_node_id: str
     """ID of the destination node"""
+
+
+class NodeSubagentNodeToolEscalateChatToolDestinationDestination(TypedDict, total=False):
+    method: Required[Literal["POST", "PUT"]]
+
+    url: Required[str]
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Dict[str, object]
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Dict[str, str]
+
+    max_retry: int
+
+    query_params: Dict[str, str]
+
+    timeout_ms: int
+
+
+class NodeSubagentNodeToolEscalateChatToolDestination(TypedDict, total=False):
+    destination: Required[NodeSubagentNodeToolEscalateChatToolDestinationDestination]
+
+    type: Required[Literal["webhook"]]
+
+
+class NodeSubagentNodeToolEscalateChatTool(TypedDict, total=False):
+    destination: Required[NodeSubagentNodeToolEscalateChatToolDestination]
+
+    name: Required[str]
+
+    type: Required[Literal["escalate_chat"]]
+
+    description: str
 
 
 class NodeSubagentNodeToolEndCallTool(TypedDict, total=False):
@@ -3660,6 +3747,7 @@ class NodeSubagentNodeToolAppTool(TypedDict, total=False):
 
 
 NodeSubagentNodeTool: TypeAlias = Union[
+    NodeSubagentNodeToolEscalateChatTool,
     NodeSubagentNodeToolEndCallTool,
     NodeSubagentNodeToolTransferCallTool,
     NodeSubagentNodeToolAgentSwapTool,
@@ -4081,6 +4169,7 @@ class NodeEndNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -4095,6 +4184,7 @@ class NodeEndNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -4135,6 +4225,7 @@ class NodeEndNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -4149,6 +4240,7 @@ class NodeEndNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -4649,6 +4741,7 @@ class NodeFunctionNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -4663,6 +4756,7 @@ class NodeFunctionNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -4703,6 +4797,7 @@ class NodeFunctionNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -4717,6 +4812,7 @@ class NodeFunctionNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -5231,6 +5327,7 @@ class NodeCodeNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -5245,6 +5342,7 @@ class NodeCodeNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -5285,6 +5383,7 @@ class NodeCodeNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -5299,6 +5398,7 @@ class NodeCodeNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -5391,6 +5491,480 @@ class NodeCodeNode(TypedDict, total=False):
 
     Defaults to 30,000 ms (30 s).
     """
+
+
+class NodeEscalateChatNodeDestinationDestination(TypedDict, total=False):
+    method: Required[Literal["POST", "PUT"]]
+
+    url: Required[str]
+    """Customer webhook URL for transfer requests and forwarded SMS messages."""
+
+    body: Dict[str, object]
+    """Customer-defined fields nested in args on chat_transfer_requested events.
+
+    String values support dynamic variables such as {{customer_id}}, including
+    inside nested objects and arrays. Field names and non-string values are
+    preserved.
+    """
+
+    headers: Dict[str, str]
+
+    max_retry: int
+
+    query_params: Dict[str, str]
+
+    timeout_ms: int
+
+
+class NodeEscalateChatNodeDestination(TypedDict, total=False):
+    destination: Required[NodeEscalateChatNodeDestinationDestination]
+
+    type: Required[Literal["webhook"]]
+
+
+class NodeEscalateChatNodeEdgeTransitionConditionPromptCondition(TypedDict, total=False):
+    prompt: Required[str]
+    """Prompt condition text"""
+
+    type: Required[Literal["prompt"]]
+
+
+class NodeEscalateChatNodeEdgeTransitionConditionEquationConditionEquation(TypedDict, total=False):
+    left: Required[str]
+    """Left side of the equation"""
+
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
+
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
+
+
+class NodeEscalateChatNodeEdgeTransitionConditionEquationCondition(TypedDict, total=False):
+    equations: Required[Iterable[NodeEscalateChatNodeEdgeTransitionConditionEquationConditionEquation]]
+
+    operator: Required[Literal["||", "&&"]]
+
+    type: Required[Literal["equation"]]
+
+    prompt: Literal["Escalation failed"]
+
+
+class NodeEscalateChatNodeEdgeTransitionConditionUnionMember2(TypedDict, total=False):
+    prompt: Required[Literal["Escalation failed"]]
+
+    type: Required[Literal["prompt"]]
+
+
+NodeEscalateChatNodeEdgeTransitionCondition: TypeAlias = Union[
+    NodeEscalateChatNodeEdgeTransitionConditionPromptCondition,
+    NodeEscalateChatNodeEdgeTransitionConditionEquationCondition,
+    NodeEscalateChatNodeEdgeTransitionConditionUnionMember2,
+]
+
+
+class NodeEscalateChatNodeEdge(TypedDict, total=False):
+    id: Required[str]
+    """Unique identifier for the edge"""
+
+    transition_condition: Required[NodeEscalateChatNodeEdgeTransitionCondition]
+
+    destination_node_id: str
+    """ID of the destination node"""
+
+
+class NodeEscalateChatNodeDisplayPosition(TypedDict, total=False):
+    """Position for frontend display"""
+
+    x: float
+
+    y: float
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionPromptCondition(TypedDict, total=False):
+    prompt: Required[str]
+    """Prompt condition text"""
+
+    type: Required[Literal["prompt"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionEquationConditionEquation(TypedDict, total=False):
+    left: Required[str]
+    """Left side of the equation"""
+
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
+
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionEquationCondition(TypedDict, total=False):
+    equations: Required[Iterable[NodeEscalateChatNodeGlobalNodeSettingConditionEquationConditionEquation]]
+
+    operator: Required[Literal["||", "&&"]]
+
+    type: Required[Literal["equation"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionEquation(TypedDict, total=False):
+    left: Required[str]
+    """Left side of the equation"""
+
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
+
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionPromptCondition(TypedDict, total=False):
+    """Optional prompt combined with the equations by operator.
+
+    Omit to evaluate only equations. With no equations, only the prompt is evaluated. Deterministic matches take priority; otherwise the prompt uses normal prompt transition timing.
+    """
+
+    prompt: Required[str]
+    """Prompt condition text"""
+
+    type: Required[Literal["prompt"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptCondition(TypedDict, total=False):
+    equations: Required[Iterable[NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionEquation]]
+
+    operator: Required[Literal["||", "&&"]]
+
+    type: Required[Literal["equation_prompt"]]
+
+    prompt_condition: NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptConditionPromptCondition
+    """Optional prompt combined with the equations by operator.
+
+    Omit to evaluate only equations. With no equations, only the prompt is
+    evaluated. Deterministic matches take priority; otherwise the prompt uses normal
+    prompt transition timing.
+    """
+
+
+NodeEscalateChatNodeGlobalNodeSettingCondition: TypeAlias = Union[
+    str,
+    NodeEscalateChatNodeGlobalNodeSettingConditionPromptCondition,
+    NodeEscalateChatNodeGlobalNodeSettingConditionEquationCondition,
+    NodeEscalateChatNodeGlobalNodeSettingConditionEquationPromptCondition,
+]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionPromptCondition(TypedDict, total=False):
+    prompt: Required[str]
+    """Prompt condition text"""
+
+    type: Required[Literal["prompt"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationConditionEquation(
+    TypedDict, total=False
+):
+    left: Required[str]
+    """Left side of the equation"""
+
+    operator: Required[Literal["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "exists", "not_exist"]]
+
+    right: str
+    """Right side of the equation.
+
+    The right side of the equation not required when "exists" or "not_exist" are
+    selected.
+    """
+
+
+class NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationCondition(TypedDict, total=False):
+    equations: Required[
+        Iterable[NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationConditionEquation]
+    ]
+
+    operator: Required[Literal["||", "&&"]]
+
+    type: Required[Literal["equation"]]
+
+
+NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionCondition: TypeAlias = Union[
+    NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionPromptCondition,
+    NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionConditionEquationCondition,
+]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingGoBackCondition(TypedDict, total=False):
+    """A connection between conversation-flow nodes.
+
+    When used in a node's edges array, transitions when its condition matches. Equation conditions compare dynamic variables and are checked in array order; the first match wins. If no equation matches, the LLM evaluates prompt conditions against the conversation and selects a matching transition, if any.
+    """
+
+    id: Required[str]
+    """Unique identifier for the edge"""
+
+    transition_condition: Required[NodeEscalateChatNodeGlobalNodeSettingGoBackConditionTransitionCondition]
+
+    destination_node_id: str
+    """ID of the destination node"""
+
+
+class NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember0(TypedDict, total=False):
+    content: Required[str]
+
+    role: Required[Literal["agent", "user"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember1(TypedDict, total=False):
+    arguments: Required[str]
+
+    name: Required[str]
+
+    role: Required[Literal["tool_call_invocation"]]
+
+    tool_call_id: Required[str]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember2(TypedDict, total=False):
+    content: Required[str]
+
+    role: Required[Literal["tool_call_result"]]
+
+    tool_call_id: Required[str]
+
+
+NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscript: TypeAlias = Union[
+    NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember0,
+    NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember1,
+    NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscriptUnionMember2,
+]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExample(TypedDict, total=False):
+    transcript: Required[Iterable[NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExampleTranscript]]
+    """Find tune the transition condition to this global node"""
+
+
+class NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0(TypedDict, total=False):
+    content: Required[str]
+
+    role: Required[Literal["agent", "user"]]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1(TypedDict, total=False):
+    arguments: Required[str]
+
+    name: Required[str]
+
+    role: Required[Literal["tool_call_invocation"]]
+
+    tool_call_id: Required[str]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2(TypedDict, total=False):
+    content: Required[str]
+
+    role: Required[Literal["tool_call_result"]]
+
+    tool_call_id: Required[str]
+
+
+NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscript: TypeAlias = Union[
+    NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember0,
+    NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember1,
+    NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscriptUnionMember2,
+]
+
+
+class NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExample(TypedDict, total=False):
+    transcript: Required[Iterable[NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExampleTranscript]]
+    """Find tune the transition condition to this global node"""
+
+
+class NodeEscalateChatNodeGlobalNodeSetting(TypedDict, total=False):
+    condition: Required[NodeEscalateChatNodeGlobalNodeSettingCondition]
+    """Condition for global node activation.
+
+    A string is a prompt condition and cannot be empty. Also accepts typed
+    PromptCondition, EquationCondition, or EquationPromptCondition objects.
+    """
+
+    cool_down: float
+    """
+    The same global node won't be triggered again within the next N node
+    transitions.
+    """
+
+    go_back_conditions: Iterable[NodeEscalateChatNodeGlobalNodeSettingGoBackCondition]
+    """The conditions for global node go back.
+
+    There would be no destination_node_id for these edges.
+    """
+
+    negative_finetune_examples: Iterable[NodeEscalateChatNodeGlobalNodeSettingNegativeFinetuneExample]
+    """Don't transition to this node"""
+
+    positive_finetune_examples: Iterable[NodeEscalateChatNodeGlobalNodeSettingPositiveFinetuneExample]
+    """Transition to this node"""
+
+
+class NodeEscalateChatNodeModelChoice(TypedDict, total=False):
+    """Deprecated, use model_config.
+
+    When a request sends both and they differ, the one that differs from the stored node is used, and model_config wins if both changed.
+    """
+
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-luna",
+            "tell-1",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-carbon",
+            "gemini-4-argon",
+        ]
+    ]
+    """The LLM model to use"""
+
+    type: Required[Literal["cascading"]]
+    """Type of model choice"""
+
+    high_priority: bool
+    """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: bool
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
+
+
+class NodeEscalateChatNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-luna",
+            "tell-1",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-carbon",
+            "gemini-4-argon",
+        ]
+    ]
+    """Available LLM models for agents."""
+
+    tier: Literal["standard", "fast", "ultrafast"]
+    """Capacity tier for a model.
+
+    standard is always available. fast draws from dedicated capacity for lower,
+    steadier latency, and ultrafast is faster still on voice agents; faster tiers
+    cost more. Each model offers its own set of tiers, and a tier the model does not
+    offer is rejected.
+    """
+
+
+class NodeEscalateChatNodeModelConfigNodeModelConfig(TypedDict, total=False):
+    """Model override for this node. Only cascading flows use it."""
+
+    primary: Required[NodeEscalateChatNodeModelConfigNodeModelConfigPrimary]
+
+
+NodeEscalateChatNodeModelConfig: TypeAlias = Union[NodeEscalateChatNodeModelConfigNodeModelConfig, Optional[object]]
+
+
+class NodeEscalateChatNode(TypedDict, total=False):
+    id: Required[str]
+    """Unique identifier for the node"""
+
+    destination: Required[NodeEscalateChatNodeDestination]
+
+    edge: Required[NodeEscalateChatNodeEdge]
+
+    type: Required[Literal["escalate_chat"]]
+
+    display_position: NodeEscalateChatNodeDisplayPosition
+    """Position for frontend display"""
+
+    global_node_setting: NodeEscalateChatNodeGlobalNodeSetting
+
+    model_choice: NodeEscalateChatNodeModelChoice
+    """Deprecated, use model_config.
+
+    When a request sends both and they differ, the one that differs from the stored
+    node is used, and model_config wins if both changed.
+    """
+
+    model_config: NodeEscalateChatNodeModelConfig
+    """Model override for this node. Only cascading flows use it."""
+
+    name: str
+    """Optional name for display purposes"""
 
 
 class NodeTransferCallNodeEdgeTransitionConditionPromptCondition(TypedDict, total=False):
@@ -6059,6 +6633,7 @@ class NodeTransferCallNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -6073,6 +6648,7 @@ class NodeTransferCallNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -6113,6 +6689,7 @@ class NodeTransferCallNodeModelConfigNodeModelConfigPrimary(TypedDict, total=Fal
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -6127,6 +6704,7 @@ class NodeTransferCallNodeModelConfigNodeModelConfigPrimary(TypedDict, total=Fal
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -6629,6 +7207,7 @@ class NodePressDigitNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -6643,6 +7222,7 @@ class NodePressDigitNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -6683,6 +7263,7 @@ class NodePressDigitNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -6697,6 +7278,7 @@ class NodePressDigitNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -7180,6 +7762,7 @@ class NodeBranchNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -7194,6 +7777,7 @@ class NodeBranchNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -7234,6 +7818,7 @@ class NodeBranchNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -7248,6 +7833,7 @@ class NodeBranchNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -7726,6 +8312,7 @@ class NodeSMSNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -7740,6 +8327,7 @@ class NodeSMSNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -7780,6 +8368,7 @@ class NodeSMSNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -7794,6 +8383,7 @@ class NodeSMSNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -8454,6 +9044,7 @@ class NodeExtractDynamicVariablesNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -8468,6 +9059,7 @@ class NodeExtractDynamicVariablesNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -8508,6 +9100,7 @@ class NodeExtractDynamicVariablesNodeModelConfigNodeModelConfigPrimary(TypedDict
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -8522,6 +9115,7 @@ class NodeExtractDynamicVariablesNodeModelConfigNodeModelConfigPrimary(TypedDict
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -8935,6 +9529,7 @@ class NodeAgentSwapNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -8949,6 +9544,7 @@ class NodeAgentSwapNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -8989,6 +9585,7 @@ class NodeAgentSwapNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False)
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -9003,6 +9600,7 @@ class NodeAgentSwapNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False)
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -9531,6 +10129,7 @@ class NodeMcpNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -9545,6 +10144,7 @@ class NodeMcpNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -9585,6 +10185,7 @@ class NodeMcpNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -9599,6 +10200,7 @@ class NodeMcpNodeModelConfigNodeModelConfigPrimary(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -10402,6 +11004,7 @@ class NodeBridgeTransferNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -10416,6 +11019,7 @@ class NodeBridgeTransferNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -10456,6 +11060,7 @@ class NodeBridgeTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=F
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -10470,6 +11075,7 @@ class NodeBridgeTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=F
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -10818,6 +11424,7 @@ class NodeCancelTransferNodeModelChoice(TypedDict, total=False):
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -10832,6 +11439,7 @@ class NodeCancelTransferNodeModelChoice(TypedDict, total=False):
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -10872,6 +11480,7 @@ class NodeCancelTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=F
             "gpt-6.1-sol",
             "gpt-6.1-terra",
             "gpt-6-luna",
+            "tell-1",
             "claude-4.6-sonnet",
             "claude-5-opus",
             "claude-5.5-opus",
@@ -10886,6 +11495,7 @@ class NodeCancelTransferNodeModelConfigNodeModelConfigPrimary(TypedDict, total=F
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-carbon",
             "gemini-4-argon",
         ]
     ]
@@ -10951,6 +11561,7 @@ Node: TypeAlias = Union[
     NodeEndNode,
     NodeFunctionNode,
     NodeCodeNode,
+    NodeEscalateChatNode,
     NodeTransferCallNode,
     NodePressDigitNode,
     NodeBranchNode,

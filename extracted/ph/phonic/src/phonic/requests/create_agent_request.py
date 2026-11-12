@@ -25,12 +25,12 @@ from .task import TaskParams
 class CreateAgentRequestParams(typing_extensions.TypedDict):
     name: str
     """
-    The name of the agent. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+    Deprecated alias of `slug`; agents have no separate display name. If both `name` and `slug` are provided, `slug` takes precedence and `name` is set to the same value. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
     """
 
     slug: typing_extensions.NotRequired[str]
     """
-    URL-friendly agent slug. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
+    URL-friendly agent slug, which also serves as the agent's `name`. Can only contain lowercase letters, numbers and hyphens. Must be unique within the project.
     """
 
     phone_number: typing_extensions.NotRequired[typing.Optional[CreateAgentRequestPhoneNumber]]
@@ -238,6 +238,11 @@ class CreateAgentRequestParams(typing_extensions.TypedDict):
     max_conversation_duration_sec: typing_extensions.NotRequired[int]
     """
     Maximum duration of a conversation in seconds. When the limit is reached, the conversation is ended.
+    """
+
+    detect_voicemail_tone: typing_extensions.NotRequired[bool]
+    """
+    Whether to listen for the beep at the end of a voicemail greeting and tell the agent when it hears one. Runs during the first 45 seconds of outbound phone calls and WebSocket conversations, and never on inbound phone calls.
     """
 
     configuration_endpoint: typing_extensions.NotRequired[

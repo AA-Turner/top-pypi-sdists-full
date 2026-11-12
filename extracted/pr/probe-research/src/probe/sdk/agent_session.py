@@ -515,6 +515,29 @@ def outdated_client(env: Mapping[str, str] | None = None) -> tuple[str, str] | N
     return (spec.display, ".".join(str(part) for part in spec.min_version))
 
 
+#: This chat's Probe switch, for the server's session record (`session_marker.switch_report`;
+#: app/capture/sessions/switch_report.py reads it).
+AGENT_SWITCH_HEADER = "X-Probe-Agent-Switch"
+
+
+def build_switch_headers(session_id: str | None) -> dict[str, str]:
+    """`AGENT_SWITCH_HEADER` for `session_id` (the chat this process runs in), or ``{}``. Never raises."""
+    if not session_id:
+        return {}
+    try:
+        from probe.sdk import session_marker
+
+        report = session_marker.switch_report(session_id)
+    except Exception:
+        return {}
+    if report is None:
+        return {}
+    fields = [f"{key}={report[key]}" for key in ("state", "control", "by", "recorder")]
+    if report.get("at") is not None:
+        fields.append(f"at={report['at']:.3f}")
+    return {AGENT_SWITCH_HEADER: ";".join(fields)}
+
+
 def agent_session_headers(env: Mapping[str, str] | None = None) -> dict[str, str]:
     """Headers naming the current agent session, or ``{}`` — never a blank header."""
     resolved = resolve_agent_session(env)
@@ -524,21 +547,25 @@ def agent_session_headers(env: Mapping[str, str] | None = None) -> dict[str, str
     return {AGENT_HEADER: agent, AGENT_SESSION_HEADER: session_id}
 
 
-#: The two values `authored_by` takes on the wire. Spelled as literals rather
+#: The values `authored_by` takes on the wire. Spelled as literals rather
 #: than imported from `probe.generated.models.Authorship` on purpose: this
 #: module is stdlib-only (see the header — a Miles actor spilling metric
 #: batches must not drag pydantic in), and the enum is a `StrEnum` whose members
 #: serialize to exactly these strings. `agent/tests/test_authorship_default.py`
-#: pins the two spellings against the generated enum so they cannot drift.
+#: pins the spellings against the generated enum so they cannot drift.
+#: `agent` is an agent's chosen words (kept from generation); `composed` is a
+#: placeholder Probe or a library made up (a `ComposedName`), which generation
+#: may replace and which never overwrites a chosen name (409 `NAME_IS_KEPT`).
 AUTHORSHIP_AGENT = "agent"
 AUTHORSHIP_HUMAN = "human"
+AUTHORSHIP_COMPOSED = "composed"
 
 #: Set on every `probe` call the Probe daemon makes (`daemon/worker/worker.py::probe_env`).
 DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
 
 
 class ComposedName(str):
-    """A run name Probe composed itself (a fallback, a trial number), so its run declares ``"agent"``
+    """A run name Probe composed itself (a fallback, a trial number), so its run declares ``"composed"``
     and generation may improve it. Mark it last: ``str()`` returns a plain str and drops the mark."""
 
 

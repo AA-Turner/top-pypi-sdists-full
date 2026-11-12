@@ -78,6 +78,7 @@ class LlmResource(SyncAPIResource):
                 "gpt-6.1-sol",
                 "gpt-6.1-terra",
                 "gpt-6-luna",
+                "tell-1",
                 "claude-4.6-sonnet",
                 "claude-5-opus",
                 "claude-5.5-opus",
@@ -92,6 +93,7 @@ class LlmResource(SyncAPIResource):
                 "gemini-3.6-flash",
                 "gemini-3.7-flash",
                 "gemini-3.8-flash",
+                "gemini-4-carbon",
                 "gemini-4-argon",
             ]
         ]
@@ -322,6 +324,7 @@ class LlmResource(SyncAPIResource):
                 "gpt-6.1-sol",
                 "gpt-6.1-terra",
                 "gpt-6-luna",
+                "tell-1",
                 "claude-4.6-sonnet",
                 "claude-5-opus",
                 "claude-5.5-opus",
@@ -336,6 +339,7 @@ class LlmResource(SyncAPIResource):
                 "gemini-3.6-flash",
                 "gemini-3.7-flash",
                 "gemini-3.8-flash",
+                "gemini-4-carbon",
                 "gemini-4-argon",
             ]
         ]
@@ -643,6 +647,7 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gpt-6.1-sol",
                 "gpt-6.1-terra",
                 "gpt-6-luna",
+                "tell-1",
                 "claude-4.6-sonnet",
                 "claude-5-opus",
                 "claude-5.5-opus",
@@ -657,6 +662,7 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gemini-3.6-flash",
                 "gemini-3.7-flash",
                 "gemini-3.8-flash",
+                "gemini-4-carbon",
                 "gemini-4-argon",
             ]
         ]
@@ -887,6 +893,7 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gpt-6.1-sol",
                 "gpt-6.1-terra",
                 "gpt-6-luna",
+                "tell-1",
                 "claude-4.6-sonnet",
                 "claude-5-opus",
                 "claude-5.5-opus",
@@ -901,6 +908,7 @@ class AsyncLlmResource(AsyncAPIResource):
                 "gemini-3.6-flash",
                 "gemini-3.7-flash",
                 "gemini-3.8-flash",
+                "gemini-4-carbon",
                 "gemini-4-argon",
             ]
         ]

@@ -123,7 +123,8 @@ class JointRig:
         if caps is None:
             return None
         dt = min(self.control_period_s, max(0.0, self.clock() - self._previous_time))
-        return caps * dt
+        # An uncapped value (inf) stays uncapped at a zero time step, not NaN.
+        return np.where(np.isinf(caps), np.inf, caps * dt)
 
     def _hold_limits(self, group) -> np.ndarray:
         return self.limits[group]

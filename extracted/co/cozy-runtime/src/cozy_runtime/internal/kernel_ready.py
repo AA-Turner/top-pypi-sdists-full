@@ -19,10 +19,13 @@ this card (`verify`). A call asks through `serve`, which keeps a CUDA graph's re
 In a group every GPU switches at the same boundary, or none does. Each follower states its
 kernels in its load's and every call's reply (`pending`, `report`); at its boundary rank 0 serves
 what landed on some GPU and opens or failed on none, and sends that with its next call to each
-follower, which serves it from that call on. A GPU that never asked for an agreed kernel opens it
-at its first ask: it is built on this machine, since another GPU serves it. A `prime`d kernel lands
-for that boundary too: each GPU's load waits for its own (`settle`), so its first request's first
-boundary serves them.
+follower, which serves it from that call on. Within an attempt, every GPU states what it has
+`landed` at each sharded call's meeting and serves from there what landed on all of them
+(`spmd.install_call_check`), so a kernel built during an attempt (Sol's per-length object) serves
+from the next sharded call, as on one GPU (cr-268). A GPU that never asked for an agreed kernel
+opens it at its first ask: it is built on this machine, since another GPU serves it. A `prime`d
+kernel lands for that boundary too: each GPU's load waits for its own (`settle`), so its first
+request's first boundary serves them.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Protocol, cast
 
+from cozy_runtime.author import _phases
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._errors import is_capacity
 from cozy_runtime.author._model import LANDED, Building, Yielded
@@ -172,10 +176,11 @@ def prime[T](name: str, opener: Opener[T]) -> None:
 
 
 def _primed(name: str) -> None:
-    """Waits for `name`'s `prime`d opener to end."""
+    """Waits for `name`'s `prime`d opener to end: a call's phase, `opening <kernel>`."""
     slot = _SLOTS.get(name)
-    if slot is not None and slot.primed is not None:
-        slot.primed.wait()
+    if slot is not None and slot.primed is not None and not slot.primed.is_set():
+        with _phases.phase(f"opening {name}"):
+            slot.primed.wait()
 
 
 def settle() -> None:
@@ -183,8 +188,11 @@ def settle() -> None:
     states (`pending`) is what its first request's boundary can agree on."""
     with _LOCK:
         primes = [slot.primed for slot in _SLOTS.values() if slot.primed is not None]
-    for primed in primes:
-        primed.wait()
+    if all(primed.is_set() for primed in primes):
+        return
+    with _phases.phase("opening kernels"):
+        for primed in primes:
+            primed.wait()
 
 
 def opened[T](name: str) -> T | None:
@@ -408,6 +416,12 @@ def pending() -> dict[str, str]:
 
 def _pending() -> dict[str, str]:
     return {_shared(name): slot.state for name, slot in _SLOTS.items() if slot.state != "ready"}
+
+
+def landed() -> list[str]:
+    """This GPU's kernels landed and not serving yet, as the group names them."""
+    with _LOCK:
+        return sorted(_shared(name) for name, slot in _SLOTS.items() if slot.state == "landed")
 
 
 def report(rank: int, kernels: Mapping[str, str]) -> None:

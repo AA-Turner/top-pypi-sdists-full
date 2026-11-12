@@ -48,8 +48,8 @@ class RunReadsMixin:
             # `--name` is the normal shape of "the researcher dictated the
             # description", and overwriting it here made the flag silently
             # inert on the exact path it is most used on. A description riding
-            # along is someone's words: `agent` would hand it to generation.
-            run_kw["authored_by"] = agent_session.AUTHORSHIP_AGENT
+            # along is someone's words: `composed` would hand it to generation.
+            run_kw["authored_by"] = agent_session.AUTHORSHIP_COMPOSED
         kw = dict(run_kw, parent_run_id=src["id"], parent_relation="fork")
         experiment_id = src.get("experiment_id")
         if experiment_id:
@@ -200,8 +200,9 @@ class RunReadsMixin:
             body["expected_name"] = expected_name
         if expected_name is not None and set(body) == {"name", "expected_name"}:
             # The script's own name alone, like a create-time name; a description or note beside it is not.
+            # `composed`: a placeholder lands only on a placeholder; a name an agent or person chose is kept (409).
             if authored_by is None and isinstance(name, agent_session.ComposedName):
-                authored_by = agent_session.AUTHORSHIP_AGENT
+                authored_by = agent_session.AUTHORSHIP_COMPOSED
             _put_authorship(body, authored_by, is_new_run_name=True)
         else:
             _put_authorship(body, authored_by)

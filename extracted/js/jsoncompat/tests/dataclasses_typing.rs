@@ -7,6 +7,7 @@ use serde_json::json;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
@@ -50,21 +51,17 @@ fn generated_dataclasses_typecheck_and_expose_precise_field_types() -> Result<()
         }
     });
     let module = generate_dataclass_module_from_document(&SchemaDocument::from_json(&schema)?)?;
-    let source = format!(
-        "# pyright: strict\n{}",
-        module.public_file("_generated_impl")
-    );
+    let source = module.public_file("_generated_impl");
     let work_dir = write_typecheck_files(
         &source,
         r#"
-# pyright: strict
 
-from typing import Mapping, Sequence, assert_type
+from typing import Literal, Mapping, Sequence, assert_type
 
 from generated_models import InventoryItem, InventoryItemMetadata, JSONCOMPAT_MODEL
 from jsoncompat import JsonValue
 from jsoncompat.codegen import SerializationFormat
-from jsoncompat.codegen.dataclasses import JSONCOMPAT_MISSING, JsoncompatMissingType, Omittable
+from jsoncompat.codegen.dataclasses import MISSING, MissingType, Omittable
 
 
 item = InventoryItem.from_value({
@@ -92,9 +89,9 @@ assert_type(item.coordinates, Omittable[Sequence[int | str]])
 assert_type(item.__jsoncompat_extra__, Mapping[str, float])
 assert_type(
     item.get_additional_property("priority"),
-    float | JsoncompatMissingType,
+    float | MissingType,
 )
-assert_type(JsoncompatMissingType(), JsoncompatMissingType)
+assert_type(MISSING, Literal[MissingType.MISSING])
 
 minimal = InventoryItem(sku="minimal", metadata=InventoryItemMetadata(warehouse="east"))
 assert_type(minimal, InventoryItem)
@@ -102,7 +99,7 @@ assert_type(minimal, InventoryItem)
 item_from_constructor = InventoryItem(
     sku="sku-456",
     metadata=InventoryItemMetadata(warehouse="east"),
-    quantity=JSONCOMPAT_MISSING,
+    quantity=MISSING,
     tags=["dry"],
     warehouseCode="WH-123",
     coordinates=["aisle", 7],
@@ -116,13 +113,12 @@ assert_type(
 )
 "#,
         r#"
-# pyright: strict
 
 from generated_models import InventoryItem, InventoryItemMetadata
-from jsoncompat.codegen.dataclasses import JsoncompatMissingType
+from jsoncompat.codegen.dataclasses import MissingType
 
 
-class ForgedMissing(JsoncompatMissingType):
+class ForgedMissing(MissingType):
     pass
 
 
@@ -163,41 +159,164 @@ InventoryItem(
     )?;
 
     fs::write(work_dir.join("_generated_impl.py"), module.private_file())?;
-    let generated_output = run_pyright(&work_dir, "generated_models.py")?;
+    let generated_output = run_ty(&work_dir, "generated_models.py")?;
     assert!(
         generated_output.status.success(),
         "{}",
         String::from_utf8_lossy(&generated_output.stdout)
     );
-    let valid_output = run_pyright(&work_dir, "valid_usage.py")?;
+    let valid_output = run_ty(&work_dir, "valid_usage.py")?;
     assert!(
         valid_output.status.success(),
-        "pyright rejected valid generated dataclass usage:\n{}\n{}",
+        "ty rejected valid generated dataclass usage:\n{}\n{}",
         String::from_utf8_lossy(&valid_output.stdout),
         String::from_utf8_lossy(&valid_output.stderr),
     );
 
-    let invalid_output = run_pyright(&work_dir, "invalid_usage.py")?;
+    let invalid_output = run_ty(&work_dir, "invalid_usage.py")?;
     assert!(
         !invalid_output.status.success(),
-        "pyright accepted invalid generated dataclass usage"
+        "ty accepted invalid generated dataclass usage"
     );
     let invalid_stdout = String::from_utf8_lossy(&invalid_output.stdout);
     assert!(
         invalid_stdout.contains("sku") && invalid_stdout.contains("str"),
-        "pyright failure did not report the sku type mismatch:\n{invalid_stdout}",
+        "ty failure did not report the sku type mismatch:\n{invalid_stdout}",
     );
     assert!(
         invalid_stdout.contains("warehouse") && invalid_stdout.contains("str"),
-        "pyright failure did not report the nested warehouse type mismatch:\n{invalid_stdout}",
+        "ty failure did not report the nested warehouse type mismatch:\n{invalid_stdout}",
     );
     assert!(
-        invalid_stdout.contains("JsoncompatMissingType")
-            && invalid_stdout.contains("marked final")
-            && invalid_stdout.contains("cannot be subclassed"),
-        "pyright failure did not reject subclassing the final missing singleton type:\n{invalid_stdout}",
+        invalid_stdout.contains("MissingType")
+            && invalid_stdout.contains("subclass-of-final-class"),
+        "ty failure did not reject subclassing the final missing singleton type:\n{invalid_stdout}",
     );
+    for rejected in [
+        "coordinates",
+        "skip_validation",
+        "get_additional_property",
+        "no-matching-overload",
+    ] {
+        assert!(
+            invalid_stdout.contains(rejected),
+            "ty did not reject {rejected}:\n{invalid_stdout}"
+        );
+    }
 
+    Ok(())
+}
+
+#[test]
+fn omitted_fields_narrow_in_both_branches_without_losing_null() -> Result<(), Box<dyn Error>> {
+    let source = generate_dataclass_models(&json!({
+        "title": "Preferences",
+        "type": "object",
+        "properties": {
+            "note": {"type": ["string", "null"]},
+            "enabled": {"type": "boolean"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+        },
+        "additionalProperties": {"type": "integer"},
+    }))?;
+    let work_dir = write_typecheck_files(
+        &source,
+        r#"
+from collections.abc import Sequence
+from typing import Literal, assert_type
+
+from generated_models import Preferences
+from jsoncompat import MISSING, MissingType, is_missing
+from jsoncompat.codegen import dataclasses as dc
+
+
+def describe(preferences: Preferences) -> str:
+    if preferences.note is MISSING:
+        assert_type(preferences.note, Literal[MissingType.MISSING])
+        return "omitted"
+    elif preferences.note is None:
+        return "null"
+    else:
+        assert_type(preferences.note, str)
+        return preferences.note.upper()
+
+
+def use_present_values(preferences: Preferences) -> None:
+    if preferences.note is not MISSING and preferences.note is not None:
+        assert_type(preferences.note, str)
+        print(preferences.note.upper())
+    if preferences.enabled is not dc.MISSING:
+        assert_type(preferences.enabled, bool)
+    else:
+        assert_type(preferences.enabled, Literal[MissingType.MISSING])
+    if preferences.tags is not MISSING:
+        assert_type(preferences.tags, Sequence[str])
+        print(",".join(preferences.tags))
+    priority = preferences.get_additional_property("priority")
+    if priority is not MISSING:
+        assert_type(priority, int)
+        print(priority + 1)
+
+
+def require_present[T](value: dc.Omittable[T]) -> T:
+    if value is MISSING:
+        raise ValueError("value was omitted")
+    return value
+
+
+def nullable_value(preferences: Preferences) -> None:
+    assert_type(require_present(preferences.note), str | None)
+    assert_type(require_present(preferences.enabled), bool)
+
+
+def helper_is_still_available(preferences: Preferences) -> str | None:
+    if is_missing(preferences.note):
+        assert_type(preferences.note, MissingType)
+        return None
+    assert_type(preferences.note, str | None)
+    if not dc.is_missing(preferences.enabled):
+        assert_type(preferences.enabled, bool)
+    return preferences.note
+
+
+def match_missing(preferences: Preferences) -> str:
+    match preferences.note:
+        case dc.MISSING:
+            return "omitted"
+        case None:
+            return "null"
+        case note:
+            assert_type(note, str)
+            return note.upper()
+"#,
+        r#"
+from generated_models import Preferences
+from jsoncompat import MISSING
+
+
+def invalid_usage(preferences: Preferences) -> None:
+    if preferences.enabled is MISSING:
+        print(preferences.enabled + 1)
+    if preferences.note is not MISSING:
+        print(preferences.note.upper())  # Still nullable.
+"#,
+    )?;
+    let valid_output = run_ty(&work_dir, "valid_usage.py")?;
+    assert!(
+        valid_output.status.success(),
+        "ty rejected omitted-field narrowing:\n{}\n{}",
+        String::from_utf8_lossy(&valid_output.stdout),
+        String::from_utf8_lossy(&valid_output.stderr),
+    );
+    let invalid_output = run_ty(&work_dir, "invalid_usage.py")?;
+    assert!(!invalid_output.status.success());
+    let diagnostics = String::from_utf8_lossy(&invalid_output.stdout);
+    assert!(
+        diagnostics.contains("MissingType")
+            && diagnostics.contains("upper")
+            && diagnostics.contains("None"),
+        "ty failed to preserve missing and null branches:\n{diagnostics}",
+    );
     Ok(())
 }
 
@@ -219,26 +338,24 @@ fn patterned_additional_properties_keep_precise_extra_types() -> Result<(), Box<
     let work_dir = write_typecheck_files(
         &source,
         r#"
-# pyright: strict
 
 from typing import Mapping, assert_type
 
 from generated_models import LabeledRecord
-from jsoncompat.codegen.dataclasses import JsoncompatMissingType
+from jsoncompat.codegen.dataclasses import MissingType
 
 
 record = LabeledRecord.from_value({"name": "Ada", "x-rank": 7})
 assert_type(record.__jsoncompat_extra__, Mapping[str, int])
 assert_type(
     record.get_additional_property("x-rank"),
-    int | JsoncompatMissingType,
+    int | MissingType,
 )
 
 constructed = LabeledRecord(name="Ada", __jsoncompat_extra__={"x-rank": 7})
 assert_type(constructed, LabeledRecord)
 "#,
         r#"
-# pyright: strict
 
 from generated_models import LabeledRecord
 
@@ -247,24 +364,24 @@ LabeledRecord(name="Ada", __jsoncompat_extra__={"x-rank": "high"})
 "#,
     )?;
 
-    let valid_output = run_pyright(&work_dir, "valid_usage.py")?;
+    let valid_output = run_ty(&work_dir, "valid_usage.py")?;
     assert!(
         valid_output.status.success(),
-        "pyright rejected valid patterned extras usage:\n{}\n{}",
+        "ty rejected valid patterned extras usage:\n{}\n{}",
         String::from_utf8_lossy(&valid_output.stdout),
         String::from_utf8_lossy(&valid_output.stderr),
     );
 
-    let invalid_output = run_pyright(&work_dir, "invalid_usage.py")?;
+    let invalid_output = run_ty(&work_dir, "invalid_usage.py")?;
     assert!(
         !invalid_output.status.success(),
-        "pyright accepted invalid patterned extras usage"
+        "ty accepted invalid patterned extras usage"
     );
     let invalid_stdout = String::from_utf8_lossy(&invalid_output.stdout);
     assert!(
         invalid_stdout.contains("__jsoncompat_extra__")
             && invalid_stdout.contains("Mapping[str, int]"),
-        "pyright failure did not report the patterned extra value mismatch:\n{invalid_stdout}",
+        "ty failure did not report the patterned extra value mismatch:\n{invalid_stdout}",
     );
 
     Ok(())
@@ -275,24 +392,23 @@ fn write_typecheck_files(
     valid_usage: &str,
     invalid_usage: &str,
 ) -> Result<PathBuf, Box<dyn Error>> {
+    // Concurrent tests can observe the same clock tick, even through as_nanos().
+    static NEXT_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
+    let sequence = NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed);
     let unique = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let dir = std::env::temp_dir().join(format!(
-        "jsoncompat-dataclass-typing-{}-{unique}",
+        "jsoncompat-dataclass-typing-{}-{unique}-{sequence}",
         std::process::id(),
     ));
-    fs::create_dir_all(&dir)?;
+    fs::create_dir(&dir)?;
     fs::write(dir.join("generated_models.py"), source)?;
     fs::write(dir.join("valid_usage.py"), valid_usage)?;
     fs::write(dir.join("invalid_usage.py"), invalid_usage)?;
     Ok(dir)
 }
 
-fn run_pyright(work_dir: &Path, file_name: &str) -> Result<std::process::Output, Box<dyn Error>> {
-    let mut command = python_env::pyright_command();
-    command
-        .arg("--pythonversion")
-        .arg("3.12")
-        .arg(file_name)
-        .current_dir(work_dir);
+fn run_ty(work_dir: &Path, file_name: &str) -> Result<std::process::Output, Box<dyn Error>> {
+    let mut command = python_env::ty_command();
+    command.arg(file_name).current_dir(work_dir);
     Ok(command.output()?)
 }

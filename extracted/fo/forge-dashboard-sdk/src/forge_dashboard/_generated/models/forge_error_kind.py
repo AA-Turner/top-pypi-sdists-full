@@ -7,6 +7,7 @@ class ForgeErrorKind(StrEnum):
     UNAUTHORIZED = "unauthorized"
     UNKNOWN = "unknown"
     UNREACHABLE = "unreachable"
+    UPSTREAM_ERROR = "upstream_error"
 
     def __str__(self) -> str:
         return str(self.value)

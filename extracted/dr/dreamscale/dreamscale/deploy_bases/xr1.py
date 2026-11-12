@@ -70,7 +70,11 @@ def _arms_line(spec: dict) -> str | None:
     if not arms:
         return None
     return ", ".join(arms + ["waist"] * bool(spec.get("waist"))
-                     + ["mobile base"] * bool(spec.get("base")))
+                     + ["mobile base"] * bool(spec.get("base") or spec.get("base_components")))
+
+
+def _base_components(spec: dict) -> list[str]:
+    return [str(c) for c in spec.get("base_components") or []]
 
 
 def _camera(camera: dict) -> str:
@@ -90,17 +94,26 @@ def _describe_xr1(checkpoint: dict) -> list[str]:
         where += f" · {source['path']}"
     arms = _arms_line(spec)
     cameras = ", ".join(_camera(camera) for camera in spec.get("cameras") or [])
+    base = _base_components(spec)
     frame = ([f"  frame:    {spec['ee_frame']} · joints {spec.get('joint_unit')} · gripper "
-              f"{spec.get('gripper_unit')}"] if spec.get("ee_frame") else [])
+              f"{spec.get('gripper_unit')}"] if spec.get("ee_frame") and spec.get("arms")
+             else [])
+    actions = ("absolute end-effector poses (xyz, 6D rotation, gripper per arm); the robot "
+               "holds its measured pose between chunks")
+    if base and not spec.get("arms"):
+        actions = (f"the mobile base's {', '.join(base)}, absolute, in your data's units; "
+                   "between chunks the base holds still (zero velocity)")
+    elif base:
+        actions += f"; then the mobile base's {', '.join(base)} (still between chunks)"
     lines = [
         f"{cmd._title(checkpoint)}  ({LABEL})",
         *cmd._id_line(checkpoint),
         f"  robot:    {xr1_robot_line(checkpoint)}",
         *([f"  arms:     {arms}"] if arms else []),
+        *([f"  base:     mobile base ({', '.join(base)})"] if base else []),
         *([f"  cameras:  {cameras}"] if cameras else []),
         *frame,
-        "  actions:  absolute end-effector poses (xyz, 6D rotation, gripper per arm); the "
-        "robot holds its measured pose between chunks",
+        f"  actions:  {actions}",
         f"  rtc:      {cmd.prefix_rtc(checkpoint)}",
         f"  region:   {cmd.region_line(checkpoint)}",
         f"  status:   {checkpoint['status']}",

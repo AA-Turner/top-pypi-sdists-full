@@ -3,6 +3,7 @@ from calendar import day_abbr, day_name, month_abbr, month_name
 from datetime import datetime as datetime_
 from datetime import timedelta, timezone
 from functools import lru_cache, partial
+from math import floor
 from time import localtime, strftime
 
 tokens = r"H{1,2}|h{1,2}|m{1,2}|s{1,2}|S+|YYYY|YY|M{1,4}|D{1,4}|Z{1,2}|zz|A|X|x|E|Q|dddd|ddd|d"
@@ -25,7 +26,7 @@ def _loguru_datetime_formatter(is_utc, format_string, formatters, dt):
 
 
 def _default_datetime_formatter(dt):
-    return "%04d-%02d-%02d %02d:%02d:%02d.%03d" % (
+    return "%04d-%02d-%02d %02d:%02d:%02d.%03d %s" % (
         dt.year,
         dt.month,
         dt.day,
@@ -33,13 +34,15 @@ def _default_datetime_formatter(dt):
         dt.minute,
         dt.second,
         dt.microsecond // 1000,
+        _format_timezone(dt, sep=":"),
     )
 
 
-def _format_timezone(tzinfo, *, sep):
-    offset = tzinfo.utcoffset(None).total_seconds()
+def _format_timezone(dt, *, sep):
+    tzinfo = dt.tzinfo or timezone.utc
+    offset = tzinfo.utcoffset(dt).total_seconds()
     sign = "+" if offset >= 0 else "-"
-    (h, m), s = divmod(abs(offset // 60), 60), abs(offset) % 60
+    (h, m), s = divmod(abs(offset) // 60, 60), abs(offset) % 60
     z = "%s%02d%s%02d" % (sign, h, sep, m)
     if s > 0:
         if s.is_integer():
@@ -51,7 +54,7 @@ def _format_timezone(tzinfo, *, sep):
 
 @lru_cache(maxsize=32)
 def _compile_format(spec):
-    if spec == "YYYY-MM-DD HH:mm:ss.SSS":
+    if spec == "YYYY-MM-DD HH:mm:ss.SSS Z":
         return _default_datetime_formatter
 
     is_utc = spec.endswith("!UTC")
@@ -103,11 +106,11 @@ def _compile_format(spec):
         "SSSSS": ("%05d", lambda t, dt: dt.microsecond // 10),
         "SSSSSS": ("%06d", lambda t, dt: dt.microsecond),
         "A": ("%s", lambda t, dt: "AM" if t.tm_hour < 12 else "PM"),
-        "Z": ("%s", lambda t, dt: _format_timezone(dt.tzinfo or timezone.utc, sep=":")),
-        "ZZ": ("%s", lambda t, dt: _format_timezone(dt.tzinfo or timezone.utc, sep="")),
+        "Z": ("%s", lambda t, dt: _format_timezone(dt, sep=":")),
+        "ZZ": ("%s", lambda t, dt: _format_timezone(dt, sep="")),
         "zz": ("%s", lambda t, dt: (dt.tzinfo or timezone.utc).tzname(dt) or ""),
-        "X": ("%d", lambda t, dt: dt.timestamp()),
-        "x": ("%d", lambda t, dt: int(dt.timestamp() * 1000000 + dt.microsecond)),
+        "X": ("%d", lambda t, dt: floor(dt.timestamp())),
+        "x": ("%d", lambda t, dt: floor(dt.timestamp()) * 1000000 + dt.microsecond),
     }
 
     format_string = ""
@@ -135,26 +138,43 @@ def _compile_format(spec):
 
 
 class datetime(datetime_):  # noqa: N801
-
     def __format__(self, fmt):
         return _compile_format(fmt)(self)
 
 
-def aware_now():
-    now = datetime_.now()
-    timestamp = now.timestamp()
-    local = localtime(timestamp)
+def _fallback_tzinfo(timestamp):
+    utc_naive = datetime_.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
+    offset = datetime_.fromtimestamp(timestamp) - utc_naive
+    seconds = offset.total_seconds()
+    zone = strftime("%Z")
+    return timezone(timedelta(seconds=seconds), zone)
+
+
+def _get_tzinfo(timestamp):
+    try:
+        local = localtime(timestamp)
+    except (OSError, OverflowError):
+        # The "localtime()" can overflow on some platforms when the timestamp is too large.
+        # Not sure the fallback won't also overflow, though.
+        return _fallback_tzinfo(timestamp)
 
     try:
         seconds = local.tm_gmtoff
         zone = local.tm_zone
     except AttributeError:
-        # Workaround for Python 3.5.
-        utc_naive = datetime_.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
-        offset = datetime_.fromtimestamp(timestamp) - utc_naive
-        seconds = offset.total_seconds()
-        zone = strftime("%Z")
+        # The attributes were not availanble on all platforms before Python 3.6.
+        return _fallback_tzinfo(timestamp)
 
-    tzinfo = timezone(timedelta(seconds=seconds), zone)
+    try:
+        return timezone(timedelta(seconds=seconds), zone)
+    except ValueError:
+        # The number of seconds returned by "tm_gmtoff" might be invalid on Windows (year 2038+).
+        # Curiously, the fallback workaround does not exhibit the same problem.
+        return _fallback_tzinfo(timestamp)
 
+
+def aware_now():
+    now = datetime_.now()
+    timestamp = now.timestamp()
+    tzinfo = _get_tzinfo(timestamp)
     return datetime.combine(now.date(), now.time().replace(tzinfo=tzinfo))

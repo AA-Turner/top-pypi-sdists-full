@@ -255,10 +255,11 @@ class Connector:
                                  apply_renaming=naming != "SOURCE_NAMING", fixture_dir=str(replay_dir))
             finally:
                 decorator_helper.set_replaying(False)
+                lookup_failure = Replayer.lookup_failure()
                 Replayer.stop()
 
             # Run both comparisons so one failing check never hides the other, then report everything at once.
-            failures = []
+            failures = [f"An @action call could not be replayed: {lookup_failure}"] if lookup_failure else []
             state_mismatches = compare_state_files(scenario_path / RECORD_END_DIR, replay_dir)
             if state_mismatches:
                 failures.append("Replay state does not match the recording:\n" + "\n".join(state_mismatches))
@@ -318,6 +319,12 @@ class Connector:
                                   log_icon=Logging.LogIcon.STEP)
                 core_adapter.run(self, project_path, self.configuration, start_state,
                            apply_renaming=naming != "SOURCE_NAMING", fixture_dir=str(scenario_path / RECORD_END_DIR))
+                # Connector code can catch the error from a lost result, so check the count here rather than trust the sync.
+                failed = Recorder.failed_count()
+                if failed:
+                    raise RecordError(f"{failed} @action result(s) could not be saved to the fixture, so the recording "
+                                      "is incomplete. The scenario was discarded; fix the values that cannot be "
+                                      "recorded and record again.")
                 interactions = Recorder.interaction_count()
                 succeeded = True
             finally:
@@ -436,7 +443,7 @@ class Connector:
             print_library_log(f"failed to build crash report: {report_error}. Please contact support: https://support.fivetran.com/", Logging.Level.WARNING)
 
     # -- What the runner calls; each is the counterpart of the production servicer method of the same job.
-    def get_configuration_form(self, configuration: dict = None):
+    def get_configuration_form(self):
         """The setup form, or `None` if the connector has no `configuration_form()`."""
         if self.configuration_form_method is None:
             return None
@@ -512,36 +519,43 @@ class Connector:
             memory_tracker.start()
 
             print_library_log("calling update()", Logging.Level.INFO)
-
-            try:
-                result = self.update_method(configuration=configuration, state=state)
-                # If the customer's update method returns a generator (i.e., uses yield), run it to the end;
-                # what it yields is None. Operations reach the runner as they are called.
-                if isinstance(result, GeneratorType):
-                    for _ in result:
-                        pass
-            # Record/replay regression tests use MaxRecordsReached as a stop signal after the configured cap.
-            except MaxRecordsReached as exc:
-                print_library_log(str(exc), Logging.Level.WARNING)
-            except Exception as exc:
-                if not (constants.DEBUGGING and MaxRecordHandler.is_stopped_by_cap()):
-                    raise
-                # The --max-records cap already ended the sync; this error came from the connector reacting to
-                # the stop signal (for example by wrapping it).
-                print_library_log(f"ignoring {type(exc).__name__} raised after the --max-records cap: {exc}",
-                                  Logging.Level.WARNING)
-            finally:
-                memory_tracker.stop()
+            self._call_update_method(configuration, state, memory_tracker)
 
             print_library_log("finished receiving records from customer's update().", Logging.Level.INFO, True)
 
         except Exception as e:
-            self._set_debug_crash_report(e, "update()", state=state, memory_tracker=memory_tracker)
-            # An error the core raised (the destination refused or could not be reached) is not the connector's: it is said as it is,
-            # as the core says it before `update()` runs, and not as if the connector's own code had failed.
-            error_message = str(e) if isinstance(e, SdkException) else f"failed while executing update() error: {str(e)}"
-            if isinstance(e, (ReplayError, RecordError)):
-                # The record or replay itself says what is wrong (for example, a call that was not recorded, or a result
-                # that is not JSON). Its traceback would only show the SDK's internals, so only the message is reported.
-                raise _ConnectorFailure(error_message) from e
-            raise _failure(error_message, e) from e
+            self._raise_update_failure(e, state, memory_tracker)
+
+    def _call_update_method(self, configuration: dict, state: dict, memory_tracker):
+        """Calls the connector's `update()` and runs the generator it returns to the end."""
+        try:
+            result = self.update_method(configuration=configuration, state=state)
+            # If the customer's update method returns a generator (i.e., uses yield), run it to the end;
+            # what it yields is None. Operations reach the runner as they are called.
+            if isinstance(result, GeneratorType):
+                for _ in result:
+                    continue
+        # Record/replay regression tests use MaxRecordsReached as a stop signal after the configured cap.
+        except MaxRecordsReached as exc:
+            print_library_log(str(exc), Logging.Level.WARNING)
+        except Exception as exc:
+            if not (constants.DEBUGGING and MaxRecordHandler.is_stopped_by_cap()):
+                raise
+            # The --max-records cap already ended the sync; this error came from the connector reacting to
+            # the stop signal (for example by wrapping it).
+            print_library_log(f"ignoring {type(exc).__name__} raised after the --max-records cap: {exc}",
+                              Logging.Level.WARNING)
+        finally:
+            memory_tracker.stop()
+
+    def _raise_update_failure(self, e: Exception, state: dict, memory_tracker):
+        """Records the crash report for an error from `update()` and raises it as the failure the sync reports."""
+        self._set_debug_crash_report(e, "update()", state=state, memory_tracker=memory_tracker)
+        # An error the core raised (the destination refused or could not be reached) is not the connector's: it is said as it is,
+        # as the core says it before `update()` runs, and not as if the connector's own code had failed.
+        error_message = str(e) if isinstance(e, SdkException) else f"failed while executing update() error: {str(e)}"
+        if isinstance(e, (ReplayError, RecordError)):
+            # The record or replay itself says what is wrong (for example, a call that was not recorded, or a result
+            # that is not JSON). Its traceback would only show the SDK's internals, so only the message is reported.
+            raise _ConnectorFailure(error_message) from e
+        raise _failure(error_message, e) from e

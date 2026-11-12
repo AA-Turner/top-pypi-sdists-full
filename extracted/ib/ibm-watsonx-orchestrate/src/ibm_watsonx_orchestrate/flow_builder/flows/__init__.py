@@ -2,7 +2,7 @@ from .constants import START, END, RESERVED
 
 from ..types import FlowContext, TaskData, TaskEventType, DocProcInput, DecisionsCondition, DecisionsRule, FlowCallback, FlowCallbackEventKind, ThreadControlPolicy, AITaskLLMParameter, AITaskLLMParameters
 from ..node import (UserNode, AgentNode, StartNode, EndNode, PromptNode, ToolNode, DecisionsNode, ScriptNode,
-    DocClassifierNode, DocExtNode, DocProcNode, TimerNode)
+    DocClassifierNode, DocExtNode, DocProcNode, TimerNode, TransferEndNode)
 
 from .flow import (
     Flow, CompiledFlow, FlowRun, FlowEvent, FlowEventType, FlowFactory, MatchPolicy, WaitPolicy,
@@ -31,6 +31,7 @@ __all__ = [
     "AgentNode",
     "StartNode",
     "EndNode",
+    "TransferEndNode",
     "PromptNode",
     "ToolNode",
     "DecisionsNode",

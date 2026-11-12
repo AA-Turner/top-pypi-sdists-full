@@ -539,7 +539,6 @@ class TestCreateWorker:
 
     # ── sizing drain on shutdown ──────────────────────────────────────────
 
-    @pytest.mark.asyncio
     async def test_shutdown_drains_buffered_sizing_rows(self, monkeypatch) -> None:
         """The last batch of a pod's life must not die with the process: these pools
         scale to zero, so the tail of every pod would be lost.
@@ -560,7 +559,6 @@ class TestCreateWorker:
         await wrapper.__aexit__(None)
         assert drained == [True], "shutdown did not drain the sizing sink"
 
-    @pytest.mark.asyncio
     async def test_shutdown_skips_drain_when_collection_is_off(
         self, monkeypatch
     ) -> None:
@@ -580,7 +578,6 @@ class TestCreateWorker:
         await wrapper.__aexit__(None)
         assert drained == []
 
-    @pytest.mark.asyncio
     async def test_a_failing_drain_does_not_break_shutdown(self, monkeypatch) -> None:
         """Telemetry must never hold up or fail a shutdown."""
         monkeypatch.setenv("APPLICATION_SDK_ENABLE_SIZING_TELEMETRY", "true")
@@ -650,6 +647,108 @@ class TestCreateWorker:
         # Critical: passing None would override Temporal's default with None
         # and break worker construction. The param must be absent entirely.
         assert "max_concurrent_workflow_tasks" not in captured
+
+    # ── max_concurrent_activities default (FND-4646) ──────────────────────
+
+    def _create_capturing(self, **kwargs: int) -> tuple[dict, mock.MagicMock]:
+        class _SlotsApp(App):
+            async def run(self, input: _WorkerInput) -> _WorkerOutput:
+                return _WorkerOutput()
+
+        captured: dict = {}
+
+        def capture_worker(*args, **kwargs):
+            captured.update(kwargs)
+            return mock.MagicMock()
+
+        mock_logger = mock.MagicMock()
+        with (
+            mock.patch(
+                "application_sdk.execution._temporal.worker.Worker",
+                side_effect=capture_worker,
+            ),
+            mock.patch(
+                "application_sdk.execution._temporal.worker.logger", mock_logger
+            ),
+        ):
+            create_worker(_make_mock_client(), **kwargs)
+        return captured, mock_logger
+
+    @staticmethod
+    def _slots_log(mock_logger: mock.MagicMock) -> str:
+        for call in mock_logger.info.call_args_list:
+            if call.args and str(call.args[0]).startswith("Activity slots"):
+                return str(call.args[0]) % call.args[1:]
+        raise AssertionError("no 'Activity slots' startup log")
+
+    def test_activity_slots_derived_from_a_small_pod(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A 1-CPU, 512 MiB pod on a big node lands on the floor, 16, not 100."""
+        monkeypatch.delenv("TEMPORAL_MAX_CONCURRENT_ACTIVITIES", raising=False)
+        monkeypatch.setenv("K8S_POD_MEMORY_LIMIT", "512Mi")
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.available_cpus", lambda: 1
+        )
+
+        captured, mock_logger = self._create_capturing()
+
+        assert captured["max_concurrent_activities"] == 16
+        line = self._slots_log(mock_logger)
+        assert "derived from 1 available CPUs" in line
+        assert str(512 * 1024**2) in line
+
+    def test_activity_slots_bounded_by_the_cgroup_memory_limit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        """The enforced cgroup limit, not only the env var, bounds the slots."""
+        from application_sdk.observability import cgroup
+
+        limit = tmp_path / "memory.max"
+        limit.write_text(str(3 * 1024**3))
+        monkeypatch.setattr(cgroup, "_MEMORY_LIMIT_PATHS", (str(limit),))
+        monkeypatch.delenv("TEMPORAL_MAX_CONCURRENT_ACTIVITIES", raising=False)
+        monkeypatch.delenv("K8S_POD_MEMORY_LIMIT", raising=False)
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.available_cpus", lambda: 16
+        )
+
+        captured, _ = self._create_capturing()
+
+        # min(100, 32 x 16, 3 GiB // 64 MiB) = 48
+        assert captured["max_concurrent_activities"] == 48
+
+    def test_activity_slots_env_override_wins(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TEMPORAL_MAX_CONCURRENT_ACTIVITIES", "37")
+        monkeypatch.setenv("K8S_POD_MEMORY_LIMIT", "1Gi")
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.available_cpus", lambda: 1
+        )
+
+        captured, mock_logger = self._create_capturing()
+
+        assert captured["max_concurrent_activities"] == 37
+        assert self._slots_log(mock_logger) == (
+            "Activity slots: 37 (TEMPORAL_MAX_CONCURRENT_ACTIVITIES)"
+        )
+
+    def test_activity_slots_passed_by_caller_win_and_are_logged(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TEMPORAL_MAX_CONCURRENT_ACTIVITIES", "37")
+        monkeypatch.setattr(
+            "application_sdk.execution._temporal.worker.available_cpus",
+            mock.Mock(side_effect=AssertionError("must not read the cgroup")),
+        )
+
+        captured, mock_logger = self._create_capturing(max_concurrent_activities=5)
+
+        assert captured["max_concurrent_activities"] == 5
+        assert self._slots_log(mock_logger) == (
+            "Activity slots: 5 (passed to create_worker)"
+        )
 
     def test_max_concurrent_workflow_tasks_in_start_event_params(self) -> None:
         """The configured value lands in worker_start observability params."""
@@ -869,7 +968,6 @@ class TestAppWorker:
         ):
             yield
 
-    @pytest.mark.asyncio
     async def test_run_emits_worker_start_event_before_delegating(self) -> None:
         mock_inner = mock.AsyncMock()
         mock_inner.run = mock.AsyncMock(return_value=None)
@@ -896,7 +994,6 @@ class TestAppWorker:
         mock_emit.assert_called_once()
         mock_inner.run.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_emit_worker_start_event_suppresses_binding_error(
         self,
     ) -> None:
@@ -928,7 +1025,6 @@ class TestAppWorker:
 
         mock_inner.run.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_emit_worker_start_event_passes_direct_publish_timeout(
         self,
     ) -> None:
@@ -966,7 +1062,6 @@ class TestAppWorker:
         )
         mock_inner.run.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_emit_worker_start_event_suppresses_unexpected_errors(
         self,
     ) -> None:
@@ -996,7 +1091,6 @@ class TestAppWorker:
 
         mock_inner.run.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_aenter_emits_event_and_returns_inner_worker(self) -> None:
         mock_inner = mock.AsyncMock()
         mock_inner.__aenter__ = mock.AsyncMock(return_value=mock_inner)
@@ -1095,7 +1189,6 @@ class TestShutdownDrainDelay:
             shutdown_drain_delay_seconds=drain_delay,
         )
 
-    @pytest.mark.asyncio
     async def test_without_drain_delay_activity_completion_preempted(self) -> None:
         """WITHOUT the drain delay, shutdown preempts the activity completion
         — reproducing the production deadlock.
@@ -1123,7 +1216,6 @@ class TestShutdownDrainDelay:
         assert activity_completed is False
         inner.__aexit__.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_with_drain_delay_activity_completes_before_shutdown(self) -> None:
         """WITH the drain delay, the activity completion runs before
         shutdown — the fix works.
@@ -1151,7 +1243,6 @@ class TestShutdownDrainDelay:
         assert activity_completed is True
         inner.__aexit__.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_drain_delay_flushes_multiple_pending_completions(self) -> None:
         """The drain delay flushes multiple pending activity completions,
         not just one."""
@@ -1173,7 +1264,6 @@ class TestShutdownDrainDelay:
 
         assert set(completions) == {"activity_1", "activity_2", "activity_3"}
 
-    @pytest.mark.asyncio
     async def test_aexit_completes_even_with_zero_delay(self) -> None:
         """Shutdown doesn't hang even when drain delay is 0 and there are
         no pending completions."""
@@ -1204,7 +1294,6 @@ class TestOnDrained:
     final push, pre-DELETE hold and DELETE (FND-4645).
     """
 
-    @pytest.mark.asyncio
     async def test_fires_after_drain_and_before_pushgateway_stop(self) -> None:
         order: list[str] = []
         inner = mock.AsyncMock()
@@ -1231,7 +1320,6 @@ class TestOnDrained:
 
         assert order == ["drain", "drained", "pushgateway_stop"]
 
-    @pytest.mark.asyncio
     async def test_fires_when_drain_raises(self) -> None:
         inner = mock.AsyncMock()
         inner.__aexit__ = mock.AsyncMock(side_effect=RuntimeError("teardown"))
@@ -1248,7 +1336,6 @@ class TestOnDrained:
 
         drained.assert_called_once_with()
 
-    @pytest.mark.asyncio
     async def test_failing_callback_does_not_skip_cleanup(self) -> None:
         inner = mock.AsyncMock()
         inner.__aexit__ = mock.AsyncMock(return_value=None)
@@ -1506,7 +1593,6 @@ class TestDescribeExceptionChain:
 class TestLogWorkerFatalError:
     """Tests for the ``on_fatal_error`` diagnostic log."""
 
-    @pytest.mark.asyncio
     async def test_passes_the_exception_object_as_exc_info(self) -> None:
         """``exc_info=True`` renders "NoneType: None" on this path.
 
@@ -1578,14 +1664,12 @@ class TestReadCorePollerCounts:
         client.__aexit__ = mock.AsyncMock(return_value=False)
         return mock.patch("httpx.AsyncClient", return_value=client)
 
-    @pytest.mark.asyncio
     async def test_sums_the_gauge_by_poller_type(self) -> None:
         with self._patch_client(self._response()):
             counts = await read_core_poller_counts()
 
         assert counts == {"workflow_task": 2.0, "activity_task": 3.0}
 
-    @pytest.mark.asyncio
     async def test_zero_pollers_reads_as_zero_not_unknown(self) -> None:
         """A dead poll loop must be distinguishable from an unreadable endpoint."""
         exposition = (
@@ -1597,20 +1681,17 @@ class TestReadCorePollerCounts:
 
         assert counts == {"workflow_task": 0.0}
 
-    @pytest.mark.asyncio
     async def test_oversize_content_length_is_unknown_not_zero(self) -> None:
         """A declared-oversize exposition is unknown, never a zero count."""
         with self._patch_client(self._response(content_length=str(100 * 1024 * 1024))):
             assert await read_core_poller_counts() is None
 
-    @pytest.mark.asyncio
     async def test_oversize_body_is_unknown_not_zero(self) -> None:
         """An actually-oversize body (no/!accurate Content-Length) is unknown."""
         body = "x" * (1024 * 1024 + 1)
         with self._patch_client(self._response(text=body)):
             assert await read_core_poller_counts() is None
 
-    @pytest.mark.asyncio
     async def test_oversize_chunked_stream_is_bounded(self) -> None:
         """A chunked response with no Content-Length must bail on the running
         byte total, not after an unbounded bulk read of the full body."""
@@ -1620,7 +1701,6 @@ class TestReadCorePollerCounts:
         with self._patch_client(self._response(text=body, force_chunk_size=4096)):
             assert await read_core_poller_counts() is None
 
-    @pytest.mark.asyncio
     async def test_unreachable_endpoint_is_unknown_not_zero(self) -> None:
         client = mock.AsyncMock()
         client.stream = mock.Mock(side_effect=OSError("connection refused"))
@@ -1630,12 +1710,10 @@ class TestReadCorePollerCounts:
         with mock.patch("httpx.AsyncClient", return_value=client):
             assert await read_core_poller_counts() is None
 
-    @pytest.mark.asyncio
     async def test_non_200_is_unknown(self) -> None:
         with self._patch_client(self._response(status_code=503)):
             assert await read_core_poller_counts() is None
 
-    @pytest.mark.asyncio
     async def test_absent_gauge_family_is_unknown(self) -> None:
         """Core registers the gauge only once polling starts; absent != zero."""
         exposition = (

@@ -1330,6 +1330,15 @@ class LivenessProtocolEnum(StrEnum):
     leases = 'leases'
 
 
+class RunListView(StrEnum):
+    """
+    How much of each run `GET /v1/runs` sends: `full` rows, or `light` ones (W&B's `lazy=True`).
+    """
+
+    full = 'full'
+    light = 'light'
+
+
 class RunStatus(StrEnum):
     created = 'created'
     running = 'running'

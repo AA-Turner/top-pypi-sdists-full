@@ -204,7 +204,7 @@ class IntegrationsMixin:
             if value is not None:
                 body[field] = value
         if isinstance(name, agent_session.ComposedName):  # W&B's made-up name: Probe may title the run
-            body["authored_by"] = "agent"
+            body["authored_by"] = agent_session.AUTHORSHIP_COMPOSED
         return self.send("POST", "/v1/integrations/wandb/runs/claim", body, strict=True)
 
     def mark_wandb_copied(self, run_id: str) -> dict:

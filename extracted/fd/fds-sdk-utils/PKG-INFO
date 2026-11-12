@@ -1,23 +1,15 @@
 Metadata-Version: 2.4
 Name: fds.sdk.utils
-Version: 3.0.1
+Version: 3.1.0
 Summary: Utilities for interacting with FactSet APIs.
-License: Apache-2.0
-License-File: LICENSE
 Keywords: FactSet,API,SDK
 Author: FactSet Research Systems
-Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: joserfc (>=1.6.3,<2.0)
-Requires-Dist: oauthlib (>=3.2.2,<4.0.0)
-Requires-Dist: requests (>=2.33.0,<3.0.0)
-Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)
+License-Expression: Apache-2.0
+Requires-Dist: requests-oauthlib>=2.0.0,<3
+Requires-Dist: requests>=2.34.2,<3
+Requires-Dist: oauthlib>=4.0.1,<5
+Requires-Dist: joserfc>=1.7.5,<2.0
+Requires-Python: >=3.10.0, <4
 Project-URL: Homepage, https://developer.factset.com
 Description-Content-Type: text/markdown
 
@@ -72,14 +64,11 @@ from fds.sdk.utils.authentication import ConfidentialClient
 import requests
 
 # The ConfidentialClient instance should be reused in production environments.
-client = ConfidentialClient(
-  config_path='/path/to/config.json'
-)
+client = ConfidentialClient(config_path="/path/to/config.json")
 res = requests.get(
-  'https://api.factset.com/analytics/lookups/v3/currencies',
-  headers={
-    'Authorization': 'Bearer ' + client.get_access_token()
-  })
+    "https://api.factset.com/analytics/lookups/v3/currencies",
+    headers={"Authorization": "Bearer " + client.get_access_token()},
+)
 
 print(res.text)
 ```
@@ -95,11 +84,9 @@ If necessary it is possible to set custom `proxy_headers` as dictionary.
 from fds.sdk.utils.authentication import ConfidentialClient
 
 client = ConfidentialClient(
-  config_path='/path/to/config.json',
-  proxy="http://secret:password@localhost:5050",
-  proxy_headers={
-    "Custom-Proxy-Header": "Custom-Proxy-Header-Value"
-  }
+    config_path="/path/to/config.json",
+    proxy="http://secret:password@localhost:5050",
+    proxy_headers={"Custom-Proxy-Header": "Custom-Proxy-Header-Value"},
 )
 ```
 
@@ -118,9 +105,7 @@ local development or testing
 from fds.sdk.utils.authentication import ConfidentialClient
 
 client = ConfidentialClient(
-  config_path='/path/to/config.json',
-  verify_ssl=True,
-  ssl_ca_cert='/path/to/ca.pem'
+    config_path="/path/to/config.json", verify_ssl=True, ssl_ca_cert="/path/to/ca.pem"
 )
 ```
 
@@ -134,12 +119,23 @@ from urllib3 import Retry
 from fds.sdk.utils.authentication import ConfidentialClient
 
 client = ConfidentialClient(
-  config_path='/path/to/config.json',
-  retry=Retry(
-    total=5,
-    backoff_factor=0.1,
-    status_forcelist=[500, 502, 503, 504]
-  )
+    config_path="/path/to/config.json",
+    retry=Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504]),
+)
+```
+
+### OAuth 2.0 Scopes
+
+By default no scope is requested and the authorization server determines the granted scopes based on the client's
+identity. If you need to request one or more specific
+[OAuth 2.0 scopes](https://github.com/factset/oauth2-guidelines#client-credentials-flow-1), pass them as a list to the
+`scope` parameter.
+
+```python
+from fds.sdk.utils.authentication import ConfidentialClient
+
+client = ConfidentialClient(
+    config_path="/path/to/config.json", scope=["factset.api.read"]
 )
 ```
 
@@ -206,13 +202,13 @@ help you understand what it's doing. You can increase the log level to see addit
 conventions. For example:
 
 ```python
-logging.getLogger('fds.sdk.utils').setLevel(logging.DEBUG)
+logging.getLogger("fds.sdk.utils").setLevel(logging.DEBUG)
 ```
 
 or
 
 ```python
-logging.getLogger('fds.sdk.utils.authentication').setLevel(logging.DEBUG)
+logging.getLogger("fds.sdk.utils.authentication").setLevel(logging.DEBUG)
 ```
 
 # Contributing
@@ -234,4 +230,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

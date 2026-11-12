@@ -34,12 +34,15 @@ pub enum Command {
     Map(Map),
     /// Fork this import-only executor into a new one on its own seam (`fork/1`).
     Fork(Fork),
+    /// A client watches a call's previews (`author.preview`); consumed out of band, without a
+    /// reply. Sent only to an executor whose hello says `previews`.
+    Preview(Preview),
 }
 
 impl Command {
     /// Every `cmd` TensorD sends.
-    pub const NAMES: [&'static str; 8] =
-        ["hello", "start", "load", "prepare_request", "cancel", "invoke", "map", "fork"];
+    pub const NAMES: [&'static str; 9] =
+        ["hello", "start", "load", "prepare_request", "cancel", "invoke", "map", "fork", "preview"];
 
     /// One command from its wire bytes. An unknown member is ignored and a missing one takes its
     /// default; the error names a needed member's path (`spool`, `bits`) or an unknown `cmd`.
@@ -58,6 +61,7 @@ impl Command {
             "invoke" => Command::Invoke(Box::new(one(fields)?)),
             "map" => Command::Map(one(fields)?),
             "fork" => Command::Fork(one(fields)?),
+            "preview" => Command::Preview(one(fields)?),
             other => return Err(format!("unknown command `{other}`")),
         })
     }
@@ -73,6 +77,7 @@ impl Command {
             Self::Invoke(_) => "invoke",
             Self::Map(_) => "map",
             Self::Fork(_) => "fork",
+            Self::Preview(_) => "preview",
         }
     }
 }
@@ -177,6 +182,15 @@ pub struct PrepareRequest {
     pub input_metadata: BTreeMap<String, InputMetadata>,
 }
 
+/// A client watches call `request_id`'s previews for the next `for_ms`: its executor makes them
+/// until then (cr-282).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
+pub struct Preview {
+    pub request_id: String,
+    pub for_ms: u64,
+}
+
 /// The queued preparation to discard, by its request id.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
@@ -201,6 +215,9 @@ pub struct Invoke {
     pub deadline_s: Option<f64>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub attention_kernel: String,
+    /// Dev-only: what the Runtime's attention capture records (a JSON spec); empty: nothing.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub attention_capture: String,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub bits: u32,
     /// File inputs by field path: read-only copies in this call's spool.
@@ -385,13 +402,15 @@ pub enum Event {
     Unknown,
 }
 
-/// What a `progress` frame carries: a progress update or a retained `log` observation.
+/// What a `progress` frame carries: a progress update, a retained `log` observation or a preview.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
     Progress,
     /// A `progress` event carrying a retained `log` observation (`Telemetry.log`).
     Log,
+    /// A `progress` event carrying a preview (`author.preview`): its `preview`.
+    Preview,
     #[default]
     #[serde(other)]
     Unknown,
@@ -407,6 +426,24 @@ pub struct Hello {
     pub runtime_version: String,
     pub tensorfs_version: String,
     pub sealed: BTreeMap<String, String>,
+    /// It takes `preview` (cr-282): 1; 0 for an executor that makes none.
+    pub previews: u32,
+}
+
+/// One preview of a call's latents (`author.preview`): the step it shows, and its picture.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct PreviewFrame {
+    /// The step it shows, of `total` (0 of 0: before the first).
+    pub position: u64,
+    pub total: u64,
+    pub media_type: String,
+    pub width: u32,
+    pub height: u32,
+    /// 1 for a picture; a video's, its frames.
+    pub frames: u32,
+    #[serde(with = "base64_bytes")]
+    pub data: Vec<u8>,
 }
 
 /// The result document the invoke wrote to its spool (`RESULT_DOCUMENT`): its digest and length.
@@ -546,6 +583,9 @@ pub struct Frame {
     pub prepared: Option<bool>,
     /// `start` of a group (degree > 1): the follower ranks' pids, rank 1 first.
     pub follower_pids: Vec<u32>,
+    /// `start` on a CUDA device: why its Runtime serves it none of its native kernels (the pure wheel, or kernels that don't
+    /// load); empty: it does (cl-913).
+    pub kernels_absent: String,
     pub result_ref: Option<ResultRef>,
     pub outputs: Vec<Output>,
     pub frames: Vec<HostFrame>,
@@ -572,11 +612,16 @@ pub struct Frame {
     pub stage: String,
     pub position: Option<u64>,
     pub total: Option<u64>,
+    /// What `position` counts: empty for steps, `tokens` for a decode's, whose `total` is only its cap.
+    pub unit: String,
     pub stage_fraction: Option<f64>,
     pub step_ms: Option<f64>,
     pub advance: u64,
     /// `progress`: the child call whose stage a job relays.
     pub call_request: Option<String>,
+    /// A `preview` progress frame's picture.
+    #[serde(deserialize_with = "lenient")]
+    pub preview: Option<PreviewFrame>,
     /// A retained observation (`kind` log): `name` is its message, `value` its level and `fields`
     /// its scalars.
     pub value: Value,
@@ -742,7 +787,9 @@ pub struct Publish {
 #[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
 pub struct CheckpointItem {
     pub output: String,
-    pub repo_id: String,
+    /// Historical executor frame spelling is retained during the supported protocol cohort.
+    #[serde(rename = "repo_id", alias = "model_id")]
+    pub model_id: String,
     /// The commit (its tree id).
     pub revision: String,
     /// The private tag the Runtime moved there.
@@ -1047,9 +1094,17 @@ mod python {
         changes: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<T> {
         let error = |e: &dyn std::fmt::Display| PyValueError::new_err(e.to_string());
+        // The canonical Python name crosses the unchanged supported executor protocol.
+        // Remove this keyword bridge with the TensorFS 0.25 naming cut.
+        if let Some(changes) = changes {
+            if changes.contains("model_id")? && changes.contains("repo_id")? {
+                return Err(PyValueError::new_err("use model_id, not both model_id and repo_id"));
+            }
+        }
         let mut given = vec![];
         for (key, value) in changes.into_iter().flat_map(|d| d.iter()) {
             let (key, value) = (key.extract::<String>()?, json_of(&value)?);
+            let key = if key == "model_id" { "repo_id".to_owned() } else { key };
             fields.insert(key.clone(), value.clone());
             given.push((key, value));
         }
@@ -1196,6 +1251,7 @@ mod python {
         Load => |c| Command::Load(Box::new(c)),
         PrepareRequest => Command::PrepareRequest,
         Cancel => Command::Cancel,
+        Preview => Command::Preview,
         Invoke => |c| Command::Invoke(Box::new(c)),
         Map => Command::Map,
         Fork => Command::Fork
@@ -1243,5 +1299,27 @@ pub mod base64_bytes {
         STANDARD
             .decode(String::deserialize(deserializer)?)
             .map_err(D::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_name_tests {
+    use super::*;
+
+    #[test]
+    fn checkpoint_identity_source_name_preserves_the_executor_frame() {
+        let modern = serde_json::json!({"output": "model", "model_id": "local/derived-test", "revision": "sha256:abc"});
+        let legacy = serde_json::json!({"output": "model", "repo_id": "local/derived-test", "revision": "sha256:abc"});
+        let new: CheckpointItem = serde_json::from_value(modern).unwrap();
+        let old: CheckpointItem = serde_json::from_value(legacy).unwrap();
+        assert_eq!(new, old);
+        assert_eq!(new.model_id, "local/derived-test");
+        let frame = serde_json::to_value(Request::CheckpointItem(new)).unwrap();
+        assert_eq!(frame["kind"], "checkpoint_item");
+        assert_eq!(frame["repo_id"], "local/derived-test");
+        assert!(frame.get("model_id").is_none());
+        assert!(serde_json::from_value::<CheckpointItem>(serde_json::json!({
+            "output": "model", "model_id": "one/model", "repo_id": "other/model", "revision": "sha256:abc"
+        })).is_err());
     }
 }

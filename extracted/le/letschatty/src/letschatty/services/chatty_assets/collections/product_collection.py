@@ -1,6 +1,6 @@
 """Product Collection - Pre-configured AssetCollection for Products"""
 
-from ..asset_service import AssetCollection
+from ....models.data_base.asset_collection import AssetCollection
 from ....models.company.assets.product import Product, ProductPreview
 from ....models.data_base.mongo_connection import MongoConnection
 from ....services.factories.product_factory import ProductFactory

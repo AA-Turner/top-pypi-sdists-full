@@ -3,3 +3,4 @@ console.warn('[ComfyUI Notice] "extensions/core/editAttention.js" is an internal
 export const incrementWeight = window.comfyAPI.editAttention.incrementWeight;
 export const findNearestEnclosure = window.comfyAPI.editAttention.findNearestEnclosure;
 export const addWeightToParentheses = window.comfyAPI.editAttention.addWeightToParentheses;
+export const editAttentionExtension = window.comfyAPI.editAttention.editAttentionExtension;

@@ -155,3 +155,33 @@ def test_create_agent_helper_records_client_agent_creation_span(harness: SDKHarn
     assert duration_attributes[c.ATTR_GEN_AI_OPERATION_NAME] == c.OPERATION_NAME_CREATE_AGENT
     assert duration_attributes[c.ATTR_SERVER_ADDRESS] == "api.mistral.ai"
     assert duration_attributes[c.ATTR_SERVER_PORT] == 443
+
+
+def test_tool_span_keeps_non_ascii_arguments_and_result_readable(harness: SDKHarness) -> None:
+    """Structured tool data should store non-ASCII text as is, not as ``\\uXXXX`` escapes."""
+    with harness.observability.tool(
+        "search_station",
+        arguments={"query": "서울역", "note": "café"},
+        result={"name": "東京駅"},
+    ):
+        pass
+
+    harness.observability.flush()
+
+    (tool_span,) = harness.span_exporter.get_finished_spans()
+    tool_attributes = dict(tool_span.attributes or {})
+    assert tool_attributes[c.ATTR_GEN_AI_TOOL_CALL_ARGUMENTS] == '{"note":"café","query":"서울역"}'
+    assert tool_attributes[c.ATTR_GEN_AI_TOOL_CALL_RESULT] == '{"name":"東京駅"}'
+
+
+def test_tool_span_drops_lone_surrogates_so_the_span_still_exports(harness: SDKHarness) -> None:
+    """A truncated emoji must not leave a lone surrogate that UTF-8 cannot encode."""
+    with harness.observability.tool("lookup", arguments={"query\ud83d": "역 \ud83d"}):
+        pass
+
+    harness.observability.flush()
+
+    (tool_span,) = harness.span_exporter.get_finished_spans()
+    arguments = str(dict(tool_span.attributes or {})[c.ATTR_GEN_AI_TOOL_CALL_ARGUMENTS])
+    assert arguments == '{"query":"역 "}'
+    arguments.encode()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: coffea
-Version: 2026.9.0
+Version: 2026.11.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -72,6 +72,9 @@ Requires-Dist: dask-awkward>=2025.9.0; extra == 'dask-awkward'
 Requires-Dist: dask-histogram>=2025.2.0; extra == 'dask-awkward'
 Requires-Dist: dask[dataframe]>=2024.3.0; extra == 'dask-awkward'
 Requires-Dist: distributed>=2024.3.0; extra == 'dask-awkward'
+Provides-Extra: graphed
+Requires-Dist: graphed>=0.0.8; (python_version >= '3.11') and extra == 'graphed'
+Requires-Dist: uproot>=5.7.7; extra == 'graphed'
 Provides-Extra: parsl
 Requires-Dist: parsl>=2024.12.09; extra == 'parsl'
 Provides-Extra: rucio
@@ -160,7 +163,7 @@ For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/
 Strict dependencies
 ^^^^^^^^^^^^^^^^^^^
 
-- `Python <https://docs.python-guide.org/starting/installation/>`__ (3.9+)
+- `Python <https://docs.python-guide.org/starting/installation/>`__ (3.10+)
 
 The following are installed automatically when you install coffea with pip:
 

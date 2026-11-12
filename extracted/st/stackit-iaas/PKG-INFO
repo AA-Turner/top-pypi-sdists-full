@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stackit-iaas
-Version: v1.8.0
+Version: v1.9.1
 Summary: IaaS-API
 Project-URL: Homepage, https://github.com/stackitcloud/stackit-sdk-python
 Project-URL: Issues, https://github.com/stackitcloud/stackit-sdk-python/issues

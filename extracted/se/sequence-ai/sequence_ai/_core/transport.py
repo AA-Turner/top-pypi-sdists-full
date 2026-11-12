@@ -150,8 +150,9 @@ def _no_key(login: bool, robot_of: Optional[str]) -> str:
     
 """
     if robot_of:
-        return (f"no API key. A robot connects with its policy's robot key, which seq robot add --policy {robot_of} "
-                "makes: set SEQUENCES_API_KEY to it or pass api_key=... (a seq login sign-in is yours, never a robot's)")
+        return ("no API key. A robot connects with its own robot key, which `seq robot create <name>` makes (and "
+                "prints once): set SEQUENCES_API_KEY to it or pass api_key=... (a seq login sign-in is yours, never a "
+                "robot's)")
     return ("no API key. Set SEQUENCES_API_KEY or pass api_key=..." + (", or sign in with seq login" if login else "")
             + ". Create a key at https://app.generalsequences.com/")
 
@@ -300,6 +301,14 @@ class Transport:
         """PUT a settings change (a deployment's scaling) and return what the server now holds."""
         try:
             r = self._past_strangers(lambda: self._client.put(path, json=payload))
+        except httpx.TransportError as exc:
+            raise Unavailable(f"could not reach {self._base}: {exc}") from exc
+        return self._answer(r)
+
+    def delete(self, path: str) -> dict[str, Any]:
+        """DELETE `path` and return what the server answered (an empty body reads as {})."""
+        try:
+            r = self._past_strangers(lambda: self._client.delete(path))
         except httpx.TransportError as exc:
             raise Unavailable(f"could not reach {self._base}: {exc}") from exc
         return self._answer(r)

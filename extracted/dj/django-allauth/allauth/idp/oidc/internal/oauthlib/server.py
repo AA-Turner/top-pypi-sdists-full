@@ -8,6 +8,7 @@ from typing import Any
 from django.urls import reverse
 
 from oauthlib.common import Request
+from oauthlib.oauth2.rfc6749 import errors
 from oauthlib.oauth2.rfc8628.endpoints import DeviceApplicationServer
 from oauthlib.openid import Server
 
@@ -16,6 +17,7 @@ from allauth.core.internal import jwkkit
 from allauth.core.internal.deferred import jwt
 from allauth.idp.oidc import app_settings
 from allauth.idp.oidc.adapter import get_adapter
+from allauth.idp.oidc.internal.oauthlib import authorization_codes
 from allauth.idp.oidc.internal.oauthlib.request_validator import (
     OAuthLibRequestValidator,
 )
@@ -73,6 +75,17 @@ def generate_refresh_token(request: Request) -> str:
     return generate_opaque_token(request)
 
 
+def validate_code_challenge_method(request: Request) -> dict:
+    if request.code_challenge is not None and request.code_challenge_method != "S256":
+        raise errors.UnsupportedCodeChallengeMethodError(request=request)
+    return {}
+
+
+def claim_authorization_code(request: Request) -> None:
+    if not authorization_codes.claim(request.client_id, request.code, request):
+        raise errors.InvalidGrantError(request=request)
+
+
 class OAuthLibServer(Server):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
@@ -82,6 +95,14 @@ class OAuthLibServer(Server):
             token_expires_in=app_settings.ACCESS_TOKEN_EXPIRES_IN,
             **kwargs,
         )
+        for grant in (
+            self.auth_grant,
+            self.openid_connect_auth,
+            self.openid_connect_hybrid,
+        ):
+            grant.custom_validators.pre_auth.append(validate_code_challenge_method)
+        for grant in (self.auth_grant, self.openid_connect_auth):
+            grant.custom_validators.post_token.append(claim_authorization_code)
 
 
 class DeviceOAuthLibServer(DeviceApplicationServer):

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ValidationError, model_validator, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError, model_validator, field_validator
 from typing import Any, Optional, Dict, Literal, List, Union
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
@@ -170,3 +170,43 @@ class PartialTrackAIEvent(_Base):
     properties: Optional[Dict[str, Any]] = None
     attachments: Optional[List[Attachment]] = None
     is_pending: Optional[bool] = True
+
+    # The caller's timestamp exactly as given: an ISO-8601 string is the
+    # event's start and goes on the wire unchanged (CONTRACT 9.1), not
+    # re-serialized from the parsed datetime.
+    _raw_timestamp: Optional[str] = PrivateAttr(default=None)
+    # The event's start, stamped on the request when this update is sent.
+    _start: Optional[str] = PrivateAttr(default=None)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _keep_raw_timestamp(cls, data: Any, handler: Any) -> "PartialTrackAIEvent":
+        obj = handler(data)
+        raw = data.get("timestamp") if isinstance(data, dict) else None
+        if isinstance(raw, str) and raw.strip():
+            obj._raw_timestamp = raw.strip()
+        return obj
+
+
+@dataclass
+class FlushResult:
+    """What an explicit ``flush()`` or ``shutdown()`` achieved (CONTRACT 1.2.1).
+
+    Safe to ignore: the call never raises, and ignoring this changes nothing.
+    Truthy when everything enqueued before the call was handed to ingest.
+    A payload ingest rejected permanently (a non-429, non-408 4xx) counts as
+    delivered: it was rejected, not lost in transit.
+    """
+
+    delivered: bool = True
+    """Everything enqueued before the call was handed to ingest."""
+    pending: int = 0
+    """Payloads still queued for the background sender (flush deadline hit)."""
+    dropped: int = 0
+    """Payloads lost: cut off mid-flight at the deadline, out of retries, or
+    left over when shutdown's deadline passed."""
+    timed_out: bool = False
+    """The deadline passed before everything was delivered."""
+
+    def __bool__(self) -> bool:
+        return self.delivered

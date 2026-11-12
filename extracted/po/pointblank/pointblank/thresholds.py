@@ -361,9 +361,12 @@ class Actions:
     - `{level}`: The threshold level where the action is executed ('warning', 'error', or
     'critical')
     - `{step}` or `{i}`: The step number in the validation workflow where the action is executed
-    - `{col}` or `{column}`: The column name where the action is executed
+    - `{col}` or `{column}`: The column name where the action is executed (for a step without a
+    column, 'all columns' for `rows_distinct()` and `rows_complete()` or 'the table' otherwise, in
+    the language of the validation's `lang=`)
     - `{val}` or `{value}`: An associated value for the validation method (e.g., the value to
-    compare against in a 'col_vals_gt' validation step)
+    compare against in a 'col_vals_gt' validation step, or the count in a 'row_count_match' step);
+    it's empty for a step without one
     - `{time}`: A datetime value for when the action was executed
 
     The first two placeholders can also be used in uppercase (e.g., `{TYPE}` or `{LEVEL}`) and the
@@ -612,7 +615,7 @@ class FinalActions:
     The three outputs appear in the order the actions were given. A string action is printed as
     is, while the functions can use the summary to decide what to do. Two of the three steps have
     failures (`d` has values of `1000` or less and `c` has missing values), and only the
-    `col_exists()` step passes.
+    `~~pointblank.Validate.col_exists()` step passes.
 
     See Also
     --------

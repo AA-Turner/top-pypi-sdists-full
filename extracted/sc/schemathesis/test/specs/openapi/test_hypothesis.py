@@ -41,7 +41,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
 )
 from schemathesis.specs.openapi.diagnostics import find_slow_parameter, find_unsatisfiable_parameter
 from schemathesis.transport.serialization import Binary, quote_all
-from test.utils import assert_requests_call, run_given, to_float32
+from test.utils import assert_requests_call, find_first, run_given, to_float32
 
 
 @pytest.fixture
@@ -304,7 +304,7 @@ def test_nullable_recursive_reference(ctx):
     )
     strategy = operation.as_strategy()
 
-    assert find(strategy, lambda case: case.body is None).body is None
+    assert find_first(strategy, lambda case: case.body is None, max_examples=2000).body is None
     assert find(strategy, lambda case: isinstance(case.body, dict)).body == {}
 
 
@@ -481,16 +481,114 @@ def test_format_values_follow_codec_changed_after_generation():
     assert [value["q"] for value in generate_many(strategy, 50) if not value["q"].isascii()] == []
 
 
-def test_as_strategy_keeps_passed_headers_unchanged(ctx):
-    schema = ctx.openapi.load_schema({"/x": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    schema.config.update(headers={"X-Configured": "global"})
+def test_as_strategy_keeps_passed_containers_unchanged(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "get": {
+                    "parameters": [{"name": "tenant", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        config=SchemathesisConfig.from_str('headers = { "X-Configured" = "global" }\n[parameters]\ntenant = "acme"'),
+    )
     headers = {"X-Caller": "local"}
-    strategy = schema["/x"]["GET"].as_strategy(headers=headers)
-    assert headers == {"X-Caller": "local"}
+    query = {"tenant": "caller", "page": "1"}
+    strategy = schema["/x"]["GET"].as_strategy(headers=headers, query=query)
+    assert (headers, query) == ({"X-Caller": "local"}, {"tenant": "caller", "page": "1"})
 
     @run_given(strategy, max_examples=1)
     def test(case):
-        assert case.headers == {"X-Caller": "local", "X-Configured": "global"}
+        assert (case.headers, case.query) == (
+            {"X-Caller": "local", "X-Configured": "global"},
+            {"tenant": "acme", "page": "1"},
+        )
+
+
+CONFIGURED_OVERRIDES = """
+headers = { "X-Project" = "project" }
+
+[parameters]
+"path.id" = 7
+"query.tenant" = "acme"
+"header.X-Tenant" = "header-acme"
+"cookie.session" = "fixed"
+
+[[operations]]
+include-name = "GET /items/{id}"
+headers = { "X-Operation" = "operation" }
+"""
+OPTIONAL_OPERATION_HEADER = {
+    "name": "X-Operation",
+    "in": "header",
+    "required": False,
+    "schema": {"type": "string", "enum": ["generated"]},
+}
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (
+            "/items/{id}",
+            [
+                (
+                    {"id": 7},
+                    {"tenant": "acme"},
+                    {"X-Tenant": "header-acme", "X-Operation": "operation", "X-Project": "project"},
+                    {"session": "fixed"},
+                )
+            ],
+        ),
+        (
+            "/other",
+            [
+                ({}, {}, {"X-Project": "project"}, {}),
+                ({}, {}, {"X-Operation": "generated", "X-Project": "project"}, {}),
+            ],
+        ),
+    ],
+    ids=["configured-operation", "other-operation"],
+)
+def test_as_strategy_applies_configured_parameters_and_operation_headers(ctx, path, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer", "enum": [1, 2]}},
+                        {
+                            "name": "tenant",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["acme", "other"]},
+                        },
+                        {
+                            "name": "X-Tenant",
+                            "in": "header",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["a", "b"]},
+                        },
+                        {
+                            "name": "session",
+                            "in": "cookie",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["a", "b"]},
+                        },
+                        OPTIONAL_OPERATION_HEADER,
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/other": {"get": {"parameters": [OPTIONAL_OPERATION_HEADER], "responses": {"200": {"description": "OK"}}}},
+        },
+        config=SchemathesisConfig.from_str(CONFIGURED_OVERRIDES),
+    )
+
+    @run_given(schema[path]["GET"].as_strategy(), max_examples=10)
+    def test(case):
+        assert (case.path_parameters, case.query, case.headers, case.cookies) in expected
 
 
 CONSTRAINED_HEADER_SCHEMAS = [
@@ -565,11 +663,11 @@ def test_header_length_floor_is_reachable():
 def test_header_values_never_start_with_whitespace():
     # `requests` refuses to send a value whose first character is whitespace.
     with pytest.raises(NoSuchExample):
-        find(
+        find_first(
             formats.header_values(exclude_characters=formats.INVALID_HEADER_CHARS),
             lambda value: value[:1].strip() != value[:1],
             # The excluded value is rare, so a small budget would pass without looking.
-            settings=settings(max_examples=1000, database=None),
+            max_examples=1000,
         )
 
 
@@ -589,11 +687,11 @@ def test_positive_header_values_never_end_with_whitespace(ctx, schema):
         },
     )
     with pytest.raises(NoSuchExample):
-        find(
+        find_first(
             operation.as_strategy(generation_mode=GenerationMode.POSITIVE),
             lambda case: case.headers["X-A"][-1:].strip() != case.headers["X-A"][-1:],
             # The excluded value is rare, so a small budget would pass without looking.
-            settings=settings(max_examples=1000, database=None),
+            max_examples=1000,
         )
 
 
@@ -1123,7 +1221,7 @@ def test_referenced_parameter_example_mixed_into_strategy(ctx, version):
         components={"examples": {"Special": {"value": "special-ref"}}},
     )
     strategy = operation.as_strategy(generation_mode=GenerationMode.POSITIVE)
-    assert find(strategy, lambda case: case.query["q"] == "special-ref", settings=settings(database=None)).query == {
+    assert find_first(strategy, lambda case: case.query["q"] == "special-ref", max_examples=100).query == {
         "q": "special-ref"
     }
 
@@ -1837,11 +1935,10 @@ def test_negative_case_can_negate_the_body_alone(ctx):
     )
     strategy = operation.as_strategy(generation_mode=GenerationMode.NEGATIVE)
 
-    find(
+    find_first(
         strategy,
         lambda case: case.path_parameters["kind"] in ("a", "b") and not isinstance(case.body, str),
-        # Ceiling for a search that stops at the first match.
-        settings=settings(max_examples=100, database=None),
+        max_examples=100,
     )
 
 
@@ -1872,11 +1969,10 @@ def test_explicit_value_differing_in_case_leaves_location_negatable(ctx, paramet
     )
     strategy = operation.as_strategy(generation_mode=GenerationMode.NEGATIVE, **explicit)
 
-    find(
+    find_first(
         strategy,
         lambda case: location in case.meta.components and case.meta.components[location].mode.is_negative,
-        # Ceiling for a search that stops at the first match.
-        settings=settings(max_examples=100, database=None),
+        max_examples=100,
     )
 
 
@@ -1910,10 +2006,10 @@ def test_positive_bodies_ignore_keywords_next_to_root_ref(ctx, version):
         version=version,
         **container,
     )
-    find(
+    find_first(
         schema["/data"]["POST"].as_strategy(),
         lambda case: "extra" not in case.body,
-        settings=settings(max_examples=10, database=None),
+        max_examples=10,
     )
 
 
@@ -2789,7 +2885,7 @@ def test_optional_payload(ctx, version):
     schema = ctx.openapi.load_schema(paths, version=version)
     strategy = schema["/users"]["post"].as_strategy()
     # Then `None` could be generated by Schemathesis
-    assert find(strategy, lambda x: x.body is NOT_SET).body is NOT_SET
+    assert find_first(strategy, lambda x: x.body is NOT_SET, max_examples=2000).body is NOT_SET
 
 
 @given(data=st.data())
@@ -2826,6 +2922,7 @@ def test_date_format(data):
 # Inside the generation buffer the floor is reached by repeating one element; past the buffer no example
 # exists at all, which is a schema error.
 @pytest.mark.parametrize("min_items", [20000, 100000], ids=["drawable", "schema-error"])
+@pytest.mark.snapshot(replace_reproduce_with=False)
 def test_large_minimum_array_size(ctx, cli, snapshot_cli, min_items):
     api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
@@ -3152,7 +3249,7 @@ def test_header_pattern_needing_only_excluded_characters_is_unsatisfiable(ctx):
     strategy = schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE)
 
     with pytest.raises(Unsatisfiable):
-        find(strategy, lambda _: True, settings=settings(max_examples=10, database=None))
+        find_first(strategy, lambda _: True, max_examples=10)
 
 
 @pytest.mark.parametrize(

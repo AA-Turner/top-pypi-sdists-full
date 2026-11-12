@@ -50,29 +50,33 @@ class BackendCorpus(StrEnum):
 # and the identity mappings confirmed the misreading.
 class ToolCorpus(StrEnum):
     """``search``'s `search_in` vocabulary. NOT the backend's `corpus`
-    values -- three coincide, `documents` does not. What each one covers:
+    values. What each one covers:
 
       transcripts -> transcripts
-      experiments -> experiments
+      projects -> experiments
       files -> files
-      documents -> github + files
+      github -> github
       notes -> notes + experiments
       digests -> digests
       papers -> papers
       docs -> Probe's own docs, not the team's record
 
-    `files` is workspace files (scripts, datasets, configs, protocols -- the
-    index does not separate those); `documents` is those PLUS indexed GitHub
-    docs. `notes` spans two backend corpora on purpose: the team's shared note
-    and the notes hanging off projects, experiments and runs. A hit on
-    an entity's note comes back AS that entity, so you can open it."""
+    `projects` is the projects, experiments and runs themselves. `files` is
+    workspace files (scripts, datasets, configs, protocols -- the index does
+    not separate those); `github` is indexed GitHub docs. `notes` spans two
+    backend corpora on purpose: the team's shared note and the notes hanging
+    off projects, experiments and runs. A hit on an entity's note comes back
+    AS that entity, so you can open it."""
 
     # One value, not the former assets/procedures pair: both mapped to one backend corpus (the index has a
     # single IndexDocType.WORKSPACE_FILE bucket), so narrowing to one never excluded the other.
     FILES = "files"
-    DOCUMENTS = "documents"
+    #: Indexed GitHub docs alone. The older `documents` (github + files) stays accepted: `TOOL_CORPUS_LEGACY`.
+    GITHUB = "github"
     TRANSCRIPTS = "transcripts"
-    EXPERIMENTS = "experiments"
+    #: The backend's `experiments` corpus (project, experiment and run projections), named for what callers
+    #: reach for; the older `experiments` stays accepted (`TOOL_CORPUS_LEGACY`).
+    PROJECTS = "projects"
     #: The team's shared note and every entity's notes (0125): ONE value over two backend corpora, since
     #: "search what the team wrote down" is one question (entity notes ride their entity's document in
     #: `experiments`, the team note is its own `notes` corpus). Splitting makes a caller pick a KIND first.
@@ -80,13 +84,47 @@ class ToolCorpus(StrEnum):
     #: Session digests (0105): the lane that wrote them retired in 0204 and the corpus is draining. The
     #: value stays legal so an older client's request is not a 422; expect nothing under it.
     DIGESTS = "digests"
-    #: The papers a project was built from (0170). ITS OWN VALUE, not folded into `documents` or `notes`:
+    #: The papers a project was built from (0170). ITS OWN VALUE, not folded into `files` or `notes`:
     #: a paper is what the FIELD published, and both existing multi-corpus values fold together things
     #: answering ONE question ("what has been written about X" differs from "what did we decide about X").
     PAPERS = "papers"
     #: Probe's OWN documentation (docs.prbe.ai), read from `GET /public/v1/docs`, not POST /v1/search: not
     #: the team's record, no backend corpus, never searched unless named (`is_docs_only`, `service.NON_BACKEND_CORPORA`).
     DOCS = "docs"
+
+
+# -- legacy spellings ---------------------------------------------------------
+# Values a tool accepted before its vocabulary moved to the words models reach for (reader-tool-fit
+# 1B, 2026-11-11). Each maps to one OR MORE current members and is accepted forever, but named in no
+# schema, description or skill (enum `__doc__`s ship in schemas, so they live here, as comments).
+# `get_current_values` applies them; the MCP server runs it before pydantic checks the enum.
+
+#: `search_in`: `experiments` was the backend corpus's own name; `documents` meant github + files.
+TOOL_CORPUS_LEGACY: dict[str, tuple[ToolCorpus, ...]] = {
+    "experiments": (ToolCorpus.PROJECTS,),
+    "documents": (ToolCorpus.GITHUB, ToolCorpus.FILES),
+}
+
+
+def get_current_values(value: object, legacy: dict) -> object:
+    """`value` with each legacy spelling in `legacy` replaced by its current member(s). A list is
+    flattened in order without repeats; a single value must map to exactly one member. Anything else
+    passes through untouched, for the type check to judge."""
+    if isinstance(value, list):
+        out: list = []
+        for item in value:
+            for current in legacy.get(item, (item,)) if _is_key(item) else (item,):
+                if current not in out:
+                    out.append(current)
+        return out
+    if _is_key(value) and value in legacy:
+        (current,) = legacy[value]
+        return current
+    return value
+
+
+def _is_key(value: object) -> bool:
+    return value is None or isinstance(value, str)
 
 
 def is_docs_only(search_in: list[str] | None) -> bool:
@@ -153,21 +191,19 @@ class EntityType(StrEnum):
     CHECKPOINT = "checkpoint"
 
 
+# Its OWN type rather than a reuse of `EntityType.EXPERIMENT`: those strings coincide, but "dedupe by
+# experiment" and "this row IS an experiment" are different ideas, and typing the parameter as EntityType
+# would advertise `project`/`run`/`artifact` as collapse modes that do not exist.
 class CollapseMode(StrEnum):
-    """``search(collapse=...)`` — the result-dedupe vocabulary.
-
-    One member today, and deliberately its OWN type rather than a reuse of
-    ``EntityType.EXPERIMENT``: those strings coincide, but "dedupe by experiment"
-    and "this row IS an experiment" are different ideas, and typing the parameter
-    as EntityType would advertise `project`/`run`/`artifact` as collapse modes
-    that do not exist.
-
-    `null` (skip the dedupe) is expressed by the parameter being optional, not by
-    a member here -- an enum member spelled "none" would be a second way to say
-    the same thing.
-    """
+    """``search(collapse=...)``: `experiment` keeps one row per experiment, `none` keeps every hit."""
 
     EXPERIMENT = "experiment"
+    #: No dedupe. Was spelled JSON `null` (still accepted: `COLLAPSE_MODE_LEGACY`).
+    NONE = "none"
+
+
+#: `collapse`: an explicit JSON null meant "no dedupe" before `none` existed.
+COLLAPSE_MODE_LEGACY: dict[str | None, tuple[CollapseMode, ...]] = {None: (CollapseMode.NONE,)}
 
 
 # THIS DOCSTRING SHIPS TO EVERY SESSION, uncapped, in `$defs`: it says only what a caller choosing a mode
@@ -205,19 +241,20 @@ class SeriesSmoothing(StrEnum):
     TWEMA = "twema"
 
 
-# THE ONE TOOL, FIVE LISTINGS. `tree` is what browse always was (projects -> experiments -> runs via
-# GET /v1/browse); the other four are flat listings behind their own routes ("my last N runs", "what is
-# running now", "which workspace is this", "what did we write down about X", "what is in Shared") that
-# the dashboard assistant had and this surface lacked. Each mode REFUSES the arguments it does not read
-# (`server._BROWSE_MODE_ARGS`), as `MetricMode` does. The data catalog (C4) added three more over
-# `/v1/catalog/*`: team datasets, every checkpoint team-wide, external sources.
+# THE ONE TOOL, FIVE LISTINGS. `projects` is what browse always was (projects -> experiments -> runs via
+# GET /v1/browse; spelled `tree` until 2026-11-11, still accepted: `BROWSE_MODE_LEGACY`); the other four are
+# flat listings behind their own routes ("my last N runs", "what is running now", "which workspace is
+# this", "what did we write down about X", "what is in Shared") that the dashboard assistant had and this
+# surface lacked. Each mode REFUSES the arguments it does not read (`server._BROWSE_MODE_ARGS`), as
+# `MetricMode` does. The data catalog (C4) added three more over `/v1/catalog/*`: team datasets, every
+# checkpoint team-wide, external sources.
 class BrowseMode(StrEnum):
-    """What browse lists: `tree` (projects/experiments/runs, the default),
+    """What browse lists: `projects` (projects/experiments/runs, the default),
     `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
     `files` (Shared, or one workspace's), the data catalog's `datasets`,
     `checkpoints` and `sources`, or a workspace's `branches`."""
 
-    TREE = "tree"
+    PROJECTS = "projects"
     RUNS = "runs"
     WORKSPACES = "workspaces"
     NOTES = "notes"
@@ -228,6 +265,17 @@ class BrowseMode(StrEnum):
     #: A workspace's lines of work across its projects, ranked per metric
     #: (`GET /v1/workspaces/{W}/branches`; swarm visibility D6, A23).
     BRANCHES = "branches"
+
+
+#: `mode`: the projects -> experiments -> runs walk was `tree`.
+BROWSE_MODE_LEGACY: dict[str, tuple[BrowseMode, ...]] = {"tree": (BrowseMode.PROJECTS,)}
+
+#: Every enum with legacy spellings, and its map (tests walk this).
+LEGACY_VALUES: dict[type, dict] = {
+    BrowseMode: BROWSE_MODE_LEGACY,
+    ToolCorpus: TOOL_CORPUS_LEGACY,
+    CollapseMode: COLLAPSE_MODE_LEGACY,
+}
 
 
 # -- the data catalog's closed vocabularies, as this server sends them ---------
